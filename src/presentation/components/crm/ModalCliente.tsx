@@ -19,6 +19,7 @@ interface ClienteCRM {
   redes?: string;
   direccion?: string;
   direccionCalle?: string;
+  direccionCodigoPostal?: string;
   direccionCiudad?: string;
   direccionProvincia?: string;
   direccionPais?: string;
@@ -67,6 +68,7 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
 
   // Structured Address fields
   const [calle, setCalle] = useState("");
+  const [codigoPostal, setCodigoPostal] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [provincia, setProvincia] = useState("");
   const [pais, setPais] = useState("");
@@ -149,6 +151,7 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
         setCalle(
           clienteEdicion.direccionCalle || clienteEdicion.direccion || ""
         );
+        setCodigoPostal(clienteEdicion.direccionCodigoPostal || "");
         setCiudad(clienteEdicion.direccionCiudad || "");
         setProvincia(clienteEdicion.direccionProvincia || "");
         setPais(clienteEdicion.direccionPais || "");
@@ -185,6 +188,7 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
         setNotaSeguimiento("");
         setFavorito(false);
         setCalle("");
+        setCodigoPostal("");
         setCiudad("");
         setProvincia("");
         setPais("Argentina"); // Default country
@@ -212,10 +216,12 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
                   "";
                 const guessedState = data.address.state || "";
                 const guessedCountry = data.address.country || "";
+                const guessedPostcode = data.address.postcode || "";
 
                 if (guessedCity) setCiudad(guessedCity);
                 if (guessedState) setProvincia(guessedState);
                 if (guessedCountry) setPais(guessedCountry);
+                if (guessedPostcode) setCodigoPostal(guessedPostcode);
               }
             } catch {
               // Geolocation queries can fail gracefully
@@ -229,7 +235,7 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
   if (!abierto) return null;
 
   const testGeocodificacion = async () => {
-    const direccionCompleta = [calle, ciudad, provincia, pais]
+    const direccionCompleta = [calle, codigoPostal, ciudad, provincia, pais]
       .map((s) => s.trim())
       .filter((s) => s.length > 0)
       .join(", ");
@@ -268,7 +274,7 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
-    const direccionCompleta = [calle, ciudad, provincia, pais]
+    const direccionCompleta = [calle, codigoPostal, ciudad, provincia, pais]
       .map((s) => s.trim())
       .filter((s) => s.length > 0)
       .join(", ");
@@ -285,6 +291,7 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
         : JSON.stringify(redesList.filter((r) => r.url.trim().length > 0)),
       direccion: direccionCompleta,
       direccionCalle: calle.trim(),
+      direccionCodigoPostal: codigoPostal.trim(),
       direccionCiudad: ciudad.trim(),
       direccionProvincia: provincia.trim(),
       direccionPais: pais.trim(),
@@ -446,10 +453,10 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
             </>
           )}
 
-          {/* Unified Structured Address Fields (Visible in both quick and full mode) */}
+          {/* Unified Structured Address Fields with Postal Code (Visible in both quick and full mode) */}
           <div className="flex flex-col gap-2 border-t border-[#2A2A2E]/40 pt-3 md:col-span-2">
             <label className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
-              Dirección Postal (Geocodificación Optimizada)
+              Dirección Postal (Geocodificación Exacta)
             </label>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Input
@@ -458,6 +465,13 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
                 onChange={(e) => setCalle(e.target.value)}
                 placeholder="Ej. Vieytes 539"
               />
+              <Input
+                label="Código Postal (CP)"
+                value={codigoPostal}
+                onChange={(e) => setCodigoPostal(e.target.value)}
+                placeholder="Ej. 8000"
+              />
+
               <Input
                 label="Ciudad"
                 list="ciudades-datalist"
@@ -484,12 +498,14 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
                 ))}
               </datalist>
 
-              <Input
-                label="País"
-                value={pais}
-                onChange={(e) => setPais(e.target.value)}
-                placeholder="Ej. Argentina"
-              />
+              <div className="sm:col-span-2">
+                <Input
+                  label="País"
+                  value={pais}
+                  onChange={(e) => setPais(e.target.value)}
+                  placeholder="Ej. Argentina"
+                />
+              </div>
             </div>
             <button
               type="button"

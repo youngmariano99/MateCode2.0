@@ -15,6 +15,7 @@ export interface ClienteCRM {
   redes?: string;
   direccion?: string;
   direccionCalle?: string;
+  direccionCodigoPostal?: string;
   direccionCiudad?: string;
   direccionProvincia?: string;
   direccionPais?: string;
@@ -37,6 +38,7 @@ interface ImportItem {
   telefono?: string;
   whatsapp?: string;
   direccionCalle: string;
+  direccionCodigoPostal: string;
   direccionCiudad: string;
   direccionProvincia: string;
   direccionPais: string;
@@ -65,13 +67,37 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
   onCerrar,
   onConfirmarImportacion,
 }) => {
+  const [tipoImportacion, setTipoImportacion] = useState<"basica" | "completa">(
+    "basica"
+  );
   const [jsonText, setJsonText] = useState("");
   const [errorJson, setErrorJson] = useState<string | null>(null);
   const [items, setItems] = useState<ImportItem[]>([]);
   const [paso, setPaso] = useState<"cargar" | "verificar">("cargar");
   const [copiado, setCopiado] = useState(false);
 
-  const jsonTemplate = [
+  const templateBasico = [
+    {
+      nombre: "Juguetería y libreria Vieytes",
+      direccionCalle: "Vieytes 539",
+      direccionCodigoPostal: "8000",
+      direccionCiudad: "Bahía Blanca",
+      direccionProvincia: "Buenos Aires",
+      direccionPais: "Argentina",
+      estado: "Contacto Detectado",
+    },
+    {
+      nombre: "Café Colón",
+      direccionCalle: "Av. Colón 120",
+      direccionCodigoPostal: "8000",
+      direccionCiudad: "Bahía Blanca",
+      direccionProvincia: "Buenos Aires",
+      direccionPais: "Argentina",
+      estado: "Lead",
+    },
+  ];
+
+  const templateCompleto = [
     {
       nombre: "Juguetería y libreria Vieytes",
       empresa: "Juguetería y libreria Vieytes",
@@ -79,6 +105,7 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
       telefono: "+54 291 123-4567",
       whatsapp: "+54 9 291 123-4567",
       direccionCalle: "Vieytes 539",
+      direccionCodigoPostal: "8000",
       direccionCiudad: "Bahía Blanca",
       direccionProvincia: "Buenos Aires",
       direccionPais: "Argentina",
@@ -89,23 +116,27 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
       observaciones: "Llamar por la tarde",
     },
     {
-      nombre: "Café Central Colón",
-      empresa: "Café Central",
-      correo: "info@cafecentral.com",
+      nombre: "Café Colón",
+      empresa: "Café Colón S.A.",
+      correo: "info@cafecolon.com",
       direccionCalle: "Av. Colón 120",
+      direccionCodigoPostal: "8000",
       direccionCiudad: "Bahía Blanca",
       direccionProvincia: "Buenos Aires",
       direccionPais: "Argentina",
-      estado: "Leads",
+      estado: "Lead",
       origenContacto: "Web",
-      etiquetas: ["Cafetería"],
+      etiquetas: ["Prioritario"],
+      observaciones: "Ofrecer plan corporativo",
     },
   ];
 
   if (!abierto) return null;
 
   const handleCopiarTemplate = () => {
-    navigator.clipboard.writeText(JSON.stringify(jsonTemplate, null, 2));
+    const template =
+      tipoImportacion === "basica" ? templateBasico : templateCompleto;
+    navigator.clipboard.writeText(JSON.stringify(template, null, 2));
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2000);
   };
@@ -126,6 +157,7 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
         telefono: String(x.telefono || "").trim(),
         whatsapp: String(x.whatsapp || "").trim(),
         direccionCalle: String(x.direccionCalle || "").trim(),
+        direccionCodigoPostal: String(x.direccionCodigoPostal || "").trim(),
         direccionCiudad: String(x.direccionCiudad || "").trim(),
         direccionProvincia: String(x.direccionProvincia || "").trim(),
         direccionPais: String(x.direccionPais || "Argentina").trim(),
@@ -152,7 +184,6 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
   const ejecutarGeocodificacionLote = async (lote: ImportItem[]) => {
     const strategy = new OpenStreetMapGeocodificacionStrategy();
 
-    // Geocode sequential to avoid Nominatim rate-limit issues
     for (let i = 0; i < lote.length; i++) {
       setItems((current) => {
         const copy = [...current];
@@ -164,6 +195,7 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
       const item = lote[i];
       const dirCompleta = [
         item.direccionCalle,
+        item.direccionCodigoPostal,
         item.direccionCiudad,
         item.direccionProvincia,
         item.direccionPais,
@@ -212,6 +244,7 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
     const item = items[index];
     const dirCompleta = [
       item.direccionCalle,
+      item.direccionCodigoPostal,
       item.direccionCiudad,
       item.direccionProvincia,
       item.direccionPais,
@@ -265,11 +298,12 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
       id: `cli_${Date.now()}_${Math.floor(Math.random() * 100000)}`,
       nombre: x.nombre,
       empresa: x.empresa,
-      correo: x.correo,
-      telefono: x.telefono,
-      whatsapp: x.whatsapp,
+      correo: tipoImportacion === "basica" ? "" : x.correo,
+      telefono: tipoImportacion === "basica" ? "" : x.telefono,
+      whatsapp: tipoImportacion === "basica" ? "" : x.whatsapp,
       direccion: [
         x.direccionCalle,
+        x.direccionCodigoPostal,
         x.direccionCiudad,
         x.direccionProvincia,
         x.direccionPais,
@@ -278,14 +312,17 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
         .filter(Boolean)
         .join(", "),
       direccionCalle: x.direccionCalle,
+      direccionCodigoPostal: x.direccionCodigoPostal,
       direccionCiudad: x.direccionCiudad,
       direccionProvincia: x.direccionProvincia,
       direccionPais: x.direccionPais,
-      observaciones: x.observaciones,
-      origenContacto: x.origenContacto,
+      observaciones: tipoImportacion === "basica" ? "" : x.observaciones,
+      origenContacto:
+        tipoImportacion === "basica" ? "Contacto en Frío" : x.origenContacto,
       estado: x.estado || "Contacto Detectado",
-      responsable: x.responsable,
-      etiquetas: x.etiquetas,
+      responsable: tipoImportacion === "basica" ? "Mariano" : x.responsable,
+      etiquetas:
+        tipoImportacion === "basica" ? ["Contacto en Frío"] : x.etiquetas,
       latitud: x.latitud ?? -34.6 + Math.random() * 0.1,
       longitud: x.longitud ?? -58.4 - Math.random() * 0.1,
       favorito: false,
@@ -315,10 +352,37 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
 
         {paso === "cargar" ? (
           <div className="flex flex-col gap-4">
+            {/* Import Mode Switcher */}
+            <div className="flex rounded-xl border border-[#2A2A2E] bg-zinc-950 p-1">
+              <button
+                type="button"
+                onClick={() => setTipoImportacion("basica")}
+                className={`flex-1 rounded-lg py-2 text-center font-mono text-xs font-bold transition-all ${
+                  tipoImportacion === "basica"
+                    ? "bg-emerald-500 text-black shadow-lg"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Importación Básica (Registro Rápido)
+              </button>
+              <button
+                type="button"
+                onClick={() => setTipoImportacion("completa")}
+                className={`flex-1 rounded-lg py-2 text-center font-mono text-xs font-bold transition-all ${
+                  tipoImportacion === "completa"
+                    ? "bg-emerald-500 text-black shadow-lg"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Importación Completa (Ficha CRM)
+              </button>
+            </div>
+
             <div className="flex flex-col gap-1 rounded-xl border border-zinc-800 bg-zinc-950 p-4">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-xs font-bold text-zinc-300">
-                  Plantilla de Entrada JSON para IAs
+                  Plantilla de Entrada (
+                  {tipoImportacion === "basica" ? "Básica" : "Completa"})
                 </span>
                 <button
                   type="button"
@@ -329,9 +393,9 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
                 </button>
               </div>
               <p className="mt-2 font-mono text-[10px] leading-normal text-zinc-500">
-                Pasa esta estructura a tu Asistente de IA o exportador y pídele
-                que genere la lista de comercios mapeados en este formato de
-                array.
+                Genera el JSON usando este formato e incluye el código postal
+                (`direccionCodigoPostal`) para garantizar que la geolocalización
+                sea exacta y evitar confusiones geográficas.
               </p>
             </div>
 
@@ -342,7 +406,11 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
               <textarea
                 value={jsonText}
                 onChange={(e) => setJsonText(e.target.value)}
-                placeholder='[{"nombre": "Ejemplo Comercio", "direccionCalle": "Calle Falsa 123", "direccionCiudad": "Bahía Blanca"}]'
+                placeholder={
+                  tipoImportacion === "basica"
+                    ? '[{\n  "nombre": "Juguetería y libreria Vieytes",\n  "direccionCalle": "Vieytes 539",\n  "direccionCodigoPostal": "8000",\n  "direccionCiudad": "Bahía Blanca",\n  "direccionProvincia": "Buenos Aires",\n  "direccionPais": "Argentina"\n}]'
+                    : '[{\n  "nombre": "Juguetería y libreria Vieytes",\n  "empresa": "Juguetería Vieytes S.A.",\n  "correo": "contacto@vieytes.com",\n  "direccionCalle": "Vieytes 539",\n  "direccionCodigoPostal": "8000",\n  "direccionCiudad": "Bahía Blanca",\n  "direccionProvincia": "Buenos Aires",\n  "direccionPais": "Argentina"\n}]'
+                }
                 rows={12}
                 className="w-full rounded-xl border border-zinc-800 bg-zinc-950 p-4 font-mono text-xs text-zinc-100 placeholder-zinc-700 transition-all focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 focus:outline-none"
               />
@@ -379,12 +447,12 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
 
             {/* List and inline editor */}
             <div className="overflow-x-auto rounded-xl border border-[#2A2A2E] bg-zinc-950">
-              <table className="w-full min-w-[700px] border-collapse text-left font-mono text-[11px]">
+              <table className="w-full min-w-[800px] border-collapse text-left font-mono text-[11px]">
                 <thead>
                   <tr className="border-b border-[#2A2A2E] bg-zinc-900/50 text-zinc-500">
                     <th className="px-3 py-2.5">Comercio</th>
                     <th className="px-3 py-2.5">Calle y Altura</th>
-                    <th className="px-3 py-2.5">Ciudad / Provincia</th>
+                    <th className="px-3 py-2.5">CP / Ciudad / Prov</th>
                     <th className="px-3 py-2.5">Estado Mapa</th>
                     <th className="px-3 py-2.5 text-center">Acción</th>
                   </tr>
@@ -419,7 +487,20 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
                           className="w-full rounded border border-transparent bg-transparent px-1.5 py-0.5 text-zinc-300 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
                         />
                       </td>
-                      <td className="flex gap-1 px-3 py-2">
+                      <td className="flex items-center gap-1 px-3 py-2">
+                        <input
+                          type="text"
+                          value={item.direccionCodigoPostal}
+                          onChange={(e) =>
+                            handleUpdateField(
+                              idx,
+                              "direccionCodigoPostal",
+                              e.target.value
+                            )
+                          }
+                          placeholder="CP"
+                          className="w-[60px] rounded border border-transparent bg-transparent px-1 py-0.5 font-bold text-zinc-100 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
+                        />
                         <input
                           type="text"
                           value={item.direccionCiudad}
@@ -431,7 +512,7 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
                             )
                           }
                           placeholder="Ciudad"
-                          className="w-1/2 rounded border border-transparent bg-transparent px-1 py-0.5 text-zinc-400 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
+                          className="w-[100px] rounded border border-transparent bg-transparent px-1 py-0.5 text-zinc-400 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
                         />
                         <input
                           type="text"
@@ -444,7 +525,7 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
                             )
                           }
                           placeholder="Provincia"
-                          className="w-1/2 rounded border border-transparent bg-transparent px-1 py-0.5 text-zinc-400 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
+                          className="w-[100px] rounded border border-transparent bg-transparent px-1 py-0.5 text-zinc-400 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
                         />
                       </td>
                       <td className="px-3 py-2">
