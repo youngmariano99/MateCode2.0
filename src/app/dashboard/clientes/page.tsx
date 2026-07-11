@@ -18,6 +18,7 @@ import { VistaTarjetas } from "../../../presentation/components/crm/VistaTarjeta
 import { VistaCalendario } from "../../../presentation/components/crm/VistaCalendario";
 import { VistaMapa } from "../../../presentation/components/crm/VistaMapa";
 import { ModalCliente } from "../../../presentation/components/crm/ModalCliente";
+import { ModalImportarClientes } from "../../../presentation/components/crm/ModalImportarClientes";
 
 type TabVista = "kanban" | "tabla" | "tarjetas" | "calendario" | "mapa";
 
@@ -61,6 +62,7 @@ export default function ClientesPage() {
   const [vista, setVista] = useState<TabVista>("kanban");
   const [modalAbierto, setModalAbierto] = useState(false);
   const [clienteEdicion, setClienteEdicion] = useState<ClienteCRM | null>(null);
+  const [modalImportarAbierto, setModalImportarAbierto] = useState(false);
 
   // Filters State
   const [filtroBusqueda, setFiltroBusqueda] = useState("");
@@ -211,6 +213,28 @@ export default function ClientesPage() {
     }
   };
 
+  const handleConfirmarImportacion = async (
+    clientesImportados: Partial<ClienteCRM>[]
+  ) => {
+    try {
+      for (const c of clientesImportados) {
+        await db.clientes.put(c as unknown as Record<string, unknown>);
+      }
+      await db.logs_sincronizacion.add({
+        tipo: "exito",
+        mensaje: `CRM: Importación masiva de ${clientesImportados.length} negocios completada`,
+        fecha: Date.now(),
+      });
+      mostrarToast(
+        `Se importaron ${clientesImportados.length} negocios correctamente al CRM.`,
+        "exito"
+      );
+      setModalImportarAbierto(false);
+    } catch {
+      mostrarToast("Error al importar el lote de negocios.", "error");
+    }
+  };
+
   const toggleSeleccion = (id: string) => {
     if (seleccionados.includes(id)) {
       setSeleccionados(seleccionados.filter((s) => s !== id));
@@ -244,12 +268,21 @@ export default function ClientesPage() {
               Fidelización, leads, visitas y embudo de conversión comercial.
             </p>
           </div>
-          <Button
-            onClick={abrirCreacion}
-            icono={<Icono.Plus className="h-4 w-4" />}
-          >
-            Registrar Contacto
-          </Button>
+          <div className="flex gap-2.5">
+            <button
+              onClick={() => setModalImportarAbierto(true)}
+              className="flex items-center gap-1.5 rounded-xl border border-[#2A2A2E] bg-zinc-950 px-4 py-2.5 font-mono text-xs font-bold text-zinc-300 transition-all hover:bg-[#18181B] hover:text-white"
+            >
+              <Icono.Upload className="h-4 w-4 text-emerald-400" />
+              <span>Importar JSON</span>
+            </button>
+            <Button
+              onClick={abrirCreacion}
+              icono={<Icono.Plus className="h-4 w-4" />}
+            >
+              Registrar Contacto
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 items-end gap-4 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-4 md:grid-cols-4">
@@ -408,6 +441,12 @@ export default function ClientesPage() {
           estados={ESTADOS}
           origenes={ORIGENES}
           responsables={RESPONSABLES}
+        />
+
+        <ModalImportarClientes
+          abierto={modalImportarAbierto}
+          onCerrar={() => setModalImportarAbierto(false)}
+          onConfirmarImportacion={handleConfirmarImportacion}
         />
       </div>
     </MainLayout>
