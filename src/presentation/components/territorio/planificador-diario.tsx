@@ -35,6 +35,7 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
   const routeUC = new CalcularRecorridoUseCase();
 
   const [seleccionados, setSeleccionados] = useState<string[]>([]);
+  const [iniciarDesdeGps, setIniciarDesdeGps] = useState(false);
   const [proveedorRuta, setProveedorRuta] = useState<"GraphHopper" | "OSRM">(
     "GraphHopper"
   );
@@ -63,7 +64,7 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
   };
 
   const handleCalcularRuta = async () => {
-    const seleccionadosInfo = clientes
+    let seleccionadosInfo = clientes
       .filter((c) => seleccionados.includes(c.id) && c.latitud && c.longitud)
       .map((c) => ({
         id: c.id,
@@ -71,6 +72,33 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
         latitud: c.latitud!,
         longitud: c.longitud!,
       }));
+
+    if (iniciarDesdeGps) {
+      try {
+        const position = await new Promise<GeolocationPosition>(
+          (resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 5000,
+            });
+          }
+        );
+        const gpsPoint = {
+          id: "mi_posicion_actual",
+          nombre: "Mi Posición Actual",
+          latitud: position.coords.latitude,
+          longitud: position.coords.longitude,
+        };
+        // Prepend GPS start coordinates as first element of route selection
+        seleccionadosInfo = [gpsPoint, ...seleccionadosInfo];
+      } catch {
+        mostrarToast(
+          "No se pudo obtener tu ubicación actual. Asegúrate de dar permisos de GPS.",
+          "error"
+        );
+        return;
+      }
+    }
 
     if (seleccionadosInfo.length < 2) {
       mostrarToast(
@@ -118,19 +146,25 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
           {clientes.map((c) => (
             <label
               key={c.id}
-              className="flex cursor-pointer items-center gap-3 rounded-lg border border-[#2A2A2E] bg-zinc-950 p-2.5 font-mono text-xs text-zinc-300 transition-all hover:border-zinc-800"
+              className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#2A2A2E] bg-zinc-950 p-2.5 font-mono text-xs text-zinc-300 transition-all select-none hover:border-zinc-800"
             >
               <input
                 type="checkbox"
                 checked={seleccionados.includes(c.id)}
                 onChange={() => toggleSeleccion(c.id)}
-                className="rounded border-[#2A2A2E] bg-zinc-950 text-emerald-500 focus:ring-emerald-500"
+                className="cursor-pointer rounded border-[#2A2A2E] bg-zinc-950 text-emerald-500 focus:ring-emerald-500"
               />
-              <div className="flex-1">
-                <span className="font-bold text-zinc-200">{c.nombre}</span>
-                <span className="block text-[10px] text-zinc-500">
-                  {c.direccion || "Sin dirección"}
-                </span>
+              <div className="flex flex-col gap-0.5">
+                <span className="font-bold text-zinc-100">{c.nombre}</span>
+                {c.latitud && c.longitud ? (
+                  <span className="text-[9px] text-emerald-400">
+                    ✓ Geolocalizado
+                  </span>
+                ) : (
+                  <span className="text-[9px] text-red-400">
+                    ✗ Sin coordenadas
+                  </span>
+                )}
               </div>
             </label>
           ))}
@@ -158,6 +192,23 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
               setProveedorGps(val as "Google" | "Apple" | "Waze")
             }
           />
+        </div>
+
+        {/* GPS Start Location Toggle Checkbox */}
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-[#2A2A2E] bg-[#18181B] p-3">
+          <input
+            type="checkbox"
+            id="chkGpsStart"
+            checked={iniciarDesdeGps}
+            onChange={(e) => setIniciarDesdeGps(e.target.checked)}
+            className="cursor-pointer rounded border-[#2A2A2E] bg-zinc-950 text-emerald-500 focus:ring-emerald-500"
+          />
+          <label
+            htmlFor="chkGpsStart"
+            className="cursor-pointer font-mono text-[11px] leading-normal font-bold text-zinc-300 select-none"
+          >
+            Iniciar recorrido desde mi ubicación actual
+          </label>
         </div>
 
         <Button onClick={handleCalcularRuta} className="w-full">
@@ -193,29 +244,30 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
                 key={p.id}
                 className="flex items-center justify-between rounded-xl border border-[#2A2A2E] bg-zinc-950 p-3 font-mono text-xs transition-all hover:border-zinc-800"
               >
-                <div>
-                  <span className="font-bold text-zinc-300">
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-bold text-zinc-100">
                     Parada #{idx + 1}: {p.nombre}
                   </span>
-                  <span className="mt-0.5 block text-[10px] text-zinc-500">
-                    Lat: {p.latitud.toFixed(4)} • Lng: {p.longitud.toFixed(4)}
+                  <span className="text-[10px] text-zinc-500">
+                    Lat: {p.latitud.toFixed(5)} • Lng: {p.longitud.toFixed(5)}
                   </span>
                 </div>
-
                 <div className="flex gap-2">
+                  {p.id !== "mi_posicion_actual" && (
+                    <button
+                      onClick={() => onRegistrarVisitaClick(p)}
+                      className="rounded-lg border border-emerald-500/20 bg-emerald-600/10 px-2 py-1 text-[10px] font-bold text-emerald-400 transition-all hover:bg-emerald-600 hover:text-black"
+                    >
+                      Visitar
+                    </button>
+                  )}
                   <button
                     onClick={() =>
                       openNavigation(p.latitud, p.longitud, p.nombre)
                     }
-                    className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1.5 text-[10px] font-bold text-emerald-400 hover:bg-emerald-500/20"
+                    className="rounded-lg border border-[#2A2A2E] bg-zinc-900 px-2 py-1 text-[10px] font-bold text-zinc-300 transition-all hover:bg-zinc-800"
                   >
-                    Navegar GPS
-                  </button>
-                  <button
-                    onClick={() => onRegistrarVisitaClick(p)}
-                    className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-2.5 py-1.5 text-[10px] font-bold text-blue-400 hover:bg-blue-500/20"
-                  >
-                    Registrar Visita
+                    Navegar ↗
                   </button>
                 </div>
               </div>
