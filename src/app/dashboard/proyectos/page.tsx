@@ -113,29 +113,6 @@ export default function ProyectosPage() {
     nombre: c.nombre as string,
   }));
 
-  useEffect(() => {
-    const seed = async () => {
-      const cnt = await db.proyectos.count();
-      if (cnt === 0) {
-        await crearUC.ejecutar({
-          id: "pro_1",
-          nombre: "E-Commerce Plataforma Esmeralda",
-          clienteId: "cli_1",
-          descripcion: "Desarrollo completo de tienda con checkout local.",
-          tipo: "E-commerce",
-          estado: "Desarrollo",
-          fechaInicio: "2026-06-01",
-          fechaEntrega: "2026-08-01",
-          repositorio: "github.com/matecode/esmeralda-shop",
-          urlProduccion: "https://esmeralda-shop.com",
-          urlDesarrollo: "https://dev.esmeralda-shop.com",
-        });
-      }
-    };
-    void seed();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const abrirCreacion = () => {
     if (clientes.length === 0) {
       mostrarToast(

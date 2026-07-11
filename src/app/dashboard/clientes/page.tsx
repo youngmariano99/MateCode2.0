@@ -92,55 +92,6 @@ export default function ClientesPage() {
     return matchBusqueda && matchEstado && matchResponsable && matchFavorito;
   });
 
-  // Seed default data if Dexie table is completely empty
-  useEffect(() => {
-    const seed = async () => {
-      const cnt = await db.clientes.count();
-      if (cnt === 0) {
-        await crmUseCase.crearCliente({
-          id: "cli_1",
-          nombre: "Acme Corp Admin",
-          correo: "admin@acme.com",
-          empresa: "Acme Corp",
-          cargo: "Director de Marketing",
-          telefono: "+54 11 9999-1111",
-          whatsapp: "+54 11 9999-1111",
-          direccion: "Av. Cabildo 2000, CABA",
-          origenContacto: "Web",
-          estado: "Lead",
-          responsable: "Mariano",
-          etiquetas: ["Cliente VIP", "Urgente"],
-          favorito: true,
-          latitud: -34.5612,
-          longitud: -58.4563,
-          fechaSeguimiento: "2026-07-15",
-          notaSeguimiento: "Enviar propuesta comercial renovada",
-        });
-        await crmUseCase.crearCliente({
-          id: "cli_2",
-          nombre: "Stark CEO Office",
-          correo: "ceo@stark.com",
-          empresa: "Stark Ind",
-          cargo: "Asistente del CEO",
-          telefono: "+54 11 8888-2222",
-          whatsapp: "+54 11 8888-2222",
-          direccion: "Puerto Madero, CABA",
-          origenContacto: "Recomendación",
-          estado: "Negociación",
-          responsable: "Mateo Gomez",
-          etiquetas: ["Industria"],
-          favorito: false,
-          latitud: -34.6112,
-          longitud: -58.3644,
-          fechaSeguimiento: "2026-07-20",
-          notaSeguimiento: "Agendar videollamada de facturación",
-        });
-      }
-    };
-    void seed();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const abrirCreacion = () => {
     setClienteEdicion(null);
     setModalAbierto(true);
