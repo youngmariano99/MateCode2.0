@@ -51,6 +51,8 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
   origenes,
   responsables,
 }) => {
+  const [modoRapido, setModoRapido] = useState(true);
+
   const [nombre, setNombre] = useState("");
   const [correo, setCorreo] = useState("");
   const [empresa, setEmpresa] = useState("");
@@ -79,6 +81,7 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
   useEffect(() => {
     Promise.resolve().then(() => {
       if (clienteEdicion) {
+        setModoRapido(false); // Default to full mode when editing
         setNombre(clienteEdicion.nombre || "");
         setCorreo(clienteEdicion.correo || "");
         setEmpresa(clienteEdicion.empresa || "");
@@ -118,6 +121,7 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
           setRedesList([]);
         }
       } else {
+        setModoRapido(true); // Default to quick register mode for new additions
         setNombre("");
         setCorreo("");
         setEmpresa("");
@@ -149,39 +153,44 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
-    const direccionCompleta = [calle, ciudad, provincia, pais]
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0)
-      .join(", ");
+    const direccionCompleta = modoRapido
+      ? calle.trim()
+      : [calle, ciudad, provincia, pais]
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+          .join(", ");
 
     onConfirmar({
-      nombre,
-      correo,
-      empresa,
-      cargo,
-      telefono,
-      whatsapp,
-      redes: JSON.stringify(redesList.filter((r) => r.url.trim().length > 0)),
+      nombre: nombre.trim(),
+      correo: modoRapido ? "" : correo.trim(),
+      empresa: modoRapido ? nombre.trim() : empresa.trim(),
+      cargo: modoRapido ? "" : cargo.trim(),
+      telefono: modoRapido ? "" : telefono.trim(),
+      whatsapp: modoRapido ? "" : whatsapp.trim(),
+      redes: modoRapido
+        ? "[]"
+        : JSON.stringify(redesList.filter((r) => r.url.trim().length > 0)),
       direccion: direccionCompleta,
-      direccionCalle: calle,
-      direccionCiudad: ciudad,
-      direccionProvincia: provincia,
-      direccionPais: pais,
-      observaciones,
-      origenContacto,
+      direccionCalle: calle.trim(),
+      direccionCiudad: modoRapido ? "" : ciudad.trim(),
+      direccionProvincia: modoRapido ? "" : provincia.trim(),
+      direccionPais: modoRapido ? "" : pais.trim(),
+      observaciones: modoRapido ? "" : observaciones.trim(),
+      origenContacto: modoRapido ? "Contacto en Frío" : origenContacto,
       estado,
       responsable,
-      etiquetas: arrEtiquetas,
+      etiquetas: modoRapido ? ["Contacto en Frío"] : arrEtiquetas,
       favorito,
-      fechaSeguimiento,
-      notaSeguimiento,
+      fechaSeguimiento: modoRapido ? "" : fechaSeguimiento,
+      notaSeguimiento: modoRapido ? "" : notaSeguimiento,
     });
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
       <div className="animate-in zoom-in max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-6 shadow-2xl duration-150">
-        <div className="mb-5 flex items-center justify-between border-b border-[#2A2A2E] pb-3">
+        {/* Modal Header */}
+        <div className="mb-4 flex items-center justify-between border-b border-[#2A2A2E] pb-3">
           <h3 className="font-mono text-base font-extrabold tracking-tight text-white">
             {clienteEdicion ? "Modificar Contacto" : "Nuevo Contacto CRM"}
           </h3>
@@ -193,194 +202,244 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
           </button>
         </div>
 
+        {/* Quick Mode Toggle Switch */}
+        <div className="mb-5 flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5">
+          <div className="flex flex-col gap-0.5 pr-4">
+            <span className="font-mono text-xs font-bold text-emerald-400">
+              Modo Registro Rápido
+            </span>
+            <span className="font-mono text-[9.5px] leading-normal text-zinc-500">
+              Ideal para contactos en frío y prospección rápida (solo requiere
+              Nombre o Empresa y Dirección básica)
+            </span>
+          </div>
+          <input
+            type="checkbox"
+            checked={modoRapido}
+            onChange={(e) => setModoRapido(e.target.checked)}
+            className="h-4 w-4 cursor-pointer rounded border-[#2A2A2E] bg-zinc-950 text-emerald-500 focus:ring-emerald-500"
+          />
+        </div>
+
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Input
-            label="Nombre de la persona"
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            placeholder="Ej. Juan Pérez"
-          />
-          <Input
-            label="Correo electrónico"
-            type="email"
-            value={correo}
-            onChange={(e) => setCorreo(e.target.value)}
-            placeholder="Ej. juan@empresa.com"
-          />
+          {/* Main Identifier */}
+          <div className={modoRapido ? "md:col-span-2" : ""}>
+            <Input
+              label={
+                modoRapido
+                  ? "Nombre de la Persona o Empresa"
+                  : "Nombre de la persona"
+              }
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              placeholder="Ej. Juan Pérez o Acme Corp"
+            />
+          </div>
 
-          <Input
-            label="Empresa / Compañía"
-            value={empresa}
-            onChange={(e) => setEmpresa(e.target.value)}
-            placeholder="Ej. Acme Corp"
-          />
-          <Input
-            label="Cargo"
-            value={cargo}
-            onChange={(e) => setCargo(e.target.value)}
-            placeholder="Ej. Gerente de IT"
-          />
+          {!modoRapido && (
+            <>
+              <Input
+                label="Correo electrónico"
+                type="email"
+                value={correo}
+                onChange={(e) => setCorreo(e.target.value)}
+                placeholder="Ej. juan@empresa.com"
+              />
 
-          <Input
-            label="Teléfono fijo"
-            value={telefono}
-            onChange={(e) => setTelefono(e.target.value)}
-            placeholder="Ej. +54 11 4444-5555"
-          />
-          <Input
-            label="WhatsApp directo"
-            value={whatsapp}
-            onChange={(e) => setWhatsapp(e.target.value)}
-            placeholder="Ej. +54 9 11 9999-8888"
-          />
+              <Input
+                label="Empresa / Compañía"
+                value={empresa}
+                onChange={(e) => setEmpresa(e.target.value)}
+                placeholder="Ej. Acme Corp"
+              />
+              <Input
+                label="Cargo"
+                value={cargo}
+                onChange={(e) => setCargo(e.target.value)}
+                placeholder="Ej. Gerente de IT"
+              />
 
-          {/* Social Networks List Builder */}
-          <div className="flex flex-col gap-2 border-t border-[#2A2A2E]/40 pt-3 md:col-span-2">
-            <label className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
-              Redes Sociales
-            </label>
-            {redesList.map((item, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <div className="w-1/3">
-                  <Select
-                    options={[
-                      { value: "Instagram", label: "Instagram" },
-                      { value: "LinkedIn", label: "LinkedIn" },
-                      { value: "X / Twitter", label: "X / Twitter" },
-                      { value: "GitHub", label: "GitHub" },
-                      { value: "Web / Otro", label: "Web / Otro" },
-                    ]}
-                    value={item.red}
-                    onChange={(val) => {
-                      const newRedes = [...redesList];
-                      newRedes[idx].red = val;
-                      setRedesList(newRedes);
-                    }}
-                  />
-                </div>
-                <div className="flex-1">
-                  <Input
-                    placeholder="Enlace o usuario (ej. @juan.perez o instagram.com/juan)"
-                    value={item.url}
-                    onChange={(e) => {
-                      const newRedes = [...redesList];
-                      newRedes[idx].url = e.target.value;
-                      setRedesList(newRedes);
-                    }}
-                  />
-                </div>
+              <Input
+                label="Teléfono fijo"
+                value={telefono}
+                onChange={(e) => setTelefono(e.target.value)}
+                placeholder="Ej. +54 11 4444-5555"
+              />
+              <Input
+                label="WhatsApp directo"
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(e.target.value)}
+                placeholder="Ej. +54 9 11 9999-8888"
+              />
+
+              {/* Social Networks List Builder */}
+              <div className="flex flex-col gap-2 border-t border-[#2A2A2E]/40 pt-3 md:col-span-2">
+                <label className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+                  Redes Sociales
+                </label>
+                {redesList.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <div className="w-1/3">
+                      <Select
+                        options={[
+                          { value: "Instagram", label: "Instagram" },
+                          { value: "LinkedIn", label: "LinkedIn" },
+                          { value: "X / Twitter", label: "X / Twitter" },
+                          { value: "GitHub", label: "GitHub" },
+                          { value: "Web / Otro", label: "Web / Otro" },
+                        ]}
+                        value={item.red}
+                        onChange={(val) => {
+                          const newRedes = [...redesList];
+                          newRedes[idx].red = val;
+                          setRedesList(newRedes);
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Input
+                        placeholder="Enlace o usuario (ej. @juan.perez o instagram.com/juan)"
+                        value={item.url}
+                        onChange={(e) => {
+                          const newRedes = [...redesList];
+                          newRedes[idx].url = e.target.value;
+                          setRedesList(newRedes);
+                        }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRedesList(redesList.filter((_, i) => i !== idx));
+                      }}
+                      className="rounded-xl bg-zinc-800 p-2.5 text-zinc-400 hover:bg-zinc-700 hover:text-red-400"
+                    >
+                      <Icono.Close className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
                 <button
                   type="button"
-                  onClick={() => {
-                    setRedesList(redesList.filter((_, i) => i !== idx));
-                  }}
-                  className="rounded-xl bg-zinc-800 p-2.5 text-zinc-400 hover:bg-zinc-700 hover:text-red-400"
+                  onClick={() =>
+                    setRedesList([...redesList, { red: "Instagram", url: "" }])
+                  }
+                  className="mt-1 self-start font-mono text-[10px] font-bold text-emerald-400 hover:underline"
                 >
-                  <Icono.Close className="h-4 w-4" />
+                  + Agregar Red Social
                 </button>
               </div>
-            ))}
-            <button
-              type="button"
-              onClick={() =>
-                setRedesList([...redesList, { red: "Instagram", url: "" }])
-              }
-              className="mt-1 self-start font-mono text-[10px] font-bold text-emerald-400 hover:underline"
-            >
-              + Agregar Red Social
-            </button>
-          </div>
+            </>
+          )}
 
-          {/* Structured Address Fields */}
-          <div className="flex flex-col gap-2 border-t border-[#2A2A2E]/40 pt-3 md:col-span-2">
-            <label className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
-              Dirección Postal (Geocodificación Optimizada)
-            </label>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {/* Address Fields */}
+          {modoRapido ? (
+            <div className="md:col-span-2">
               <Input
-                label="Calle y Altura"
+                label="Dirección simple"
                 value={calle}
                 onChange={(e) => setCalle(e.target.value)}
-                placeholder="Ej. Av. Rivadavia 1500"
-              />
-              <Input
-                label="Ciudad"
-                value={ciudad}
-                onChange={(e) => setCiudad(e.target.value)}
-                placeholder="Ej. CABA"
-              />
-              <Input
-                label="Provincia / Estado"
-                value={provincia}
-                onChange={(e) => setProvincia(e.target.value)}
-                placeholder="Ej. Buenos Aires"
-              />
-              <Input
-                label="País"
-                value={pais}
-                onChange={(e) => setPais(e.target.value)}
-                placeholder="Ej. Argentina"
+                placeholder="Ej. Av. Rivadavia 1500, CABA, Argentina"
               />
             </div>
-          </div>
+          ) : (
+            <div className="flex flex-col gap-2 border-t border-[#2A2A2E]/40 pt-3 md:col-span-2">
+              <label className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+                Dirección Postal (Geocodificación Optimizada)
+              </label>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Input
+                  label="Calle y Altura"
+                  value={calle}
+                  onChange={(e) => setCalle(e.target.value)}
+                  placeholder="Ej. Av. Rivadavia 1500"
+                />
+                <Input
+                  label="Ciudad"
+                  value={ciudad}
+                  onChange={(e) => setCiudad(e.target.value)}
+                  placeholder="Ej. CABA"
+                />
+                <Input
+                  label="Provincia / Estado"
+                  value={provincia}
+                  onChange={(e) => setProvincia(e.target.value)}
+                  placeholder="Ej. Buenos Aires"
+                />
+                <Input
+                  label="País"
+                  value={pais}
+                  onChange={(e) => setPais(e.target.value)}
+                  placeholder="Ej. Argentina"
+                />
+              </div>
+            </div>
+          )}
 
-          <div className="border-t border-[#2A2A2E]/40 pt-3 md:col-span-2">
+          {/* Embudo selection */}
+          <div className={modoRapido ? "md:col-span-2" : ""}>
             <Select
-              label="Origen del contacto"
-              options={origenes.map((o) => ({ value: o, label: o }))}
-              value={origenContacto}
-              onChange={(val) => setOrigenContacto(val)}
+              label="Estado en Embudo"
+              options={estados.map((e) => ({ value: e, label: e }))}
+              value={estado}
+              onChange={(val) => setEstado(val)}
             />
           </div>
 
-          <Select
-            label="Estado en Embudo"
-            options={estados.map((e) => ({ value: e, label: e }))}
-            value={estado}
-            onChange={(val) => setEstado(val)}
-          />
+          {!modoRapido && (
+            <>
+              <div className="border-t border-[#2A2A2E]/40 pt-3 md:col-span-2">
+                <Select
+                  label="Origen del contacto"
+                  options={origenes.map((o) => ({ value: o, label: o }))}
+                  value={origenContacto}
+                  onChange={(val) => setOrigenContacto(val)}
+                />
+              </div>
 
-          <Select
-            label="Responsable comercial"
-            options={responsables.map((r) => ({ value: r, label: r }))}
-            value={responsable}
-            onChange={(val) => setResponsable(val)}
-          />
-          <Input
-            label="Etiquetas (separadas por coma)"
-            value={etiquetasStr}
-            onChange={(e) => setEtiquetasStr(e.target.value)}
-            placeholder="Urgente, Cliente VIP, Frío"
-          />
+              <Select
+                label="Responsable comercial"
+                options={responsables.map((r) => ({ value: r, label: r }))}
+                value={responsable}
+                onChange={(val) => setResponsable(val)}
+              />
+              <Input
+                label="Etiquetas (separadas por coma)"
+                value={etiquetasStr}
+                onChange={(e) => setEtiquetasStr(e.target.value)}
+                placeholder="Urgente, Cliente VIP, Frío"
+              />
 
-          <div className="mt-1 border-t border-[#2A2A2E]/40 pt-3 md:col-span-2">
-            <h4 className="mb-2 font-mono text-xs font-bold text-zinc-400">
-              Próximo Seguimiento Programado
-            </h4>
-          </div>
+              <div className="mt-1 border-t border-[#2A2A2E]/40 pt-3 md:col-span-2">
+                <h4 className="mb-2 font-mono text-xs font-bold text-zinc-400">
+                  Próximo Seguimiento Programado
+                </h4>
+              </div>
 
-          <Input
-            label="Fecha de próximo contacto"
-            type="date"
-            value={fechaSeguimiento}
-            onChange={(e) => setFechaSeguimiento(e.target.value)}
-          />
-          <Input
-            label="Nota de seguimiento"
-            value={notaSeguimiento}
-            onChange={(e) => setNotaSeguimiento(e.target.value)}
-            placeholder="Llamar para concretar precios..."
-          />
+              <Input
+                label="Fecha de próximo contacto"
+                type="date"
+                value={fechaSeguimiento}
+                onChange={(e) => setFechaSeguimiento(e.target.value)}
+              />
+              <Input
+                label="Nota de seguimiento"
+                value={notaSeguimiento}
+                onChange={(e) => setNotaSeguimiento(e.target.value)}
+                placeholder="Llamar para concretar precios..."
+              />
 
-          <div className="md:col-span-2">
-            <Input
-              label="Observaciones adicionales"
-              value={observaciones}
-              onChange={(e) => setObservaciones(e.target.value)}
-              placeholder="Detalles sobre el contacto..."
-            />
-          </div>
+              <div className="md:col-span-2">
+                <Input
+                  label="Observaciones adicionales"
+                  value={observaciones}
+                  onChange={(e) => setObservaciones(e.target.value)}
+                  placeholder="Detalles sobre el contacto..."
+                />
+              </div>
+            </>
+          )}
 
+          {/* Favorite Switch */}
           <div className="mt-2 flex items-center gap-2 md:col-span-2">
             <input
               type="checkbox"
