@@ -113,8 +113,14 @@ export default function ClientesPage() {
 
     const completo = {
       ...payload,
-      latitud: clienteEdicion?.latitud || -34.6 + Math.random() * 0.1,
-      longitud: clienteEdicion?.longitud || -58.4 - Math.random() * 0.1,
+      latitud:
+        payload.latitud ??
+        clienteEdicion?.latitud ??
+        -34.6 + Math.random() * 0.1,
+      longitud:
+        payload.longitud ??
+        clienteEdicion?.longitud ??
+        -58.4 - Math.random() * 0.1,
     };
 
     if (clienteEdicion) {

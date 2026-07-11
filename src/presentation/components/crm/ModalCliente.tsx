@@ -5,6 +5,7 @@ import { Input } from "../input";
 import { Select } from "../select";
 import { Button } from "../button";
 import { Icono } from "../icons";
+import { db } from "../../../offline/dexie/db";
 import { OpenStreetMapGeocodificacionStrategy } from "../../../application/services/territorio/geocodificacion.strategy";
 
 interface ClienteCRM {
@@ -70,6 +71,12 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
   const [provincia, setProvincia] = useState("");
   const [pais, setPais] = useState("");
 
+  // Existing database values for suggestions
+  const [ciudadesExistentes, setCiudadesExistentes] = useState<string[]>([]);
+  const [provinciasExistentes, setProvinciasExistentes] = useState<string[]>(
+    []
+  );
+
   const [observaciones, setObservaciones] = useState("");
   const [origenContacto, setOrigenContacto] = useState("Web");
   const [estado, setEstado] = useState("Contacto Detectado");
@@ -89,9 +96,39 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
     proveedor?: string;
   } | null>(null);
 
+  // Load autofill suggestions from existing DB records
+  useEffect(() => {
+    const loadAutocompletes = async () => {
+      try {
+        const list = await db.clientes.toArray();
+        const cities = Array.from(
+          new Set(
+            list
+              .map((c) => (c.direccionCiudad as string) || "")
+              .filter((c) => c.trim().length > 0)
+          )
+        );
+        const states = Array.from(
+          new Set(
+            list
+              .map((c) => (c.direccionProvincia as string) || "")
+              .filter((c) => c.trim().length > 0)
+          )
+        );
+        setCiudadesExistentes(cities);
+        setProvinciasExistentes(states);
+      } catch {
+        // Ignored
+      }
+    };
+    if (abierto) {
+      void loadAutocompletes();
+    }
+  }, [abierto]);
+
   useEffect(() => {
     Promise.resolve().then(() => {
-      setTestResult(null); // Reset test results on modal change
+      setTestResult(null); // Reset test coordinates
       if (clienteEdicion) {
         setModoRapido(false); // Default to full mode when editing
         setNombre(clienteEdicion.nombre || "");
@@ -109,7 +146,6 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
         setNotaSeguimiento(clienteEdicion.notaSeguimiento || "");
         setFavorito(clienteEdicion.favorito || false);
 
-        // Load address
         setCalle(
           clienteEdicion.direccionCalle || clienteEdicion.direccion || ""
         );
@@ -151,8 +187,41 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
         setCalle("");
         setCiudad("");
         setProvincia("");
-        setPais("");
+        setPais("Argentina"); // Default country
         setRedesList([]);
+
+        // Reverse geocode current position to auto-fill location fields
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(async (position) => {
+            try {
+              const res = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}&zoom=10`,
+                {
+                  headers: {
+                    "User-Agent": "MateCodeApp/1.0",
+                  },
+                }
+              );
+              const data = await res.json();
+              if (data && data.address) {
+                const guessedCity =
+                  data.address.city ||
+                  data.address.town ||
+                  data.address.village ||
+                  data.address.suburb ||
+                  "";
+                const guessedState = data.address.state || "";
+                const guessedCountry = data.address.country || "";
+
+                if (guessedCity) setCiudad(guessedCity);
+                if (guessedState) setProvincia(guessedState);
+                if (guessedCountry) setPais(guessedCountry);
+              }
+            } catch {
+              // Geolocation queries can fail gracefully
+            }
+          });
+        }
       }
     });
   }, [clienteEdicion, abierto]);
@@ -160,12 +229,10 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
   if (!abierto) return null;
 
   const testGeocodificacion = async () => {
-    const direccionCompleta = modoRapido
-      ? calle.trim()
-      : [calle, ciudad, provincia, pais]
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0)
-          .join(", ");
+    const direccionCompleta = [calle, ciudad, provincia, pais]
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+      .join(", ");
 
     if (!direccionCompleta) {
       setTestResult({
@@ -201,12 +268,10 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
-    const direccionCompleta = modoRapido
-      ? calle.trim()
-      : [calle, ciudad, provincia, pais]
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0)
-          .join(", ");
+    const direccionCompleta = [calle, ciudad, provincia, pais]
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+      .join(", ");
 
     onConfirmar({
       nombre: nombre.trim(),
@@ -220,9 +285,9 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
         : JSON.stringify(redesList.filter((r) => r.url.trim().length > 0)),
       direccion: direccionCompleta,
       direccionCalle: calle.trim(),
-      direccionCiudad: modoRapido ? "" : ciudad.trim(),
-      direccionProvincia: modoRapido ? "" : provincia.trim(),
-      direccionPais: modoRapido ? "" : pais.trim(),
+      direccionCiudad: ciudad.trim(),
+      direccionProvincia: provincia.trim(),
+      direccionPais: pais.trim(),
       observaciones: modoRapido ? "" : observaciones.trim(),
       origenContacto: modoRapido ? "Contacto en Frío" : origenContacto,
       estado,
@@ -231,6 +296,8 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
       favorito,
       fechaSeguimiento: modoRapido ? "" : fechaSeguimiento,
       notaSeguimiento: modoRapido ? "" : notaSeguimiento,
+      latitud: testResult?.latitud ?? clienteEdicion?.latitud,
+      longitud: testResult?.longitud ?? clienteEdicion?.longitud,
     });
   };
 
@@ -379,67 +446,59 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
             </>
           )}
 
-          {/* Address Fields */}
-          {modoRapido ? (
-            <div className="flex flex-col gap-2 md:col-span-2">
-              <div className="flex items-end gap-2">
-                <div className="flex-1">
-                  <Input
-                    label="Dirección simple"
-                    value={calle}
-                    onChange={(e) => setCalle(e.target.value)}
-                    placeholder="Ej. Av. Rivadavia 1500, CABA, Argentina"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={testGeocodificacion}
-                  className="h-[45px] rounded-xl bg-emerald-500 px-4 font-mono text-[11px] font-bold whitespace-nowrap text-black transition-all hover:bg-emerald-600 active:scale-95"
-                >
-                  Testear Dirección
-                </button>
-              </div>
+          {/* Unified Structured Address Fields (Visible in both quick and full mode) */}
+          <div className="flex flex-col gap-2 border-t border-[#2A2A2E]/40 pt-3 md:col-span-2">
+            <label className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+              Dirección Postal (Geocodificación Optimizada)
+            </label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Input
+                label="Calle y Altura"
+                value={calle}
+                onChange={(e) => setCalle(e.target.value)}
+                placeholder="Ej. Vieytes 539"
+              />
+              <Input
+                label="Ciudad"
+                list="ciudades-datalist"
+                value={ciudad}
+                onChange={(e) => setCiudad(e.target.value)}
+                placeholder="Ej. Bahía Blanca"
+              />
+              <datalist id="ciudades-datalist">
+                {ciudadesExistentes.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+
+              <Input
+                label="Provincia / Estado"
+                list="provincias-datalist"
+                value={provincia}
+                onChange={(e) => setProvincia(e.target.value)}
+                placeholder="Ej. Buenos Aires"
+              />
+              <datalist id="provincias-datalist">
+                {provinciasExistentes.map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
+
+              <Input
+                label="País"
+                value={pais}
+                onChange={(e) => setPais(e.target.value)}
+                placeholder="Ej. Argentina"
+              />
             </div>
-          ) : (
-            <div className="flex flex-col gap-2 border-t border-[#2A2A2E]/40 pt-3 md:col-span-2">
-              <label className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
-                Dirección Postal (Geocodificación Optimizada)
-              </label>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Input
-                  label="Calle y Altura"
-                  value={calle}
-                  onChange={(e) => setCalle(e.target.value)}
-                  placeholder="Ej. Av. Rivadavia 1500"
-                />
-                <Input
-                  label="Ciudad"
-                  value={ciudad}
-                  onChange={(e) => setCiudad(e.target.value)}
-                  placeholder="Ej. CABA"
-                />
-                <Input
-                  label="Provincia / Estado"
-                  value={provincia}
-                  onChange={(e) => setProvincia(e.target.value)}
-                  placeholder="Ej. Buenos Aires"
-                />
-                <Input
-                  label="País"
-                  value={pais}
-                  onChange={(e) => setPais(e.target.value)}
-                  placeholder="Ej. Argentina"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={testGeocodificacion}
-                className="mt-2 self-start rounded-xl bg-emerald-500 px-4 py-2 font-mono text-[11px] font-bold text-black transition-all hover:bg-emerald-600 active:scale-95"
-              >
-                Testear Dirección Geográfica
-              </button>
-            </div>
-          )}
+            <button
+              type="button"
+              onClick={testGeocodificacion}
+              className="mt-2 self-start rounded-xl bg-emerald-500 px-4 py-2 font-mono text-[11px] font-bold text-black transition-all hover:bg-emerald-600 active:scale-95"
+            >
+              Testear Dirección Geográfica
+            </button>
+          </div>
 
           {/* Test Geocoding Results Area */}
           {testResult && (
@@ -457,7 +516,8 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
               {testResult.latitud !== undefined && (
                 <div className="flex flex-col gap-1">
                   <span className="font-bold text-emerald-400">
-                    ✓ Coordenadas Encontradas con Éxito (No guardadas aún)
+                    ✓ Coordenadas Encontradas con Éxito (Se guardarán al
+                    confirmar)
                   </span>
                   <span className="text-zinc-300">
                     <b>Formato oficial:</b> {testResult.direccionFormateada}
