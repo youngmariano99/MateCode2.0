@@ -5,6 +5,7 @@ import { Input } from "../input";
 import { Select } from "../select";
 import { Button } from "../button";
 import { Icono } from "../icons";
+import { OpenStreetMapGeocodificacionStrategy } from "../../../application/services/territorio/geocodificacion.strategy";
 
 interface ClienteCRM {
   id: string;
@@ -78,8 +79,19 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
   const [notaSeguimiento, setNotaSeguimiento] = useState("");
   const [favorito, setFavorito] = useState(false);
 
+  // Address test state
+  const [testResult, setTestResult] = useState<{
+    buscando: boolean;
+    error?: string;
+    latitud?: number;
+    longitud?: number;
+    direccionFormateada?: string;
+    proveedor?: string;
+  } | null>(null);
+
   useEffect(() => {
     Promise.resolve().then(() => {
+      setTestResult(null); // Reset test results on modal change
       if (clienteEdicion) {
         setModoRapido(false); // Default to full mode when editing
         setNombre(clienteEdicion.nombre || "");
@@ -146,6 +158,42 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
   }, [clienteEdicion, abierto]);
 
   if (!abierto) return null;
+
+  const testGeocodificacion = async () => {
+    const direccionCompleta = modoRapido
+      ? calle.trim()
+      : [calle, ciudad, provincia, pais]
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+          .join(", ");
+
+    if (!direccionCompleta) {
+      setTestResult({
+        buscando: false,
+        error: "Por favor ingresa una dirección primero.",
+      });
+      return;
+    }
+
+    setTestResult({ buscando: true });
+    const strategy = new OpenStreetMapGeocodificacionStrategy();
+    const res = await strategy.geocodificar(direccionCompleta);
+
+    if (res.ok) {
+      setTestResult({
+        buscando: false,
+        latitud: res.valor.latitud,
+        longitud: res.valor.longitud,
+        direccionFormateada: res.valor.direccionFormateada,
+        proveedor: res.valor.proveedor,
+      });
+    } else {
+      setTestResult({
+        buscando: false,
+        error: "No se pudo encontrar la dirección en el mapa.",
+      });
+    }
+  };
 
   const handleConfirmar = () => {
     const arrEtiquetas = etiquetasStr
@@ -333,13 +381,24 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
 
           {/* Address Fields */}
           {modoRapido ? (
-            <div className="md:col-span-2">
-              <Input
-                label="Dirección simple"
-                value={calle}
-                onChange={(e) => setCalle(e.target.value)}
-                placeholder="Ej. Av. Rivadavia 1500, CABA, Argentina"
-              />
+            <div className="flex flex-col gap-2 md:col-span-2">
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <Input
+                    label="Dirección simple"
+                    value={calle}
+                    onChange={(e) => setCalle(e.target.value)}
+                    placeholder="Ej. Av. Rivadavia 1500, CABA, Argentina"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={testGeocodificacion}
+                  className="h-[45px] rounded-xl bg-emerald-500 px-4 font-mono text-[11px] font-bold whitespace-nowrap text-black transition-all hover:bg-emerald-600 active:scale-95"
+                >
+                  Testear Dirección
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col gap-2 border-t border-[#2A2A2E]/40 pt-3 md:col-span-2">
@@ -372,6 +431,46 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
                   placeholder="Ej. Argentina"
                 />
               </div>
+              <button
+                type="button"
+                onClick={testGeocodificacion}
+                className="mt-2 self-start rounded-xl bg-emerald-500 px-4 py-2 font-mono text-[11px] font-bold text-black transition-all hover:bg-emerald-600 active:scale-95"
+              >
+                Testear Dirección Geográfica
+              </button>
+            </div>
+          )}
+
+          {/* Test Geocoding Results Area */}
+          {testResult && (
+            <div className="rounded-xl border border-[#2A2A2E] bg-zinc-950/80 p-3 font-mono text-[10px] md:col-span-2">
+              {testResult.buscando && (
+                <span className="animate-pulse text-zinc-500">
+                  Buscando coordenadas geográficas en Nominatim...
+                </span>
+              )}
+              {testResult.error && (
+                <span className="text-red-400">
+                  ✗ Error: {testResult.error}
+                </span>
+              )}
+              {testResult.latitud !== undefined && (
+                <div className="flex flex-col gap-1">
+                  <span className="font-bold text-emerald-400">
+                    ✓ Coordenadas Encontradas con Éxito (No guardadas aún)
+                  </span>
+                  <span className="text-zinc-300">
+                    <b>Formato oficial:</b> {testResult.direccionFormateada}
+                  </span>
+                  <span className="text-zinc-400">
+                    <b>Coordenadas:</b> Lat: {testResult.latitud.toFixed(6)},
+                    Lng: {testResult.longitud?.toFixed(6)}
+                    <span className="ml-2 rounded bg-emerald-500/10 px-1 py-0.5 text-[8px] font-bold text-emerald-400 uppercase">
+                      {testResult.proveedor}
+                    </span>
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
