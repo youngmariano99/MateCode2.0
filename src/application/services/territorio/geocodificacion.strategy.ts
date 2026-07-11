@@ -51,30 +51,28 @@ export class OpenStreetMapGeocodificacionStrategy implements GeocodificacionStra
           },
         }
       );
-      const data = await response.json();
-      if (Array.isArray(data) && data.length > 0) {
-        const item = data[0];
-        return Resultado.exito({
-          latitud: parseFloat(item.lat),
-          longitud: parseFloat(item.lon),
-          precision: "Alta",
-          proveedor: "OpenStreetMap (Nominatim)",
-          direccionFormateada: item.display_name,
-        });
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const item = data[0];
+          return Resultado.exito({
+            latitud: parseFloat(item.lat),
+            longitud: parseFloat(item.lon),
+            precision: "Alta",
+            proveedor: "OpenStreetMap (Nominatim)",
+            direccionFormateada: item.display_name,
+          });
+        }
       }
     } catch {
-      // Fallback to offline simulation if network is down or query blocked
+      // Network offline or blocked
     }
 
-    // Offline simulation fallback
-    const lat = -34.61 + Math.random() * 0.08;
-    const lng = -58.42 - Math.random() * 0.08;
-    return Resultado.exito({
-      latitud: lat,
-      longitud: lng,
-      precision: "Media",
-      proveedor: "OpenStreetMap Mock (Offline)",
-      direccionFormateada: `${direccion} (Coordenadas simuladas offline)`,
-    });
+    // Geocoding failed: Return a failure so the user knows it wasn't resolved
+    return Resultado.falla(
+      new ErrorValidacion(
+        "No se pudo geocodificar la dirección especificada en OpenStreetMap."
+      )
+    );
   }
 }
