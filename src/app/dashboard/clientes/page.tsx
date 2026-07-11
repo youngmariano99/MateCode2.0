@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { MainLayout } from "../../../presentation/components/layout";
 import { Button } from "../../../presentation/components/button";
 import { Input } from "../../../presentation/components/input";
@@ -103,8 +103,11 @@ export default function ClientesPage() {
   };
 
   const guardarCliente = async (payload: Partial<ClienteCRM>) => {
-    if (!payload.nombre?.trim() || !payload.correo?.trim()) {
-      mostrarToast("Nombre y Correo son campos obligatorios.", "error");
+    if (!payload.nombre?.trim() && !payload.empresa?.trim()) {
+      mostrarToast(
+        "Debes ingresar al menos el Nombre de la persona o la Empresa/Compañía.",
+        "error"
+      );
       return;
     }
 

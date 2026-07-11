@@ -16,6 +16,10 @@ interface ClienteCRM {
   whatsapp?: string;
   redes?: string;
   direccion?: string;
+  direccionCalle?: string;
+  direccionCiudad?: string;
+  direccionProvincia?: string;
+  direccionPais?: string;
   observaciones?: string;
   origenContacto?: string;
   estado: string;
@@ -53,8 +57,16 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
   const [cargo, setCargo] = useState("");
   const [telefono, setTelefono] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
-  const [redes, setRedes] = useState("");
-  const [direccion, setDireccion] = useState("");
+  const [redesList, setRedesList] = useState<{ red: string; url: string }[]>(
+    []
+  );
+
+  // Structured Address fields
+  const [calle, setCalle] = useState("");
+  const [ciudad, setCiudad] = useState("");
+  const [provincia, setProvincia] = useState("");
+  const [pais, setPais] = useState("");
+
   const [observaciones, setObservaciones] = useState("");
   const [origenContacto, setOrigenContacto] = useState("Web");
   const [estado, setEstado] = useState("Contacto Detectado");
@@ -67,14 +79,12 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
   useEffect(() => {
     Promise.resolve().then(() => {
       if (clienteEdicion) {
-        setNombre(clienteEdicion.nombre);
-        setCorreo(clienteEdicion.correo);
+        setNombre(clienteEdicion.nombre || "");
+        setCorreo(clienteEdicion.correo || "");
         setEmpresa(clienteEdicion.empresa || "");
         setCargo(clienteEdicion.cargo || "");
         setTelefono(clienteEdicion.telefono || "");
         setWhatsapp(clienteEdicion.whatsapp || "");
-        setRedes(clienteEdicion.redes || "");
-        setDireccion(clienteEdicion.direccion || "");
         setObservaciones(clienteEdicion.observaciones || "");
         setOrigenContacto(clienteEdicion.origenContacto || "Web");
         setEstado(clienteEdicion.estado);
@@ -83,6 +93,30 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
         setFechaSeguimiento(clienteEdicion.fechaSeguimiento || "");
         setNotaSeguimiento(clienteEdicion.notaSeguimiento || "");
         setFavorito(clienteEdicion.favorito || false);
+
+        // Load address
+        setCalle(
+          clienteEdicion.direccionCalle || clienteEdicion.direccion || ""
+        );
+        setCiudad(clienteEdicion.direccionCiudad || "");
+        setProvincia(clienteEdicion.direccionProvincia || "");
+        setPais(clienteEdicion.direccionPais || "");
+
+        // Load social networks
+        if (clienteEdicion.redes) {
+          try {
+            const parsed = JSON.parse(clienteEdicion.redes);
+            if (Array.isArray(parsed)) {
+              setRedesList(parsed);
+            } else {
+              setRedesList([{ red: "Web / Otro", url: clienteEdicion.redes }]);
+            }
+          } catch {
+            setRedesList([{ red: "Web / Otro", url: clienteEdicion.redes }]);
+          }
+        } else {
+          setRedesList([]);
+        }
       } else {
         setNombre("");
         setCorreo("");
@@ -90,8 +124,6 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
         setCargo("");
         setTelefono("");
         setWhatsapp("");
-        setRedes("");
-        setDireccion("");
         setObservaciones("");
         setOrigenContacto("Web");
         setEstado("Contacto Detectado");
@@ -100,6 +132,11 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
         setFechaSeguimiento("");
         setNotaSeguimiento("");
         setFavorito(false);
+        setCalle("");
+        setCiudad("");
+        setProvincia("");
+        setPais("");
+        setRedesList([]);
       }
     });
   }, [clienteEdicion, abierto]);
@@ -112,6 +149,11 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
+    const direccionCompleta = [calle, ciudad, provincia, pais]
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+      .join(", ");
+
     onConfirmar({
       nombre,
       correo,
@@ -119,8 +161,12 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
       cargo,
       telefono,
       whatsapp,
-      redes,
-      direccion,
+      redes: JSON.stringify(redesList.filter((r) => r.url.trim().length > 0)),
+      direccion: direccionCompleta,
+      direccionCalle: calle,
+      direccionCiudad: ciudad,
+      direccionProvincia: provincia,
+      direccionPais: pais,
       observaciones,
       origenContacto,
       estado,
@@ -149,56 +195,144 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Input
-            label="Nombre de la persona (Obligatorio)"
+            label="Nombre de la persona"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
+            placeholder="Ej. Juan Pérez"
           />
           <Input
-            label="Correo electrónico (Obligatorio)"
+            label="Correo electrónico"
             type="email"
             value={correo}
             onChange={(e) => setCorreo(e.target.value)}
+            placeholder="Ej. juan@empresa.com"
           />
 
           <Input
             label="Empresa / Compañía"
             value={empresa}
             onChange={(e) => setEmpresa(e.target.value)}
+            placeholder="Ej. Acme Corp"
           />
           <Input
             label="Cargo"
             value={cargo}
             onChange={(e) => setCargo(e.target.value)}
+            placeholder="Ej. Gerente de IT"
           />
 
           <Input
             label="Teléfono fijo"
             value={telefono}
             onChange={(e) => setTelefono(e.target.value)}
+            placeholder="Ej. +54 11 4444-5555"
           />
           <Input
             label="WhatsApp directo"
             value={whatsapp}
             onChange={(e) => setWhatsapp(e.target.value)}
+            placeholder="Ej. +54 9 11 9999-8888"
           />
 
-          <Input
-            label="Redes Sociales"
-            value={redes}
-            onChange={(e) => setRedes(e.target.value)}
-          />
-          <Input
-            label="Dirección postal"
-            value={direccion}
-            onChange={(e) => setDireccion(e.target.value)}
-          />
+          {/* Social Networks List Builder */}
+          <div className="flex flex-col gap-2 border-t border-[#2A2A2E]/40 pt-3 md:col-span-2">
+            <label className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+              Redes Sociales
+            </label>
+            {redesList.map((item, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <div className="w-1/3">
+                  <Select
+                    options={[
+                      { value: "Instagram", label: "Instagram" },
+                      { value: "LinkedIn", label: "LinkedIn" },
+                      { value: "X / Twitter", label: "X / Twitter" },
+                      { value: "GitHub", label: "GitHub" },
+                      { value: "Web / Otro", label: "Web / Otro" },
+                    ]}
+                    value={item.red}
+                    onChange={(val) => {
+                      const newRedes = [...redesList];
+                      newRedes[idx].red = val;
+                      setRedesList(newRedes);
+                    }}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Input
+                    placeholder="Enlace o usuario (ej. @juan.perez o instagram.com/juan)"
+                    value={item.url}
+                    onChange={(e) => {
+                      const newRedes = [...redesList];
+                      newRedes[idx].url = e.target.value;
+                      setRedesList(newRedes);
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRedesList(redesList.filter((_, i) => i !== idx));
+                  }}
+                  className="rounded-xl bg-zinc-800 p-2.5 text-zinc-400 hover:bg-zinc-700 hover:text-red-400"
+                >
+                  <Icono.Close className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() =>
+                setRedesList([...redesList, { red: "Instagram", url: "" }])
+              }
+              className="mt-1 self-start font-mono text-[10px] font-bold text-emerald-400 hover:underline"
+            >
+              + Agregar Red Social
+            </button>
+          </div>
 
-          <Select
-            label="Origen del contacto"
-            options={origenes.map((o) => ({ value: o, label: o }))}
-            value={origenContacto}
-            onChange={(val) => setOrigenContacto(val)}
-          />
+          {/* Structured Address Fields */}
+          <div className="flex flex-col gap-2 border-t border-[#2A2A2E]/40 pt-3 md:col-span-2">
+            <label className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+              Dirección Postal (Geocodificación Optimizada)
+            </label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Input
+                label="Calle y Altura"
+                value={calle}
+                onChange={(e) => setCalle(e.target.value)}
+                placeholder="Ej. Av. Rivadavia 1500"
+              />
+              <Input
+                label="Ciudad"
+                value={ciudad}
+                onChange={(e) => setCiudad(e.target.value)}
+                placeholder="Ej. CABA"
+              />
+              <Input
+                label="Provincia / Estado"
+                value={provincia}
+                onChange={(e) => setProvincia(e.target.value)}
+                placeholder="Ej. Buenos Aires"
+              />
+              <Input
+                label="País"
+                value={pais}
+                onChange={(e) => setPais(e.target.value)}
+                placeholder="Ej. Argentina"
+              />
+            </div>
+          </div>
+
+          <div className="border-t border-[#2A2A2E]/40 pt-3 md:col-span-2">
+            <Select
+              label="Origen del contacto"
+              options={origenes.map((o) => ({ value: o, label: o }))}
+              value={origenContacto}
+              onChange={(val) => setOrigenContacto(val)}
+            />
+          </div>
+
           <Select
             label="Estado en Embudo"
             options={estados.map((e) => ({ value: e, label: e }))}
@@ -219,7 +353,7 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
             placeholder="Urgente, Cliente VIP, Frío"
           />
 
-          <div className="mt-1 border-t border-[#2A2A2E]/50 pt-3 md:col-span-2">
+          <div className="mt-1 border-t border-[#2A2A2E]/40 pt-3 md:col-span-2">
             <h4 className="mb-2 font-mono text-xs font-bold text-zinc-400">
               Próximo Seguimiento Programado
             </h4>
@@ -243,6 +377,7 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
               label="Observaciones adicionales"
               value={observaciones}
               onChange={(e) => setObservaciones(e.target.value)}
+              placeholder="Detalles sobre el contacto..."
             />
           </div>
 

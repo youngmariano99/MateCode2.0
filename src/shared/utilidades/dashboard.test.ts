@@ -11,17 +11,32 @@ describe("Módulo de Dashboard y Centro de Operaciones", () => {
     await db.contratos.clear();
     await db.pagos.clear();
 
+    // Seed Client 1 (representing follow-up agenda item)
     await db.clientes.put({
       id: "1",
-      nombreComercial: "Cli 1",
-      tipoAgencia: "A",
-      estado: "activo",
+      nombre: "Acme Corp",
+      empresa: "Acme Corp",
+      estado: "Cliente Activo",
+      fechaSeguimiento: "2026-07-15",
+      notaSeguimiento: "Reunión de requerimientos",
     });
+
+    // Seed Client 2 (representing pending payment)
     await db.clientes.put({
       id: "2",
-      nombreComercial: "Cli 2",
-      tipoAgencia: "B",
-      estado: "activo",
+      nombre: "Initech",
+      empresa: "Initech",
+      estado: "Cliente Activo",
+    });
+
+    // Seed payment associated with Client 2 (Initech)
+    await db.pagos.put({
+      id: "1",
+      clienteId: "2",
+      monto: 150000,
+      moneda: "ARS",
+      estado: "Pendiente",
+      fechaVencimiento: "15/07/2026",
     });
 
     const useCase = new ObtenerDashboardUseCase();

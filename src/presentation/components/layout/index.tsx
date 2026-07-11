@@ -68,7 +68,7 @@ export const Sidebar: React.FC<{
     { label: "IA", href: "/dashboard/ia", icono: Icono.IA },
     {
       label: "Configuración",
-      href: "/dashboard/configuracion",
+      href: "/dashboard/agencia",
       icono: Icono.Configuracion,
     },
   ];

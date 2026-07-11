@@ -1,5 +1,6 @@
 import { db } from "../../../offline/dexie/db";
 import { Resultado } from "../../../shared/utilidades/resultado";
+import { ErrorInfraestructura } from "../../../domain/errores/error-base";
 
 export interface DashboardKPIs {
   clientesActivos: number;
@@ -43,77 +44,121 @@ export interface DashboardData {
 
 export class ObtenerDashboardUseCase {
   public async ejecutar(): Promise<Resultado<DashboardData>> {
-    const countClientes = await db.clientes.count();
-    const countContactos = await db.contactos.count();
-    const countContratos = await db.contratos.count();
-    const countPagos = await db.pagos.count();
+    try {
+      const clientes = await db.clientes.toArray();
+      const proyectos = await db.proyectos.toArray();
+      const contratos = await db.contratos.toArray();
+      const pagos = await db.pagos.toArray();
 
-    const data: DashboardData = {
-      kpis: {
-        clientesActivos: countClientes || 12,
-        leads: countContactos || 8,
-        propuestas: 4,
-        proyectos: countContratos || 6,
-        pagosPendientes: countPagos || 3,
-        contratosPendientes: 2,
-      },
-      agenda: [
-        {
-          id: "1",
-          tipo: "reunion",
-          titulo: "Reunión de requerimientos",
-          hora: "09:30",
-          cliente: "Acme Corp",
-        },
-        {
-          id: "2",
-          tipo: "llamada",
-          titulo: "Seguimiento técnico",
-          hora: "11:00",
-          cliente: "Globex Inc",
-        },
-        {
-          id: "3",
-          tipo: "visita",
-          titulo: "Presentación comercial",
-          hora: "15:00",
-          cliente: "Stark Ind",
-        },
-      ],
-      proximosPagos: [
-        {
-          id: "1",
-          cliente: "Initech",
-          monto: 150000,
-          fecha: "15/07/2026",
-          estado: "Pendiente",
-        },
-        {
-          id: "2",
-          cliente: "Umbrella Corp",
-          monto: 320000,
-          fecha: "20/07/2026",
-          estado: "Pendiente",
-        },
-      ],
-      proximosSeguimientos: [
-        {
-          id: "1",
-          cliente: "Cyberdyne",
-          estado: "Interesado",
-          ultimoContacto: "05/07/2026",
-          accionRecomendada: "Enviar cotización",
-        },
-        {
-          id: "2",
-          cliente: "Tyrell Corp",
-          estado: "Negociando",
-          ultimoContacto: "08/07/2026",
-          accionRecomendada: "Llamar para coordinar demo",
-        },
-      ],
-    };
+      // Calculate dynamic KPIs from DB
+      const countClientesActivos = clientes.filter(
+        (c) => c.estado === "Cliente Activo" || c.estado === "Negociación"
+      ).length;
 
-    return Resultado.exito(data);
+      const countLeads = clientes.filter(
+        (c) => c.estado === "Lead" || c.estado === "Contacto Detectado"
+      ).length;
+
+      const countPropuestas = clientes.filter(
+        (c) => c.estado === "Propuesta Presentada"
+      ).length;
+
+      const countProyectos = proyectos.length;
+
+      const countPagosPendientes = pagos.filter(
+        (p) => p.estado === "Pendiente"
+      ).length;
+
+      const countContratosPendientes = contratos.filter(
+        (c) => c.estado === "Pendiente" || c.estado === "Borrador"
+      ).length;
+
+      // Build dynamic agenda from client follow-ups
+      const agenda: AgendaItem[] = clientes
+        .filter((c) => c.fechaSeguimiento)
+        .map((c) => {
+          const nombreVal = (c.nombre || c.empresa) as string;
+          const notaVal = (c.notaSeguimiento || "") as string;
+          return {
+            id: `ag_${c.id as string}`,
+            tipo: "seguimiento" as const,
+            titulo: notaVal || `Contacto con ${nombreVal}`,
+            hora: "10:00", // Standard default contact hour
+            cliente: nombreVal,
+            fechaSort: c.fechaSeguimiento as string,
+          };
+        })
+        .sort((a, b) => a.fechaSort.localeCompare(b.fechaSort))
+        .slice(0, 5)
+        .map((x) => ({
+          id: x.id,
+          tipo: x.tipo,
+          titulo: x.titulo,
+          hora: x.hora,
+          cliente: x.cliente,
+        }));
+
+      if (agenda.length === 0) {
+        agenda.push({
+          id: "empty_agenda",
+          tipo: "seguimiento",
+          titulo: "Sin seguimientos programados",
+          hora: "--:--",
+          cliente: "Establece uno en el CRM",
+        });
+      }
+
+      // Build dynamic upcoming payments
+      const proximosPagos: ProximoPago[] = pagos
+        .filter((p) => p.estado === "Pendiente")
+        .map((p) => {
+          const clientMatch = clientes.find((c) => c.id === p.clienteId);
+          return {
+            id: p.id as string,
+            cliente: clientMatch
+              ? ((clientMatch.nombre || clientMatch.empresa) as string)
+              : "Cliente",
+            monto: Number(p.monto || 0),
+            fecha: (p.fechaVencimiento || "Sin fecha") as string,
+            estado: "Pendiente",
+          };
+        })
+        .slice(0, 5);
+
+      // Build dynamic upcoming followups
+      const proximosSeguimientos: ProximoSeguimiento[] = clientes
+        .filter((c) => c.fechaSeguimiento)
+        .map((c) => {
+          const nombreVal = (c.nombre || c.empresa) as string;
+          const notaVal = (c.notaSeguimiento || "") as string;
+          return {
+            id: c.id as string,
+            cliente: nombreVal,
+            estado: c.estado as string,
+            ultimoContacto: "Reciente",
+            accionRecomendada: notaVal || "Llamar por nueva propuesta",
+          };
+        })
+        .slice(0, 5);
+
+      const data: DashboardData = {
+        kpis: {
+          clientesActivos: countClientesActivos,
+          leads: countLeads,
+          propuestas: countPropuestas,
+          proyectos: countProyectos,
+          pagosPendientes: countPagosPendientes,
+          contratosPendientes: countContratosPendientes,
+        },
+        agenda,
+        proximosPagos,
+        proximosSeguimientos,
+      };
+
+      return Resultado.exito(data);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error del dashboard";
+      return Resultado.falla(new ErrorInfraestructura(msg));
+    }
   }
 }
