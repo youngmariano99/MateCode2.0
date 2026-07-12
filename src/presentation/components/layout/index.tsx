@@ -64,7 +64,11 @@ export const Sidebar: React.FC<{
       href: "/dashboard/contratos",
       icono: Icono.Contratos,
     },
-    { label: "Territorio", href: "/dashboard/territorio", icono: Icono.MapPin },
+    {
+      label: "Potenciales Clientes",
+      href: "/dashboard/territorio",
+      icono: Icono.MapPin,
+    },
     { label: "IA", href: "/dashboard/ia", icono: Icono.IA },
     {
       label: "Configuración",

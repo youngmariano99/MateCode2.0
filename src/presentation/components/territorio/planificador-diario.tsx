@@ -18,6 +18,9 @@ interface ClienteGeocodificado {
   latitud?: number;
   longitud?: number;
   direccion?: string;
+  visitado?: boolean;
+  visitasCount?: number;
+  convertido?: boolean;
 }
 
 interface PlanificadorDiarioProps {
@@ -89,7 +92,6 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
           latitud: position.coords.latitude,
           longitud: position.coords.longitude,
         };
-        // Prepend GPS start coordinates as first element of route selection
         seleccionadosInfo = [gpsPoint, ...seleccionadosInfo];
       } catch {
         mostrarToast(
@@ -102,7 +104,7 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
 
     if (seleccionadosInfo.length < 2) {
       mostrarToast(
-        "Selecciona al menos 2 clientes para optimizar recorrido.",
+        "Selecciona al menos 2 prospectos para optimizar recorrido.",
         "error"
       );
       return;
@@ -135,10 +137,10 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
       <Card>
         <div className="mb-3 border-b border-[#2A2A2E] pb-3">
           <h4 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
-            Planificador: Paradas y Clientes
+            Planificador: Paradas y Prospectos
           </h4>
           <p className="font-mono text-[10px] text-zinc-500">
-            Selecciona los puntos de visita comercial
+            Selecciona los potenciales clientes a visitar en calle
           </p>
         </div>
 
@@ -155,7 +157,19 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
                 className="cursor-pointer rounded border-[#2A2A2E] bg-zinc-950 text-emerald-500 focus:ring-emerald-500"
               />
               <div className="flex flex-col gap-0.5">
-                <span className="font-bold text-zinc-100">{c.nombre}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-zinc-100">{c.nombre}</span>
+                  {c.convertido && (
+                    <span className="rounded bg-gray-500/10 px-1 py-0.5 text-[8px] font-bold text-zinc-400 uppercase">
+                      Convertido
+                    </span>
+                  )}
+                  {!c.convertido && c.visitado && (
+                    <span className="rounded bg-amber-500/10 px-1 py-0.5 text-[8px] font-bold text-amber-400 uppercase">
+                      Visitado ({c.visitasCount || 1})
+                    </span>
+                  )}
+                </div>
                 {c.latitud && c.longitud ? (
                   <span className="text-[9px] text-emerald-400">
                     ✓ Geolocalizado
@@ -168,6 +182,11 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
               </div>
             </label>
           ))}
+          {clientes.length === 0 && (
+            <span className="py-6 text-center font-mono text-xs text-zinc-500 italic">
+              No hay prospectos geolocalizados disponibles para planificar.
+            </span>
+          )}
         </div>
 
         <div className="mb-4 grid grid-cols-2 gap-3">
@@ -194,7 +213,6 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
           />
         </div>
 
-        {/* GPS Start Location Toggle Checkbox */}
         <div className="mb-4 flex items-center gap-2 rounded-xl border border-[#2A2A2E] bg-[#18181B] p-3">
           <input
             type="checkbox"
@@ -258,7 +276,7 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
                       onClick={() => onRegistrarVisitaClick(p)}
                       className="rounded-lg border border-emerald-500/20 bg-emerald-600/10 px-2 py-1 text-[10px] font-bold text-emerald-400 transition-all hover:bg-emerald-600 hover:text-black"
                     >
-                      Visitar
+                      Registrar Visita
                     </button>
                   )}
                   <button

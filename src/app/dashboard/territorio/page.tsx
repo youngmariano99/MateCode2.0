@@ -7,202 +7,588 @@ import { Button } from "../../../presentation/components/button";
 import { useToast } from "../../../presentation/hooks/useToast";
 import { db } from "../../../offline/dexie/db";
 import { useLiveQuery } from "dexie-react-hooks";
-import { GeocodificarDireccionUseCase } from "../../../application/use-cases/territorio/geocodificar-direccion.use-case";
-import { RegistrarVisitaUseCase } from "../../../application/use-cases/territorio/registrar-visita.use-case";
-import { GoogleMapsNavegacionStrategy } from "../../../application/services/territorio/navegacion.strategy";
-
-// Sub-views
 import { VisorMapa } from "../../../presentation/components/territorio/visor-mapa";
 import { PlanificadorDiario } from "../../../presentation/components/territorio/planificador-diario";
-import { ModoCalle } from "../../../presentation/components/territorio/modo-calle";
-import { ModalVisita } from "../../../presentation/components/territorio/modal-visita";
-
-interface ClienteCRM {
-  id: string;
-  nombre: string;
-  correo: string;
-  estado: string;
-  direccion?: string;
-  latitud?: number;
-  longitud?: number;
-  empresa?: string;
-  telefono?: string;
-  whatsapp?: string;
-  ultimaVisita?: number;
-}
+import {
+  ModalPotencialCliente,
+  PotencialCliente,
+} from "../../../presentation/components/territorio/ModalPotencialCliente";
+import { ModalImportarPotenciales } from "../../../presentation/components/territorio/ModalImportarPotenciales";
+import { ModalRegistrarVisitaProspecto } from "../../../presentation/components/territorio/ModalRegistrarVisitaProspecto";
+import { ModalCliente } from "../../../presentation/components/crm/ModalCliente";
 
 export default function TerritorioPage() {
   const { mostrarToast } = useToast();
-  const geocodeUC = new GeocodificarDireccionUseCase();
-  const visitaUC = new RegistrarVisitaUseCase();
 
-  const [modoCelular, setModoCelular] = useState(false);
+  // Modals visibility
+  const [modalManualAbierto, setModalManualAbierto] = useState(false);
+  const [modalImportarAbierto, setModalImportarAbierto] = useState(false);
+  const [modalVisitaAbierto, setModalVisitaAbierto] = useState(false);
+  const [modalCrmAbierto, setModalCrmAbierto] = useState(false);
+
+  // Selected items for edit / actions
+  const [prospectoEdicion, setProspectoEdicion] =
+    useState<PotencialCliente | null>(null);
+  const [prospectoVisita, setProspectoVisita] =
+    useState<PotencialCliente | null>(null);
+  const [prospectoAConvertir, setProspectoAConvertir] =
+    useState<PotencialCliente | null>(null);
+
+  // Route Planning State
   const [rutaPuntos, setRutaPuntos] = useState<
     { id: string; nombre: string }[]
   >([]);
-  const [modalVisitaCliente, setModalVisitaCliente] =
-    useState<ClienteCRM | null>(null);
 
-  const rawClientes = useLiveQuery(() => db.clientes.toArray()) || [];
-  const clientes = rawClientes as unknown as ClienteCRM[];
+  // Advanced Filters
+  const [filtroConversion, setFiltroConversion] = useState<
+    "todos" | "potenciales" | "convertidos"
+  >("potenciales");
+  const [filtroVisita, setFiltroVisita] = useState<
+    "todos" | "visitados" | "no_visitados"
+  >("todos");
+  const [filtroOrden, setFiltroOrden] = useState<"recientes" | "antiguos">(
+    "recientes"
+  );
 
-  const geocodificarFaltantes = async () => {
-    let cnt = 0;
-    for (const c of clientes) {
-      if (!c.latitud && c.direccion?.trim()) {
-        const res = await geocodeUC.ejecutar(c.id, c.direccion);
-        if (res.ok) cnt++;
+  // Load potential clients from IndexedDB
+  const rawProspectos =
+    useLiveQuery(() => db.potenciales_clientes.toArray()) || [];
+  const prospectos = rawProspectos as unknown as PotencialCliente[];
+
+  // Apply filters
+  const prospectosFiltrados = prospectos
+    .filter((p) => {
+      // Conversion Filter
+      if (filtroConversion === "potenciales" && p.convertido) return false;
+      if (filtroConversion === "convertidos" && !p.convertido) return false;
+
+      // Visit Filter
+      if (filtroVisita === "visitados" && !p.visitado) return false;
+      if (filtroVisita === "no_visitados" && p.visitado) return false;
+
+      return true;
+    })
+    .sort((a, b) => {
+      if (filtroOrden === "recientes") {
+        return (b.creadoEn || 0) - (a.creadoEn || 0);
+      } else {
+        return (a.creadoEn || 0) - (b.creadoEn || 0);
       }
-    }
-    if (cnt > 0) {
-      mostrarToast(
-        `Se geocodificaron ${cnt} direcciones automáticamente.`,
-        "exito"
-      );
-    } else {
-      mostrarToast("Todas las direcciones están geocodificadas.", "info");
-    }
-  };
-
-  const handleConfirmarVisita = async (payload: {
-    horaLlegada: string;
-    horaSalida: string;
-    resultado: string;
-    notas: string;
-  }) => {
-    if (!modalVisitaCliente) return;
-    const res = await visitaUC.ejecutar({
-      clienteId: modalVisitaCliente.id,
-      ...payload,
     });
 
-    if (res.ok) {
-      mostrarToast("Visita registrada comercialmente en el CRM.", "exito");
-      setModalVisitaCliente(null);
+  // KPI calculations
+  const totalProspectos = prospectos.length;
+  const prospectosActivos = prospectos.filter((p) => !p.convertido).length;
+  const visitadosProspectos = prospectos.filter(
+    (p) => p.visitado && !p.convertido
+  ).length;
+  const convertidosProspectos = prospectos.filter((p) => p.convertido).length;
+
+  const handleCrearOEditarProspecto = async (
+    payload: Partial<PotencialCliente>
+  ) => {
+    try {
+      if (prospectoEdicion) {
+        // Edit mode
+        const updated: PotencialCliente = {
+          ...prospectoEdicion,
+          ...payload,
+          actualizadoEn: Date.now(),
+        };
+        await db.potenciales_clientes.put(
+          updated as unknown as Record<string, unknown>
+        );
+        mostrarToast("Prospecto actualizado con éxito.", "exito");
+      } else {
+        // Create mode
+        const nuevo: PotencialCliente = {
+          id: `pot_${Date.now()}`,
+          nombre: payload.nombre || "Prospecto Sin Nombre",
+          contacto: payload.contacto || "",
+          tipoServicio: payload.tipoServicio || "",
+          pitch: payload.pitch || "",
+          direccion: payload.direccion || "",
+          direccionCalle: payload.direccionCalle || "",
+          direccionCodigoPostal: payload.direccionCodigoPostal || "",
+          direccionCiudad: payload.direccionCiudad || "",
+          direccionProvincia: payload.direccionProvincia || "",
+          direccionPais: payload.direccionPais || "Argentina",
+          visitado: false,
+          visitasCount: 0,
+          convertido: false,
+          latitud: payload.latitud,
+          longitud: payload.longitud,
+          creadoEn: Date.now(),
+          actualizadoEn: Date.now(),
+        };
+        await db.potenciales_clientes.add(
+          nuevo as unknown as Record<string, unknown>
+        );
+        mostrarToast("Prospecto registrado con éxito.", "exito");
+      }
+      setModalManualAbierto(false);
+      setProspectoEdicion(null);
+    } catch {
+      mostrarToast("Ocurrió un error al guardar el prospecto.", "error");
     }
   };
 
-  const handleNavegarModoCalle = (p: {
-    id: string;
-    nombre: string;
-    latitud?: number;
-    longitud?: number;
-  }) => {
-    if (!p.latitud || !p.longitud) return;
-    const strategy = new GoogleMapsNavegacionStrategy();
-    const url = strategy.obtenerUrl(p.latitud, p.longitud, p.nombre);
-    window.open(url, "_blank");
+  const handleImportarLote = async (lote: Partial<PotencialCliente>[]) => {
+    try {
+      for (const p of lote) {
+        await db.potenciales_clientes.add(
+          p as unknown as Record<string, unknown>
+        );
+      }
+      mostrarToast(
+        `Se importaron ${lote.length} prospectos correctamente.`,
+        "exito"
+      );
+      setModalImportarAbierto(false);
+    } catch {
+      mostrarToast("Error al importar prospectos en lote.", "error");
+    }
   };
 
-  const paradasModoCalle = rutaPuntos.map((rp) => {
-    const matched = clientes.find((c) => c.id === rp.id);
-    return {
-      id: rp.id,
-      nombre: rp.nombre,
-      direccion: matched?.direccion,
-      telefono: matched?.telefono,
-      whatsapp: matched?.whatsapp,
-      latitud: matched?.latitud,
-      longitud: matched?.longitud,
-    };
-  });
+  const handleRegistrarVisita = async (resultado: {
+    visitado: boolean;
+    motivoNoVisita?: string;
+    volverFecha?: string;
+  }) => {
+    if (!prospectoVisita) return;
+    try {
+      const updated: PotencialCliente = {
+        ...prospectoVisita,
+        visitado: true, // Mark as visited
+        visitasCount: (prospectoVisita.visitasCount || 0) + 1,
+        motivoNoVisita: resultado.motivoNoVisita,
+        volverFecha: resultado.volverFecha,
+        actualizadoEn: Date.now(),
+      };
+      await db.potenciales_clientes.put(
+        updated as unknown as Record<string, unknown>
+      );
 
-  const geocodificados = clientes.filter((c) => c.latitud && c.longitud);
-  const visitasRealizadas = clientes.filter((c) => c.ultimaVisita).length;
+      // Log activity offline
+      await db.logs_sincronizacion.add({
+        tipo: "exito",
+        mensaje: `Visita registrada para prospecto ${prospectoVisita.nombre}. Visitado: ${resultado.visitado ? "Sí" : "No"}.`,
+        fecha: Date.now(),
+      });
+
+      mostrarToast("Visita registrada comercialmente en IndexedDB.", "exito");
+      setModalVisitaAbierto(false);
+      setProspectoVisita(null);
+    } catch {
+      mostrarToast("Error al registrar la visita.", "error");
+    }
+  };
+
+  const handleConfirmarConversionCrm = async (
+    crmPayload: Record<string, unknown>
+  ) => {
+    if (!prospectoAConvertir) return;
+    try {
+      const clienteId = `cli_${Date.now()}`;
+
+      // 1. Insert in CRM Clientes table
+      await db.clientes.add({
+        id: clienteId,
+        ...crmPayload,
+        latitud: prospectoAConvertir.latitud,
+        longitud: prospectoAConvertir.longitud,
+        creadoEn: Date.now(),
+      });
+
+      // 2. Mark prospect as converted and link it
+      await db.potenciales_clientes.update(prospectoAConvertir.id, {
+        convertido: true,
+        clienteIdRef: clienteId,
+        actualizadoEn: Date.now(),
+      });
+
+      // 3. Log event
+      await db.logs_sincronizacion.add({
+        tipo: "exito",
+        mensaje: `Prospecto '${prospectoAConvertir.nombre}' convertido con éxito en cliente CRM.`,
+        fecha: Date.now(),
+      });
+
+      mostrarToast(
+        "¡Felicidades! Prospecto convertido con éxito a Cliente CRM.",
+        "exito"
+      );
+      setModalCrmAbierto(false);
+      setProspectoAConvertir(null);
+    } catch {
+      mostrarToast("Error al convertir el prospecto.", "error");
+    }
+  };
+
+  const eliminarProspecto = async (id: string) => {
+    if (confirm("¿Estás seguro de que deseas eliminar este prospecto?")) {
+      try {
+        await db.potenciales_clientes.delete(id);
+        mostrarToast("Prospecto eliminado.", "info");
+      } catch {
+        mostrarToast("Error al eliminar prospecto.", "error");
+      }
+    }
+  };
 
   const breadcrumbs = [
     { label: "Dashboard", href: "/dashboard" },
-    { label: "Inteligencia Territorial" },
+    { label: "Potenciales Clientes" },
   ];
 
   return (
     <MainLayout breadcrumbs={breadcrumbs}>
       <div className="flex flex-col gap-6">
+        {/* Header Title */}
         <div className="flex flex-col justify-between gap-4 border-b border-[#2A2A2E] pb-5 md:flex-row md:items-center">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-white">
-              Inteligencia Territorial Comercial
+              Gestión de Potenciales Clientes y Campo
             </h1>
             <p className="mt-1 text-sm text-zinc-400">
-              Geocodificación offline, optimización y visitas de campo Mobile
-              First.
+              Prospección en frío, geocodificación automática, ruteo óptimo y
+              conversión al CRM.
             </p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={geocodificarFaltantes}>
-              Geocodificar Direcciones
-            </Button>
             <button
-              onClick={() => setModoCelular(!modoCelular)}
-              className={`rounded-xl border px-4 py-2.5 font-mono text-xs font-bold transition-all select-none ${
-                modoCelular
-                  ? "border-emerald-500 bg-emerald-500 text-zinc-950 hover:bg-emerald-600"
-                  : "border-[#2A2A2E] bg-[#18181B] text-zinc-400 hover:text-zinc-200"
-              }`}
+              onClick={() => {
+                setProspectoEdicion(null);
+                setModalManualAbierto(true);
+              }}
+              className="rounded-xl bg-emerald-500 px-4 py-2.5 font-mono text-xs font-bold text-zinc-950 transition-all select-none hover:bg-emerald-600 active:scale-95"
             >
-              {modoCelular ? "Volver a Escritorio" : "Modo Calle (Celular)"}
+              Nuevo Prospecto
             </button>
+            <Button onClick={() => setModalImportarAbierto(true)}>
+              Importar JSON
+            </Button>
           </div>
         </div>
 
-        {!modoCelular && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <Card>
-              <span className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
-                Clientes Totales
-              </span>
-              <span className="mt-1 block font-mono text-xl font-bold text-white">
-                {clientes.length}
-              </span>
-            </Card>
-            <Card>
-              <span className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
-                Geocodificados
-              </span>
-              <span className="mt-1 block font-mono text-xl font-bold text-emerald-400">
-                {geocodificados.length} / {clientes.length}
-              </span>
-            </Card>
-            <Card>
-              <span className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
-                Visitas Hechas
-              </span>
-              <span className="mt-1 block font-mono text-xl font-bold text-blue-400">
-                {visitasRealizadas}
-              </span>
-            </Card>
-          </div>
-        )}
+        {/* Stats KPIs widgets */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+          <Card>
+            <span className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
+              Prospectos Totales
+            </span>
+            <span className="mt-1 block font-mono text-xl font-bold text-white">
+              {totalProspectos}
+            </span>
+          </Card>
+          <Card>
+            <span className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
+              Prospectos Activos
+            </span>
+            <span className="mt-1 block font-mono text-xl font-bold text-emerald-400">
+              {prospectosActivos}
+            </span>
+          </Card>
+          <Card>
+            <span className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
+              Visitas Realizadas
+            </span>
+            <span className="mt-1 block font-mono text-xl font-bold text-amber-400">
+              {visitadosProspectos}
+            </span>
+          </Card>
+          <Card>
+            <span className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
+              Convertidos a Clientes
+            </span>
+            <span className="mt-1 block font-mono text-xl font-bold text-blue-400">
+              {convertidosProspectos}
+            </span>
+          </Card>
+        </div>
 
-        {modoCelular ? (
-          <ModoCalle
-            paradas={paradasModoCalle}
-            onRegistrarVisita={(p) =>
-              setModalVisitaCliente(clientes.find((c) => c.id === p.id) || null)
-            }
-            onNavegar={handleNavegarModoCalle}
-          />
-        ) : (
-          <div className="flex flex-col gap-6">
-            <VisorMapa clientes={clientes} rutaPuntos={rutaPuntos} />
-            <PlanificadorDiario
-              clientes={clientes}
-              onRutaCalculada={setRutaPuntos}
-              onRegistrarVisitaClick={(c) =>
-                setModalVisitaCliente(
-                  clientes.find((cl) => cl.id === c.id) || null
-                )
+        {/* Advanced Filters */}
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#2A2A2E] bg-zinc-950 p-4">
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Conversion Filter */}
+            <div className="flex flex-col gap-1.5">
+              <label className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
+                Estado Conversión
+              </label>
+              <select
+                value={filtroConversion}
+                onChange={(e) =>
+                  setFiltroConversion(e.target.value as typeof filtroConversion)
+                }
+                className="rounded-xl border border-zinc-800 bg-[#18181B] px-3 py-2 font-mono text-xs text-zinc-300 focus:border-emerald-500 focus:outline-none"
+              >
+                <option value="todos">Mostrar Todos</option>
+                <option value="potenciales">Solo Potenciales (Activos)</option>
+                <option value="convertidos">Solo Convertidos a CRM</option>
+              </select>
+            </div>
+
+            {/* Visit Filter */}
+            <div className="flex flex-col gap-1.5">
+              <label className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
+                Estado Visita
+              </label>
+              <select
+                value={filtroVisita}
+                onChange={(e) =>
+                  setFiltroVisita(e.target.value as typeof filtroVisita)
+                }
+                className="rounded-xl border border-zinc-800 bg-[#18181B] px-3 py-2 font-mono text-xs text-zinc-300 focus:border-emerald-500 focus:outline-none"
+              >
+                <option value="todos">Mostrar Todos</option>
+                <option value="visitados">Visitados</option>
+                <option value="no_visitados">Sin Visitar</option>
+              </select>
+            </div>
+
+            {/* Age Sort */}
+            <div className="flex flex-col gap-1.5">
+              <label className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
+                Antigüedad
+              </label>
+              <select
+                value={filtroOrden}
+                onChange={(e) =>
+                  setFiltroOrden(e.target.value as typeof filtroOrden)
+                }
+                className="rounded-xl border border-zinc-800 bg-[#18181B] px-3 py-2 font-mono text-xs text-zinc-300 focus:border-emerald-500 focus:outline-none"
+              >
+                <option value="recientes">Más recientes primero</option>
+                <option value="antiguos">Más antiguos primero</option>
+              </select>
+            </div>
+          </div>
+
+          <span className="self-end rounded-xl border border-[#2A2A2E] bg-zinc-900 px-3 py-1.5 font-mono text-xs text-zinc-500">
+            Mostrando <b>{prospectosFiltrados.length}</b> de{" "}
+            <b>{prospectos.length}</b> registrados
+          </span>
+        </div>
+
+        {/* Map View & Route Planner */}
+        <div className="flex flex-col gap-6">
+          <VisorMapa clientes={prospectosFiltrados} rutaPuntos={rutaPuntos} />
+
+          <PlanificadorDiario
+            clientes={prospectosFiltrados.filter(
+              (p) => p.latitud && p.longitud
+            )}
+            onRutaCalculada={setRutaPuntos}
+            onRegistrarVisitaClick={(c) => {
+              const matched = prospectos.find((p) => p.id === c.id);
+              if (matched) {
+                setProspectoVisita(matched);
+                setModalVisitaAbierto(true);
               }
-            />
+            }}
+          />
+        </div>
+
+        {/* Prospects List Grid */}
+        <div className="flex flex-col gap-3">
+          <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-400 uppercase">
+            Listado de Prospectos (
+            {filtroConversion === "potenciales" ? "Activos" : "Todos"})
+          </h3>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {prospectosFiltrados.map((p) => (
+              <div
+                key={p.id}
+                className={`rounded-2xl border bg-zinc-950 p-4 transition-all hover:border-zinc-800 ${
+                  p.convertido
+                    ? "border-zinc-800/30 opacity-70"
+                    : p.visitado
+                      ? "border-amber-500/20 bg-zinc-950/90"
+                      : "border-[#2A2A2E]"
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-mono text-sm font-bold text-zinc-100">
+                      {p.nombre}
+                    </span>
+                    {p.contacto && (
+                      <span className="font-mono text-[10px] text-zinc-400">
+                        Contacto: {p.contacto}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-1.5">
+                    {p.convertido ? (
+                      <span className="rounded-full border border-zinc-800 bg-gray-500/10 px-2 py-0.5 font-mono text-[8px] font-bold text-zinc-400 uppercase">
+                        CRM
+                      </span>
+                    ) : p.visitado ? (
+                      <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-[8px] font-bold text-amber-400 uppercase">
+                        Visitado
+                      </span>
+                    ) : (
+                      <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-[8px] font-bold text-emerald-400 uppercase">
+                        Activo
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-col gap-1 border-t border-[#2A2A2E]/50 pt-2.5 font-mono text-[10px] text-zinc-400">
+                  {p.direccion && (
+                    <span>
+                      <b>📍 Dirección:</b> {p.direccion}
+                    </span>
+                  )}
+                  {p.tipoServicio && (
+                    <span>
+                      <b>💼 Servicio:</b> {p.tipoServicio}
+                    </span>
+                  )}
+                  {p.pitch && (
+                    <span>
+                      <b>📣 Argumento:</b> {p.pitch}
+                    </span>
+                  )}
+                  <span>
+                    <b>🔄 Visitas:</b> {p.visitasCount || 0}
+                  </span>
+                  {p.motivoNoVisita && (
+                    <span className="text-red-400">
+                      <b>⚠️ Salteado:</b> {p.motivoNoVisita}
+                    </span>
+                  )}
+                  {p.volverFecha && (
+                    <span className="font-bold text-blue-400">
+                      <b>📅 Volver el:</b> {p.volverFecha}
+                    </span>
+                  )}
+                </div>
+
+                {/* Card Actions */}
+                <div className="mt-4 flex flex-wrap gap-2 border-t border-[#2A2A2E]/50 pt-3">
+                  {!p.convertido && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setProspectoVisita(p);
+                          setModalVisitaAbierto(true);
+                        }}
+                        className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-amber-400 transition-all hover:bg-amber-500 hover:text-black"
+                      >
+                        Registrar Visita
+                      </button>
+                      <button
+                        onClick={() => {
+                          setProspectoAConvertir(p);
+                          setModalCrmAbierto(true);
+                        }}
+                        className="ml-auto rounded-xl border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-blue-400 transition-all hover:bg-blue-500 hover:text-black"
+                      >
+                        Pasar a CRM Clientes
+                      </button>
+                    </>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setProspectoEdicion(p);
+                      setModalManualAbierto(true);
+                    }}
+                    className="rounded-xl border border-zinc-800 bg-zinc-900 px-2 py-1.5 font-mono text-[9px] text-zinc-300 transition-all hover:border-zinc-700"
+                    title="Editar Prospecto"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => eliminarProspecto(p.id)}
+                    className="rounded-xl border border-red-900/30 bg-red-950/20 px-2 py-1.5 font-mono text-[9px] text-red-400 transition-all hover:bg-red-900 hover:text-white"
+                    title="Eliminar Prospecto"
+                  >
+                    Borrar
+                  </button>
+                </div>
+              </div>
+            ))}
+            {prospectosFiltrados.length === 0 && (
+              <span className="col-span-full rounded-2xl border border-dashed border-[#2A2A2E] py-16 text-center font-mono text-xs text-zinc-500 italic">
+                Ningún potencial cliente coincide con los filtros activos.
+              </span>
+            )}
           </div>
+        </div>
+
+        {/* Modal: Manual Creation */}
+        <ModalPotencialCliente
+          abierto={modalManualAbierto}
+          prospectoEdicion={prospectoEdicion}
+          onCerrar={() => {
+            setModalManualAbierto(false);
+            setProspectoEdicion(null);
+          }}
+          onConfirmar={handleCrearOEditarProspecto}
+        />
+
+        {/* Modal: JSON Bulk Import */}
+        <ModalImportarPotenciales
+          abierto={modalImportarAbierto}
+          onCerrar={() => setModalImportarAbierto(false)}
+          onConfirmarImportacion={handleImportarLote}
+        />
+
+        {/* Modal: Visit Registration */}
+        {prospectoVisita && (
+          <ModalRegistrarVisitaProspecto
+            key={prospectoVisita.id}
+            abierto={modalVisitaAbierto}
+            onCerrar={() => {
+              setModalVisitaAbierto(false);
+              setProspectoVisita(null);
+            }}
+            nombreProspecto={prospectoVisita.nombre}
+            onConfirmar={handleRegistrarVisita}
+          />
         )}
 
-        <ModalVisita
-          abierto={!!modalVisitaCliente}
-          onCerrar={() => setModalVisitaCliente(null)}
-          onConfirmar={handleConfirmarVisita}
-          clienteNombre={modalVisitaCliente?.nombre || ""}
-        />
+        {/* Modal: CRM Client Conversion */}
+        {prospectoAConvertir && (
+          <ModalCliente
+            abierto={modalCrmAbierto}
+            clienteEdicion={{
+              id: "",
+              nombre: prospectoAConvertir.nombre,
+              correo: "",
+              direccion: prospectoAConvertir.direccion || "",
+              direccionCalle: prospectoAConvertir.direccionCalle || "",
+              direccionCodigoPostal:
+                prospectoAConvertir.direccionCodigoPostal || "",
+              direccionCiudad: prospectoAConvertir.direccionCiudad || "",
+              direccionProvincia: prospectoAConvertir.direccionProvincia || "",
+              direccionPais: prospectoAConvertir.direccionPais || "Argentina",
+              estado: "Lead",
+              observaciones: `Convertido de Prospecto de Campo. Pitch: ${prospectoAConvertir.pitch || "N/A"}. Servicio: ${prospectoAConvertir.tipoServicio || "N/A"}.`,
+            }}
+            onCerrar={() => {
+              setModalCrmAbierto(false);
+              setProspectoAConvertir(null);
+            }}
+            onConfirmar={handleConfirmarConversionCrm}
+            estados={["Lead", "Negociación", "Cliente Activo", "Archivado"]}
+            origenes={[
+              "Prospección Campo",
+              "Recomendado",
+              "Redes Sociales",
+              "Contacto Directo",
+              "Búsqueda Web",
+            ]}
+            responsables={[
+              "Sin Asignar",
+              "Ejecutivo de Cuentas",
+              "Agencia General",
+            ]}
+          />
+        )}
       </div>
     </MainLayout>
   );

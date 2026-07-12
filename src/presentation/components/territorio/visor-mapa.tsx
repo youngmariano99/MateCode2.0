@@ -3,18 +3,20 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Card } from "../card";
 
-interface MarkerCliente {
+interface MarkerProspecto {
   id: string;
   nombre: string;
   latitud?: number;
   longitud?: number;
-  estado: string;
-  empresa?: string;
+  visitado?: boolean;
+  convertido?: boolean;
   direccion?: string;
+  tipoServicio?: string;
+  contacto?: string;
 }
 
 interface VisorMapaProps {
-  clientes: MarkerCliente[];
+  clientes: MarkerProspecto[];
   rutaPuntos?: { id: string; nombre: string }[];
 }
 
@@ -71,8 +73,8 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
       mapInstanceRef.current = null;
     }
 
-    const defaultLat = -34.6037;
-    const defaultLng = -58.3816;
+    const defaultLat = -38.7183;
+    const defaultLng = -62.2663;
 
     const map = L.map(mapRef.current).setView([defaultLat, defaultLng], 12);
     mapInstanceRef.current = map;
@@ -109,16 +111,28 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
 
     const routeCoords: [number, number][] = [];
 
+    // Prepend user position to route path if "mi_posicion_actual" is in the route
+    if (rutaPuntos.some((rp) => rp.id === "mi_posicion_actual")) {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+          routeCoords.push([pos.coords.latitude, pos.coords.longitude]);
+        });
+      }
+    }
+
     clientes.forEach((c) => {
       if (c.latitud && c.longitud) {
         const isEnRuta = rutaPuntos.some((rp) => rp.id === c.id);
         const routeOrder = rutaPuntos.findIndex((rp) => rp.id === c.id) + 1;
 
-        let colorHex = "#3B82F6";
-        if (c.estado === "Cliente Activo" || c.estado === "Negociación") {
-          colorHex = "#10B981";
-        } else if (c.estado === "Archivado") {
-          colorHex = "#6B7280";
+        let colorHex = "#10B981"; // Active: Emerald-500
+        let labelEstado = "Prospecto Activo";
+        if (c.convertido) {
+          colorHex = "#6B7280"; // Converted to CRM: Gray-500
+          labelEstado = "Convertido a Cliente";
+        } else if (c.visitado) {
+          colorHex = "#F59E0B"; // Visited: Amber-500
+          labelEstado = "Visitado (Prospecto)";
         }
 
         const iconHtml = `
@@ -139,13 +153,14 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
         }).addTo(map);
 
         const popupContent = `
-          <div style="font-family: monospace; font-size: 11px;">
-            <b style="color: ${colorHex}; font-size: 12px;">${c.nombre}</b><br/>
-            <span><b>Empresa:</b> ${c.empresa || "Sin Empresa"}</span><br/>
-            <span><b>Estado:</b> ${c.estado}</span><br/>
+          <div style="font-family: monospace; font-size: 11px; min-width: 160px;">
+            <b style="color: ${colorHex}; font-size: 12px; display: block; margin-bottom: 4px;">${c.nombre}</b>
+            <span><b>Estado:</b> ${labelEstado}</span><br/>
+            ${c.contacto ? `<span><b>Contacto:</b> ${c.contacto}</b><br/>` : ""}
+            ${c.tipoServicio ? `<span><b>Servicio:</b> ${c.tipoServicio}</b><br/>` : ""}
             <span><b>Dirección:</b> ${c.direccion || "Sin dirección"}</span><br/>
-            ${isEnRuta ? `<b style="color: #10B981;">Parada #${routeOrder} en tu Ruta Activa</b><br/>` : ""}
-            <a href="https://www.google.com/maps/search/?api=1&query=${c.latitud},${c.longitud}" target="_blank" style="color: #3B82F6; text-decoration: underline; display: block; margin-top: 5px;">Navegar ↗</a>
+            ${isEnRuta ? `<b style="color: #10B981; display: block; margin-top: 4px;">Parada #${routeOrder} en tu Ruta Activa</b>` : ""}
+            <a href="https://www.google.com/maps/search/?api=1&query=${c.latitud},${c.longitud}" target="_blank" style="color: #3B82F6; text-decoration: underline; display: block; margin-top: 6px; font-weight: bold;">Navegar ↗</a>
           </div>
         `;
         marker.bindPopup(popupContent);
@@ -153,6 +168,7 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
     });
 
     rutaPuntos.forEach((rp) => {
+      if (rp.id === "mi_posicion_actual") return;
       const match = clientes.find((c) => c.id === rp.id);
       if (match && match.latitud && match.longitud) {
         routeCoords.push([match.latitud, match.longitud]);
@@ -188,10 +204,10 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
     <Card>
       <div className="mb-4 border-b border-[#2A2A2E] pb-3">
         <h4 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
-          Mapa General Territorial
+          Mapa General de Prospección
         </h4>
         <p className="font-mono text-[10px] text-zinc-500">
-          Ubicación en tiempo real de Leads y ruta comercial optimizada
+          Ubicación de potenciales clientes y recorridos óptimos de campo
         </p>
       </div>
 
@@ -205,26 +221,26 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
         ) : (
           <>
             <div className="absolute bottom-3 left-3 z-20 flex flex-col gap-1.5 rounded-lg border border-[#2A2A2E] bg-[#18181B]/95 p-2.5 font-mono text-[9px] text-zinc-400 backdrop-blur-sm">
-              <span className="mb-0.5 font-bold tracking-wider text-white uppercase">
-                Estados CRM
+              <span className="mb-0.5 animate-pulse font-bold tracking-wider text-white uppercase">
+                Estados
               </span>
               <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-blue-500" />
-                <span>Leads y Prospectos</span>
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span>Activo (Sin Visitar)</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                <span>Clientes Activos</span>
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                <span>Visitado</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-gray-500" />
-                <span>Archivados</span>
+                <span>Convertido a Cliente</span>
               </div>
             </div>
 
             {rutaPuntos.length > 1 && (
               <div className="absolute top-3 right-3 z-20 rounded-lg border border-emerald-500/20 bg-[#18181B]/90 p-2 font-mono text-[9px] font-bold text-emerald-400 backdrop-blur-sm">
-                ✓ Ruta Activa: {rutaPuntos.length} paradas conectadas
+                ✓ Ruta Activa: {rutaPuntos.length} paradas optimizadas
               </div>
             )}
           </>

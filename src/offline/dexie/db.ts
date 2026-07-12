@@ -32,9 +32,11 @@ export class MateCodeDB extends Dexie {
   public cola_eventos!: Table<EventoPendiente, number>;
   public logs_sincronizacion!: Table<LogSincronizacion, number>;
 
+  public potenciales_clientes!: Table<Record<string, unknown>, string>;
+
   constructor() {
     super("MateCodeLocalDB");
-    this.version(5).stores({
+    this.version(6).stores({
       clientes: "id, nombre, correo",
       contactos: "id, nombre, clienteId",
       contratos: "id, codigo, clienteId",
@@ -49,6 +51,7 @@ export class MateCodeDB extends Dexie {
       sprints: "id, proyectoId, estado",
       cola_eventos: "++id, tabla, accion, registroId",
       logs_sincronizacion: "++id, tipo, fecha",
+      potenciales_clientes: "id, nombre, visitado, convertido, creadoEn",
     });
   }
 }
