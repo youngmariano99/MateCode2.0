@@ -49,6 +49,9 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
   const [proveedorGps, setProveedorGps] = useState<"Google" | "Apple" | "Waze">(
     "Google"
   );
+  const [perfilTransporte, setPerfilTransporte] = useState<"driving" | "foot">(
+    "driving"
+  );
 
   // Grouping and visited filters
   const [rubroSeleccionado, setRubroSeleccionado] = useState("Todos");
@@ -119,7 +122,11 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
       return;
     }
 
-    const res = await routeUC.ejecutar(seleccionadosInfo, proveedorRuta);
+    const res = await routeUC.ejecutar(
+      seleccionadosInfo,
+      proveedorRuta,
+      perfilTransporte
+    );
     if (res.ok) {
       const val = res.valor;
       setRutaResultado(val);
@@ -218,7 +225,7 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
               <div className="flex flex-col gap-0.5">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-zinc-100">{c.nombre}</span>
-                  <span className="py-0.2 rounded border border-zinc-800 bg-zinc-900 px-1 text-[8px] font-bold text-zinc-400 uppercase">
+                  <span className="py-0.2 rounded border border-zinc-800 bg-zinc-900 px-1 font-mono text-[8px] font-bold text-zinc-400 uppercase">
                     {c.rubro || "General"}
                   </span>
                   {c.convertido && (
@@ -250,6 +257,22 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
               lista.
             </span>
           )}
+        </div>
+
+        {/* Transportation Routing Profile Selector */}
+        <div className="mb-4 border-t border-[#2A2A2E]/50 pt-3">
+          <Select
+            label="Modo de Desplazamiento"
+            options={[
+              {
+                value: "driving",
+                label: "En Auto (Respeta sentidos de calles)",
+              },
+              { value: "foot", label: "Caminando (Ignora sentidos de calles)" },
+            ]}
+            value={perfilTransporte}
+            onChange={(val) => setPerfilTransporte(val as "driving" | "foot")}
+          />
         </div>
 
         <div className="mb-4 grid grid-cols-2 gap-3">

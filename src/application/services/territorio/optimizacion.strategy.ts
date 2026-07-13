@@ -16,7 +16,10 @@ export interface RutaOptimizada {
 }
 
 export interface OptimizacionStrategy {
-  optimizar(puntos: PuntoRuta[]): Promise<Resultado<RutaOptimizada>>;
+  optimizar(
+    puntos: PuntoRuta[],
+    perfil?: "driving" | "foot"
+  ): Promise<Resultado<RutaOptimizada>>;
 }
 
 function calcularDistanciaHaversine(
@@ -80,7 +83,8 @@ export function optimizarCaminoNearestNeighbor(
 
 export class GraphHopperOptimizacionStrategy implements OptimizacionStrategy {
   public async optimizar(
-    puntos: PuntoRuta[]
+    puntos: PuntoRuta[],
+    perfil: "driving" | "foot" = "driving"
   ): Promise<Resultado<RutaOptimizada>> {
     if (puntos.length === 0) {
       return Resultado.exito({
@@ -102,12 +106,11 @@ export class GraphHopperOptimizacionStrategy implements OptimizacionStrategy {
     let duracion = Math.round(15 + puntos.length * 20);
     let geometria: [number, number][] | undefined = undefined;
 
-    // Call OSRM to get street routing logic even for GraphHopper strategy if requested
     try {
       const coordsStr = ordenados
         .map((p) => `${p.longitud},${p.latitud}`)
         .join(";");
-      const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
+      const url = `https://router.project-osrm.org/route/v1/${perfil}/${coordsStr}?overview=full&geometries=geojson`;
       const res = await fetch(url);
       const data = await res.json();
       if (data && data.routes && data.routes[0]) {
@@ -137,7 +140,8 @@ export class GraphHopperOptimizacionStrategy implements OptimizacionStrategy {
 
 export class OSRMOptimizacionStrategy implements OptimizacionStrategy {
   public async optimizar(
-    puntos: PuntoRuta[]
+    puntos: PuntoRuta[],
+    perfil: "driving" | "foot" = "driving"
   ): Promise<Resultado<RutaOptimizada>> {
     if (puntos.length === 0) {
       return Resultado.exito({
@@ -163,7 +167,7 @@ export class OSRMOptimizacionStrategy implements OptimizacionStrategy {
       const coordsStr = ordenados
         .map((p) => `${p.longitud},${p.latitud}`)
         .join(";");
-      const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
+      const url = `https://router.project-osrm.org/route/v1/${perfil}/${coordsStr}?overview=full&geometries=geojson`;
       const res = await fetch(url);
       const data = await res.json();
       if (data && data.routes && data.routes[0]) {

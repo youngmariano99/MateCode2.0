@@ -14,7 +14,8 @@ export class CalcularRecorridoUseCase {
 
   public async ejecutar(
     puntos: PuntoRuta[],
-    proveedor: "GraphHopper" | "OSRM" = "GraphHopper"
+    proveedor: "GraphHopper" | "OSRM" = "GraphHopper",
+    perfil: "driving" | "foot" = "driving"
   ): Promise<Resultado<RutaOptimizada>> {
     if (puntos.length === 0) {
       return Resultado.falla(
@@ -22,7 +23,7 @@ export class CalcularRecorridoUseCase {
       );
     }
     const strategy = proveedor === "GraphHopper" ? this.gh : this.osrm;
-    const res = await strategy.optimizar(puntos);
+    const res = await strategy.optimizar(puntos, perfil);
     if (!res.ok) {
       return Resultado.falla(res.error!);
     }
@@ -36,13 +37,14 @@ export class CalcularRecorridoUseCase {
       distanciaKm: ruta.distanciaKm,
       duracionMin: ruta.duracionMin,
       proveedor: ruta.proveedor,
+      perfil: perfil,
       puntos: ruta.puntos,
       geometriaGeoJson: ruta.geometriaGeoJson,
     });
 
     await db.logs_sincronizacion.add({
       tipo: "exito",
-      mensaje: `Territorio: Recorrido calculado y guardado con ID: ${recorridoId} usando ${ruta.proveedor}`,
+      mensaje: `Territorio: Recorrido calculado y guardado con ID: ${recorridoId} usando ${ruta.proveedor} (${perfil})`,
       fecha: Date.now(),
     });
 
