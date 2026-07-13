@@ -110,7 +110,8 @@ export class GraphHopperOptimizacionStrategy implements OptimizacionStrategy {
       const coordsStr = ordenados
         .map((p) => `${p.longitud},${p.latitud}`)
         .join(";");
-      const url = `https://router.project-osrm.org/route/v1/${perfil}/${coordsStr}?overview=full&geometries=geojson`;
+      const serviceProfile = perfil === "foot" ? "routed-foot" : "routed-car";
+      const url = `https://routing.openstreetmap.de/${serviceProfile}/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
       const res = await fetch(url);
       const data = await res.json();
       if (data && data.routes && data.routes[0]) {
@@ -167,7 +168,8 @@ export class OSRMOptimizacionStrategy implements OptimizacionStrategy {
       const coordsStr = ordenados
         .map((p) => `${p.longitud},${p.latitud}`)
         .join(";");
-      const url = `https://router.project-osrm.org/route/v1/${perfil}/${coordsStr}?overview=full&geometries=geojson`;
+      const serviceProfile = perfil === "foot" ? "routed-foot" : "routed-car";
+      const url = `https://routing.openstreetmap.de/${serviceProfile}/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
       const res = await fetch(url);
       const data = await res.json();
       if (data && data.routes && data.routes[0]) {

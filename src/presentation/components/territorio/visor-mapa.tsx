@@ -122,7 +122,7 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
           const uLng = pos.coords.longitude;
 
           const startIconHtml = `
-            <div style="background-color: #3B82F6; width: 18px; height: 18px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; font-weight: bold;">
+            <div style="background-color: #3B82F6; width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-size: 13px; color: white; font-weight: 900; text-shadow: 0 1px 2px rgba(0,0,0,0.6);">
               1
             </div>
           `;
@@ -130,8 +130,8 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
           const customStartIcon = L.divIcon({
             html: startIconHtml,
             className: "custom-marker-icon",
-            iconSize: [18, 18],
-            iconAnchor: [9, 9],
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
           });
 
           L.marker([uLat, uLng], {
@@ -139,8 +139,9 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
           })
             .addTo(map)
             .bindPopup(
-              "<b style='color: #3B82F6;'>Punto de Partida (Mi Ubicación)</b>"
-            );
+              "<b style='color: #3B82F6; font-size:12px;'>Punto de Partida (Mi Ubicación)</b>"
+            )
+            .openPopup();
         });
       }
     }
@@ -160,8 +161,9 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
           labelEstado = "Visitado (Prospecto)";
         }
 
+        // Expanded marker sizes for superior readability
         const iconHtml = `
-          <div style="background-color: ${colorHex}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-size: 7px; color: white; font-weight: bold;">
+          <div style="background-color: ${colorHex}; width: 24px; height: 24px; border-radius: 50%; border: 2.5px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: 800;">
             ${isEnRuta ? routeOrder : ""}
           </div>
         `;
@@ -169,8 +171,8 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
         const customIcon = L.divIcon({
           html: iconHtml,
           className: "custom-marker-icon",
-          iconSize: [14, 14],
-          iconAnchor: [7, 7],
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
         });
 
         const marker = L.marker([c.latitud, c.longitud], {
@@ -211,7 +213,7 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
     if (routeCoords.length > 1) {
       L.polyline(routeCoords, {
         color: "#10B981",
-        weight: 4,
+        weight: 5.5, // Increased thickness for readability
         opacity: 0.85,
         dashArray:
           rutaGeometria && rutaGeometria.length > 0 ? undefined : "6, 12",
