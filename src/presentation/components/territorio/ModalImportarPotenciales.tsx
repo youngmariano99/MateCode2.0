@@ -10,6 +10,7 @@ interface ImportItem {
   contacto?: string;
   tipoServicio?: string;
   pitch?: string;
+  rubro?: string;
   direccionCalle: string;
   direccionCodigoPostal: string;
   direccionCiudad: string;
@@ -45,6 +46,7 @@ export const ModalImportarPotenciales: React.FC<
   const templateBasico = [
     {
       nombre: "Panadería Colón",
+      rubro: "Gastronomía",
       direccionCalle: "Av. Colón 450",
       direccionCodigoPostal: "8000",
       direccionCiudad: "Bahía Blanca",
@@ -54,6 +56,7 @@ export const ModalImportarPotenciales: React.FC<
     },
     {
       nombre: "Gimnasio Estilo",
+      rubro: "Deportes",
       direccionCalle: "Vieytes 1020",
       direccionCodigoPostal: "8000",
       direccionCiudad: "Bahía Blanca",
@@ -66,6 +69,7 @@ export const ModalImportarPotenciales: React.FC<
   const templateCompleto = [
     {
       nombre: "Panadería Colón",
+      rubro: "Gastronomía",
       contacto: "Roberto (Dueño)",
       tipoServicio: "Página Web y Menú QR",
       pitch: "Digitalizar su cartelería física con código QR dinámico",
@@ -77,6 +81,7 @@ export const ModalImportarPotenciales: React.FC<
     },
     {
       nombre: "Gimnasio Estilo",
+      rubro: "Deportes",
       contacto: "Gaby (Propietario)",
       tipoServicio: "PWA de Reservas y Clases",
       pitch: "Automatizar los cupos de las clases cruzadas",
@@ -110,6 +115,7 @@ export const ModalImportarPotenciales: React.FC<
         contacto: String(x.contacto || "").trim(),
         tipoServicio: String(x.tipoServicio || "").trim(),
         pitch: String(x.pitch || "").trim(),
+        rubro: String(x.rubro || "General").trim(),
         direccionCalle: String(x.direccionCalle || "").trim(),
         direccionCodigoPostal: String(x.direccionCodigoPostal || "").trim(),
         direccionCiudad: String(x.direccionCiudad || "").trim(),
@@ -249,6 +255,7 @@ export const ModalImportarPotenciales: React.FC<
       contacto: x.contacto,
       tipoServicio: x.tipoServicio,
       pitch: x.pitch,
+      rubro: x.rubro || "General",
       direccion: [
         x.direccionCalle,
         x.direccionCodigoPostal,
@@ -267,8 +274,8 @@ export const ModalImportarPotenciales: React.FC<
       visitado: false,
       visitasCount: 0,
       convertido: false,
-      latitud: x.latitud ?? -34.6 + Math.random() * 0.1,
-      longitud: x.longitud ?? -58.4 - Math.random() * 0.1,
+      latitud: x.latitud,
+      longitud: x.longitud,
       creadoEn: Date.now(),
       actualizadoEn: Date.now(),
     }));
@@ -278,7 +285,7 @@ export const ModalImportarPotenciales: React.FC<
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="animate-in zoom-in flex max-h-[85vh] w-full max-w-4xl flex-col overflow-y-auto rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-6 shadow-2xl duration-150">
+      <div className="animate-in zoom-in flex max-h-[85vh] w-full max-w-5xl flex-col overflow-y-auto rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-6 shadow-2xl duration-150">
         {/* Header */}
         <div className="mb-4 flex items-center justify-between border-b border-[#2A2A2E] pb-3">
           <div className="flex items-center gap-2">
@@ -323,7 +330,7 @@ export const ModalImportarPotenciales: React.FC<
               </button>
             </div>
 
-            <div className="flex flex-col gap-1 rounded-xl border border-zinc-800 bg-zinc-950 p-4">
+            <div className="flex flex-col gap-1.5 rounded-xl border border-zinc-800 bg-zinc-950 p-4">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-xs font-bold text-zinc-300">
                   Plantilla de Entrada (
@@ -339,8 +346,8 @@ export const ModalImportarPotenciales: React.FC<
               </div>
               <p className="mt-2 font-mono text-[10px] leading-normal text-zinc-500">
                 Genera tu JSON con la dirección dividida en campos e incluye el
-                código postal (`direccionCodigoPostal`) para asegurar que la
-                geocodificación sea exacta.
+                rubro (`rubro`) y código postal (`direccionCodigoPostal`) para
+                asegurar que la geocodificación sea exacta y puedas filtrarlos.
               </p>
             </div>
 
@@ -353,8 +360,8 @@ export const ModalImportarPotenciales: React.FC<
                 onChange={(e) => setJsonText(e.target.value)}
                 placeholder={
                   tipoImportacion === "basica"
-                    ? '[{\n  "nombre": "Panadería Colón",\n  "direccionCalle": "Av. Colón 450",\n  "direccionCodigoPostal": "8000",\n  "direccionCiudad": "Bahía Blanca",\n  "direccionProvincia": "Buenos Aires",\n  "direccionPais": "Argentina",\n  "tipoServicio": "Página Web y Menú QR"\n}]'
-                    : '[{\n  "nombre": "Panadería Colón",\n  "contacto": "Roberto (Dueño)",\n  "tipoServicio": "Página Web y Menú QR",\n  "pitch": "Digitalizar su cartelería física con código QR dinámico",\n  "direccionCalle": "Av. Colón 450",\n  "direccionCodigoPostal": "8000",\n  "direccionCiudad": "Bahía Blanca",\n  "direccionProvincia": "Buenos Aires",\n  "direccionPais": "Argentina"\n}]'
+                    ? '[{\n  "nombre": "Panadería Colón",\n  "rubro": "Gastronomía",\n  "direccionCalle": "Av. Colón 450",\n  "direccionCodigoPostal": "8000",\n  "direccionCiudad": "Bahía Blanca",\n  "direccionProvincia": "Buenos Aires",\n  "direccionPais": "Argentina",\n  "tipoServicio": "Página Web y Menú QR"\n}]'
+                    : '[{\n  "nombre": "Panadería Colón",\n  "rubro": "Gastronomía",\n  "contacto": "Roberto (Dueño)",\n  "tipoServicio": "Página Web y Menú QR",\n  "pitch": "Digitalizar su cartelería física con código QR dinámico",\n  "direccionCalle": "Av. Colón 450",\n  "direccionCodigoPostal": "8000",\n  "direccionCiudad": "Bahía Blanca",\n  "direccionProvincia": "Buenos Aires",\n  "direccionPais": "Argentina"\n}]'
                 }
                 rows={12}
                 className="w-full rounded-xl border border-zinc-800 bg-zinc-950 p-4 font-mono text-xs text-zinc-100 placeholder-zinc-700 transition-all focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 focus:outline-none"
@@ -386,15 +393,16 @@ export const ModalImportarPotenciales: React.FC<
           <div className="flex flex-col gap-4">
             <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 font-mono text-[10px] text-emerald-400">
               ✓ JSON validado. Se geocodificará cada dirección. Corrige inline
-              cualquier error e intenta re-testear la fila con el botón de
+              cualquier error e intenta re-testear la dirección con el botón de
               búsqueda.
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-[#2A2A2E] bg-zinc-950">
-              <table className="w-full min-w-[800px] border-collapse text-left font-mono text-[11px]">
+              <table className="w-full min-w-[900px] border-collapse text-left font-mono text-[11px]">
                 <thead>
                   <tr className="border-b border-[#2A2A2E] bg-zinc-900/50 text-zinc-500">
                     <th className="px-3 py-2.5">Negocio</th>
+                    <th className="px-3 py-2.5">Rubro</th>
                     <th className="px-3 py-2.5">Calle y Altura</th>
                     <th className="px-3 py-2.5">CP / Ciudad / Prov</th>
                     <th className="px-3 py-2.5">Estado Mapa</th>
@@ -415,6 +423,16 @@ export const ModalImportarPotenciales: React.FC<
                             handleUpdateField(idx, "nombre", e.target.value)
                           }
                           className="w-full rounded border border-transparent bg-transparent px-1.5 py-0.5 font-bold text-zinc-100 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="text"
+                          value={item.rubro}
+                          onChange={(e) =>
+                            handleUpdateField(idx, "rubro", e.target.value)
+                          }
+                          className="w-full rounded border border-transparent bg-transparent px-1.5 py-0.5 text-zinc-300 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
                         />
                       </td>
                       <td className="px-3 py-2">

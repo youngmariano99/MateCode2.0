@@ -17,6 +17,7 @@ describe("Módulo de Potenciales Clientes (Prospección y Conversión)", () => {
       contacto: "Roberto (Dueño)",
       tipoServicio: "Menú QR",
       pitch: "Digitalizar carta física",
+      rubro: "Gastronomía",
       direccionCalle: "Av. Colón 450",
       direccionCodigoPostal: "8000",
       direccionCiudad: "Bahía Blanca",
@@ -35,6 +36,7 @@ describe("Módulo de Potenciales Clientes (Prospección y Conversión)", () => {
     const guardado = await db.potenciales_clientes.get(prospectoId);
     assert.ok(guardado);
     assert.strictEqual(guardado.nombre, "Panadería Colón");
+    assert.strictEqual(guardado.rubro, "Gastronomía");
     assert.strictEqual(guardado.visitado, false);
 
     // 2. Visit logging
@@ -61,7 +63,7 @@ describe("Módulo de Potenciales Clientes (Prospección y Conversión)", () => {
       direccionProvincia: visitadoRecord?.direccionProvincia,
       direccionPais: visitadoRecord?.direccionPais,
       estado: "Lead",
-      observaciones: `Convertido de Prospecto: ${visitadoRecord?.pitch}`,
+      observaciones: `Convertido de Prospecto: ${visitadoRecord?.pitch}. Rubro: ${visitadoRecord?.rubro}`,
     };
 
     await db.clientes.add(crmPayload);

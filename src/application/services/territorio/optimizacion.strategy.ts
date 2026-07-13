@@ -12,6 +12,7 @@ export interface RutaOptimizada {
   distanciaKm: number;
   duracionMin: number;
   proveedor: string;
+  geometriaGeoJson?: [number, number][]; // Coordinates tracing the actual streets
 }
 
 export interface OptimizacionStrategy {
@@ -97,14 +98,39 @@ export class GraphHopperOptimizacionStrategy implements OptimizacionStrategy {
       startingPoint
     );
 
-    const distancia = Math.round(5 + puntos.length * 1.5);
-    const duracion = Math.round(15 + puntos.length * 20);
+    let distancia = Math.round(5 + puntos.length * 1.5);
+    let duracion = Math.round(15 + puntos.length * 20);
+    let geometria: [number, number][] | undefined = undefined;
+
+    // Call OSRM to get street routing logic even for GraphHopper strategy if requested
+    try {
+      const coordsStr = ordenados
+        .map((p) => `${p.longitud},${p.latitud}`)
+        .join(";");
+      const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data && data.routes && data.routes[0]) {
+        const route = data.routes[0];
+        distancia = parseFloat((route.distance / 1000).toFixed(2));
+        duracion = Math.round(route.duration / 60);
+        if (route.geometry && route.geometry.coordinates) {
+          geometria = route.geometry.coordinates.map((c: [number, number]) => [
+            c[1],
+            c[0],
+          ]);
+        }
+      }
+    } catch {
+      // offline fallback
+    }
 
     return Resultado.exito({
       puntos: ordenados,
       distanciaKm: distancia,
       duracionMin: duracion,
       proveedor: "GraphHopper",
+      geometriaGeoJson: geometria,
     });
   }
 }
@@ -129,14 +155,38 @@ export class OSRMOptimizacionStrategy implements OptimizacionStrategy {
       startingPoint
     );
 
-    const distancia = Math.round(4 + puntos.length * 1.8);
-    const duracion = Math.round(10 + puntos.length * 22);
+    let distancia = Math.round(4 + puntos.length * 1.8);
+    let duracion = Math.round(10 + puntos.length * 22);
+    let geometria: [number, number][] | undefined = undefined;
+
+    try {
+      const coordsStr = ordenados
+        .map((p) => `${p.longitud},${p.latitud}`)
+        .join(";");
+      const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data && data.routes && data.routes[0]) {
+        const route = data.routes[0];
+        distancia = parseFloat((route.distance / 1000).toFixed(2));
+        duracion = Math.round(route.duration / 60);
+        if (route.geometry && route.geometry.coordinates) {
+          geometria = route.geometry.coordinates.map((c: [number, number]) => [
+            c[1],
+            c[0],
+          ]);
+        }
+      }
+    } catch {
+      // offline fallback
+    }
 
     return Resultado.exito({
       puntos: ordenados,
       distanciaKm: distancia,
       duracionMin: duracion,
       proveedor: "OSRM",
+      geometriaGeoJson: geometria,
     });
   }
 }

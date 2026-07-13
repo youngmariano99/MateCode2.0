@@ -38,6 +38,9 @@ export default function TerritorioPage() {
   const [rutaPuntos, setRutaPuntos] = useState<
     { id: string; nombre: string }[]
   >([]);
+  const [rutaGeometria, setRutaGeometria] = useState<
+    [number, number][] | undefined
+  >(undefined);
 
   // Advanced Filters
   const [filtroConversion, setFiltroConversion] = useState<
@@ -46,6 +49,7 @@ export default function TerritorioPage() {
   const [filtroVisita, setFiltroVisita] = useState<
     "todos" | "visitados" | "no_visitados"
   >("todos");
+  const [filtroRubro, setFiltroRubro] = useState<string>("todos");
   const [filtroOrden, setFiltroOrden] = useState<"recientes" | "antiguos">(
     "recientes"
   );
@@ -54,6 +58,11 @@ export default function TerritorioPage() {
   const rawProspectos =
     useLiveQuery(() => db.potenciales_clientes.toArray()) || [];
   const prospectos = rawProspectos as unknown as PotencialCliente[];
+
+  // Get distinct rubros for filter dropdown
+  const rubrosDisponiblesDashboard = Array.from(
+    new Set(prospectos.map((p) => p.rubro || "General").filter(Boolean))
+  );
 
   // Apply filters
   const prospectosFiltrados = prospectos
@@ -65,6 +74,10 @@ export default function TerritorioPage() {
       // Visit Filter
       if (filtroVisita === "visitados" && !p.visitado) return false;
       if (filtroVisita === "no_visitados" && p.visitado) return false;
+
+      // Rubro Filter
+      if (filtroRubro !== "todos" && (p.rubro || "General") !== filtroRubro)
+        return false;
 
       return true;
     })
@@ -107,6 +120,7 @@ export default function TerritorioPage() {
           contacto: payload.contacto || "",
           tipoServicio: payload.tipoServicio || "",
           pitch: payload.pitch || "",
+          rubro: payload.rubro || "General",
           direccion: payload.direccion || "",
           direccionCalle: payload.direccionCalle || "",
           direccionCodigoPostal: payload.direccionCodigoPostal || "",
@@ -346,6 +360,25 @@ export default function TerritorioPage() {
               </select>
             </div>
 
+            {/* Rubro Filter */}
+            <div className="flex flex-col gap-1.5">
+              <label className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
+                Filtrar Rubro
+              </label>
+              <select
+                value={filtroRubro}
+                onChange={(e) => setFiltroRubro(e.target.value)}
+                className="animate-in fade-in rounded-xl border border-zinc-800 bg-[#18181B] px-3 py-2 font-mono text-xs text-zinc-300 focus:border-emerald-500 focus:outline-none"
+              >
+                <option value="todos">Todos los Rubros</option>
+                {rubrosDisponiblesDashboard.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Age Sort */}
             <div className="flex flex-col gap-1.5">
               <label className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
@@ -372,13 +405,20 @@ export default function TerritorioPage() {
 
         {/* Map View & Route Planner */}
         <div className="flex flex-col gap-6">
-          <VisorMapa clientes={prospectosFiltrados} rutaPuntos={rutaPuntos} />
+          <VisorMapa
+            clientes={prospectosFiltrados}
+            rutaPuntos={rutaPuntos}
+            rutaGeometria={rutaGeometria}
+          />
 
           <PlanificadorDiario
             clientes={prospectosFiltrados.filter(
               (p) => p.latitud && p.longitud
             )}
-            onRutaCalculada={setRutaPuntos}
+            onRutaCalculada={(puntos, geometria) => {
+              setRutaPuntos(puntos);
+              setRutaGeometria(geometria);
+            }}
             onRegistrarVisitaClick={(c) => {
               const matched = prospectos.find((p) => p.id === c.id);
               if (matched) {
@@ -409,9 +449,14 @@ export default function TerritorioPage() {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex flex-col gap-0.5">
-                    <span className="font-mono text-sm font-bold text-zinc-100">
-                      {p.nombre}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm font-bold text-zinc-100">
+                        {p.nombre}
+                      </span>
+                      <span className="py-0.2 rounded border border-zinc-800 bg-zinc-900 px-1.5 font-mono text-[9px] font-bold text-zinc-400 uppercase">
+                        {p.rubro || "General"}
+                      </span>
+                    </div>
                     {p.contacto && (
                       <span className="font-mono text-[10px] text-zinc-400">
                         Contacto: {p.contacto}
@@ -567,7 +612,7 @@ export default function TerritorioPage() {
               direccionProvincia: prospectoAConvertir.direccionProvincia || "",
               direccionPais: prospectoAConvertir.direccionPais || "Argentina",
               estado: "Lead",
-              observaciones: `Convertido de Prospecto de Campo. Pitch: ${prospectoAConvertir.pitch || "N/A"}. Servicio: ${prospectoAConvertir.tipoServicio || "N/A"}.`,
+              observaciones: `Convertido de Prospecto de Campo. Rubro: ${prospectoAConvertir.rubro || "General"}. Pitch: ${prospectoAConvertir.pitch || "N/A"}. Servicio: ${prospectoAConvertir.tipoServicio || "N/A"}.`,
             }}
             onCerrar={() => {
               setModalCrmAbierto(false);

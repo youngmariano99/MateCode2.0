@@ -13,6 +13,7 @@ export interface PotencialCliente {
   contacto?: string;
   tipoServicio?: string;
   pitch?: string;
+  rubro?: string;
   direccion?: string;
   direccionCalle?: string;
   direccionCodigoPostal?: string;
@@ -48,6 +49,7 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
   const [contacto, setContacto] = useState("");
   const [tipoServicio, setTipoServicio] = useState("");
   const [pitch, setPitch] = useState("");
+  const [rubro, setRubro] = useState("");
 
   // Address fields
   const [calle, setCalle] = useState("");
@@ -61,6 +63,7 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
   const [provinciasExistentes, setProvinciasExistentes] = useState<string[]>(
     []
   );
+  const [rubrosExistentes, setRubrosExistentes] = useState<string[]>([]);
 
   // Geocoding test status
   const [testResult, setTestResult] = useState<{
@@ -88,8 +91,12 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
               .filter(Boolean)
           )
         );
+        const rubros = Array.from(
+          new Set(list.map((c) => (c.rubro as string) || "").filter(Boolean))
+        );
         setCiudadesExistentes(cities);
         setProvinciasExistentes(states);
+        setRubrosExistentes(rubros);
       } catch {
         // Ignored
       }
@@ -107,6 +114,7 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
         setContacto(prospectoEdicion.contacto || "");
         setTipoServicio(prospectoEdicion.tipoServicio || "");
         setPitch(prospectoEdicion.pitch || "");
+        setRubro(prospectoEdicion.rubro || "");
         setCalle(prospectoEdicion.direccionCalle || "");
         setCodigoPostal(prospectoEdicion.direccionCodigoPostal || "");
         setCiudad(prospectoEdicion.direccionCiudad || "");
@@ -117,6 +125,7 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
         setContacto("");
         setTipoServicio("");
         setPitch("");
+        setRubro("");
         setCalle("");
         setCodigoPostal("");
         setCiudad("");
@@ -208,6 +217,7 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
       contacto: contacto.trim(),
       tipoServicio: tipoServicio.trim(),
       pitch: pitch.trim(),
+      rubro: rubro.trim(),
       direccion: direccionCompleta,
       direccionCalle: calle.trim(),
       direccionCodigoPostal: codigoPostal.trim(),
@@ -246,6 +256,19 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
               placeholder="Ej. Panadería Colón o Gimnasio Estilo"
             />
           </div>
+
+          <Input
+            label="Rubro / Categoría"
+            list="rubros-prospect-datalist"
+            value={rubro}
+            onChange={(e) => setRubro(e.target.value)}
+            placeholder="Ej. Gastronomía, Estética, Salud"
+          />
+          <datalist id="rubros-prospect-datalist">
+            {rubrosExistentes.map((r) => (
+              <option key={r} value={r} />
+            ))}
+          </datalist>
 
           <Input
             label="Persona de Contacto (Opcional)"

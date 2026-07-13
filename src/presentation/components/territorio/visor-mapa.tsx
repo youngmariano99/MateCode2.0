@@ -18,11 +18,13 @@ interface MarkerProspecto {
 interface VisorMapaProps {
   clientes: MarkerProspecto[];
   rutaPuntos?: { id: string; nombre: string }[];
+  rutaGeometria?: [number, number][]; // Street-following path coordinates
 }
 
 export const VisorMapa: React.FC<VisorMapaProps> = ({
   clientes,
   rutaPuntos = [],
+  rutaGeometria = [],
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -109,13 +111,36 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
       fitRouteBounds(map, L);
     }
 
+    // Start coordinates for drawing the path
     const routeCoords: [number, number][] = [];
 
-    // Prepend user position to route path if "mi_posicion_actual" is in the route
-    if (rutaPuntos.some((rp) => rp.id === "mi_posicion_actual")) {
+    // If starting from GPS, draw starting blue number "1" marker
+    if (rutaPuntos.length > 0 && rutaPuntos[0].id === "mi_posicion_actual") {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition((pos) => {
-          routeCoords.push([pos.coords.latitude, pos.coords.longitude]);
+          const uLat = pos.coords.latitude;
+          const uLng = pos.coords.longitude;
+
+          const startIconHtml = `
+            <div style="background-color: #3B82F6; width: 18px; height: 18px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; font-weight: bold;">
+              1
+            </div>
+          `;
+
+          const customStartIcon = L.divIcon({
+            html: startIconHtml,
+            className: "custom-marker-icon",
+            iconSize: [18, 18],
+            iconAnchor: [9, 9],
+          });
+
+          L.marker([uLat, uLng], {
+            icon: customStartIcon,
+          })
+            .addTo(map)
+            .bindPopup(
+              "<b style='color: #3B82F6;'>Punto de Partida (Mi Ubicación)</b>"
+            );
         });
       }
     }
@@ -167,20 +192,29 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
       }
     });
 
-    rutaPuntos.forEach((rp) => {
-      if (rp.id === "mi_posicion_actual") return;
-      const match = clientes.find((c) => c.id === rp.id);
-      if (match && match.latitud && match.longitud) {
-        routeCoords.push([match.latitud, match.longitud]);
-      }
-    });
+    if (rutaGeometria && rutaGeometria.length > 0) {
+      // 1. Draw street routing geometry from OSRM
+      rutaGeometria.forEach((c) => {
+        routeCoords.push(c);
+      });
+    } else {
+      // 2. Draw fallback straight dashed lines between paradas
+      rutaPuntos.forEach((rp) => {
+        if (rp.id === "mi_posicion_actual") return;
+        const match = clientes.find((c) => c.id === rp.id);
+        if (match && match.latitud && match.longitud) {
+          routeCoords.push([match.latitud, match.longitud]);
+        }
+      });
+    }
 
     if (routeCoords.length > 1) {
       L.polyline(routeCoords, {
         color: "#10B981",
-        weight: 3,
-        opacity: 0.8,
-        dashArray: "6, 12",
+        weight: 4,
+        opacity: 0.85,
+        dashArray:
+          rutaGeometria && rutaGeometria.length > 0 ? undefined : "6, 12",
       }).addTo(map);
 
       const bounds = L.latLngBounds(routeCoords);
@@ -198,7 +232,7 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
         mapObj.fitBounds(bounds, { padding: [30, 30] });
       }
     }
-  }, [mapLoaded, clientes, rutaPuntos]);
+  }, [mapLoaded, clientes, rutaPuntos, rutaGeometria]);
 
   return (
     <Card>
@@ -207,7 +241,8 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
           Mapa General de Prospección
         </h4>
         <p className="font-mono text-[10px] text-zinc-500">
-          Ubicación de potenciales clientes y recorridos óptimos de campo
+          Ubicación de potenciales clientes y recorridos óptimos que respetan la
+          traza urbana de las calles
         </p>
       </div>
 
@@ -221,7 +256,7 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
         ) : (
           <>
             <div className="absolute bottom-3 left-3 z-20 flex flex-col gap-1.5 rounded-lg border border-[#2A2A2E] bg-[#18181B]/95 p-2.5 font-mono text-[9px] text-zinc-400 backdrop-blur-sm">
-              <span className="mb-0.5 animate-pulse font-bold tracking-wider text-white uppercase">
+              <span className="mb-0.5 font-bold tracking-wider text-white uppercase">
                 Estados
               </span>
               <div className="flex items-center gap-1.5">
@@ -238,7 +273,7 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
               </div>
             </div>
 
-            {rutaPuntos.length > 1 && (
+            {rutaPuntos.length > 0 && (
               <div className="absolute top-3 right-3 z-20 rounded-lg border border-emerald-500/20 bg-[#18181B]/90 p-2 font-mono text-[9px] font-bold text-emerald-400 backdrop-blur-sm">
                 ✓ Ruta Activa: {rutaPuntos.length} paradas optimizadas
               </div>

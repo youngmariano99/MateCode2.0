@@ -21,11 +21,15 @@ interface ClienteGeocodificado {
   visitado?: boolean;
   visitasCount?: number;
   convertido?: boolean;
+  rubro?: string;
 }
 
 interface PlanificadorDiarioProps {
   clientes: ClienteGeocodificado[];
-  onRutaCalculada: (puntos: { id: string; nombre: string }[]) => void;
+  onRutaCalculada: (
+    puntos: { id: string; nombre: string }[],
+    geometria?: [number, number][]
+  ) => void;
   onRegistrarVisitaClick: (c: ClienteGeocodificado) => void;
 }
 
@@ -46,6 +50,10 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
     "Google"
   );
 
+  // Grouping and visited filters
+  const [rubroSeleccionado, setRubroSeleccionado] = useState("Todos");
+  const [soloNoVisitados, setSoloNoVisitados] = useState(false);
+
   const [rutaResultado, setRutaResultado] = useState<{
     puntos: {
       id: string;
@@ -56,6 +64,7 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
     distanciaKm: number;
     duracionMin: number;
     proveedor: string;
+    geometriaGeoJson?: [number, number][];
   } | null>(null);
 
   const toggleSeleccion = (id: string) => {
@@ -114,7 +123,10 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
     if (res.ok) {
       const val = res.valor;
       setRutaResultado(val);
-      onRutaCalculada(val.puntos.map((p) => ({ id: p.id, nombre: p.nombre })));
+      onRutaCalculada(
+        val.puntos.map((p) => ({ id: p.id, nombre: p.nombre })),
+        val.geometriaGeoJson
+      );
       mostrarToast(
         `Ruta optimizada con ${val.proveedor}. Total: ${val.distanciaKm} km.`,
         "exito"
@@ -132,6 +144,25 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
     window.open(url, "_blank");
   };
 
+  // Get distinct rubros from list
+  const rubrosExistentes = Array.from(
+    new Set(clientes.map((c) => c.rubro || "General").filter(Boolean))
+  );
+
+  // Filter checklist array
+  const clientesChecklist = clientes.filter((c) => {
+    if (
+      rubroSeleccionado !== "Todos" &&
+      (c.rubro || "General") !== rubroSeleccionado
+    ) {
+      return false;
+    }
+    if (soloNoVisitados && c.visitado) {
+      return false;
+    }
+    return true;
+  });
+
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <Card>
@@ -144,8 +175,36 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
           </p>
         </div>
 
+        {/* Group and visited checklist filters */}
+        <div className="mb-4 grid grid-cols-2 gap-3 border-b border-[#2A2A2E]/50 pb-3">
+          <Select
+            label="Filtrar por Rubro"
+            options={[
+              { value: "Todos", label: "Todos los Rubros" },
+              ...rubrosExistentes.map((r) => ({ value: r, label: r })),
+            ]}
+            value={rubroSeleccionado}
+            onChange={(val) => setRubroSeleccionado(val)}
+          />
+          <div className="flex items-center gap-2 pt-5">
+            <input
+              type="checkbox"
+              id="chkSoloNoVisitados"
+              checked={soloNoVisitados}
+              onChange={(e) => setSoloNoVisitados(e.target.checked)}
+              className="cursor-pointer rounded border-[#2A2A2E] bg-zinc-950 text-emerald-500 focus:ring-emerald-500"
+            />
+            <label
+              htmlFor="chkSoloNoVisitados"
+              className="cursor-pointer font-mono text-[10px] font-bold text-zinc-300 select-none"
+            >
+              No Visitados Aún
+            </label>
+          </div>
+        </div>
+
         <div className="mb-4 flex max-h-[220px] flex-col gap-2 overflow-y-auto pr-1">
-          {clientes.map((c) => (
+          {clientesChecklist.map((c) => (
             <label
               key={c.id}
               className="flex cursor-pointer items-center gap-2 rounded-xl border border-[#2A2A2E] bg-zinc-950 p-2.5 font-mono text-xs text-zinc-300 transition-all select-none hover:border-zinc-800"
@@ -159,6 +218,9 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
               <div className="flex flex-col gap-0.5">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-zinc-100">{c.nombre}</span>
+                  <span className="py-0.2 rounded border border-zinc-800 bg-zinc-900 px-1 text-[8px] font-bold text-zinc-400 uppercase">
+                    {c.rubro || "General"}
+                  </span>
                   {c.convertido && (
                     <span className="rounded bg-gray-500/10 px-1 py-0.5 text-[8px] font-bold text-zinc-400 uppercase">
                       Convertido
@@ -182,9 +244,10 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
               </div>
             </label>
           ))}
-          {clientes.length === 0 && (
+          {clientesChecklist.length === 0 && (
             <span className="py-6 text-center font-mono text-xs text-zinc-500 italic">
-              No hay prospectos geolocalizados disponibles para planificar.
+              Ningún prospecto geolocalizado coincide con los filtros de la
+              lista.
             </span>
           )}
         </div>

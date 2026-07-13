@@ -37,6 +37,7 @@ export class CalcularRecorridoUseCase {
       duracionMin: ruta.duracionMin,
       proveedor: ruta.proveedor,
       puntos: ruta.puntos,
+      geometriaGeoJson: ruta.geometriaGeoJson,
     });
 
     await db.logs_sincronizacion.add({
