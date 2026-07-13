@@ -30,6 +30,16 @@ export interface PotencialCliente {
   longitud?: number;
   creadoEn: number;
   actualizadoEn: number;
+
+  // Digital cold outreach properties
+  whatsapp?: string;
+  email?: string;
+  instagram?: string;
+  facebook?: string;
+  estadoContacto?: "Pendiente" | "Contactado" | "Respondido" | "Sin Interés";
+  ultimoCanalContacto?: "whatsapp" | "email" | "instagram" | "facebook";
+  notasContacto?: string;
+  fechaUltimoContacto?: number;
 }
 
 interface ModalPotencialClienteProps {
@@ -50,6 +60,12 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
   const [tipoServicio, setTipoServicio] = useState("");
   const [pitch, setPitch] = useState("");
   const [rubro, setRubro] = useState("");
+
+  // Digital properties
+  const [whatsapp, setWhatsapp] = useState("");
+  const [email, setEmail] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [facebook, setFacebook] = useState("");
 
   // Address fields
   const [calle, setCalle] = useState("");
@@ -115,6 +131,12 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
         setTipoServicio(prospectoEdicion.tipoServicio || "");
         setPitch(prospectoEdicion.pitch || "");
         setRubro(prospectoEdicion.rubro || "");
+
+        setWhatsapp(prospectoEdicion.whatsapp || "");
+        setEmail(prospectoEdicion.email || "");
+        setInstagram(prospectoEdicion.instagram || "");
+        setFacebook(prospectoEdicion.facebook || "");
+
         setCalle(prospectoEdicion.direccionCalle || "");
         setCodigoPostal(prospectoEdicion.direccionCodigoPostal || "");
         setCiudad(prospectoEdicion.direccionCiudad || "");
@@ -126,6 +148,12 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
         setTipoServicio("");
         setPitch("");
         setRubro("");
+
+        setWhatsapp("");
+        setEmail("");
+        setInstagram("");
+        setFacebook("");
+
         setCalle("");
         setCodigoPostal("");
         setCiudad("");
@@ -218,6 +246,10 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
       tipoServicio: tipoServicio.trim(),
       pitch: pitch.trim(),
       rubro: rubro.trim(),
+      whatsapp: whatsapp.trim(),
+      email: email.trim(),
+      instagram: instagram.trim(),
+      facebook: facebook.trim(),
       direccion: direccionCompleta,
       direccionCalle: calle.trim(),
       direccionCodigoPostal: codigoPostal.trim(),
@@ -293,10 +325,44 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
             />
           </div>
 
+          {/* Contacto Digital (WhatsApp y Redes) */}
+          <div className="flex flex-col gap-2 border-t border-[#2A2A2E]/40 pt-3 sm:col-span-2">
+            <label className="font-mono text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+              Contacto Digital & Canales
+            </label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Input
+                label="WhatsApp / Celular"
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(e.target.value)}
+                placeholder="Ej. +5492914123456"
+              />
+              <Input
+                label="Email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Ej. contacto@empresa.com"
+              />
+              <Input
+                label="Instagram (Usuario o URL)"
+                value={instagram}
+                onChange={(e) => setInstagram(e.target.value)}
+                placeholder="Ej. @negocio o link al perfil"
+              />
+              <Input
+                label="Facebook (Enlace)"
+                value={facebook}
+                onChange={(e) => setFacebook(e.target.value)}
+                placeholder="Ej. https://facebook.com/pagina"
+              />
+            </div>
+          </div>
+
           {/* Structured Address */}
           <div className="flex flex-col gap-2 border-t border-[#2A2A2E]/40 pt-3 sm:col-span-2">
-            <label className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
-              Dirección Postal (Geocodificación Exacta)
+            <label className="font-mono text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+              Dirección Postal (Geocodificación / Campo)
             </label>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Input
@@ -350,7 +416,7 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
             <button
               type="button"
               onClick={testGeocodificacion}
-              className="mt-2 self-start rounded-xl bg-emerald-500 px-4 py-2 font-mono text-[11px] font-bold text-black transition-all hover:bg-emerald-600 active:scale-95"
+              className="mt-2 self-start rounded-xl border border-zinc-800 bg-[#2A2A2E] px-4 py-2 font-mono text-[11px] font-bold text-zinc-300 transition-all hover:bg-zinc-800 active:scale-95"
             >
               Testear Dirección Geográfica
             </button>

@@ -9,27 +9,35 @@ import { db } from "../../../offline/dexie/db";
 import { useLiveQuery } from "dexie-react-hooks";
 import { VisorMapa } from "../../../presentation/components/territorio/visor-mapa";
 import { PlanificadorDiario } from "../../../presentation/components/territorio/planificador-diario";
+import { PlanificadorDigital } from "../../../presentation/components/territorio/planificador-digital";
 import {
   ModalPotencialCliente,
   PotencialCliente,
 } from "../../../presentation/components/territorio/ModalPotencialCliente";
 import { ModalImportarPotenciales } from "../../../presentation/components/territorio/ModalImportarPotenciales";
 import { ModalRegistrarVisitaProspecto } from "../../../presentation/components/territorio/ModalRegistrarVisitaProspecto";
+import { ModalRegistrarContacto } from "../../../presentation/components/territorio/ModalRegistrarContacto";
 import { ModalCliente } from "../../../presentation/components/crm/ModalCliente";
 
 export default function TerritorioPage() {
   const { mostrarToast } = useToast();
 
+  // Navigation workspace tabs
+  const [activeTab, setActiveTab] = useState<"campo" | "digital">("campo");
+
   // Modals visibility
   const [modalManualAbierto, setModalManualAbierto] = useState(false);
   const [modalImportarAbierto, setModalImportarAbierto] = useState(false);
   const [modalVisitaAbierto, setModalVisitaAbierto] = useState(false);
+  const [modalContactoAbierto, setModalContactoAbierto] = useState(false);
   const [modalCrmAbierto, setModalCrmAbierto] = useState(false);
 
   // Selected items for edit / actions
   const [prospectoEdicion, setProspectoEdicion] =
     useState<PotencialCliente | null>(null);
   const [prospectoVisita, setProspectoVisita] =
+    useState<PotencialCliente | null>(null);
+  const [prospectoContacto, setProspectoContacto] =
     useState<PotencialCliente | null>(null);
   const [prospectoAConvertir, setProspectoAConvertir] =
     useState<PotencialCliente | null>(null);
@@ -95,7 +103,9 @@ export default function TerritorioPage() {
   const visitadosProspectos = prospectos.filter(
     (p) => p.visitado && !p.convertido
   ).length;
-  const convertidosProspectos = prospectos.filter((p) => p.convertido).length;
+  const contactadosDigitales = prospectos.filter(
+    (p) => p.estadoContacto && p.estadoContacto !== "Pendiente" && !p.convertido
+  ).length;
 
   const handleCrearOEditarProspecto = async (
     payload: Partial<PotencialCliente>
@@ -121,6 +131,10 @@ export default function TerritorioPage() {
           tipoServicio: payload.tipoServicio || "",
           pitch: payload.pitch || "",
           rubro: payload.rubro || "General",
+          whatsapp: payload.whatsapp || "",
+          email: payload.email || "",
+          instagram: payload.instagram || "",
+          facebook: payload.facebook || "",
           direccion: payload.direccion || "",
           direccionCalle: payload.direccionCalle || "",
           direccionCodigoPostal: payload.direccionCodigoPostal || "",
@@ -130,6 +144,7 @@ export default function TerritorioPage() {
           visitado: false,
           visitasCount: 0,
           convertido: false,
+          estadoContacto: "Pendiente",
           latitud: payload.latitud,
           longitud: payload.longitud,
           creadoEn: Date.now(),
@@ -198,6 +213,40 @@ export default function TerritorioPage() {
     }
   };
 
+  const handleRegistrarContactoDigital = async (resultado: {
+    canal: "whatsapp" | "email" | "instagram" | "facebook";
+    estado: "Contactado" | "Respondido" | "Sin Interés";
+    notas: string;
+  }) => {
+    if (!prospectoContacto) return;
+    try {
+      const updated: PotencialCliente = {
+        ...prospectoContacto,
+        estadoContacto: resultado.estado,
+        ultimoCanalContacto: resultado.canal,
+        notasContacto: resultado.notas,
+        fechaUltimoContacto: Date.now(),
+        actualizadoEn: Date.now(),
+      };
+      await db.potenciales_clientes.put(
+        updated as unknown as Record<string, unknown>
+      );
+
+      // Log activity offline
+      await db.logs_sincronizacion.add({
+        tipo: "exito",
+        mensaje: `Contacto digital registrado para prospecto ${prospectoContacto.nombre} vía ${resultado.canal} (${resultado.estado}).`,
+        fecha: Date.now(),
+      });
+
+      mostrarToast("Gestión de contacto digital guardada con éxito.", "exito");
+      setModalContactoAbierto(false);
+      setProspectoContacto(null);
+    } catch {
+      mostrarToast("Error al registrar contacto digital.", "error");
+    }
+  };
+
   const handleConfirmarConversionCrm = async (
     crmPayload: Record<string, unknown>
   ) => {
@@ -262,11 +311,10 @@ export default function TerritorioPage() {
         <div className="flex flex-col justify-between gap-4 border-b border-[#2A2A2E] pb-5 md:flex-row md:items-center">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-white">
-              Gestión de Potenciales Clientes y Campo
+              Gestión de Potenciales Clientes (Prospección)
             </h1>
-            <p className="mt-1 text-sm text-zinc-400">
-              Prospección en frío, geocodificación automática, ruteo óptimo y
-              conversión al CRM.
+            <p className="mt-1 font-mono text-sm text-zinc-400">
+              Inteligencia Territorial para Campo & Prospección Digital en Frío
             </p>
           </div>
           <div className="flex gap-2">
@@ -275,7 +323,7 @@ export default function TerritorioPage() {
                 setProspectoEdicion(null);
                 setModalManualAbierto(true);
               }}
-              className="rounded-xl bg-emerald-500 px-4 py-2.5 font-mono text-xs font-bold text-zinc-950 transition-all select-none hover:bg-emerald-600 active:scale-95"
+              className="animate-in fade-in rounded-xl bg-emerald-500 px-4 py-2.5 font-mono text-xs font-bold text-zinc-950 transition-all select-none hover:bg-emerald-600 active:scale-95"
             >
               Nuevo Prospecto
             </button>
@@ -305,7 +353,7 @@ export default function TerritorioPage() {
           </Card>
           <Card>
             <span className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
-              Visitas Realizadas
+              Visitas de Campo
             </span>
             <span className="mt-1 block font-mono text-xl font-bold text-amber-400">
               {visitadosProspectos}
@@ -313,15 +361,80 @@ export default function TerritorioPage() {
           </Card>
           <Card>
             <span className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
-              Convertidos a Clientes
+              Contactados por Redes
             </span>
-            <span className="mt-1 block font-mono text-xl font-bold text-blue-400">
-              {convertidosProspectos}
+            <span className="animate-in zoom-in mt-1 block font-mono text-xl font-bold text-pink-400">
+              {contactadosDigitales}
             </span>
           </Card>
         </div>
 
-        {/* Advanced Filters */}
+        {/* Navigation Tabs */}
+        <div className="flex rounded-xl border-b border-[#2A2A2E] bg-zinc-950/20 p-1">
+          <button
+            onClick={() => setActiveTab("campo")}
+            className={`flex-1 rounded-lg py-2.5 text-center font-mono text-xs font-bold transition-all ${
+              activeTab === "campo"
+                ? "border border-zinc-800 bg-zinc-900 font-extrabold text-emerald-400 shadow-lg"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            📍 Prospección en Campo (Mapa y Ruteo)
+          </button>
+          <button
+            onClick={() => setActiveTab("digital")}
+            className={`flex-1 rounded-lg py-2.5 text-center font-mono text-xs font-bold transition-all ${
+              activeTab === "digital"
+                ? "animate-pulse-subtle border border-zinc-800 bg-zinc-900 font-extrabold text-emerald-400 shadow-lg"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            📱 Prospección Digital (Redes y WhatsApp)
+          </button>
+        </div>
+
+        {/* Workspaces Conditional Rendering */}
+        {activeTab === "campo" ? (
+          <div className="animate-in fade-in flex flex-col gap-6 duration-200">
+            <VisorMapa
+              clientes={prospectosFiltrados}
+              rutaPuntos={rutaPuntos}
+              rutaGeometria={rutaGeometria}
+            />
+
+            <PlanificadorDiario
+              clientes={prospectosFiltrados.filter(
+                (p) => p.latitud && p.longitud
+              )}
+              onRutaCalculada={(puntos, geometria) => {
+                setRutaPuntos(puntos);
+                setRutaGeometria(geometria);
+              }}
+              onRegistrarVisitaClick={(c) => {
+                const matched = prospectos.find((p) => p.id === c.id);
+                if (matched) {
+                  setProspectoVisita(matched);
+                  setModalVisitaAbierto(true);
+                }
+              }}
+            />
+          </div>
+        ) : (
+          <div className="animate-in slide-in-from-right-3 flex flex-col gap-6 duration-200">
+            <PlanificadorDigital
+              clientes={prospectosFiltrados}
+              onRegistrarContactoClick={(c) => {
+                const matched = prospectos.find((p) => p.id === c.id);
+                if (matched) {
+                  setProspectoContacto(matched);
+                  setModalContactoAbierto(true);
+                }
+              }}
+            />
+          </div>
+        )}
+
+        {/* Advanced Filters Panel */}
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#2A2A2E] bg-zinc-950 p-4">
           <div className="flex flex-wrap items-center gap-4">
             {/* Conversion Filter */}
@@ -345,7 +458,7 @@ export default function TerritorioPage() {
             {/* Visit Filter */}
             <div className="flex flex-col gap-1.5">
               <label className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
-                Estado Visita
+                Estado Visita (Campo)
               </label>
               <select
                 value={filtroVisita}
@@ -368,7 +481,7 @@ export default function TerritorioPage() {
               <select
                 value={filtroRubro}
                 onChange={(e) => setFiltroRubro(e.target.value)}
-                className="animate-in fade-in rounded-xl border border-zinc-800 bg-[#18181B] px-3 py-2 font-mono text-xs text-zinc-300 focus:border-emerald-500 focus:outline-none"
+                className="rounded-xl border border-zinc-800 bg-[#18181B] px-3 py-2 font-mono text-xs text-zinc-300 focus:border-emerald-500 focus:outline-none"
               >
                 <option value="todos">Todos los Rubros</option>
                 {rubrosDisponiblesDashboard.map((r) => (
@@ -403,32 +516,6 @@ export default function TerritorioPage() {
           </span>
         </div>
 
-        {/* Map View & Route Planner */}
-        <div className="flex flex-col gap-6">
-          <VisorMapa
-            clientes={prospectosFiltrados}
-            rutaPuntos={rutaPuntos}
-            rutaGeometria={rutaGeometria}
-          />
-
-          <PlanificadorDiario
-            clientes={prospectosFiltrados.filter(
-              (p) => p.latitud && p.longitud
-            )}
-            onRutaCalculada={(puntos, geometria) => {
-              setRutaPuntos(puntos);
-              setRutaGeometria(geometria);
-            }}
-            onRegistrarVisitaClick={(c) => {
-              const matched = prospectos.find((p) => p.id === c.id);
-              if (matched) {
-                setProspectoVisita(matched);
-                setModalVisitaAbierto(true);
-              }
-            }}
-          />
-        </div>
-
         {/* Prospects List Grid */}
         <div className="flex flex-col gap-3">
           <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-400 uppercase">
@@ -442,7 +529,8 @@ export default function TerritorioPage() {
                 className={`rounded-2xl border bg-zinc-950 p-4 transition-all hover:border-zinc-800 ${
                   p.convertido
                     ? "border-zinc-800/30 opacity-70"
-                    : p.visitado
+                    : p.visitado ||
+                        (p.estadoContacto && p.estadoContacto !== "Pendiente")
                       ? "border-amber-500/20 bg-zinc-950/90"
                       : "border-[#2A2A2E]"
                 }`}
@@ -467,6 +555,10 @@ export default function TerritorioPage() {
                     {p.convertido ? (
                       <span className="rounded-full border border-zinc-800 bg-gray-500/10 px-2 py-0.5 font-mono text-[8px] font-bold text-zinc-400 uppercase">
                         CRM
+                      </span>
+                    ) : p.estadoContacto && p.estadoContacto !== "Pendiente" ? (
+                      <span className="rounded-full border border-pink-500/20 bg-pink-500/10 px-2 py-0.5 font-mono text-[8px] font-bold text-pink-400 uppercase">
+                        {p.estadoContacto}
                       </span>
                     ) : p.visitado ? (
                       <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-[8px] font-bold text-amber-400 uppercase">
@@ -496,9 +588,39 @@ export default function TerritorioPage() {
                       <b>📣 Argumento:</b> {p.pitch}
                     </span>
                   )}
+
+                  {/* Digital channels indicator */}
+                  <div className="mt-1.5 flex gap-2 border-y border-[#2A2A2E]/20 py-1">
+                    {p.whatsapp && (
+                      <span className="text-[9px] text-emerald-400">
+                        ✓ WA: {p.whatsapp}
+                      </span>
+                    )}
+                    {p.email && (
+                      <span className="text-[9px] text-blue-400">✓ Mail</span>
+                    )}
+                    {p.instagram && (
+                      <span className="text-[9px] text-pink-400">✓ IG</span>
+                    )}
+                    {p.facebook && (
+                      <span className="text-[9px] text-indigo-400">✓ FB</span>
+                    )}
+                  </div>
+
                   <span>
-                    <b>🔄 Visitas:</b> {p.visitasCount || 0}
+                    <b>🔄 Visitas Campo:</b> {p.visitasCount || 0}
                   </span>
+                  {p.ultimoCanalContacto && (
+                    <span>
+                      <b>📱 Último Contacto:</b> por {p.ultimoCanalContacto} (
+                      {p.estadoContacto})
+                    </span>
+                  )}
+                  {p.notasContacto && (
+                    <span className="mt-1 block rounded border border-[#2A2A2E]/50 bg-zinc-900/50 p-1.5 text-zinc-500 italic">
+                      &quot;{p.notasContacto}&quot;
+                    </span>
+                  )}
                   {p.motivoNoVisita && (
                     <span className="text-red-400">
                       <b>⚠️ Salteado:</b> {p.motivoNoVisita}
@@ -522,7 +644,16 @@ export default function TerritorioPage() {
                         }}
                         className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-amber-400 transition-all hover:bg-amber-500 hover:text-black"
                       >
-                        Registrar Visita
+                        Visita Campo
+                      </button>
+                      <button
+                        onClick={() => {
+                          setProspectoContacto(p);
+                          setModalContactoAbierto(true);
+                        }}
+                        className="rounded-xl border border-pink-500/20 bg-pink-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-pink-400 transition-all hover:bg-pink-500 hover:text-black"
+                      >
+                        Log Digital
                       </button>
                       <button
                         onClick={() => {
@@ -531,7 +662,7 @@ export default function TerritorioPage() {
                         }}
                         className="ml-auto rounded-xl border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-blue-400 transition-all hover:bg-blue-500 hover:text-black"
                       >
-                        Pasar a CRM Clientes
+                        Pasar a CRM
                       </button>
                     </>
                   )}
@@ -596,6 +727,20 @@ export default function TerritorioPage() {
           />
         )}
 
+        {/* Modal: Digital Contact Registration */}
+        {prospectoContacto && (
+          <ModalRegistrarContacto
+            key={prospectoContacto.id}
+            abierto={modalContactoAbierto}
+            onCerrar={() => {
+              setModalContactoAbierto(false);
+              setProspectoContacto(null);
+            }}
+            nombreProspecto={prospectoContacto.nombre}
+            onConfirmar={handleRegistrarContactoDigital}
+          />
+        )}
+
         {/* Modal: CRM Client Conversion */}
         {prospectoAConvertir && (
           <ModalCliente
@@ -603,7 +748,7 @@ export default function TerritorioPage() {
             clienteEdicion={{
               id: "",
               nombre: prospectoAConvertir.nombre,
-              correo: "",
+              correo: prospectoAConvertir.email || "",
               direccion: prospectoAConvertir.direccion || "",
               direccionCalle: prospectoAConvertir.direccionCalle || "",
               direccionCodigoPostal:
@@ -612,7 +757,7 @@ export default function TerritorioPage() {
               direccionProvincia: prospectoAConvertir.direccionProvincia || "",
               direccionPais: prospectoAConvertir.direccionPais || "Argentina",
               estado: "Lead",
-              observaciones: `Convertido de Prospecto de Campo. Rubro: ${prospectoAConvertir.rubro || "General"}. Pitch: ${prospectoAConvertir.pitch || "N/A"}. Servicio: ${prospectoAConvertir.tipoServicio || "N/A"}.`,
+              observaciones: `Convertido de Prospecto de Campo. Rubro: ${prospectoAConvertir.rubro || "General"}. Pitch: ${prospectoAConvertir.pitch || "N/A"}. Servicio: ${prospectoAConvertir.tipoServicio || "N/A"}. Contacto WhatsApp: ${prospectoAConvertir.whatsapp || "N/A"}.`,
             }}
             onCerrar={() => {
               setModalCrmAbierto(false);

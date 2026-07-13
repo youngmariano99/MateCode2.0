@@ -17,6 +17,12 @@ interface ImportItem {
   direccionProvincia: string;
   direccionPais: string;
 
+  // Digital fields
+  whatsapp?: string;
+  email?: string;
+  instagram?: string;
+  facebook?: string;
+
   // Geocoding state
   buscando: boolean;
   error?: string;
@@ -47,6 +53,8 @@ export const ModalImportarPotenciales: React.FC<
     {
       nombre: "Panadería Colón",
       rubro: "Gastronomía",
+      whatsapp: "+5492914123456",
+      instagram: "@panaderia_colon",
       direccionCalle: "Av. Colón 450",
       direccionCodigoPostal: "8000",
       direccionCiudad: "Bahía Blanca",
@@ -57,6 +65,8 @@ export const ModalImportarPotenciales: React.FC<
     {
       nombre: "Gimnasio Estilo",
       rubro: "Deportes",
+      whatsapp: "+5492914444555",
+      instagram: "@gimnasio_estilo",
       direccionCalle: "Vieytes 1020",
       direccionCodigoPostal: "8000",
       direccionCiudad: "Bahía Blanca",
@@ -71,6 +81,10 @@ export const ModalImportarPotenciales: React.FC<
       nombre: "Panadería Colón",
       rubro: "Gastronomía",
       contacto: "Roberto (Dueño)",
+      whatsapp: "+5492914123456",
+      email: "roberto@colon.com",
+      instagram: "https://instagram.com/panaderiacolon",
+      facebook: "https://facebook.com/panaderiacolon",
       tipoServicio: "Página Web y Menú QR",
       pitch: "Digitalizar su cartelería física con código QR dinámico",
       direccionCalle: "Av. Colón 450",
@@ -83,6 +97,10 @@ export const ModalImportarPotenciales: React.FC<
       nombre: "Gimnasio Estilo",
       rubro: "Deportes",
       contacto: "Gaby (Propietario)",
+      whatsapp: "+5492914444555",
+      email: "gaby@estilo.com",
+      instagram: "https://instagram.com/gimnasioestilo",
+      facebook: "",
       tipoServicio: "PWA de Reservas y Clases",
       pitch: "Automatizar los cupos de las clases cruzadas",
       direccionCalle: "Vieytes 1020",
@@ -121,6 +139,10 @@ export const ModalImportarPotenciales: React.FC<
         direccionCiudad: String(x.direccionCiudad || "").trim(),
         direccionProvincia: String(x.direccionProvincia || "").trim(),
         direccionPais: String(x.direccionPais || "Argentina").trim(),
+        whatsapp: String(x.whatsapp || "").trim(),
+        email: String(x.email || "").trim(),
+        instagram: String(x.instagram || "").trim(),
+        facebook: String(x.facebook || "").trim(),
         buscando: false,
       }));
 
@@ -256,6 +278,11 @@ export const ModalImportarPotenciales: React.FC<
       tipoServicio: x.tipoServicio,
       pitch: x.pitch,
       rubro: x.rubro || "General",
+      whatsapp: x.whatsapp,
+      email: x.email,
+      instagram: x.instagram,
+      facebook: x.facebook,
+      estadoContacto: "Pendiente",
       direccion: [
         x.direccionCalle,
         x.direccionCodigoPostal,
@@ -346,8 +373,9 @@ export const ModalImportarPotenciales: React.FC<
               </div>
               <p className="mt-2 font-mono text-[10px] leading-normal text-zinc-500">
                 Genera tu JSON con la dirección dividida en campos e incluye el
-                rubro (`rubro`) y código postal (`direccionCodigoPostal`) para
-                asegurar que la geocodificación sea exacta y puedas filtrarlos.
+                rubro (`rubro`), celular (`whatsapp`), email (`email`) e
+                instagram (`instagram`) para alimentar la Inteligencia Comercial
+                y el planificador digital.
               </p>
             </div>
 
@@ -360,8 +388,8 @@ export const ModalImportarPotenciales: React.FC<
                 onChange={(e) => setJsonText(e.target.value)}
                 placeholder={
                   tipoImportacion === "basica"
-                    ? '[{\n  "nombre": "Panadería Colón",\n  "rubro": "Gastronomía",\n  "direccionCalle": "Av. Colón 450",\n  "direccionCodigoPostal": "8000",\n  "direccionCiudad": "Bahía Blanca",\n  "direccionProvincia": "Buenos Aires",\n  "direccionPais": "Argentina",\n  "tipoServicio": "Página Web y Menú QR"\n}]'
-                    : '[{\n  "nombre": "Panadería Colón",\n  "rubro": "Gastronomía",\n  "contacto": "Roberto (Dueño)",\n  "tipoServicio": "Página Web y Menú QR",\n  "pitch": "Digitalizar su cartelería física con código QR dinámico",\n  "direccionCalle": "Av. Colón 450",\n  "direccionCodigoPostal": "8000",\n  "direccionCiudad": "Bahía Blanca",\n  "direccionProvincia": "Buenos Aires",\n  "direccionPais": "Argentina"\n}]'
+                    ? '[\n  {\n    "nombre": "Panadería Colón",\n    "rubro": "Gastronomía",\n    "whatsapp": "+5492914123456",\n    "instagram": "@panaderia_colon",\n    "direccionCalle": "Av. Colón 450",\n    "direccionCodigoPostal": "8000",\n    "direccionCiudad": "Bahía Blanca",\n    "direccionProvincia": "Buenos Aires",\n    "direccionPais": "Argentina",\n    "tipoServicio": "Página Web y Menú QR"\n  }\n]'
+                    : '[\n  {\n    "nombre": "Panadería Colón",\n    "rubro": "Gastronomía",\n    "contacto": "Roberto (Dueño)",\n    "whatsapp": "+5492914123456",\n    "email": "roberto@colon.com",\n    "instagram": "@panaderiacolon",\n    "facebook": "",\n    "tipoServicio": "Página Web y Menú QR",\n    "pitch": "Digitalizar su cartelería física con código QR dinámico",\n    "direccionCalle": "Av. Colón 450",\n    "direccionCodigoPostal": "8000",\n    "direccionCiudad": "Bahía Blanca",\n    "direccionProvincia": "Buenos Aires",\n    "direccionPais": "Argentina"\n  }\n]'
                 }
                 rows={12}
                 className="w-full rounded-xl border border-zinc-800 bg-zinc-950 p-4 font-mono text-xs text-zinc-100 placeholder-zinc-700 transition-all focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 focus:outline-none"
@@ -398,13 +426,14 @@ export const ModalImportarPotenciales: React.FC<
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-[#2A2A2E] bg-zinc-950">
-              <table className="w-full min-w-[900px] border-collapse text-left font-mono text-[11px]">
+              <table className="w-full min-w-[950px] border-collapse text-left font-mono text-[11px]">
                 <thead>
                   <tr className="border-b border-[#2A2A2E] bg-zinc-900/50 text-zinc-500">
                     <th className="px-3 py-2.5">Negocio</th>
                     <th className="px-3 py-2.5">Rubro</th>
-                    <th className="px-3 py-2.5">Calle y Altura</th>
-                    <th className="px-3 py-2.5">CP / Ciudad / Prov</th>
+                    <th className="px-3 py-2.5">WhatsApp / Cel</th>
+                    <th className="px-3 py-2.5">Email / Instagram</th>
+                    <th className="px-3 py-2.5">Dirección</th>
                     <th className="px-3 py-2.5">Estado Mapa</th>
                     <th className="px-3 py-2.5 text-center">Acción</th>
                   </tr>
@@ -438,57 +467,83 @@ export const ModalImportarPotenciales: React.FC<
                       <td className="px-3 py-2">
                         <input
                           type="text"
-                          value={item.direccionCalle}
+                          value={item.whatsapp}
                           onChange={(e) =>
-                            handleUpdateField(
-                              idx,
-                              "direccionCalle",
-                              e.target.value
-                            )
+                            handleUpdateField(idx, "whatsapp", e.target.value)
                           }
+                          placeholder="Sin WhatsApp"
                           className="w-full rounded border border-transparent bg-transparent px-1.5 py-0.5 text-zinc-300 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
                         />
                       </td>
-                      <td className="flex items-center gap-1 px-3 py-2">
-                        <input
-                          type="text"
-                          value={item.direccionCodigoPostal}
-                          onChange={(e) =>
-                            handleUpdateField(
-                              idx,
-                              "direccionCodigoPostal",
-                              e.target.value
-                            )
-                          }
-                          placeholder="CP"
-                          className="w-[60px] rounded border border-transparent bg-transparent px-1.5 py-0.5 font-bold text-zinc-100 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
-                        />
-                        <input
-                          type="text"
-                          value={item.direccionCiudad}
-                          onChange={(e) =>
-                            handleUpdateField(
-                              idx,
-                              "direccionCiudad",
-                              e.target.value
-                            )
-                          }
-                          placeholder="Ciudad"
-                          className="w-[100px] rounded border border-transparent bg-transparent px-1.5 py-0.5 text-zinc-400 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
-                        />
-                        <input
-                          type="text"
-                          value={item.direccionProvincia}
-                          onChange={(e) =>
-                            handleUpdateField(
-                              idx,
-                              "direccionProvincia",
-                              e.target.value
-                            )
-                          }
-                          placeholder="Provincia"
-                          className="w-[100px] rounded border border-transparent bg-transparent px-1.5 py-0.5 text-zinc-400 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
-                        />
+                      <td className="px-3 py-2">
+                        <div className="flex flex-col gap-0.5">
+                          <input
+                            type="text"
+                            value={item.instagram}
+                            onChange={(e) =>
+                              handleUpdateField(
+                                idx,
+                                "instagram",
+                                e.target.value
+                              )
+                            }
+                            placeholder="Instagram"
+                            className="w-full rounded border border-transparent bg-transparent px-1.5 py-0.5 text-zinc-300 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={item.email}
+                            onChange={(e) =>
+                              handleUpdateField(idx, "email", e.target.value)
+                            }
+                            placeholder="Email"
+                            className="w-full rounded border border-transparent bg-transparent px-1.5 py-0.5 text-zinc-400 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-col gap-0.5">
+                          <input
+                            type="text"
+                            value={item.direccionCalle}
+                            onChange={(e) =>
+                              handleUpdateField(
+                                idx,
+                                "direccionCalle",
+                                e.target.value
+                              )
+                            }
+                            className="w-full rounded border border-transparent bg-transparent px-1.5 py-0.5 text-zinc-300 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
+                          />
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={item.direccionCodigoPostal}
+                              onChange={(e) =>
+                                handleUpdateField(
+                                  idx,
+                                  "direccionCodigoPostal",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="CP"
+                              className="w-[50px] rounded border border-transparent bg-transparent px-0.5 px-1 text-[10px] text-zinc-400 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
+                            />
+                            <input
+                              type="text"
+                              value={item.direccionCiudad}
+                              onChange={(e) =>
+                                handleUpdateField(
+                                  idx,
+                                  "direccionCiudad",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="Ciudad"
+                              className="w-[80px] rounded border border-transparent bg-transparent px-0.5 px-1 text-[10px] text-zinc-400 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
+                            />
+                          </div>
+                        </div>
                       </td>
                       <td className="px-3 py-2">
                         {item.buscando ? (
@@ -504,8 +559,7 @@ export const ModalImportarPotenciales: React.FC<
                             className="font-bold text-emerald-400"
                             title={item.direccionFormateada}
                           >
-                            ✓ OK ({item.latitud.toFixed(4)},{" "}
-                            {item.longitud?.toFixed(4)})
+                            ✓ OK
                           </span>
                         ) : (
                           <span className="text-zinc-500">Pendiente</span>

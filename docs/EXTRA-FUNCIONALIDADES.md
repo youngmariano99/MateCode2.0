@@ -14,7 +14,27 @@ Este documento detalla todas las funcionalidades a medida que han sido incorpora
 
 ---
 
-## 2. Geocodificación Interactiva y Preventiva (Nominatim Test)
+## 2. Prospección y Contacto en Frío Digital (WhatsApp y Redes Sociales)
+
+- **Propósito:** Ofrecer un espacio de trabajo ágil para contactar leads digitalmente, permitiendo pre-redactar mensajes comerciales personalizados con plantillas dinámicas y registrar el avance de la prospección.
+- **Detalles Técnicos:**
+  - **Modelo de Datos Extendido:**
+    - `whatsapp`: Número de teléfono (celular) para envíos rápidos.
+    - `email`: Dirección de correo electrónico.
+    - `instagram`: Enlace de perfil o usuario (los formatos `@usuario` se auto-mapean a enlaces web).
+    - `facebook`: Enlace a la página o perfil de Facebook.
+    - `estadoContacto`: Estado de gestión (`"Pendiente" | "Contactado" | "Respondido" | "Sin Interés"`).
+    - `ultimoCanalContacto`: Canal utilizado para contactarlo (`"whatsapp" | "email" | "instagram" | "facebook"`).
+    - `notasContacto`: Comentarios e historial de la conversación.
+  - [planificador-digital.tsx](file:///c:/Users/mari_/OneDrive/Escritorio/t/PROYECTS/ACTIVOS/PERSONALES/MateCode2.0/src/presentation/components/territorio/planificador-digital.tsx): Espacio de trabajo dividido en:
+    - **Lista y Filtros:** Permite agrupar prospectos por Rubro y Estado de Contacto, y encolarlos para la jornada comercial diaria.
+    - **Editor de Pitch Comercial:** Caja de texto reutilizable que soporta variables dinámicas auto-completadas: `{nombre}` (negocio), `{contacto}` (persona), y `{servicio}` (servicio a ofrecer).
+    - **Bandeja de Mensajería:** Botones rápidos que arman enlaces directos en pestañas nuevas a WhatsApp Web (`wa.me?text=...`) o perfiles sociales con el pitch ya personalizado.
+  - [ModalRegistrarContacto.tsx](file:///c:/Users/mari_/OneDrive/Escritorio/t/PROYECTS/ACTIVOS/PERSONALES/MateCode2.0/src/presentation/components/territorio/ModalRegistrarContacto.tsx): Permite registrar de forma rápida los estados de conversación, notas y el canal utilizado.
+
+---
+
+## 3. Geocodificación Interactiva y Preventiva (Nominatim Test)
 
 - **Propósito:** Validar en caliente si el formato de la dirección ingresada puede ser interpretado correctamente por la API de mapas (Nominatim), previniendo coordenadas inválidas o en el océano.
 - **Detalles Técnicos:**
@@ -25,7 +45,7 @@ Este documento detalla todas las funcionalidades a medida que han sido incorpora
 
 ---
 
-## 3. Integración de Código Postal (Exactitud Geográfica)
+## 4. Integración de Código Postal (Exactitud Geográfica)
 
 - **Propósito:** Resolver problemas de geocodificación ambigua donde calles con nombres repetidos eran ubicadas en la Capital Federal (Buenos Aires) en lugar de la ciudad local (Bahía Blanca).
 - **Soluciones:**
@@ -34,7 +54,7 @@ Este documento detalla todas las funcionalidades a medida que han sido incorpora
 
 ---
 
-## 4. Importación Masiva e Inteligente de JSON
+## 5. Importación Masiva e Inteligente de JSON
 
 - **Propósito:** Cargar múltiples clientes o potenciales clientes simultáneamente desde archivos JSON con herramientas de corrección en vivo.
 - **Características:**
@@ -43,7 +63,7 @@ Este documento detalla todas las funcionalidades a medida que han sido incorpora
 
 ---
 
-## 5. Ruteo Vial Preciso y Alternativa Caminando (OSRM / FOSSGIS)
+## 6. Ruteo Vial Preciso y Alternativa Caminando (OSRM / FOSSGIS)
 
 - **Propósito:** Calcular recorridos óptimos para el vendedor o preventista que sigue la traza de las calles, evitando líneas rectas aéreas que crucen manzanas.
 - **Implementación:**
@@ -54,7 +74,7 @@ Este documento detalla todas las funcionalidades a medida que han sido incorpora
 
 ---
 
-## 6. Visor de Mapas Legible con Inicio GPS
+## 7. Visor de Mapas Legible con Inicio GPS
 
 - **Propósito:** Facilitar la lectura de las rutas planificadas desde dispositivos móviles en calle.
 - **Mejoras Visuales:**

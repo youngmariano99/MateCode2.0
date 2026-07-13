@@ -3,14 +3,14 @@ import { test, describe } from "node:test";
 import assert from "node:assert";
 import { db } from "../../offline/dexie/db";
 
-describe("Módulo de Potenciales Clientes (Prospección y Conversión)", () => {
-  test("Debería registrar, visitar y convertir un prospecto a cliente CRM con éxito", async () => {
+describe("Módulo de Potenciales Clientes (Prospección, Digital y Conversión)", () => {
+  test("Debería registrar, visitar, contactar digitalmente y convertir un prospecto con éxito", async () => {
     await db.potenciales_clientes.clear();
     await db.clientes.clear();
 
     const prospectoId = "pot_test_123";
 
-    // 1. Creation
+    // 1. Creation with digital fields
     const testProspecto = {
       id: prospectoId,
       nombre: "Panadería Colón",
@@ -18,6 +18,10 @@ describe("Módulo de Potenciales Clientes (Prospección y Conversión)", () => {
       tipoServicio: "Menú QR",
       pitch: "Digitalizar carta física",
       rubro: "Gastronomía",
+      whatsapp: "+5492914123456",
+      email: "roberto@colon.com",
+      instagram: "@panaderiacolon",
+      facebook: "",
       direccionCalle: "Av. Colón 450",
       direccionCodigoPostal: "8000",
       direccionCiudad: "Bahía Blanca",
@@ -27,6 +31,7 @@ describe("Módulo de Potenciales Clientes (Prospección y Conversión)", () => {
       visitado: false,
       visitasCount: 0,
       convertido: false,
+      estadoContacto: "Pendiente",
       creadoEn: Date.now(),
       actualizadoEn: Date.now(),
     };
@@ -37,13 +42,31 @@ describe("Módulo de Potenciales Clientes (Prospección y Conversión)", () => {
     assert.ok(guardado);
     assert.strictEqual(guardado.nombre, "Panadería Colón");
     assert.strictEqual(guardado.rubro, "Gastronomía");
-    assert.strictEqual(guardado.visitado, false);
+    assert.strictEqual(guardado.whatsapp, "+5492914123456");
+    assert.strictEqual(guardado.email, "roberto@colon.com");
+    assert.strictEqual(guardado.estadoContacto, "Pendiente");
 
-    // 2. Visit logging
+    // 2. Contact update (digital cold outreach log)
+    await db.potenciales_clientes.update(prospectoId, {
+      estadoContacto: "Contactado",
+      ultimoCanalContacto: "whatsapp",
+      notasContacto: "Mensaje enviado con pitch de Menú QR.",
+      fechaUltimoContacto: Date.now(),
+      actualizadoEn: Date.now(),
+    });
+
+    const contactadoRecord = await db.potenciales_clientes.get(prospectoId);
+    assert.strictEqual(contactadoRecord?.estadoContacto, "Contactado");
+    assert.strictEqual(contactadoRecord?.ultimoCanalContacto, "whatsapp");
+    assert.strictEqual(
+      contactadoRecord?.notasContacto,
+      "Mensaje enviado con pitch de Menú QR."
+    );
+
+    // 3. Visit logging (territorial field visit)
     await db.potenciales_clientes.update(prospectoId, {
       visitado: true,
       visitasCount: 1,
-      motivoNoVisita: undefined,
       actualizadoEn: Date.now(),
     });
 
@@ -51,7 +74,7 @@ describe("Módulo de Potenciales Clientes (Prospección y Conversión)", () => {
     assert.strictEqual(visitadoRecord?.visitado, true);
     assert.strictEqual(visitadoRecord?.visitasCount, 1);
 
-    // 3. Conversion to CRM Clientes
+    // 4. Conversion to CRM Clientes
     const clienteId = "cli_test_456";
     const crmPayload = {
       id: clienteId,
@@ -63,7 +86,7 @@ describe("Módulo de Potenciales Clientes (Prospección y Conversión)", () => {
       direccionProvincia: visitadoRecord?.direccionProvincia,
       direccionPais: visitadoRecord?.direccionPais,
       estado: "Lead",
-      observaciones: `Convertido de Prospecto: ${visitadoRecord?.pitch}. Rubro: ${visitadoRecord?.rubro}`,
+      observaciones: `Convertido de Prospecto: ${visitadoRecord?.pitch}. Rubro: ${visitadoRecord?.rubro}. WhatsApp: ${visitadoRecord?.whatsapp}`,
     };
 
     await db.clientes.add(crmPayload);
