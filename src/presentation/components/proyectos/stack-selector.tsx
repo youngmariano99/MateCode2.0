@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { Card } from "../card";
-import { Button } from "../button";
 import { Input } from "../input";
 import { db } from "../../../offline/dexie/db";
 
@@ -88,6 +87,42 @@ const PRESETS = {
   ],
 };
 
+const TEMPLATE_STACKS = {
+  landing: {
+    nombre: "Landing Page (Maquetado & Deploy)",
+    stack: {
+      frontend: ["HTML", "Tailwind"],
+      backend: [],
+      baseDatos: [],
+      infraestructura: ["Vercel", "Cloudflare"],
+      seguridad: ["CORS"],
+      integraciones: ["Resend", "Google Maps"],
+    },
+  },
+  ecommerce: {
+    nombre: "E-commerce Completo (Next.js/Supabase/Stripe)",
+    stack: {
+      frontend: ["Next.js", "Tailwind"],
+      backend: ["Node.js"],
+      baseDatos: ["Supabase"],
+      infraestructura: ["Vercel", "GitHub Actions"],
+      seguridad: ["Supabase Auth", "CORS"],
+      integraciones: ["Stripe", "Mercado Pago", "Resend"],
+    },
+  },
+  saas: {
+    nombre: "Sistema Web / SaaS (React/Node/PostgreSQL)",
+    stack: {
+      frontend: ["React", "Tailwind"],
+      backend: ["Express", "Node.js"],
+      baseDatos: ["PostgreSQL"],
+      infraestructura: ["Docker", "Nginx", "GitHub Actions"],
+      seguridad: ["JWT", "CORS", "Rate Limiting"],
+      integraciones: ["SMTP", "OpenAI"],
+    },
+  },
+};
+
 export const StackSelector: React.FC<StackSelectorProps> = ({
   proyectoId,
   initialStack = {},
@@ -137,9 +172,13 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
     if (!clean) return;
     const current = stack[category];
     if (!current.includes(clean)) {
-      setStack({
-        ...stack,
-        [category]: [...current, clean],
+      setStack((prev) => {
+        const next = {
+          ...prev,
+          [category]: [...current, clean],
+        };
+        onSave(next);
+        return next;
       });
     }
     setInputVal({
@@ -152,14 +191,34 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
     const current = stack[category];
     const updated = [...current];
     updated.splice(index, 1);
-    setStack({
-      ...stack,
-      [category]: updated,
+    setStack((prev) => {
+      const next = {
+        ...prev,
+        [category]: updated,
+      };
+      onSave(next);
+      return next;
     });
   };
 
-  const handleSave = () => {
-    onSave(stack);
+  const cargarPlantillaStack = (tipo: keyof typeof TEMPLATE_STACKS) => {
+    const template = TEMPLATE_STACKS[tipo].stack;
+    setStack((prev) => {
+      const next = {
+        frontend: [...new Set([...prev.frontend, ...template.frontend])],
+        backend: [...new Set([...prev.backend, ...template.backend])],
+        baseDatos: [...new Set([...prev.baseDatos, ...template.baseDatos])],
+        infraestructura: [
+          ...new Set([...prev.infraestructura, ...template.infraestructura]),
+        ],
+        seguridad: [...new Set([...prev.seguridad, ...template.seguridad])],
+        integraciones: [
+          ...new Set([...prev.integraciones, ...template.integraciones]),
+        ],
+      };
+      onSave(next);
+      return next;
+    });
   };
 
   return (
@@ -168,9 +227,35 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
         <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
           Stack Tecnológico del Proyecto
         </h3>
-        <p className="font-mono text-[10px] text-zinc-500">
-          Configura las tecnologías organizadas por capa de desarrollo
+        <p className="font-mono text-[9px] text-zinc-500">
+          Define las tecnologías organizadas por capa o carga una plantilla
+          predeterminada
         </p>
+      </div>
+
+      {/* Preset Stack Templates */}
+      <div className="mb-5 flex flex-wrap gap-2 rounded-xl border border-[#2A2A2E] bg-zinc-950 p-2">
+        <span className="w-full px-1 font-mono text-[8px] font-bold tracking-wide text-zinc-500 uppercase">
+          Cargar Configuración de Tecnologías:
+        </span>
+        <button
+          onClick={() => cargarPlantillaStack("landing")}
+          className="rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 font-mono text-[10px] text-zinc-300 transition-all hover:border-zinc-700 hover:bg-zinc-800"
+        >
+          Landing Page
+        </button>
+        <button
+          onClick={() => cargarPlantillaStack("ecommerce")}
+          className="rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 font-mono text-[10px] text-zinc-300 transition-all hover:border-zinc-700 hover:bg-zinc-800"
+        >
+          E-commerce
+        </button>
+        <button
+          onClick={() => cargarPlantillaStack("saas")}
+          className="rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 font-mono text-[10px] text-zinc-300 transition-all hover:border-zinc-700 hover:bg-zinc-800"
+        >
+          SaaS / Backend
+        </button>
       </div>
 
       <div className="flex flex-col gap-6">
@@ -190,7 +275,7 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
                     {tech}
                     <button
                       onClick={() => removeChip(category, idx)}
-                      className="p-0.5 text-[8px] font-extrabold text-zinc-500 hover:text-zinc-300"
+                      className="animate-in fade-in p-0.5 text-[8px] font-extrabold text-zinc-500 hover:text-zinc-300"
                     >
                       ×
                     </button>
@@ -199,52 +284,66 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
               </div>
 
               <div className="flex gap-2">
-                <div className="relative flex-1">
+                <div className="flex-1">
                   <Input
                     value={inputVal[category]}
                     onChange={(e) =>
                       setInputVal({ ...inputVal, [category]: e.target.value })
                     }
-                    placeholder="Escribe tecnología y presiona agregar..."
+                    placeholder={`Agregar ${category === "baseDatos" ? "Base de datos" : category}...`}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addChip(category, inputVal[category]);
+                      }
+                    }}
                   />
-
-                  {inputVal[category].trim() && (
-                    <div className="absolute top-10 right-0 left-0 z-20 flex max-h-[120px] flex-col overflow-y-auto rounded-xl border border-[#2A2A2E] bg-[#18181B] p-1.5">
-                      {PRESETS[category]
-                        .concat(sugerenciasInteligentes)
-                        .filter(
-                          (t, idx, self) =>
-                            self.indexOf(t) === idx &&
-                            t
-                              .toLowerCase()
-                              .includes(inputVal[category].toLowerCase())
-                        )
-                        .map((sug) => (
-                          <button
-                            key={sug}
-                            onClick={() => addChip(category, sug)}
-                            className="rounded-lg p-1.5 text-left font-mono text-[9px] text-zinc-300 hover:bg-zinc-800"
-                          >
-                            {sug}
-                          </button>
-                        ))}
-                    </div>
-                  )}
                 </div>
                 <button
                   onClick={() => addChip(category, inputVal[category])}
-                  className="rounded-xl border border-zinc-700 bg-zinc-800 px-3.5 py-2.5 font-mono text-[10px] font-bold text-white transition-all select-none hover:bg-zinc-700"
+                  className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-xs text-zinc-300 hover:bg-zinc-800"
                 >
-                  Agregar
+                  +
                 </button>
+              </div>
+
+              {/* Suggestions Chips */}
+              <div className="mt-1 flex flex-wrap gap-1">
+                {PRESETS[category]
+                  .filter((p) => !stack[category].includes(p))
+                  .map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => addChip(category, preset)}
+                      className="rounded border border-zinc-900/30 bg-zinc-950/40 px-1.5 py-0.5 font-mono text-[8px] font-bold text-zinc-500 transition-all hover:bg-zinc-900 hover:text-zinc-300"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+
+                {/* Suggestions from other projects */}
+                {sugerenciasInteligentes
+                  .filter(
+                    (s) =>
+                      !stack[category].includes(s) &&
+                      !PRESETS[category].includes(s)
+                  )
+                  .map((otherTech) => (
+                    <button
+                      key={otherTech}
+                      type="button"
+                      onClick={() => addChip(category, otherTech)}
+                      className="rounded border border-emerald-950/20 bg-emerald-950/10 px-1.5 py-0.5 font-mono text-[8px] font-bold text-emerald-500 transition-all hover:bg-emerald-900 hover:text-zinc-100"
+                      title="Usado en otros proyectos"
+                    >
+                      ★ {otherTech}
+                    </button>
+                  ))}
               </div>
             </div>
           )
         )}
-
-        <div className="mt-2 flex justify-end border-t border-[#2A2A2E] pt-4">
-          <Button onClick={handleSave}>Guardar Stack</Button>
-        </div>
       </div>
     </Card>
   );

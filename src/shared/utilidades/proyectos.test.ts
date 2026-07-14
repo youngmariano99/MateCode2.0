@@ -78,4 +78,40 @@ describe("Módulo de Workspace de Proyectos", () => {
     const localDel = await db.tareas.get("tar_test_1");
     assert.strictEqual(localDel, undefined);
   });
+
+  test("Debería persistir comentarios y archivos adjuntos del proyecto", async () => {
+    await db.comentarios_proyecto.clear();
+    await db.archivos_proyecto.clear();
+
+    // 1. Test Comentarios
+    const testComm = {
+      id: "comm_test_1",
+      proyectoId: "pro_test_1",
+      autor: "Mariano",
+      texto: "Avance del sprint validado",
+      fecha: "14/07/2026 18:30",
+      creadoEn: Date.now(),
+    };
+    await db.comentarios_proyecto.add(testComm);
+    const commDb = await db.comentarios_proyecto.get("comm_test_1");
+    assert.ok(commDb);
+    assert.strictEqual(commDb.texto, "Avance del sprint validado");
+
+    // 2. Test Archivos
+    const testFile = {
+      id: "file_test_1",
+      proyectoId: "pro_test_1",
+      nombre: "Logo.png",
+      tamanio: "15 KB",
+      fecha: "14/07/2026",
+      contenidoBase64:
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      tipoMime: "image/png",
+      creadoEn: Date.now(),
+    };
+    await db.archivos_proyecto.add(testFile);
+    const fileDb = await db.archivos_proyecto.get("file_test_1");
+    assert.ok(fileDb);
+    assert.strictEqual(fileDb.nombre, "Logo.png");
+  });
 });

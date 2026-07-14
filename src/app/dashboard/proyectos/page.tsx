@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { MainLayout } from "../../../presentation/components/layout";
 import { Card } from "../../../presentation/components/card";
 import { Button } from "../../../presentation/components/button";
@@ -36,18 +36,8 @@ import { KanbanBoard } from "../../../presentation/components/proyectos/kanban-b
 import { FinancialPanel } from "../../../presentation/components/proyectos/financial-panel";
 import { PromptGenerator } from "../../../presentation/components/proyectos/prompt-generator";
 
-type TabDetalle =
-  | "roadmap"
-  | "documentos"
-  | "archivos"
-  | "comentarios"
-  | "general"
-  | "stack"
-  | "backlog"
-  | "sprints"
-  | "kanban"
-  | "negocio"
-  | "contexto-ia";
+type FaseCicloVida =
+  "negocio" | "arquitectura" | "planificacion" | "ejecucion" | "cierre";
 
 interface ProyectoCRM {
   id: string;
@@ -98,7 +88,9 @@ export default function ProyectosPage() {
 
   const [proyectoSeleccionado, setProyectoSeleccionado] =
     useState<ProyectoCRM | null>(null);
-  const [tab, setTab] = useState<TabDetalle>("roadmap");
+
+  // Guided development lifecycle active phase
+  const [faseActiva, setFaseActiva] = useState<FaseCicloVida>("negocio");
   const [modalAbierto, setModalAbierto] = useState(false);
   const [proyectoEdicion, setProyectoEdicion] = useState<ProyectoCRM | null>(
     null
@@ -237,6 +229,7 @@ export default function ProyectosPage() {
     return (
       <MainLayout breadcrumbs={breadcrumbs}>
         <div className="flex flex-col gap-6">
+          {/* Details header */}
           <div className="flex flex-col justify-between gap-4 border-b border-[#2A2A2E] pb-5 md:flex-row md:items-center">
             <div>
               <button
@@ -262,42 +255,104 @@ export default function ProyectosPage() {
             </div>
           </div>
 
-          <div className="flex gap-2 overflow-x-auto border-b border-[#2A2A2E]">
-            {(
-              [
-                { id: "roadmap", label: "Roadmap / Tareas" },
-                { id: "stack", label: "Stack y Estándares" },
-                { id: "negocio", label: "Product Owner" },
-                { id: "backlog", label: "Backlog" },
-                { id: "sprints", label: "Planificador Sprints" },
-                { id: "kanban", label: "Kanban" },
-                { id: "contexto-ia", label: "Contexto IA" },
-                { id: "documentos", label: "Documentación" },
-                { id: "archivos", label: "Archivos Adjuntos" },
-                { id: "comentarios", label: "Comentarios & Chat" },
-                { id: "general", label: "Información General" },
-              ] as const
-            ).map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`border-b-2 px-4 py-2.5 font-mono text-xs font-bold tracking-wide whitespace-nowrap transition-all ${
-                  tab === t.id
-                    ? "border-emerald-500 text-emerald-400"
-                    : "border-transparent text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+          {/* Guided lifecycle step timeline */}
+          <div className="rounded-2xl border border-[#2A2A2E] bg-zinc-950/40 p-4">
+            <div className="mb-3 flex items-center gap-2">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+              <span className="font-mono text-[9px] font-bold tracking-widest text-zinc-400 uppercase">
+                Ciclo de Vida del Desarrollo (Guía de Fases)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {[
+                {
+                  id: "negocio",
+                  num: "1",
+                  title: "Concepción",
+                  desc: "Presupuestos y Requerimientos PO",
+                },
+                {
+                  id: "arquitectura",
+                  num: "2",
+                  title: "Arquitectura",
+                  desc: "Definir Stack y Estándares",
+                },
+                {
+                  id: "planificacion",
+                  num: "3",
+                  title: "Planificación",
+                  desc: "Biblioteca y Backlog de Sprints",
+                },
+                {
+                  id: "ejecucion",
+                  num: "4",
+                  title: "Ejecución",
+                  desc: "Tablero Ágil Kanban",
+                },
+                {
+                  id: "cierre",
+                  num: "5",
+                  title: "Entrega & Docs",
+                  desc: "Prompts IA, Wiki y Archivos",
+                },
+              ].map((step) => {
+                const isActive = faseActiva === step.id;
+                return (
+                  <button
+                    key={step.id}
+                    onClick={() => setFaseActiva(step.id as FaseCicloVida)}
+                    className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left font-mono transition-all select-none ${
+                      isActive
+                        ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-400 shadow-md"
+                        : "border-[#2A2A2E] bg-zinc-950/60 text-zinc-500 hover:border-zinc-800"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`flex h-5.5 w-5.5 items-center justify-center rounded-full text-[10px] font-bold ${
+                          isActive
+                            ? "bg-emerald-500 font-extrabold text-black"
+                            : "bg-zinc-900 text-zinc-500"
+                        }`}
+                      >
+                        {step.num}
+                      </span>
+                      <span className="text-[10px] font-bold text-zinc-200">
+                        {step.title}
+                      </span>
+                    </div>
+                    <span className="mt-0.5 line-clamp-1 text-[8px] leading-normal text-zinc-500">
+                      {step.desc}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-6">
-            {tab === "roadmap" && (
-              <VistaRoadmap proyectoId={proyectoSeleccionado.id} />
+          {/* Combined workspace grid rendering for reduced clicks */}
+          <div className="animate-in fade-in grid grid-cols-1 gap-6 duration-200">
+            {faseActiva === "negocio" && (
+              <div className="flex flex-col gap-6">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  <VistaGeneral proyecto={proyectoSeleccionado} />
+                  <FinancialPanel
+                    proyectoId={proyectoSeleccionado.id}
+                    clienteId={proyectoSeleccionado.clienteId}
+                    initialFinanciero={proyectoSeleccionado.financiero}
+                    onSave={handleSaveFinanciero}
+                  />
+                </div>
+                <MarkdownEditor
+                  initialValues={proyectoSeleccionado.productOwner}
+                  onSave={handleSaveProductOwner}
+                />
+              </div>
             )}
-            {tab === "stack" && (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+
+            {faseActiva === "arquitectura" && (
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <StackSelector
                   proyectoId={proyectoSeleccionado.id}
                   initialStack={proyectoSeleccionado.stack}
@@ -309,43 +364,34 @@ export default function ProyectosPage() {
                 />
               </div>
             )}
-            {tab === "negocio" && (
-              <div className="flex flex-col gap-6">
-                <MarkdownEditor
-                  initialValues={proyectoSeleccionado.productOwner}
-                  onSave={handleSaveProductOwner}
-                />
-                <FinancialPanel
-                  proyectoId={proyectoSeleccionado.id}
-                  clienteId={proyectoSeleccionado.clienteId}
-                  initialFinanciero={proyectoSeleccionado.financiero}
-                  onSave={handleSaveFinanciero}
-                />
+
+            {faseActiva === "planificacion" && (
+              <div className="grid grid-cols-1 gap-6">
+                <BacklogBoard proyectoId={proyectoSeleccionado.id} />
+                <SprintPlanner proyectoId={proyectoSeleccionado.id} />
               </div>
             )}
-            {tab === "backlog" && (
-              <BacklogBoard proyectoId={proyectoSeleccionado.id} />
-            )}
-            {tab === "sprints" && (
-              <SprintPlanner proyectoId={proyectoSeleccionado.id} />
-            )}
-            {tab === "kanban" && (
+
+            {faseActiva === "ejecucion" && (
               <KanbanBoard proyectoId={proyectoSeleccionado.id} />
             )}
-            {tab === "contexto-ia" && (
-              <PromptGenerator proyectoId={proyectoSeleccionado.id} />
-            )}
-            {tab === "documentos" && (
-              <VistaDocumentos proyectoId={proyectoSeleccionado.id} />
-            )}
-            {tab === "archivos" && (
-              <VistaArchivos proyectoId={proyectoSeleccionado.id} />
-            )}
-            {tab === "comentarios" && (
-              <VistaComentarios proyectoId={proyectoSeleccionado.id} />
-            )}
-            {tab === "general" && (
-              <VistaGeneral proyecto={proyectoSeleccionado} />
+
+            {faseActiva === "cierre" && (
+              <div className="flex flex-col gap-6">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  <PromptGenerator proyectoId={proyectoSeleccionado.id} />
+                  <VistaRoadmap proyectoId={proyectoSeleccionado.id} />
+                </div>
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                  <div className="lg:col-span-2">
+                    <VistaDocumentos proyectoId={proyectoSeleccionado.id} />
+                  </div>
+                  <div className="flex flex-col gap-6">
+                    <VistaArchivos proyectoId={proyectoSeleccionado.id} />
+                    <VistaComentarios proyectoId={proyectoSeleccionado.id} />
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -361,9 +407,9 @@ export default function ProyectosPage() {
             <h1 className="text-2xl font-extrabold tracking-tight text-white">
               Workspace de Proyectos
             </h1>
-            <p className="mt-1 text-sm text-zinc-400">
-              Fidelización, desarrollos activos, release notes e integraciones
-              de repositorio.
+            <p className="mt-1 font-mono text-sm text-zinc-400">
+              Fidelización, desarrollos activos, release notes e integración de
+              contexto para IA.
             </p>
           </div>
           <Button
