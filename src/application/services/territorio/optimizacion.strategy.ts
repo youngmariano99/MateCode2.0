@@ -49,48 +49,111 @@ export function optimizarCaminoNearestNeighbor(
   if (puntos.length === 0) {
     return inicio ? [inicio] : [];
   }
-  const ruta: PuntoRuta[] = [];
-  const pendientes = [...puntos];
 
-  let actual = inicio;
-  if (!actual) {
-    actual = pendientes.shift()!;
+  // 1. Separate into Primary (Inicio + Alta) and Secondary (Media + Baja)
+  const primarios: PuntoRuta[] = [];
+  const secundarios: PuntoRuta[] = [];
+
+  let startingPoint = inicio;
+  const remaining = [...puntos];
+
+  if (!startingPoint) {
+    startingPoint = remaining.shift()!;
   }
 
-  ruta.push(actual);
+  primarios.push(startingPoint);
 
-  while (pendientes.length > 0) {
+  remaining.forEach((p) => {
+    if (p.prioridad === "Alta") {
+      primarios.push(p);
+    } else {
+      secundarios.push(p);
+    }
+  });
+
+  // 2. Build the backbone route of primary points using standard Nearest Neighbor
+  const rutaPrimaria: PuntoRuta[] = [primarios[0]];
+  const pendientesPrimarios = primarios.slice(1);
+
+  let actual = primarios[0];
+  while (pendientesPrimarios.length > 0) {
     let indexMasCercano = 0;
-    let scoreMinimo = Infinity;
-    for (let i = 0; i < pendientes.length; i++) {
-      const p = pendientes[i];
+    let distMinima = Infinity;
+    for (let i = 0; i < pendientesPrimarios.length; i++) {
       const dist = calcularDistanciaHaversine(
         actual.latitud,
         actual.longitud,
-        p.latitud,
-        p.longitud
+        pendientesPrimarios[i].latitud,
+        pendientesPrimarios[i].longitud
       );
-
-      // Default to 1.8 for Media, 3.0 for Baja, and 1.0 for Alta (favors Alta first unless Low/Medium are very close)
-      let factor = 1.0;
-      if (p.prioridad === "Media") {
-        factor = 1.8;
-      } else if (p.prioridad === "Baja") {
-        factor = 3.0;
-      }
-
-      const score = dist * factor;
-      if (score < scoreMinimo) {
-        scoreMinimo = score;
+      if (dist < distMinima) {
+        distMinima = dist;
         indexMasCercano = i;
       }
     }
-    actual = pendientes[indexMasCercano];
-    ruta.push(actual);
-    pendientes.splice(indexMasCercano, 1);
+    actual = pendientesPrimarios[indexMasCercano];
+    rutaPrimaria.push(actual);
+    pendientesPrimarios.splice(indexMasCercano, 1);
   }
 
-  return ruta;
+  if (secundarios.length === 0) {
+    return rutaPrimaria;
+  }
+
+  // 3. Insert secondary points into the primary backbone route where they cause the least detour
+  const rutaFinal = [...rutaPrimaria];
+
+  secundarios.forEach((sec) => {
+    let bestIndex = rutaFinal.length;
+    let minDetour = Infinity;
+
+    for (let i = 0; i < rutaFinal.length - 1; i++) {
+      const pA = rutaFinal[i];
+      const pB = rutaFinal[i + 1];
+
+      const distAS = calcularDistanciaHaversine(
+        pA.latitud,
+        pA.longitud,
+        sec.latitud,
+        sec.longitud
+      );
+      const distSB = calcularDistanciaHaversine(
+        sec.latitud,
+        sec.longitud,
+        pB.latitud,
+        pB.longitud
+      );
+      const distAB = calcularDistanciaHaversine(
+        pA.latitud,
+        pA.longitud,
+        pB.latitud,
+        pB.longitud
+      );
+
+      const detour = distAS + distSB - distAB;
+      if (detour < minDetour) {
+        minDetour = detour;
+        bestIndex = i + 1;
+      }
+    }
+
+    // Evaluate appending at the end
+    const lastPoint = rutaFinal[rutaFinal.length - 1];
+    const detourEnd = calcularDistanciaHaversine(
+      lastPoint.latitud,
+      lastPoint.longitud,
+      sec.latitud,
+      sec.longitud
+    );
+    if (detourEnd < minDetour) {
+      minDetour = detourEnd;
+      bestIndex = rutaFinal.length;
+    }
+
+    rutaFinal.splice(bestIndex, 0, sec);
+  });
+
+  return rutaFinal;
 }
 
 export class GraphHopperOptimizacionStrategy implements OptimizacionStrategy {
