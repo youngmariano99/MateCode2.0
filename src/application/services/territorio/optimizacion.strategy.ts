@@ -5,6 +5,7 @@ export interface PuntoRuta {
   nombre: string;
   latitud: number;
   longitud: number;
+  prioridad?: "Alta" | "Media" | "Baja";
 }
 
 export interface RutaOptimizada {
@@ -60,16 +61,27 @@ export function optimizarCaminoNearestNeighbor(
 
   while (pendientes.length > 0) {
     let indexMasCercano = 0;
-    let distMinima = Infinity;
+    let scoreMinimo = Infinity;
     for (let i = 0; i < pendientes.length; i++) {
+      const p = pendientes[i];
       const dist = calcularDistanciaHaversine(
         actual.latitud,
         actual.longitud,
-        pendientes[i].latitud,
-        pendientes[i].longitud
+        p.latitud,
+        p.longitud
       );
-      if (dist < distMinima) {
-        distMinima = dist;
+
+      // Default to 1.8 for Media, 3.0 for Baja, and 1.0 for Alta (favors Alta first unless Low/Medium are very close)
+      let factor = 1.0;
+      if (p.prioridad === "Media") {
+        factor = 1.8;
+      } else if (p.prioridad === "Baja") {
+        factor = 3.0;
+      }
+
+      const score = dist * factor;
+      if (score < scoreMinimo) {
+        scoreMinimo = score;
         indexMasCercano = i;
       }
     }

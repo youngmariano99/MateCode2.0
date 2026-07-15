@@ -23,6 +23,8 @@ interface ImportItem {
   instagram?: string;
   facebook?: string;
 
+  prioridad?: "Alta" | "Media" | "Baja"; // Prioridad
+
   // Geocoding state
   buscando: boolean;
   error?: string;
@@ -53,6 +55,7 @@ export const ModalImportarPotenciales: React.FC<
     {
       nombre: "Panadería Colón",
       rubro: "Gastronomía",
+      prioridad: "Alta",
       whatsapp: "+5492914123456",
       instagram: "@panaderia_colon",
       direccionCalle: "Av. Colón 450",
@@ -65,6 +68,7 @@ export const ModalImportarPotenciales: React.FC<
     {
       nombre: "Gimnasio Estilo",
       rubro: "Deportes",
+      prioridad: "Media",
       whatsapp: "+5492914444555",
       instagram: "@gimnasio_estilo",
       direccionCalle: "Vieytes 1020",
@@ -80,6 +84,7 @@ export const ModalImportarPotenciales: React.FC<
     {
       nombre: "Panadería Colón",
       rubro: "Gastronomía",
+      prioridad: "Alta",
       contacto: "Roberto (Dueño)",
       whatsapp: "+5492914123456",
       email: "roberto@colon.com",
@@ -96,6 +101,7 @@ export const ModalImportarPotenciales: React.FC<
     {
       nombre: "Gimnasio Estilo",
       rubro: "Deportes",
+      prioridad: "Baja",
       contacto: "Gaby (Propietario)",
       whatsapp: "+5492914444555",
       email: "gaby@estilo.com",
@@ -143,6 +149,12 @@ export const ModalImportarPotenciales: React.FC<
         email: String(x.email || "").trim(),
         instagram: String(x.instagram || "").trim(),
         facebook: String(x.facebook || "").trim(),
+        prioridad:
+          x.prioridad === "Alta" ||
+          x.prioridad === "Media" ||
+          x.prioridad === "Baja"
+            ? x.prioridad
+            : "Media",
         buscando: false,
       }));
 
@@ -278,6 +290,7 @@ export const ModalImportarPotenciales: React.FC<
       tipoServicio: x.tipoServicio,
       pitch: x.pitch,
       rubro: x.rubro || "General",
+      prioridad: x.prioridad || "Media",
       whatsapp: x.whatsapp,
       email: x.email,
       instagram: x.instagram,
@@ -431,6 +444,7 @@ export const ModalImportarPotenciales: React.FC<
                   <tr className="border-b border-[#2A2A2E] bg-zinc-900/50 text-zinc-500">
                     <th className="px-3 py-2.5">Negocio</th>
                     <th className="px-3 py-2.5">Rubro</th>
+                    <th className="px-3 py-2.5">Prioridad</th>
                     <th className="px-3 py-2.5">WhatsApp / Cel</th>
                     <th className="px-3 py-2.5">Email / Instagram</th>
                     <th className="px-3 py-2.5">Dirección</th>
@@ -463,6 +477,19 @@ export const ModalImportarPotenciales: React.FC<
                           }
                           className="w-full rounded border border-transparent bg-transparent px-1.5 py-0.5 text-zinc-300 focus:border-zinc-800 focus:bg-zinc-900 focus:outline-none"
                         />
+                      </td>
+                      <td className="px-3 py-2">
+                        <select
+                          value={item.prioridad || "Media"}
+                          onChange={(e) =>
+                            handleUpdateField(idx, "prioridad", e.target.value)
+                          }
+                          className="rounded border border-zinc-800 bg-zinc-900 px-1 py-0.5 text-xs text-zinc-300 focus:outline-none"
+                        >
+                          <option value="Alta">🔴 Alta</option>
+                          <option value="Media">🟡 Media</option>
+                          <option value="Baja">🔵 Baja</option>
+                        </select>
                       </td>
                       <td className="px-3 py-2">
                         <input

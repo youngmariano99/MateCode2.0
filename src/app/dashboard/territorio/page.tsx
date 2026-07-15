@@ -58,9 +58,9 @@ export default function TerritorioPage() {
     "todos" | "visitados" | "no_visitados"
   >("todos");
   const [filtroRubro, setFiltroRubro] = useState<string>("todos");
-  const [filtroOrden, setFiltroOrden] = useState<"recientes" | "antiguos">(
-    "recientes"
-  );
+  const [filtroOrden, setFiltroOrden] = useState<
+    "recientes" | "antiguos" | "prioridad"
+  >("prioridad");
 
   // Load potential clients from IndexedDB
   const rawProspectos =
@@ -90,7 +90,14 @@ export default function TerritorioPage() {
       return true;
     })
     .sort((a, b) => {
-      if (filtroOrden === "recientes") {
+      if (filtroOrden === "prioridad") {
+        const getRank = (p: PotencialCliente) => {
+          if (p.prioridad === "Alta") return 3;
+          if (p.prioridad === "Baja") return 1;
+          return 2;
+        };
+        return getRank(b) - getRank(a);
+      } else if (filtroOrden === "recientes") {
         return (b.creadoEn || 0) - (a.creadoEn || 0);
       } else {
         return (a.creadoEn || 0) - (b.creadoEn || 0);
@@ -492,10 +499,10 @@ export default function TerritorioPage() {
               </select>
             </div>
 
-            {/* Age Sort */}
+            {/* Sort Order */}
             <div className="flex flex-col gap-1.5">
               <label className="font-mono text-[10px] font-bold text-zinc-500 uppercase">
-                Antigüedad
+                Ordenar por
               </label>
               <select
                 value={filtroOrden}
@@ -504,6 +511,7 @@ export default function TerritorioPage() {
                 }
                 className="rounded-xl border border-zinc-800 bg-[#18181B] px-3 py-2 font-mono text-xs text-zinc-300 focus:border-emerald-500 focus:outline-none"
               >
+                <option value="prioridad">🔴 Mayor Prioridad primero</option>
                 <option value="recientes">Más recientes primero</option>
                 <option value="antiguos">Más antiguos primero</option>
               </select>
@@ -540,6 +548,17 @@ export default function TerritorioPage() {
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-sm font-bold text-zinc-100">
                         {p.nombre}
+                      </span>
+                      <span
+                        className={`py-0.2 rounded-full px-1.5 text-[8px] font-bold uppercase ${
+                          p.prioridad === "Alta"
+                            ? "border border-red-500/20 bg-red-500/10 text-red-400"
+                            : p.prioridad === "Baja"
+                              ? "border border-zinc-800 bg-zinc-900 text-zinc-500"
+                              : "border border-amber-500/20 bg-amber-500/10 text-amber-400"
+                        }`}
+                      >
+                        {p.prioridad || "Media"}
                       </span>
                       <span className="py-0.2 rounded border border-zinc-800 bg-zinc-900 px-1.5 font-mono text-[9px] font-bold text-zinc-400 uppercase">
                         {p.rubro || "General"}

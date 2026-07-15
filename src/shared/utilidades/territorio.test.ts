@@ -33,19 +33,57 @@ describe("Módulo de Inteligencia Territorial", () => {
     assert.strictEqual(local?.longitud, res.valor.longitud);
   });
 
-  test("Debería calcular y guardar un recorrido optimizado", async () => {
+  test("Debería calcular y guardar un recorrido optimizado teniendo en cuenta la prioridad", async () => {
     await db.recorridos.clear();
 
     const routeUC = new CalcularRecorridoUseCase();
+
+    // We start at Point A (0, 0)
+    // Point B (Baja priority, very close) at (0.005, 0.005) -> Should be visited first because it's "on the way"
+    // Point C (Alta priority, further) at (0.03, 0.03) -> Chosen after B because C has higher rank but is much further.
+    // Point D (Baja priority, far away) at (0.04, 0.04) -> Chosen last.
     const puntos = [
-      { id: "p1", nombre: "Punto A", latitud: -34.6, longitud: -58.4 },
-      { id: "p2", nombre: "Punto B", latitud: -34.62, longitud: -58.42 },
+      {
+        id: "p_start",
+        nombre: "Inicio (Posición actual)",
+        latitud: -34.6,
+        longitud: -58.4,
+        prioridad: "Media" as const,
+      },
+      {
+        id: "p_close_low",
+        nombre: "Baja prioridad de paso",
+        latitud: -34.605,
+        longitud: -58.405,
+        prioridad: "Baja" as const,
+      },
+      {
+        id: "p_far_high",
+        nombre: "Alta prioridad principal",
+        latitud: -34.63,
+        longitud: -58.43,
+        prioridad: "Alta" as const,
+      },
+      {
+        id: "p_far_low",
+        nombre: "Baja prioridad lejos",
+        latitud: -34.64,
+        longitud: -58.44,
+        prioridad: "Baja" as const,
+      },
     ];
 
     const res = await routeUC.ejecutar(puntos, "GraphHopper");
     assert.strictEqual(res.ok, true);
-    assert.strictEqual(res.valor.puntos.length, 2);
-    assert.ok(res.valor.distanciaKm);
+    assert.strictEqual(res.valor.puntos.length, 4);
+
+    // The starting point is always the first one in Nearest Neighbor
+    assert.strictEqual(res.valor.puntos[0].id, "p_start");
+
+    // Verify that the very close low priority is visited before heading to the far high priority
+    assert.strictEqual(res.valor.puntos[1].id, "p_close_low");
+    assert.strictEqual(res.valor.puntos[2].id, "p_far_high");
+    assert.strictEqual(res.valor.puntos[3].id, "p_far_low");
 
     const recorridosList = await db.recorridos.toArray();
     assert.strictEqual(recorridosList.length, 1);

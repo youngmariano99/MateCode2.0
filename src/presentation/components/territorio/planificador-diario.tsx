@@ -22,6 +22,7 @@ interface ClienteGeocodificado {
   visitasCount?: number;
   convertido?: boolean;
   rubro?: string;
+  prioridad?: "Alta" | "Media" | "Baja";
 }
 
 interface PlanificadorDiarioProps {
@@ -63,6 +64,7 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
       nombre: string;
       latitud: number;
       longitud: number;
+      prioridad?: "Alta" | "Media" | "Baja";
     }[];
     distanciaKm: number;
     duracionMin: number;
@@ -86,6 +88,7 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
         nombre: c.nombre,
         latitud: c.latitud!,
         longitud: c.longitud!,
+        prioridad: c.prioridad,
       }));
 
     if (iniciarDesdeGps) {
@@ -103,6 +106,7 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
           nombre: "Mi Posición Actual",
           latitud: position.coords.latitude,
           longitud: position.coords.longitude,
+          prioridad: "Media" as const,
         };
         seleccionadosInfo = [gpsPoint, ...seleccionadosInfo];
       } catch {
@@ -225,6 +229,17 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
               <div className="flex flex-col gap-0.5">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-zinc-100">{c.nombre}</span>
+                  <span
+                    className={`py-0.2 rounded px-1.5 text-[8px] font-bold uppercase ${
+                      c.prioridad === "Alta"
+                        ? "border border-red-500/20 bg-red-500/10 text-red-400"
+                        : c.prioridad === "Baja"
+                          ? "border border-zinc-800 bg-zinc-900 text-zinc-500"
+                          : "border border-amber-500/20 bg-amber-500/10 text-amber-400"
+                    }`}
+                  >
+                    {c.prioridad || "Media"}
+                  </span>
                   <span className="py-0.2 rounded border border-zinc-800 bg-zinc-900 px-1 font-mono text-[8px] font-bold text-zinc-400 uppercase">
                     {c.rubro || "General"}
                   </span>
@@ -349,9 +364,24 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
                 className="flex items-center justify-between rounded-xl border border-[#2A2A2E] bg-zinc-950 p-3 font-mono text-xs transition-all hover:border-zinc-800"
               >
                 <div className="flex flex-col gap-0.5">
-                  <span className="font-bold text-zinc-100">
-                    Parada #{idx + 1}: {p.nombre}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-zinc-100">
+                      Parada #{idx + 1}: {p.nombre}
+                    </span>
+                    {p.prioridad && (
+                      <span
+                        className={`py-0.2 rounded px-1.5 text-[8px] font-bold uppercase ${
+                          p.prioridad === "Alta"
+                            ? "border border-red-500/20 bg-red-500/10 text-red-400"
+                            : p.prioridad === "Baja"
+                              ? "border border-zinc-800 bg-zinc-900 text-zinc-500"
+                              : "border border-amber-500/20 bg-amber-500/10 text-amber-400"
+                        }`}
+                      >
+                        {p.prioridad}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[10px] text-zinc-500">
                     Lat: {p.latitud.toFixed(5)} • Lng: {p.longitud.toFixed(5)}
                   </span>

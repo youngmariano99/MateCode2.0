@@ -40,6 +40,7 @@ export interface PotencialCliente {
   ultimoCanalContacto?: "whatsapp" | "email" | "instagram" | "facebook";
   notasContacto?: string;
   fechaUltimoContacto?: number;
+  prioridad?: "Alta" | "Media" | "Baja";
 }
 
 interface ModalPotencialClienteProps {
@@ -60,6 +61,9 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
   const [tipoServicio, setTipoServicio] = useState("");
   const [pitch, setPitch] = useState("");
   const [rubro, setRubro] = useState("");
+  const [prioridad, setPrioridad] = useState<"Alta" | "Media" | "Baja">(
+    "Media"
+  );
 
   // Digital properties
   const [whatsapp, setWhatsapp] = useState("");
@@ -131,6 +135,7 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
         setTipoServicio(prospectoEdicion.tipoServicio || "");
         setPitch(prospectoEdicion.pitch || "");
         setRubro(prospectoEdicion.rubro || "");
+        setPrioridad(prospectoEdicion.prioridad || "Media");
 
         setWhatsapp(prospectoEdicion.whatsapp || "");
         setEmail(prospectoEdicion.email || "");
@@ -148,6 +153,7 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
         setTipoServicio("");
         setPitch("");
         setRubro("");
+        setPrioridad("Media");
 
         setWhatsapp("");
         setEmail("");
@@ -246,6 +252,7 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
       tipoServicio: tipoServicio.trim(),
       pitch: pitch.trim(),
       rubro: rubro.trim(),
+      prioridad,
       whatsapp: whatsapp.trim(),
       email: email.trim(),
       instagram: instagram.trim(),
@@ -301,6 +308,23 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
               <option key={r} value={r} />
             ))}
           </datalist>
+
+          <div className="flex flex-col gap-1">
+            <label className="font-mono text-[10px] font-bold text-zinc-400 uppercase">
+              Prioridad / Grado
+            </label>
+            <select
+              value={prioridad}
+              onChange={(e) =>
+                setPrioridad(e.target.value as "Alta" | "Media" | "Baja")
+              }
+              className="w-full rounded-xl border border-zinc-800 bg-[#18181B] p-2.5 font-mono text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none"
+            >
+              <option value="Alta">🔴 Alta (Visitar Primero / Crítico)</option>
+              <option value="Media">🟡 Media (Estándar)</option>
+              <option value="Baja">🔵 Baja (De Paso / Secundario)</option>
+            </select>
+          </div>
 
           <Input
             label="Persona de Contacto (Opcional)"

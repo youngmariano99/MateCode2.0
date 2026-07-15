@@ -98,31 +98,39 @@ export const PlanificadorDigital: React.FC<PlanificadorDigitalProps> = ({
     new Set(clientes.map((c) => c.rubro || "General").filter(Boolean))
   );
 
-  const filteredClientes = clientes.filter((c) => {
-    // Filter by Rubro
-    if (
-      rubroSeleccionado !== "Todos" &&
-      (c.rubro || "General") !== rubroSeleccionado
-    ) {
-      return false;
-    }
-    // Filter by Contact Status
-    if (
-      estadoSeleccionado !== "Todos" &&
-      (c.estadoContacto || "Pendiente") !== estadoSeleccionado
-    ) {
-      return false;
-    }
-    // Filter only uncontacted
-    if (
-      soloSinContactar &&
-      c.estadoContacto &&
-      c.estadoContacto !== "Pendiente"
-    ) {
-      return false;
-    }
-    return true;
-  });
+  const getPriorityRank = (p: PotencialCliente): number => {
+    if (p.prioridad === "Alta") return 3;
+    if (p.prioridad === "Baja") return 1;
+    return 2; // Media is default
+  };
+
+  const filteredClientes = clientes
+    .filter((c) => {
+      // Filter by Rubro
+      if (
+        rubroSeleccionado !== "Todos" &&
+        (c.rubro || "General") !== rubroSeleccionado
+      ) {
+        return false;
+      }
+      // Filter by Contact Status
+      if (
+        estadoSeleccionado !== "Todos" &&
+        (c.estadoContacto || "Pendiente") !== estadoSeleccionado
+      ) {
+        return false;
+      }
+      // Filter only uncontacted
+      if (
+        soloSinContactar &&
+        c.estadoContacto &&
+        c.estadoContacto !== "Pendiente"
+      ) {
+        return false;
+      }
+      return true;
+    })
+    .sort((a, b) => getPriorityRank(b) - getPriorityRank(a));
 
   const queuedClientes = clientes.filter((c) => seleccionados.includes(c.id));
 
@@ -199,7 +207,22 @@ export const PlanificadorDigital: React.FC<PlanificadorDigitalProps> = ({
                 />
                 <div className="flex w-full flex-col gap-0.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-zinc-100">{c.nombre}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-zinc-100">
+                        {c.nombre}
+                      </span>
+                      <span
+                        className={`py-0.2 rounded px-1.5 text-[8px] font-bold uppercase ${
+                          c.prioridad === "Alta"
+                            ? "border border-red-500/20 bg-red-500/10 text-red-400"
+                            : c.prioridad === "Baja"
+                              ? "border border-zinc-800 bg-zinc-900 text-zinc-500"
+                              : "border border-amber-500/20 bg-amber-500/10 text-amber-400"
+                        }`}
+                      >
+                        {c.prioridad || "Media"}
+                      </span>
+                    </div>
                     <span className="py-0.2 rounded border border-zinc-800 bg-zinc-900 px-1.5 text-[8px] font-bold text-zinc-400 uppercase">
                       {c.rubro || "General"}
                     </span>
