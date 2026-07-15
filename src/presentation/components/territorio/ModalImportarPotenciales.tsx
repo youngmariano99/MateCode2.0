@@ -386,9 +386,10 @@ export const ModalImportarPotenciales: React.FC<
               </div>
               <p className="mt-2 font-mono text-[10px] leading-normal text-zinc-500">
                 Genera tu JSON con la dirección dividida en campos e incluye el
-                rubro (`rubro`), celular (`whatsapp`), email (`email`) e
-                instagram (`instagram`) para alimentar la Inteligencia Comercial
-                y el planificador digital.
+                rubro (`rubro`), prioridad (`prioridad`: usar &quot;Alta&quot; |
+                &quot;Media&quot; | &quot;Baja&quot;), celular (`whatsapp`),
+                email (`email`) e instagram (`instagram`) para alimentar la
+                Inteligencia Comercial y el planificador digital.
               </p>
             </div>
 
@@ -401,8 +402,8 @@ export const ModalImportarPotenciales: React.FC<
                 onChange={(e) => setJsonText(e.target.value)}
                 placeholder={
                   tipoImportacion === "basica"
-                    ? '[\n  {\n    "nombre": "Panadería Colón",\n    "rubro": "Gastronomía",\n    "whatsapp": "+5492914123456",\n    "instagram": "@panaderia_colon",\n    "direccionCalle": "Av. Colón 450",\n    "direccionCodigoPostal": "8000",\n    "direccionCiudad": "Bahía Blanca",\n    "direccionProvincia": "Buenos Aires",\n    "direccionPais": "Argentina",\n    "tipoServicio": "Página Web y Menú QR"\n  }\n]'
-                    : '[\n  {\n    "nombre": "Panadería Colón",\n    "rubro": "Gastronomía",\n    "contacto": "Roberto (Dueño)",\n    "whatsapp": "+5492914123456",\n    "email": "roberto@colon.com",\n    "instagram": "@panaderiacolon",\n    "facebook": "",\n    "tipoServicio": "Página Web y Menú QR",\n    "pitch": "Digitalizar su cartelería física con código QR dinámico",\n    "direccionCalle": "Av. Colón 450",\n    "direccionCodigoPostal": "8000",\n    "direccionCiudad": "Bahía Blanca",\n    "direccionProvincia": "Buenos Aires",\n    "direccionPais": "Argentina"\n  }\n]'
+                    ? '[\n  {\n    "nombre": "Panadería Colón",\n    "rubro": "Gastronomía",\n    "prioridad": "Alta",\n    "whatsapp": "+5492914123456",\n    "instagram": "@panaderia_colon",\n    "direccionCalle": "Av. Colón 450",\n    "direccionCodigoPostal": "8000",\n    "direccionCiudad": "Bahía Blanca",\n    "direccionProvincia": "Buenos Aires",\n    "direccionPais": "Argentina",\n    "tipoServicio": "Página Web y Menú QR"\n  }\n]'
+                    : '[\n  {\n    "nombre": "Panadería Colón",\n    "rubro": "Gastronomía",\n    "prioridad": "Alta",\n    "contacto": "Roberto (Dueño)",\n    "whatsapp": "+5492914123456",\n    "email": "roberto@colon.com",\n    "instagram": "@panaderiacolon",\n    "facebook": "",\n    "tipoServicio": "Página Web y Menú QR",\n    "pitch": "Digitalizar su cartelería física con código QR dinámico",\n    "direccionCalle": "Av. Colón 450",\n    "direccionCodigoPostal": "8000",\n    "direccionCiudad": "Bahía Blanca",\n    "direccionProvincia": "Buenos Aires",\n    "direccionPais": "Argentina"\n  }\n]'
                 }
                 rows={12}
                 className="w-full rounded-xl border border-zinc-800 bg-zinc-950 p-4 font-mono text-xs text-zinc-100 placeholder-zinc-700 transition-all focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/50 focus:outline-none"
