@@ -159,34 +159,18 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
     if (!rutaResultado || rutaResultado.puntos.length < 2) return;
 
     const puntos = rutaResultado.puntos;
-    const origin = puntos[0];
-    const destination = puntos[puntos.length - 1];
-    const waypoints = puntos.slice(1, -1);
 
-    const originStr = `${origin.latitud},${origin.longitud}`;
-    const destStr = `${destination.latitud},${destination.longitud}`;
-
-    // Google Maps supports up to 9 waypoints in standard directions query URL
-    const waypointsStr = waypoints
-      .slice(0, 9)
+    // Build the slash-based route URL: https://www.google.com/maps/dir/lat1,lng1/lat2,lng2/...
+    // This forces Google Maps to treat the coordinates as literal GPS pin stops without reverse-geocoding mismatches.
+    const coordsPath = puntos
       .map((p) => `${p.latitud},${p.longitud}`)
-      .join("%7C");
+      .join("/");
 
-    const mode = perfilTransporte === "foot" ? "walking" : "driving";
-    const url = `https://www.google.com/maps/dir/?api=1&origin=${originStr}&destination=${destStr}${
-      waypointsStr ? `&waypoints=${waypointsStr}` : ""
-    }&travelmode=${mode}`;
+    const travelModeFlag = perfilTransporte === "foot" ? "2" : "0";
+    const url = `https://www.google.com/maps/dir/${coordsPath}/data=!4m2!4m1!3e${travelModeFlag}`;
 
     window.open(url, "_blank");
-
-    if (waypoints.length > 9) {
-      mostrarToast(
-        "Google Maps limita la ruta a 11 paradas totales. Las primeras 11 fueron exportadas; utiliza el botón 'Navegar' individual en las demás.",
-        "advertencia"
-      );
-    } else {
-      mostrarToast("Ruta completa exportada a Google Maps con éxito.", "exito");
-    }
+    mostrarToast("Ruta completa exportada a Google Maps con éxito.", "exito");
   };
 
   const exportarGPX = () => {
@@ -232,6 +216,53 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
       "Archivo GPX descargado con éxito. Impórtalo en apps GPS offline (OsmAnd, Maps.me, etc.)",
       "exito"
     );
+  };
+
+  const copiarTextoRuta = () => {
+    if (!rutaResultado || rutaResultado.puntos.length === 0) return;
+
+    const transportMode =
+      perfilTransporte === "foot" ? "🚶 Caminando" : "🚗 En Auto";
+    let text = `📋 RECORRIDO OPTIMIZADO - MATECODE\n`;
+    text += `----------------------------------\n`;
+    text += `🏁 Modo: ${transportMode}\n`;
+    text += `📏 Distancia: ${rutaResultado.distanciaKm} km | ⏱️ Duración: ${rutaResultado.duracionMin} min\n\n`;
+
+    rutaResultado.puntos.forEach((p, idx) => {
+      // Find full details to get the actual address
+      const prospectInfo = clientes.find((c) => c.id === p.id);
+      const addressStr =
+        prospectInfo?.direccion ||
+        `Lat: ${p.latitud.toFixed(5)}, Lng: ${p.longitud.toFixed(5)}`;
+      const rubroStr =
+        p.id === "mi_posicion_actual"
+          ? ""
+          : ` (${prospectInfo?.rubro || "General"})`;
+
+      let priorityIndicator = "";
+      if (p.id !== "mi_posicion_actual") {
+        const priority = p.prioridad || "Media";
+        const emoji =
+          priority === "Alta" ? "🔴" : priority === "Baja" ? "🔵" : "🟡";
+        priorityIndicator = `[${emoji} ${priority}] `;
+      } else {
+        priorityIndicator = `[📍 Inicio] `;
+      }
+
+      text += `${idx + 1}. ${priorityIndicator}${p.nombre}${rubroStr}\n`;
+      text += `   Dirección: ${addressStr}\n\n`;
+    });
+
+    text += `Generado automáticamente por MateCode.`;
+
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        mostrarToast("Ruta copiada al portapapeles con éxito.", "exito");
+      })
+      .catch(() => {
+        mostrarToast("Error al copiar al portapapeles.", "error");
+      });
   };
 
   // Get distinct rubros from list
@@ -425,20 +456,27 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
                 Distancia: {rutaResultado.distanciaKm} km • Duración:{" "}
                 {rutaResultado.duracionMin} min ({rutaResultado.proveedor})
               </p>
-              <div className="mt-1 flex gap-2">
+              <div className="mt-1 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={exportarARutaGoogleMaps}
                   className="flex items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-600/10 px-2 py-1.5 font-mono text-[10px] font-bold text-emerald-400 transition-all hover:bg-emerald-600 hover:text-black"
                 >
-                  🗺️ Abrir en Google Maps
+                  🗺️ Google Maps
                 </button>
                 <button
                   type="button"
                   onClick={exportarGPX}
                   className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1.5 font-mono text-[10px] font-bold text-zinc-300 transition-all hover:bg-zinc-800"
                 >
-                  💾 Descargar GPX (Offline)
+                  💾 Descargar GPX
+                </button>
+                <button
+                  type="button"
+                  onClick={copiarTextoRuta}
+                  className="flex items-center gap-1 rounded-lg border border-purple-500/20 bg-purple-600/10 px-2 py-1.5 font-mono text-[10px] font-bold text-purple-400 transition-all hover:bg-purple-600 hover:text-black"
+                >
+                  📋 Copiar Texto (WSP)
                 </button>
               </div>
             </div>
