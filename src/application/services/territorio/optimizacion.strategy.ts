@@ -50,20 +50,13 @@ export function optimizarCaminoNearestNeighbor(
     return inicio ? [inicio] : [];
   }
 
-  // 1. Separate into Primary (Inicio + Alta) and Secondary (Media + Baja)
+  // 1. Separate selected prospects into Primary (Alta) and Secondary (Media + Baja)
   const primarios: PuntoRuta[] = [];
   const secundarios: PuntoRuta[] = [];
 
-  let startingPoint = inicio;
-  const remaining = [...puntos];
+  puntos.forEach((p) => {
+    if (p.id === "mi_posicion_actual") return;
 
-  if (!startingPoint) {
-    startingPoint = remaining.shift()!;
-  }
-
-  primarios.push(startingPoint);
-
-  remaining.forEach((p) => {
     if (p.prioridad === "Alta") {
       primarios.push(p);
     } else {
@@ -71,11 +64,49 @@ export function optimizarCaminoNearestNeighbor(
     }
   });
 
-  // 2. Build the backbone route of primary points using standard Nearest Neighbor
-  const rutaPrimaria: PuntoRuta[] = [primarios[0]];
-  const pendientesPrimarios = primarios.slice(1);
+  // Fallback: If no Alta points are selected, treat all selected prospects as primary
+  if (primarios.length === 0) {
+    puntos.forEach((p) => {
+      if (p.id !== "mi_posicion_actual") {
+        primarios.push(p);
+      }
+    });
+  }
 
-  let actual = primarios[0];
+  if (primarios.length === 0) {
+    return inicio ? [inicio] : [];
+  }
+
+  // 2. Build the primary backbone route
+  const rutaPrimaria: PuntoRuta[] = [];
+  const pendientesPrimarios = [...primarios];
+
+  // Select the primary point closest to the starting point to start the backbone
+  let actual: PuntoRuta;
+  if (inicio) {
+    let indexClosest = 0;
+    let distMin = Infinity;
+    for (let i = 0; i < pendientesPrimarios.length; i++) {
+      const d = calcularDistanciaHaversine(
+        inicio.latitud,
+        inicio.longitud,
+        pendientesPrimarios[i].latitud,
+        pendientesPrimarios[i].longitud
+      );
+      if (d < distMin) {
+        distMin = d;
+        indexClosest = i;
+      }
+    }
+    actual = pendientesPrimarios[indexClosest];
+    pendientesPrimarios.splice(indexClosest, 1);
+  } else {
+    actual = pendientesPrimarios.shift()!;
+  }
+
+  rutaPrimaria.push(actual);
+
+  // Build the rest of the primary route
   while (pendientesPrimarios.length > 0) {
     let indexMasCercano = 0;
     let distMinima = Infinity;
@@ -96,20 +127,40 @@ export function optimizarCaminoNearestNeighbor(
     pendientesPrimarios.splice(indexMasCercano, 1);
   }
 
-  if (secundarios.length === 0) {
-    return rutaPrimaria;
-  }
+  // 3. Prepare the route with starting point at index 0 for detour evaluation
+  const rutaFinal = inicio ? [inicio, ...rutaPrimaria] : [...rutaPrimaria];
 
-  // 3. Insert secondary points into the primary backbone route where they cause the least detour
-  const rutaFinal = [...rutaPrimaria];
-
+  // 4. Insert secondary points into the route
   secundarios.forEach((sec) => {
+    if (sec.id === "mi_posicion_actual") return;
+
     let bestIndex = rutaFinal.length;
     let minDetour = Infinity;
 
     for (let i = 0; i < rutaFinal.length - 1; i++) {
       const pA = rutaFinal[i];
       const pB = rutaFinal[i + 1];
+
+      // If evaluating the very first segment (from starting point to the first primary point),
+      // we only allow insertion if the secondary point is physically closer to the start than to the primary destination.
+      // This prevents distant cluster points from being visited first before reaching the first high-priority point.
+      if (inicio && i === 0) {
+        const distToStart = calcularDistanciaHaversine(
+          pA.latitud,
+          pA.longitud,
+          sec.latitud,
+          sec.longitud
+        );
+        const distToFirstPrimary = calcularDistanciaHaversine(
+          sec.latitud,
+          sec.longitud,
+          pB.latitud,
+          pB.longitud
+        );
+        if (distToStart > distToFirstPrimary) {
+          continue; // Skip this segment, evaluate other segments in the cluster instead!
+        }
+      }
 
       const distAS = calcularDistanciaHaversine(
         pA.latitud,
