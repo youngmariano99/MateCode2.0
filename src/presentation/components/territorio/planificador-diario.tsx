@@ -155,6 +155,85 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
     window.open(url, "_blank");
   };
 
+  const exportarARutaGoogleMaps = () => {
+    if (!rutaResultado || rutaResultado.puntos.length < 2) return;
+
+    const puntos = rutaResultado.puntos;
+    const origin = puntos[0];
+    const destination = puntos[puntos.length - 1];
+    const waypoints = puntos.slice(1, -1);
+
+    const originStr = `${origin.latitud},${origin.longitud}`;
+    const destStr = `${destination.latitud},${destination.longitud}`;
+
+    // Google Maps supports up to 9 waypoints in standard directions query URL
+    const waypointsStr = waypoints
+      .slice(0, 9)
+      .map((p) => `${p.latitud},${p.longitud}`)
+      .join("%7C");
+
+    const mode = perfilTransporte === "foot" ? "walking" : "driving";
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${originStr}&destination=${destStr}${
+      waypointsStr ? `&waypoints=${waypointsStr}` : ""
+    }&travelmode=${mode}`;
+
+    window.open(url, "_blank");
+
+    if (waypoints.length > 9) {
+      mostrarToast(
+        "Google Maps limita la ruta a 11 paradas totales. Las primeras 11 fueron exportadas; utiliza el botón 'Navegar' individual en las demás.",
+        "advertencia"
+      );
+    } else {
+      mostrarToast("Ruta completa exportada a Google Maps con éxito.", "exito");
+    }
+  };
+
+  const exportarGPX = () => {
+    if (!rutaResultado || rutaResultado.puntos.length === 0) return;
+
+    let gpxContent = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="MateCode" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata>
+    <name>Recorrido Optimizado MateCode</name>
+    <desc>Generado el ${new Date().toLocaleDateString()}</desc>
+  </metadata>
+  <trk>
+    <name>Recorrido Optimizado</name>
+    <trkseg>`;
+
+    rutaResultado.puntos.forEach((p, idx) => {
+      const escapedName = p.nombre
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+      gpxContent += `
+      <trkpt lat="${p.latitud}" lon="${p.longitud}">
+        <name>Parada ${idx + 1}: ${escapedName}</name>
+      </trkpt>`;
+    });
+
+    gpxContent += `
+    </trkseg>
+  </trk>
+</gpx>`;
+
+    const blob = new Blob([gpxContent], { type: "application/gpx+xml" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `recorrido_matecode_${Date.now()}.gpx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    mostrarToast(
+      "Archivo GPX descargado con éxito. Impórtalo en apps GPS offline (OsmAnd, Maps.me, etc.)",
+      "exito"
+    );
+  };
+
   // Get distinct rubros from list
   const rubrosExistentes = Array.from(
     new Set(clientes.map((c) => c.rubro || "General").filter(Boolean))
@@ -341,10 +420,28 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
             Recorrido Optimizado
           </h4>
           {rutaResultado ? (
-            <p className="font-mono text-[10px] text-emerald-400">
-              Distancia: {rutaResultado.distanciaKm} km • Duración:{" "}
-              {rutaResultado.duracionMin} min ({rutaResultado.proveedor})
-            </p>
+            <div className="flex flex-col gap-2">
+              <p className="font-mono text-[10px] text-emerald-400">
+                Distancia: {rutaResultado.distanciaKm} km • Duración:{" "}
+                {rutaResultado.duracionMin} min ({rutaResultado.proveedor})
+              </p>
+              <div className="mt-1 flex gap-2">
+                <button
+                  type="button"
+                  onClick={exportarARutaGoogleMaps}
+                  className="flex items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-600/10 px-2 py-1.5 font-mono text-[10px] font-bold text-emerald-400 transition-all hover:bg-emerald-600 hover:text-black"
+                >
+                  🗺️ Abrir en Google Maps
+                </button>
+                <button
+                  type="button"
+                  onClick={exportarGPX}
+                  className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1.5 font-mono text-[10px] font-bold text-zinc-300 transition-all hover:bg-zinc-800"
+                >
+                  💾 Descargar GPX (Offline)
+                </button>
+              </div>
+            </div>
           ) : (
             <p className="font-mono text-[10px] text-zinc-500">
               Calcula un recorrido para visualizar las paradas
