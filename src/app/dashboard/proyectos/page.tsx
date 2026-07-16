@@ -35,6 +35,7 @@ import { SprintPlanner } from "../../../presentation/components/proyectos/sprint
 import { KanbanBoard } from "../../../presentation/components/proyectos/kanban-board";
 import { FinancialPanel } from "../../../presentation/components/proyectos/financial-panel";
 import { PromptGenerator } from "../../../presentation/components/proyectos/prompt-generator";
+import { DesignSystemForm } from "../../../presentation/components/proyectos/design-system-form";
 
 type FaseCicloVida =
   "negocio" | "arquitectura" | "planificacion" | "ejecucion" | "cierre";
@@ -352,16 +353,19 @@ export default function ProyectosPage() {
             )}
 
             {faseActiva === "arquitectura" && (
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <StackSelector
-                  proyectoId={proyectoSeleccionado.id}
-                  initialStack={proyectoSeleccionado.stack}
-                  onSave={(stack) => handleSaveTechnical({ stack })}
-                />
-                <StandardSelector
-                  initialEstandares={proyectoSeleccionado.estandares}
-                  onSave={(estandares) => handleSaveTechnical({ estandares })}
-                />
+              <div className="flex flex-col gap-6">
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  <StackSelector
+                    proyectoId={proyectoSeleccionado.id}
+                    initialStack={proyectoSeleccionado.stack}
+                    onSave={(stack) => handleSaveTechnical({ stack })}
+                  />
+                  <StandardSelector
+                    initialEstandares={proyectoSeleccionado.estandares}
+                    onSave={(estandares) => handleSaveTechnical({ estandares })}
+                  />
+                </div>
+                <DesignSystemForm proyectoId={proyectoSeleccionado.id} />
               </div>
             )}
 

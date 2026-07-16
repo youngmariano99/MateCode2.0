@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { db } from "../../../offline/dexie/db";
 import { Resultado } from "../../../shared/utilidades/resultado";
 import {
@@ -163,6 +164,213 @@ Retorna ÚNICAMENTE un objeto JSON con el siguiente formato, sin explicaciones n
     return Resultado.exito(prompt);
   }
 
+  public async generarPromptEspecializado(
+    proyectoId: string,
+    templateId: string,
+    customVariables: Record<string, string> = {}
+  ): Promise<Resultado<string>> {
+    const proyecto = (await db.proyectos.get(proyectoId)) as any;
+    if (!proyecto) {
+      return Resultado.falla(new ErrorNoEncontrado("Proyecto no encontrado."));
+    }
+
+    const template = await db.prompt_templates.get(templateId);
+    if (!template) {
+      return Resultado.falla(
+        new ErrorNoEncontrado("Plantilla de prompt no encontrada.")
+      );
+    }
+
+    const poContext = ((await db.proyecto_contexto.get(proyectoId)) ||
+      {}) as any;
+    const ds = ((await db.proyecto_design_system.get(proyectoId)) || {}) as any;
+
+    const projectStack = (proyecto.stack || {}) as any;
+    const projectEstandares = (proyecto.estandares || {}) as any;
+
+    let content = template.contenido as string;
+
+    const valuesMap: Record<string, string> = {
+      dolores_cliente: (
+        poContext.doloresCliente ||
+        proyecto.productOwner?.dolor ||
+        ""
+      ).toString(),
+      reglas_negocio: (
+        poContext.reglasNegocio ||
+        proyecto.productOwner?.restricciones ||
+        ""
+      ).toString(),
+      publico_objetivo: (
+        poContext.publicoObjetivo ||
+        proyecto.productOwner?.usuarios ||
+        ""
+      ).toString(),
+
+      arquetipo: (ds.arquetipo || "Diseño Suizo").toString(),
+      metafora: (ds.metafora || "").toString(),
+      radio_bordes: (ds.radioBordes || "0px").toString(),
+      sombras: (ds.sombras || "Prohibidas").toString(),
+      directrices_diseno: (ds.directrizNegacion || "").toString(),
+      escala_espaciado: (ds.escalaEspaciado || "Holgado").toString(),
+      reglas_color: (ds.reglaColor || "").toString(),
+      tipografias: (ds.tipografias || "Inter").toString(),
+      animaciones: (ds.estiloAnimaciones || "Secas 0ms").toString(),
+
+      stack_frontend: (projectStack.frontend || []).join(", "),
+      stack_backend: (projectStack.backend || []).join(", "),
+      stack_base_datos: (projectStack.baseDatos || []).join(", "),
+      arquitectura_patrones: [
+        ...(projectEstandares.arquitectura || []),
+        ...(projectEstandares.patrones || []),
+      ].join(", "),
+      ...customVariables,
+    };
+
+    Object.keys(valuesMap).forEach((key) => {
+      const placeholder = new RegExp(`\\{\\{${key}\\}\\}`, "g");
+      content = content.replace(
+        placeholder,
+        valuesMap[key] || `[Ingresar ${key}]`
+      );
+    });
+
+    content += `\n\n[Instrucción de Sistema Oculta]
+Al finalizar tu tarea, si agregaste una nueva librería, modificaste una tabla de la base de datos o cambiaste la arquitectura, debes añadir al final de tu respuesta un bloque de código JSON con el lenguaje json-app-sync siguiendo esta estructura:
+\`\`\`json-app-sync
+{
+  "update_type": "database|dependencies",
+  "data": {
+    "dependencies": ["nombre_libreria_1", "nombre_libreria_2"],
+    "esquemaDb": {
+      "nombre_tabla": {
+        "campos": ["id", "nombre", "tipo"],
+        "descripcion": "Descripción corta de su propósito"
+      }
+    }
+  }
+}
+\`\`\``;
+
+    return Resultado.exito(content);
+  }
+
+  public async generarPromptIngesta(
+    proyectoId: string
+  ): Promise<Resultado<string>> {
+    const proyecto = await db.proyectos.get(proyectoId);
+    if (!proyecto) {
+      return Resultado.falla(new ErrorNoEncontrado("Proyecto no encontrado."));
+    }
+
+    const ingestaPrompt = `Actúa como un Analista de Software Senior.
+Necesito realizar ingeniería inversa (Reverse Engineering) de un proyecto de software en curso para integrarlo a nuestro Workspace.
+
+INSTRUCCIONES:
+1. Lee detenidamente el código fuente, la estructura de directorios, el archivo package.json y el README de este proyecto.
+2. Extrae y formatea la información del proyecto según la estructura JSON detallada a continuación.
+3. Devuelve EXCLUSIVAMENTE un objeto JSON con este formato exacto, sin explicaciones, sin texto introductorio y sin formateo markdown (solo el JSON puro):
+
+{
+  "contexto": {
+    "doloresCliente": "Resumen de dolores que resuelve la aplicación",
+    "reglasNegocio": "Leyes o reglas principales del negocio/código",
+    "publicoObjetivo": "Para quién está construida"
+  },
+  "stack": {
+    "frontend": ["React", "TypeScript"],
+    "backend": ["NodeJS", "Express"],
+    "baseDatos": ["PostgreSQL"]
+  },
+  "designSystem": {
+    "arquetipo": "Elegir uno de: Diseño Suizo, Brutalismo, Neumorfismo, Material Design 3, Neo-Retro, Cyberpunk Oscuro, Minimalismo Monocromático",
+    "metafora": "Metáfora del vibe del diseño actual",
+    "radioBordes": "0px o 4px o 12px o Píldora",
+    "sombras": "Prohibidas o Sombras Duras o Sombras Difusas",
+    "directrizNegacion": "Directivas de lo que evita o no hace el diseño",
+    "parejaTipografica": "Tipografías detectadas o aconsejadas",
+    "escalaEspaciado": "Holgado o Denso",
+    "reglaColor": "Paleta cromática detectada",
+    "estiloAnimaciones": "Secas 0ms o Elásticas Spring o Suaves Ease-in-out",
+    "estadoHover": "Efectos al pasar el cursor"
+  },
+  "epicas": [
+    { "id": "ep_1", "nombre": "Nombre de la Épica", "descripcion": "Descripción del módulo" }
+  ],
+  "historias": [
+    {
+      "id": "us_1",
+      "epicaId": "ep_1",
+      "titulo": "Título de la Historia",
+      "descripcion": "Como... Quiero... Para...",
+      "prioridad": "Alta",
+      "estimacion": 3,
+      "etiquetas": ["frontend", "backend"]
+    }
+  ]
+}`;
+
+    return Resultado.exito(ingestaPrompt);
+  }
+
+  public async sincronizarEstado(
+    proyectoId: string,
+    syncJsonText: string
+  ): Promise<Resultado<void>> {
+    try {
+      const cleanedText = syncJsonText.replace(/```[a-z0-9_-]*/gi, "").trim();
+
+      const syncObj = JSON.parse(cleanedText);
+      if (!syncObj.update_type || !syncObj.data) {
+        return Resultado.falla(
+          new ErrorValidacion(
+            "Formato json-app-sync inválido. Falta 'update_type' o 'data'."
+          )
+        );
+      }
+
+      const pState = (await db.proyecto_estado_tecnico.get(proyectoId)) || {
+        proyectoId,
+        dependencias: [],
+        esquemaDb: {},
+      };
+
+      if (syncObj.update_type === "dependencies") {
+        const newDeps = syncObj.data.dependencies || [];
+        const currentDeps = (pState.dependencias as string[]) || [];
+        const mergedDeps = Array.from(new Set([...currentDeps, ...newDeps]));
+        pState.dependencias = mergedDeps;
+      } else if (syncObj.update_type === "database") {
+        const newSchema = syncObj.data.esquemaDb || {};
+        pState.esquemaDb = {
+          ...(pState.esquemaDb as Record<string, unknown>),
+          ...newSchema,
+        };
+      } else {
+        return Resultado.falla(
+          new ErrorValidacion(
+            `Tipo de actualización no soportado: ${syncObj.update_type}`
+          )
+        );
+      }
+
+      await db.proyecto_estado_tecnico.put(pState);
+
+      await db.logs_sincronizacion.add({
+        tipo: "exito",
+        mensaje: `Sincronización Bidireccional exitosa (${syncObj.update_type}) para Proyecto ID ${proyectoId}`,
+        fecha: Date.now(),
+      });
+
+      return Resultado.exito(undefined);
+    } catch (e: unknown) {
+      const err = e as Error;
+      return Resultado.falla(
+        new ErrorValidacion(`Error al procesar json-app-sync: ${err.message}`)
+      );
+    }
+  }
+
   public async exportarContextoMarkdown(
     proyectoId: string
   ): Promise<Resultado<string>> {
@@ -232,18 +440,15 @@ Retorna ÚNICAMENTE un objeto JSON con el siguiente formato, sin explicaciones n
   ): Promise<Resultado<void>> {
     try {
       const data = JSON.parse(backlogJson);
-      if (!Array.isArray(data.epicas) || !Array.isArray(data.historias)) {
-        return Resultado.falla(
-          new ErrorValidacion(
-            "El JSON de backlog debe incluir 'epicas' e 'historias' como arrays."
-          )
-        );
-      }
+      const isFullIngesta = data.contexto || data.stack || data.designSystem;
+
+      const epicas = data.epicas || [];
+      const historias = data.historias || [];
 
       await db.epicas.where("proyectoId").equals(proyectoId).delete();
       await db.historias.where("proyectoId").equals(proyectoId).delete();
 
-      for (const ep of data.epicas) {
+      for (const ep of epicas) {
         if (!ep.id || !ep.nombre) {
           return Resultado.falla(
             new ErrorValidacion(
@@ -260,7 +465,7 @@ Retorna ÚNICAMENTE un objeto JSON con el siguiente formato, sin explicaciones n
         });
       }
 
-      for (const us of data.historias) {
+      for (const us of historias) {
         if (!us.id || !us.titulo) {
           return Resultado.falla(
             new ErrorValidacion(
@@ -284,9 +489,62 @@ Retorna ÚNICAMENTE un objeto JSON con el siguiente formato, sin explicaciones n
         });
       }
 
+      if (isFullIngesta) {
+        if (data.contexto) {
+          await db.proyecto_contexto.put({
+            proyectoId,
+            doloresCliente: data.contexto.doloresCliente || "",
+            reglasNegocio: data.contexto.reglasNegocio || "",
+            publicoObjetivo: data.contexto.publicoObjetivo || "",
+          });
+        }
+
+        if (data.designSystem) {
+          await db.proyecto_design_system.put({
+            proyectoId,
+            arquetipo: data.designSystem.arquetipo || "Diseño Suizo",
+            metafora: data.designSystem.metafora || "",
+            radioBordes: data.designSystem.radioBordes || "0px",
+            sombras: data.designSystem.sombras || "Prohibidas",
+            directrizNegacion: data.designSystem.directrizNegacion || "",
+            parejaTipografica: data.designSystem.parejaTipografica || "Inter",
+            escalaEspaciado: data.designSystem.escalaEspaciado || "Holgado",
+            reglaColor: data.designSystem.reglaColor || "",
+            estiloAnimaciones:
+              data.designSystem.estiloAnimaciones || "Secas 0ms",
+            estadoHover: data.designSystem.estadoHover || "",
+            logoUrl: data.designSystem.logoUrl || "",
+          });
+        }
+
+        if (data.stack) {
+          const proyecto = await db.proyectos.get(proyectoId);
+          if (proyecto) {
+            await db.proyectos.put({
+              ...proyecto,
+              stack: {
+                ...(proyecto.stack as Record<string, string[]>),
+                frontend: data.stack.frontend || [],
+                backend: data.stack.backend || [],
+                baseDatos: data.stack.baseDatos || [],
+              },
+            });
+          }
+
+          await db.proyecto_estado_tecnico.put({
+            proyectoId,
+            dependencias: [
+              ...(data.stack.frontend || []),
+              ...(data.stack.backend || []),
+            ],
+            esquemaDb: {},
+          });
+        }
+      }
+
       await db.logs_sincronizacion.add({
         tipo: "exito",
-        mensaje: `Ingeniería: Backlog importado correctamente. Épicas: ${data.epicas.length}, Historias: ${data.historias.length}`,
+        mensaje: `Ingeniería: Backlog ${isFullIngesta ? "con Ingeniería Inversa" : ""} importado. Épicas: ${epicas.length}, Historias: ${historias.length}`,
         fecha: Date.now(),
       });
 
