@@ -57,7 +57,7 @@ export const ModalProyecto: React.FC<ModalProyectoProps> = ({
     Promise.resolve().then(() => {
       if (proyectoEdicion) {
         setNombre(proyectoEdicion.nombre);
-        setClienteId(proyectoEdicion.clienteId);
+        setClienteId(proyectoEdicion.clienteId || "");
         setDescripcion(proyectoEdicion.descripcion || "");
         setTipo(proyectoEdicion.tipo);
         setEstado(proyectoEdicion.estado);
@@ -69,7 +69,7 @@ export const ModalProyecto: React.FC<ModalProyectoProps> = ({
         setObservaciones(proyectoEdicion.observaciones || "");
       } else {
         setNombre("");
-        setClienteId(clientes[0]?.id || "");
+        setClienteId("");
         setDescripcion("");
         setTipo("Sistema Web");
         setEstado("Pendiente");
@@ -127,7 +127,10 @@ export const ModalProyecto: React.FC<ModalProyectoProps> = ({
 
           <Select
             label="Cliente asociado"
-            options={clientes.map((c) => ({ value: c.id, label: c.nombre }))}
+            options={[
+              { value: "", label: "💡 Sin Cliente / Idea Propia" },
+              ...clientes.map((c) => ({ value: c.id, label: c.nombre })),
+            ]}
             value={clienteId}
             onChange={(val) => setClienteId(val)}
           />

@@ -107,13 +107,6 @@ export default function ProyectosPage() {
   }));
 
   const abrirCreacion = () => {
-    if (clientes.length === 0) {
-      mostrarToast(
-        "Debes registrar al menos un cliente en el CRM antes de crear proyectos.",
-        "error"
-      );
-      return;
-    }
     setProyectoEdicion(null);
     setModalAbierto(true);
   };
@@ -225,7 +218,7 @@ export default function ProyectosPage() {
   if (proyectoSeleccionado) {
     const cliNombre =
       clientes.find((c) => c.id === proyectoSeleccionado.clienteId)?.nombre ||
-      "Sin cliente";
+      "💡 Idea / Proyecto Propio";
 
     return (
       <MainLayout breadcrumbs={breadcrumbs}>
