@@ -36,6 +36,8 @@ import { KanbanBoard } from "../../../presentation/components/proyectos/kanban-b
 import { FinancialPanel } from "../../../presentation/components/proyectos/financial-panel";
 import { PromptGenerator } from "../../../presentation/components/proyectos/prompt-generator";
 import { DesignSystemForm } from "../../../presentation/components/proyectos/design-system-form";
+import { Drawer } from "../../../presentation/components/proyectos/drawer";
+import { SummaryCard } from "../../../presentation/components/proyectos/summary-card";
 
 type FaseCicloVida =
   "negocio" | "arquitectura" | "planificacion" | "ejecucion" | "cierre";
@@ -53,10 +55,10 @@ interface ProyectoCRM {
   urlProduccion?: string;
   urlDesarrollo?: string;
   observaciones?: string;
-  stack?: Record<string, string[]>;
-  estandares?: Record<string, unknown>;
-  productOwner?: Record<string, string>;
-  financiero?: Record<string, unknown>;
+  stack?: StackConfig;
+  estandares?: EstandaresConfig;
+  productOwner?: ProductOwnerConfig;
+  financiero?: FinancieroConfig;
 }
 
 const ESTADOS_PROYECTO = [
@@ -96,6 +98,121 @@ export default function ProyectosPage() {
   const [proyectoEdicion, setProyectoEdicion] = useState<ProyectoCRM | null>(
     null
   );
+
+  const [moduloActivo, setModuloActivo] = useState<string | null>(null);
+  const [drawerAbierto, setDrawerAbierto] = useState(false);
+
+  const currentDesignSystem = useLiveQuery(
+    () => db.proyecto_design_system.get(proyectoSeleccionado?.id || ""),
+    [proyectoSeleccionado]
+  ) as Record<string, string> | undefined;
+
+  const abrirModulo = (modulo: string) => {
+    setModuloActivo(modulo);
+    setDrawerAbierto(true);
+  };
+
+  const getTituloModulo = () => {
+    switch (moduloActivo) {
+      case "general":
+        return "Información General del Proyecto";
+      case "financiero":
+        return "Presupuesto y Estructura Financiera";
+      case "product_owner":
+        return "Definición del Product Owner";
+      case "stack":
+        return "Stack Tecnológico Seleccionado";
+      case "estandares":
+        return "Estándares y Prácticas de Ingeniería";
+      case "design_system":
+        return "Design System & Metáforas Visuales";
+      case "backlog":
+        return "Gestión del Backlog de Ingeniería";
+      case "sprints":
+        return "Planificación de Sprints";
+      case "prompts":
+        return "Generador de Prompts IA & Sincronización";
+      case "roadmap":
+        return "Roadmap Temporal del Proyecto";
+      case "documentos":
+        return "Biblioteca de Wiki & Documentos";
+      case "archivos":
+        return "Repositorio de Archivos y Assets";
+      case "comentarios":
+        return "Bitácora y Comentarios del Proyecto";
+      default:
+        return "Detalle del Módulo";
+    }
+  };
+
+  const renderContenidoModulo = () => {
+    if (!proyectoSeleccionado) return null;
+    switch (moduloActivo) {
+      case "general":
+        return <VistaGeneral proyecto={proyectoSeleccionado} />;
+      case "financiero":
+        return (
+          <FinancialPanel
+            proyectoId={proyectoSeleccionado.id}
+            clienteId={proyectoSeleccionado.clienteId}
+            initialFinanciero={proyectoSeleccionado.financiero}
+            onSave={async (fin) => {
+              await handleSaveFinanciero(fin);
+              setDrawerAbierto(false);
+            }}
+          />
+        );
+      case "product_owner":
+        return (
+          <MarkdownEditor
+            initialValues={proyectoSeleccionado.productOwner}
+            onSave={async (po) => {
+              await handleSaveProductOwner(po);
+              setDrawerAbierto(false);
+            }}
+          />
+        );
+      case "stack":
+        return (
+          <StackSelector
+            proyectoId={proyectoSeleccionado.id}
+            initialStack={proyectoSeleccionado.stack}
+            onSave={async (stack) => {
+              await handleSaveTechnical({ stack });
+              setDrawerAbierto(false);
+            }}
+          />
+        );
+      case "estandares":
+        return (
+          <StandardSelector
+            initialEstandares={proyectoSeleccionado.estandares}
+            onSave={async (estandares) => {
+              await handleSaveTechnical({ estandares });
+              setDrawerAbierto(false);
+            }}
+          />
+        );
+      case "design_system":
+        return <DesignSystemForm proyectoId={proyectoSeleccionado.id} />;
+      case "backlog":
+        return <BacklogBoard proyectoId={proyectoSeleccionado.id} />;
+      case "sprints":
+        return <SprintPlanner proyectoId={proyectoSeleccionado.id} />;
+      case "prompts":
+        return <PromptGenerator proyectoId={proyectoSeleccionado.id} />;
+      case "roadmap":
+        return <VistaRoadmap proyectoId={proyectoSeleccionado.id} />;
+      case "documentos":
+        return <VistaDocumentos proyectoId={proyectoSeleccionado.id} />;
+      case "archivos":
+        return <VistaArchivos proyectoId={proyectoSeleccionado.id} />;
+      case "comentarios":
+        return <VistaComentarios proyectoId={proyectoSeleccionado.id} />;
+      default:
+        return null;
+    }
+  };
 
   const rawProyectos = useLiveQuery(() => db.proyectos.toArray()) || [];
   const proyectos = rawProyectos as unknown as ProyectoCRM[];
@@ -172,8 +289,8 @@ export default function ProyectosPage() {
       mostrarToast("Configuración técnica guardada offline.", "exito");
       setProyectoSeleccionado({
         ...proyectoSeleccionado,
-        stack: nextStack,
-        estandares: nextEstandares,
+        stack: nextStack as unknown as StackConfig,
+        estandares: nextEstandares as unknown as EstandaresConfig,
       });
     }
   };
@@ -189,7 +306,7 @@ export default function ProyectosPage() {
       mostrarToast("Detalles de Product Owner guardados offline.", "exito");
       setProyectoSeleccionado({
         ...proyectoSeleccionado,
-        productOwner: po,
+        productOwner: po as unknown as ProductOwnerConfig,
       });
     }
   };
@@ -205,7 +322,7 @@ export default function ProyectosPage() {
       mostrarToast("Información financiera del presupuesto guardada.", "exito");
       setProyectoSeleccionado({
         ...proyectoSeleccionado,
-        financiero: fin,
+        financiero: fin as unknown as FinancieroConfig,
       });
     }
   };
@@ -328,44 +445,125 @@ export default function ProyectosPage() {
           {/* Combined workspace grid rendering for reduced clicks */}
           <div className="animate-in fade-in grid grid-cols-1 gap-6 duration-200">
             {faseActiva === "negocio" && (
-              <div className="flex flex-col gap-6">
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                  <VistaGeneral proyecto={proyectoSeleccionado} />
-                  <FinancialPanel
-                    proyectoId={proyectoSeleccionado.id}
-                    clienteId={proyectoSeleccionado.clienteId}
-                    initialFinanciero={proyectoSeleccionado.financiero}
-                    onSave={handleSaveFinanciero}
-                  />
-                </div>
-                <MarkdownEditor
-                  initialValues={proyectoSeleccionado.productOwner}
-                  onSave={handleSaveProductOwner}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <SummaryCard
+                  titulo="Información General"
+                  descripcion="Información básica, descripción, tipo y enlaces principales del proyecto."
+                  estado={
+                    proyectoSeleccionado.descripcion ? "Configurado" : "Vacío"
+                  }
+                  icono={
+                    <span className="font-mono text-xs font-bold text-indigo-400">
+                      ID
+                    </span>
+                  }
+                  onClick={() => abrirModulo("general")}
+                />
+                <SummaryCard
+                  titulo="Presupuesto y Finanzas"
+                  descripcion="Presupuesto total, moneda, esquema de facturación y estado del cobro."
+                  estado={
+                    (proyectoSeleccionado.financiero?.precioTotal ?? 0) > 0
+                      ? "Configurado"
+                      : "Vacío"
+                  }
+                  icono={
+                    <span className="text-sm font-bold text-amber-400">$</span>
+                  }
+                  onClick={() => abrirModulo("financiero")}
+                />
+                <SummaryCard
+                  titulo="Definición Product Owner"
+                  descripcion="Dolores del cliente, objetivos del negocio, público objetivo y restricciones."
+                  estado={
+                    proyectoSeleccionado.productOwner?.problema
+                      ? "Configurado"
+                      : "Vacío"
+                  }
+                  icono={
+                    <span className="font-mono text-xs font-bold text-sky-400">
+                      PO
+                    </span>
+                  }
+                  onClick={() => abrirModulo("product_owner")}
                 />
               </div>
             )}
 
             {faseActiva === "arquitectura" && (
-              <div className="flex flex-col gap-6">
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                  <StackSelector
-                    proyectoId={proyectoSeleccionado.id}
-                    initialStack={proyectoSeleccionado.stack}
-                    onSave={(stack) => handleSaveTechnical({ stack })}
-                  />
-                  <StandardSelector
-                    initialEstandares={proyectoSeleccionado.estandares}
-                    onSave={(estandares) => handleSaveTechnical({ estandares })}
-                  />
-                </div>
-                <DesignSystemForm proyectoId={proyectoSeleccionado.id} />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <SummaryCard
+                  titulo="Stack Tecnológico"
+                  descripcion="Definición del frontend, backend, base de datos y DevOps."
+                  estado={
+                    (proyectoSeleccionado.stack?.frontend?.length ?? 0) > 0 ||
+                    (proyectoSeleccionado.stack?.backend?.length ?? 0) > 0
+                      ? "Configurado"
+                      : "Vacío"
+                  }
+                  icono={
+                    <span className="font-mono text-xs font-bold text-emerald-400">
+                      ST
+                    </span>
+                  }
+                  onClick={() => abrirModulo("stack")}
+                />
+                <SummaryCard
+                  titulo="Estándares de Ingeniería"
+                  descripcion="Buenas prácticas, patrones de diseño, arquitectura y testing."
+                  estado={
+                    (proyectoSeleccionado.estandares?.arquitectura?.length ??
+                      0) > 0
+                      ? "Configurado"
+                      : "Vacío"
+                  }
+                  icono={
+                    <span className="font-mono text-xs font-bold text-pink-400">
+                      ES
+                    </span>
+                  }
+                  onClick={() => abrirModulo("estandares")}
+                />
+                <SummaryCard
+                  titulo="Design System & Vibe"
+                  descripcion="Arquetipo estético, directrices visuales y tokens de UI."
+                  estado={
+                    currentDesignSystem?.metafora ? "Configurado" : "Incompleto"
+                  }
+                  icono={
+                    <span className="font-mono text-xs font-bold text-violet-400">
+                      DS
+                    </span>
+                  }
+                  onClick={() => abrirModulo("design_system")}
+                />
               </div>
             )}
 
             {faseActiva === "planificacion" && (
-              <div className="grid grid-cols-1 gap-6">
-                <BacklogBoard proyectoId={proyectoSeleccionado.id} />
-                <SprintPlanner proyectoId={proyectoSeleccionado.id} />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <SummaryCard
+                  titulo="Backlog de Tareas"
+                  descripcion="Gestión general de épicas e historias técnicas del backlog."
+                  estado="Configurado"
+                  icono={
+                    <span className="font-mono text-xs font-bold text-sky-400">
+                      BK
+                    </span>
+                  }
+                  onClick={() => abrirModulo("backlog")}
+                />
+                <SummaryCard
+                  titulo="Planificación de Sprints"
+                  descripcion="Asignación de historias y organización del planificador ágil."
+                  estado="Configurado"
+                  icono={
+                    <span className="font-mono text-xs font-bold text-amber-400">
+                      SP
+                    </span>
+                  }
+                  onClick={() => abrirModulo("sprints")}
+                />
               </div>
             )}
 
@@ -374,22 +572,73 @@ export default function ProyectosPage() {
             )}
 
             {faseActiva === "cierre" && (
-              <div className="flex flex-col gap-6">
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                  <PromptGenerator proyectoId={proyectoSeleccionado.id} />
-                  <VistaRoadmap proyectoId={proyectoSeleccionado.id} />
-                </div>
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                  <div className="lg:col-span-2">
-                    <VistaDocumentos proyectoId={proyectoSeleccionado.id} />
-                  </div>
-                  <div className="flex flex-col gap-6">
-                    <VistaArchivos proyectoId={proyectoSeleccionado.id} />
-                    <VistaComentarios proyectoId={proyectoSeleccionado.id} />
-                  </div>
-                </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <SummaryCard
+                  titulo="Generador de Prompts IA"
+                  descripcion="Prompt Engineering y sincronización bidireccional json-app-sync."
+                  estado="Configurado"
+                  icono={
+                    <span className="font-mono text-xs font-bold text-emerald-400">
+                      PR
+                    </span>
+                  }
+                  onClick={() => abrirModulo("prompts")}
+                />
+                <SummaryCard
+                  titulo="Roadmap del Proyecto"
+                  descripcion="Línea temporal, hitos y estimación de entrega de sprints."
+                  estado="Configurado"
+                  icono={
+                    <span className="font-mono text-xs font-bold text-indigo-400">
+                      RM
+                    </span>
+                  }
+                  onClick={() => abrirModulo("roadmap")}
+                />
+                <SummaryCard
+                  titulo="Wiki & Documentación"
+                  descripcion="Biblioteca local de documentos técnicos y guías de desarrollo."
+                  estado="Configurado"
+                  icono={
+                    <span className="font-mono text-xs font-bold text-violet-400">
+                      WK
+                    </span>
+                  }
+                  onClick={() => abrirModulo("documentos")}
+                />
+                <SummaryCard
+                  titulo="Repositorio de Archivos"
+                  descripcion="Gestión y carga local de assets, mocks e imágenes."
+                  estado="Configurado"
+                  icono={
+                    <span className="font-mono text-xs font-bold text-amber-400">
+                      AR
+                    </span>
+                  }
+                  onClick={() => abrirModulo("archivos")}
+                />
+                <SummaryCard
+                  titulo="Bitácora y Comentarios"
+                  descripcion="Muro de comentarios, auditorías e histórico del proyecto."
+                  estado="Configurado"
+                  icono={
+                    <span className="font-mono text-xs font-bold text-rose-400">
+                      CO
+                    </span>
+                  }
+                  onClick={() => abrirModulo("comentarios")}
+                />
               </div>
             )}
+
+            {/* Slide-over Drawer for active module editing */}
+            <Drawer
+              abierto={drawerAbierto}
+              onCerrar={() => setDrawerAbierto(false)}
+              titulo={getTituloModulo()}
+            >
+              {renderContenidoModulo()}
+            </Drawer>
           </div>
         </div>
       </MainLayout>
