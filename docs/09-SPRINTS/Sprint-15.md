@@ -49,11 +49,16 @@
 - **Acceso a Actas y Consultas Read-Only:** Agregamos métodos de consulta desacoplados `obtenerActasAuditoria` y `obtenerEstadosPasos` para alimentar el historial.
 - **Cobertura de Tests:** Desarrollamos pruebas unitarias específicas que intentan modificar transacciones completadas y aseguran que el sistema bloquee y retorne errores controlados de dominio.
 
+### G. Sprint 5 - UI/UX y Panel de Control del Taller (Fase 5)
+
+- **Taller de IA Dashboard Frontend:** Diseñamos e implementamos la vista de usuario `taller/page.tsx` con un grid responsivo integrado al Design System de MateCode (estilo monocromo oscuro con toques esmeralda).
+- **Selector y Creación Dinámica:** Agregamos un selector para cambiar el proyecto activo y un formulario interactivo para iniciar nuevos flujos de desarrollo a partir de las plantillas semilla (Feature, Bugfix, Testing).
+- **Consola de Trabajo (Workspace):** Construimos la interfaz del checklist donde cada paso tiene su propio editor contextual: los pasos de tipo "prompt" inyectan automáticamente el input de la feature y brindan un botón para copiar el Prompt Contextual al portapapeles, permitiendo pegar de vuelta el código generado por Claude.
+- **Bitácora de Relevos y Trazabilidad:** Diseñamos el feed de comentarios para handover/traspaso de tareas entre desarrolladores y el visualizador cronológico de cambios de auditoría.
+- **Navegación Sidebar y Mobile:** Registramos la ruta `/dashboard/taller` con el item "Taller de IA" tanto en la barra lateral de escritorio como en el menú responsivo móvil.
+
 ---
 
 ## 2. Lo que Falta (Backlog Pendiente para Próximos Sprints)
 
-### Sprint 5: UI/UX y Panel de Control del Taller (Fase 5)
-
-- Dashboard visual del taller (Kanban/Lista de ejecuciones de workflows).
-- Vista del Taller de Desarrollo con panel de checklists interactivos, caja de comentarios e interfaz de exportación rápida de prompts.
+- Ninguno. ¡Módulo "Taller de desarrollo con gestión de prompts" completamente implementado en el backend y frontend local offline!
