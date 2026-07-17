@@ -60,22 +60,78 @@ export default function AgenciaPage() {
       db.logs_sincronizacion.orderBy("id").reverse().toArray()
     ) || [];
 
-  useEffect(() => {
-    const savedLogo = ArchivoService.obtenerArchivoLocal("logo_agencia");
-    if (savedLogo) {
-      Promise.resolve().then(() => setLogo(savedLogo));
+  const guardarConfiguracion = async (
+    campos: Record<string, string | number | undefined>
+  ) => {
+    try {
+      const current = (await db.agencia_config.get("current")) || {
+        id: "current",
+      };
+      const updated = { ...current, ...campos };
+      await db.agencia_config.put(updated);
+    } catch {
+      // Ignorar silenciosamente
     }
+  };
 
-    const savedDesign = localStorage.getItem("matecode_design_1");
-    if (savedDesign) {
-      Promise.resolve().then(() => setDesignMd(savedDesign));
-    }
+  useEffect(() => {
+    const cargarConfiguracion = async () => {
+      try {
+        const savedLogo = ArchivoService.obtenerArchivoLocal("logo_agencia");
+        if (savedLogo) setLogo(savedLogo);
+
+        const savedDesign = localStorage.getItem("matecode_design_1");
+        if (savedDesign) setDesignMd(savedDesign);
+
+        const config = await db.agencia_config.get("current");
+        if (config) {
+          if (config.nombre) setNombre(config.nombre as string);
+          if (config.tipo) setTipo(config.tipo as string);
+          if (config.descripcion) setDescripcion(config.descripcion as string);
+          if (config.email) setEmail(config.email as string);
+          if (config.telefono) setTelefono(config.telefono as string);
+          if (config.web) setWeb(config.web as string);
+
+          if (config.colorPrincipal)
+            setColorPrincipal(config.colorPrincipal as string);
+          if (config.colorSecundario)
+            setColorSecundario(config.colorSecundario as string);
+
+          if (config.razonSocial) setRazonSocial(config.razonSocial as string);
+          if (config.cuit) setCuit(config.cuit as string);
+          if (config.iva) setIva(config.iva as string);
+          if (config.responsable) setResponsable(config.responsable as string);
+          if (config.cargo) setCargo(config.cargo as string);
+
+          if (config.idioma) setIdioma(config.idioma as string);
+          if (config.moneda) setMoneda(config.moneda as string);
+          if (config.zonaHoraria) setZonaHoraria(config.zonaHoraria as string);
+
+          if (config.proveedor) setProveedor(config.proveedor as string);
+          if (config.modelo) setModelo(config.modelo as string);
+          if (config.contexto) setContexto(config.contexto as string);
+        }
+      } catch {
+        // Silencioso
+      }
+    };
+
+    cargarConfiguracion();
   }, []);
 
   const guardarGeneral = async () => {
     try {
       ValidationService.correo.parse(email);
       ValidationService.url.parse(web);
+
+      await guardarConfiguracion({
+        nombre,
+        tipo,
+        descripcion,
+        email,
+        telefono,
+        web,
+      });
 
       await db.logs_sincronizacion.add({
         tipo: "exito",
@@ -90,6 +146,8 @@ export default function AgenciaPage() {
   };
 
   const guardarBranding = async () => {
+    await guardarConfiguracion({ colorPrincipal, colorSecundario });
+
     await db.logs_sincronizacion.add({
       tipo: "exito",
       mensaje: `Branding actualizado: Principal ${colorPrincipal}`,
@@ -101,6 +159,15 @@ export default function AgenciaPage() {
   const guardarFiscal = async () => {
     try {
       ValidationService.cuit.parse(cuit);
+
+      await guardarConfiguracion({
+        razonSocial,
+        cuit,
+        iva,
+        responsable,
+        cargo,
+      });
+
       await db.logs_sincronizacion.add({
         tipo: "exito",
         mensaje: `Datos fiscales y comerciales guardados para ${razonSocial}`,
@@ -115,12 +182,26 @@ export default function AgenciaPage() {
 
   const guardarIA = async () => {
     localStorage.setItem("matecode_design_1", designMd);
+
+    await guardarConfiguracion({ proveedor, modelo, contexto });
+
     await db.logs_sincronizacion.add({
       tipo: "exito",
       mensaje: `Configuración de IA y Design.md actualizados.`,
       fecha: Date.now(),
     });
     mostrarToast("Parámetros de IA guardados con éxito.", "exito");
+  };
+
+  const guardarPreferencias = async () => {
+    await guardarConfiguracion({ idioma, moneda, zonaHoraria });
+
+    await db.logs_sincronizacion.add({
+      tipo: "exito",
+      mensaje: `Preferencias regionales actualizadas: Idioma ${idioma}, Moneda ${moneda}`,
+      fecha: Date.now(),
+    });
+    mostrarToast("Preferencias regionalizadas guardadas.", "exito");
   };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -455,14 +536,7 @@ export default function AgenciaPage() {
                 </div>
               </div>
               <div className="mt-6 flex justify-end gap-3">
-                <Button
-                  onClick={() =>
-                    mostrarToast(
-                      "Preferencias regionalizadas guardadas.",
-                      "exito"
-                    )
-                  }
-                >
+                <Button onClick={guardarPreferencias}>
                   Guardar Preferencias
                 </Button>
               </div>

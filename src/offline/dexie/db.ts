@@ -44,6 +44,7 @@ export class MateCodeDB extends Dexie {
   public proyecto_contexto!: Table<Record<string, unknown>, string>;
   public proyecto_design_system!: Table<Record<string, unknown>, string>;
   public proyecto_estado_tecnico!: Table<Record<string, unknown>, string>;
+  public agencia_config!: Table<Record<string, unknown>, string>;
 
   constructor() {
     super("MateCodeLocalDB");
@@ -166,6 +167,32 @@ export class MateCodeDB extends Dexie {
       .upgrade(async (tx) => {
         await tx.table("prompt_templates").bulkPut(defaultTemplates);
       });
+
+    this.version(9).stores({
+      clientes: "id, nombre, correo",
+      contactos: "id, nombre, clienteId",
+      contratos: "id, codigo, clienteId",
+      pagos: "id, codigo, contratoId",
+      proyectos: "id, nombre, clienteId",
+      tareas: "id, proyectoId, estado",
+      documentos: "id, titulo, tipo, clienteId",
+      recorridos: "id, fecha",
+      visitas: "id, clienteId, recorridoId",
+      epicas: "id, proyectoId",
+      historias: "id, proyectoId, epicaId, sprintId, estado",
+      sprints: "id, proyectoId, estado",
+      cola_eventos: "++id, tabla, accion, registroId",
+      logs_sincronizacion: "++id, tipo, fecha",
+      potenciales_clientes: "id, nombre, visitado, convertido, creadoEn",
+      comentarios_proyecto: "id, proyectoId, creadoEn",
+      archivos_proyecto: "id, proyectoId, creadoEn",
+      plantillas_backlog: "id, nombre",
+      prompt_templates: "id, fase",
+      proyecto_contexto: "proyectoId",
+      proyecto_design_system: "proyectoId",
+      proyecto_estado_tecnico: "proyectoId",
+      agencia_config: "id",
+    });
 
     this.on("populate", async () => {
       await this.table("prompt_templates").bulkPut(defaultTemplates);
