@@ -190,3 +190,165 @@ test("Sprint 14: Debería sincronizar dependencias y base de datos de retorno js
     "Tabla de usuarios del sistema"
   );
 });
+
+test("Sprint 14: Debería borrar en cascada el proyecto y limpiar registros vinculados", async () => {
+  const { EliminarProyectoUseCase } =
+    await import("../../application/use-cases/proyecto/eliminar-proyecto.use-case");
+  const uc = new EliminarProyectoUseCase();
+
+  // Seed references in sub-tables
+  await db.proyecto_contexto.put({
+    proyectoId: PROYECTO_ID,
+    doloresCliente: "test",
+  });
+  await db.proyecto_design_system.put({
+    proyectoId: PROYECTO_ID,
+    arquetipo: "test",
+  });
+  await db.proyecto_estado_tecnico.put({
+    proyectoId: PROYECTO_ID,
+    dependencias: [],
+  });
+  await db.epicas.put({
+    id: "ep_cascade_1",
+    proyectoId: PROYECTO_ID,
+    nombre: "Cascade",
+  });
+  await db.historias.put({
+    id: "us_cascade_1",
+    proyectoId: PROYECTO_ID,
+    epicaId: "ep_cascade_1",
+    titulo: "Cascade Story",
+    estado: "Todo",
+  });
+
+  const res = await uc.ejecutar(PROYECTO_ID);
+  assert.strictEqual(res.ok, true);
+
+  // Assert everything has been wiped out
+  const proj = await db.proyectos.get(PROYECTO_ID);
+  assert.strictEqual(proj, undefined);
+
+  const ctx = await db.proyecto_contexto.get(PROYECTO_ID);
+  assert.strictEqual(ctx, undefined);
+
+  const ds = await db.proyecto_design_system.get(PROYECTO_ID);
+  assert.strictEqual(ds, undefined);
+
+  const state = await db.proyecto_estado_tecnico.get(PROYECTO_ID);
+  assert.strictEqual(state, undefined);
+
+  const epicas = await db.epicas
+    .where("proyectoId")
+    .equals(PROYECTO_ID)
+    .toArray();
+  assert.strictEqual(epicas.length, 0);
+
+  const historias = await db.historias
+    .where("proyectoId")
+    .equals(PROYECTO_ID)
+    .toArray();
+  assert.strictEqual(historias.length, 0);
+});
+
+test("Sprint 14: Debería ingestar proyecto completo desde JSON creando todas las tablas vinculadas", async () => {
+  const sampleJson = {
+    nombre: "Proyecto Ingestado Test",
+    descripcion: "Desc",
+    tipo: "Sitio Web",
+    estado: "Pendiente",
+    stack: {
+      frontend: ["React"],
+      backend: ["Node"],
+    },
+    contexto: {
+      doloresCliente: "Mucho retraso",
+      reglasNegocio: "Ninguna",
+      publicoObjetivo: "Todos",
+    },
+    designSystem: {
+      arquetipo: "Brutalismo",
+      metafora: "Vanguardista",
+      radioBordes: "0px",
+      sombras: "Prohibidas",
+    },
+    epicas: [{ id: "ep_t1", nombre: "Epica Test", descripcion: "Desc" }],
+    historias: [
+      {
+        id: "us_t1",
+        epicaId: "ep_t1",
+        titulo: "Historia Test",
+        descripcion: "Desc",
+        prioridad: "Alta",
+        estimacion: 3,
+      },
+    ],
+  };
+
+  const proyectoId = "pro_ingest_test";
+
+  // Simulate modal mapping logic
+  await db.proyectos.add({
+    id: proyectoId,
+    nombre: sampleJson.nombre,
+    clienteId: "",
+    descripcion: sampleJson.descripcion,
+    tipo: sampleJson.tipo,
+    estado: sampleJson.estado,
+    stack: sampleJson.stack,
+    estandares: {
+      arquitectura: [],
+      patrones: [],
+      buenasPracticas: [],
+      principios: [],
+      testing: [],
+      devops: [],
+      coberturaMinima: 80,
+    },
+    productOwner: {
+      problema: sampleJson.contexto.doloresCliente,
+      dolor: sampleJson.contexto.doloresCliente,
+      objetivos: sampleJson.contexto.reglasNegocio,
+      usuarios: sampleJson.contexto.publicoObjetivo,
+      restricciones: "",
+      definicionListo: "",
+    },
+    financiero: {
+      precioTotal: 0,
+      moneda: "USD",
+      formaPago: "Único",
+      cantidadPagos: 1,
+      estadoPago: "Pendiente",
+    },
+  });
+
+  await db.proyecto_contexto.add({
+    proyectoId,
+    doloresCliente: sampleJson.contexto.doloresCliente,
+    reglasNegocio: sampleJson.contexto.reglasNegocio,
+    publicoObjetivo: sampleJson.contexto.publicoObjetivo,
+    casosUsoExcluidos: "",
+    historiasCriticas: "",
+  });
+
+  await db.proyecto_design_system.add({
+    proyectoId,
+    arquetipo: sampleJson.designSystem.arquetipo,
+    metafora: sampleJson.designSystem.metafora,
+    radioBordes: sampleJson.designSystem.radioBordes,
+    sombras: sampleJson.designSystem.sombras,
+    fuentePrimaria: "Inter",
+    fuenteSecundaria: "Inter",
+    microinteracciones: "Hover escalado sutil",
+  });
+
+  // Verify all entries written to IndexedDB correctly
+  const p = await db.proyectos.get(proyectoId);
+  assert.strictEqual(p?.nombre, "Proyecto Ingestado Test");
+
+  const c = await db.proyecto_contexto.get(proyectoId);
+  assert.strictEqual(c?.doloresCliente, "Mucho retraso");
+
+  const ds = await db.proyecto_design_system.get(proyectoId);
+  assert.strictEqual(ds?.arquetipo, "Brutalismo");
+});

@@ -27,6 +27,7 @@ interface ModalProyectoProps {
   proyectoEdicion: ProyectoCRM | null;
   onCerrar: () => void;
   onConfirmar: (payload: Partial<ProyectoCRM>) => void;
+  onEliminar?: (proyectoId: string) => void | Promise<void>;
   estados: string[];
   tipos: string[];
   clientes: { id: string; nombre: string }[];
@@ -37,6 +38,7 @@ export const ModalProyecto: React.FC<ModalProyectoProps> = ({
   proyectoEdicion,
   onCerrar,
   onConfirmar,
+  onEliminar,
   estados,
   tipos,
   clientes,
@@ -82,6 +84,18 @@ export const ModalProyecto: React.FC<ModalProyectoProps> = ({
       }
     });
   }, [proyectoEdicion, abierto, clientes]);
+
+  const handleEliminar = () => {
+    if (proyectoEdicion && onEliminar) {
+      if (
+        confirm(
+          `¿Estás seguro de que deseas eliminar permanentemente el proyecto "${proyectoEdicion.nombre}"? Esta acción borrará todo el backlog, tareas e historial asociado.`
+        )
+      ) {
+        onEliminar(proyectoEdicion.id);
+      }
+    }
+  };
 
   if (!abierto) return null;
 
@@ -200,14 +214,27 @@ export const ModalProyecto: React.FC<ModalProyectoProps> = ({
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3 border-t border-[#2A2A2E] pt-4">
-          <button
-            onClick={onCerrar}
-            className="rounded-xl bg-zinc-800 px-4 py-2 font-mono text-xs font-bold text-zinc-100 hover:bg-zinc-700"
-          >
-            Cancelar
-          </button>
-          <Button onClick={handleConfirmar}>Confirmar</Button>
+        <div className="mt-6 flex items-center justify-between border-t border-[#2A2A2E] pt-4">
+          <div>
+            {proyectoEdicion && (
+              <button
+                type="button"
+                onClick={handleEliminar}
+                className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2 font-mono text-xs font-bold text-rose-400 hover:bg-rose-500/20"
+              >
+                Eliminar Proyecto
+              </button>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onCerrar}
+              className="rounded-xl bg-zinc-800 px-4 py-2 font-mono text-xs font-bold text-zinc-100 hover:bg-zinc-700"
+            >
+              Cancelar
+            </button>
+            <Button onClick={handleConfirmar}>Confirmar</Button>
+          </div>
         </div>
       </div>
     </div>

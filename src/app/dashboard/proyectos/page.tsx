@@ -17,6 +17,7 @@ import {
   ProductOwnerConfig,
   FinancieroConfig,
 } from "../../../application/use-cases/proyecto/gestionar-ingenieria.use-case";
+import { EliminarProyectoUseCase } from "../../../application/use-cases/proyecto/eliminar-proyecto.use-case";
 
 // Sub-views
 import { VistaRoadmap } from "../../../presentation/components/proyectos/vista-roadmap";
@@ -25,6 +26,7 @@ import { VistaArchivos } from "../../../presentation/components/proyectos/vista-
 import { VistaComentarios } from "../../../presentation/components/proyectos/vista-comentarios";
 import { ModalProyecto } from "../../../presentation/components/proyectos/modal-proyecto";
 import { VistaGeneral } from "../../../presentation/components/proyectos/vista-general";
+import { ModalImportarProyecto } from "../../../presentation/components/proyectos/modal-importar-proyecto";
 
 // Engineering sub-views
 import { StackSelector } from "../../../presentation/components/proyectos/stack-selector";
@@ -101,6 +103,7 @@ export default function ProyectosPage() {
 
   const [moduloActivo, setModuloActivo] = useState<string | null>(null);
   const [drawerAbierto, setDrawerAbierto] = useState(false);
+  const [importarModalAbierto, setImportarModalAbierto] = useState(false);
 
   const currentDesignSystem = useLiveQuery(
     () => db.proyecto_design_system.get(proyectoSeleccionado?.id || ""),
@@ -231,6 +234,31 @@ export default function ProyectosPage() {
   const abrirEdicion = (p: ProyectoCRM) => {
     setProyectoEdicion(p);
     setModalAbierto(true);
+  };
+
+  const borrarProyecto = async (proyectoId: string) => {
+    const uc = new EliminarProyectoUseCase();
+    const res = await uc.ejecutar(proyectoId);
+    if (res.ok) {
+      mostrarToast("Proyecto eliminado con éxito.", "exito");
+      setProyectoSeleccionado(null);
+      setModalAbierto(false);
+    } else {
+      mostrarToast(
+        res.error?.mensaje || "No se pudo eliminar el proyecto.",
+        "error"
+      );
+    }
+  };
+
+  const handleBorrarProyectoRapido = async (p: ProyectoCRM) => {
+    if (
+      confirm(
+        `¿Estás seguro de que deseas eliminar permanentemente el proyecto "${p.nombre}"? Esta acción borrará todo el backlog, tareas e historial asociado.`
+      )
+    ) {
+      await borrarProyecto(p.id);
+    }
   };
 
   const guardarProyecto = async (payload: Partial<ProyectoCRM>) => {
@@ -658,12 +686,21 @@ export default function ProyectosPage() {
               contexto para IA.
             </p>
           </div>
-          <Button
-            onClick={abrirCreacion}
-            icono={<Icono.Plus className="h-4 w-4" />}
-          >
-            Crear Proyecto
-          </Button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setImportarModalAbierto(true)}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-zinc-800 bg-transparent px-4 py-2 font-mono text-xs font-bold text-zinc-300 transition-all select-none hover:bg-zinc-900 hover:text-zinc-100"
+            >
+              <Icono.Plus className="h-4 w-4 rotate-45 text-emerald-400" />
+              Importar Proyecto (IA)
+            </button>
+            <Button
+              onClick={abrirCreacion}
+              icono={<Icono.Plus className="h-4 w-4" />}
+            >
+              Crear Proyecto
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -697,10 +734,28 @@ export default function ProyectosPage() {
                     {p.descripcion || "Sin descripción adicional."}
                   </p>
 
-                  <div className="mt-4 flex justify-end gap-3 border-t border-[#2A2A2E]/60 pt-3">
-                    <Button onClick={() => setProyectoSeleccionado(p)}>
-                      Ingresar Workspace
-                    </Button>
+                  <div className="mt-4 flex items-center justify-between border-t border-[#2A2A2E]/60 pt-3">
+                    <button
+                      onClick={() => handleBorrarProyectoRapido(p)}
+                      className="rounded-lg p-1.5 text-zinc-600 transition-colors hover:bg-rose-500/10 hover:text-rose-400"
+                      title="Eliminar Proyecto"
+                    >
+                      <Icono.Close className="h-4 w-4" />
+                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setProyectoEdicion(p);
+                          setModalAbierto(true);
+                        }}
+                        className="rounded-xl border border-zinc-800 bg-transparent px-3 py-1.5 font-mono text-[10px] text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                      >
+                        Editar
+                      </button>
+                      <Button onClick={() => setProyectoSeleccionado(p)}>
+                        Ingresar Workspace
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               );
@@ -713,9 +768,18 @@ export default function ProyectosPage() {
           proyectoEdicion={proyectoEdicion}
           onCerrar={() => setModalAbierto(false)}
           onConfirmar={guardarProyecto}
+          onEliminar={borrarProyecto}
           estados={ESTADOS_PROYECTO}
           tipos={TIPOS_PROYECTO}
           clientes={clientes}
+        />
+
+        <ModalImportarProyecto
+          abierto={importarModalAbierto}
+          onCerrar={() => setImportarModalAbierto(false)}
+          onImportado={() => {
+            mostrarToast("Proyecto ingestado con éxito por IA.", "exito");
+          }}
         />
       </div>
     </MainLayout>
