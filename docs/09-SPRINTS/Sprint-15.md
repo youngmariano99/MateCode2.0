@@ -25,15 +25,20 @@
   - `actas_auditoria`
 - **Seeding de Plantillas Estándar (Feature, Bugfix, Testing):** Agregamos inyección de datos semilla en IndexedDB de forma que al cargar por primera vez o migrar, se registran los checklists y prompts recomendados para ciclos de desarrollo asistidos por IA.
 
+### D. Sprint 2 - Motor de Asignación y Comentarios de Traspaso
+
+- **Casos de Uso de Negocio (`gestionar-workflows.use-case.ts`):** Diseñamos e implementamos la clase `GestionarWorkflowsUseCase` para orquestar de forma desacoplada la lógica del taller:
+  - `iniciarEjecucion()`: inicializa estados y relaciones del checklist.
+  - `cambiarEstado()`: controla cambios a `PAUSED`, `IN_PROGRESS` y `COMPLETED`.
+  - `asignarResponsable()`: permite tomar relevo de tickets.
+  - `agregarComentario()`: gestiona bitácora de traspaso por pasos.
+  - `actualizarEstadoPaso()`: guarda inputs, outputs (código generado) e hitos.
+- **Triggers de Auditoría Automatizados:** Cada acción relevante efectúa registros automáticos e inmutables en la tabla local `actas_auditoria`.
+- **Cobertura de Pruebas Unitarias (`sprint15.test.ts`):** Implementamos un set completo de pruebas unitarias cubriendo el ciclo de inicio, transiciones de estado, bitácoras de comentarios de traspaso y auditoría.
+
 ---
 
 ## 2. Lo que Falta (Backlog Pendiente para Próximos Sprints)
-
-### Sprint 2: Motor de Asignación y Comentarios de Traspaso (Fase 2)
-
-- Lógica de asignación de `TaskExecution` a usuarios.
-- Relevo y control de bloqueos de tareas activas.
-- Creación de bitácora y bitácoras de traspaso (`TaskComment`).
 
 ### Sprint 3: Motor de Inyección de Contexto y Exportación a IA (Fase 3)
 
