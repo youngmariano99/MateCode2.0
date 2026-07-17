@@ -574,7 +574,7 @@ export default function ProyectosPage() {
             )}
 
             {faseActiva === "planificacion" && (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid max-w-4xl grid-cols-1 gap-4 sm:grid-cols-2">
                 <SummaryCard
                   titulo="Plano General de Avance"
                   descripcion="Vista global interactiva de avance del backlog agrupado por Épica."
@@ -585,17 +585,6 @@ export default function ProyectosPage() {
                     </span>
                   }
                   onClick={() => abrirModulo("plano_backlog")}
-                />
-                <SummaryCard
-                  titulo="Backlog de Tareas"
-                  descripcion="Gestión general de épicas e historias técnicas del backlog."
-                  estado="Configurado"
-                  icono={
-                    <span className="font-mono text-xs font-bold text-sky-400">
-                      BK
-                    </span>
-                  }
-                  onClick={() => abrirModulo("backlog")}
                 />
                 <SummaryCard
                   titulo="Planificación de Sprints"
