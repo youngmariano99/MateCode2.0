@@ -1,6 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { db } from "../../../offline/dexie/db";
 import { Resultado } from "../../../shared/utilidades/resultado";
-import { ErrorDominio } from "../../../domain/errores/error-base";
+import {
+  ErrorDominio,
+  ErrorNoEncontrado,
+} from "../../../domain/errores/error-base";
 
 export class GestionarWorkflowsUseCase {
   /**
@@ -229,5 +233,207 @@ export class GestionarWorkflowsUseCase {
         )
       );
     }
+  }
+
+  /**
+   * Compila el Prompt Inicial para enviar a la IA inyectando todo el contexto del proyecto
+   */
+  public async compilarPromptInicial(
+    executionId: string,
+    stepId: string,
+    especificacionTarea: string
+  ): Promise<Resultado<string>> {
+    try {
+      const exe = await db.task_executions.get(executionId);
+      if (!exe)
+        return Resultado.falla(
+          new ErrorNoEncontrado("No se encontró la ejecución de la tarea.")
+        );
+
+      const step = await db.workflow_steps.get(stepId);
+      if (!step)
+        return Resultado.falla(
+          new ErrorNoEncontrado("No se encontró el paso del flujo.")
+        );
+
+      const promptTemplate = (step as Record<string, unknown>)
+        .promptTemplate as string;
+      if (!promptTemplate) {
+        return Resultado.falla(
+          new ErrorDominio("Este paso no cuenta con una plantilla de prompt.")
+        );
+      }
+
+      // Load context tables
+      const contexto = await db.proyecto_contexto.get(exe.proyectoId as string);
+      const ds = await db.proyecto_design_system.get(exe.proyectoId as string);
+      const proj = await db.proyectos.get(exe.proyectoId as string);
+
+      const stack_frontend = (proj as any)?.stack?.frontend?.join(", ") || "";
+      const stack_backend = (proj as any)?.stack?.backend?.join(", ") || "";
+      const stack_base_datos =
+        (proj as any)?.stack?.baseDatos?.join(", ") || "";
+      const estandares_codigo =
+        (proj as any)?.estandares?.join("\n- ") ||
+        "Limpieza y tipado estricto.";
+
+      // Reemplazar placeholders en el template
+      const variables: Record<string, string> = {
+        especificacion_tarea: especificacionTarea,
+        dolores_cliente: (contexto as any)?.doloresCliente || "",
+        reglas_negocio: (contexto as any)?.reglasNegocio || "",
+        publico_objetivo: (contexto as any)?.publicoObjetivo || "",
+        stack_frontend,
+        stack_backend,
+        stack_base_datos,
+        arquetipo: (ds as any)?.arquetipo || "",
+        metafora: (ds as any)?.metafora || "",
+        radio_bordes: (ds as any)?.radioBordes || "",
+        sombras: (ds as any)?.sombras || "",
+        directrices_diseno: (ds as any)?.directrizNegacion || "",
+        tipografias: (ds as any)?.parejaTipografica || "",
+        escala_espaciado: (ds as any)?.escalaEspaciado || "",
+        reglas_color: (ds as any)?.reglaColor || "",
+        animaciones: (ds as any)?.estiloAnimaciones || "",
+        estandares_codigo,
+      };
+
+      const promptCompilado = this.reemplazarPlaceholders(
+        promptTemplate,
+        variables
+      );
+
+      // Registrar acción en actas de auditoría
+      await db.actas_auditoria.add({
+        executionId,
+        tipoEvento: "PROMPT_EXPORTED",
+        mensaje: `Prompt inicial exportado para el paso ${stepId}`,
+        usuarioId: exe.usuarioAsignadoId,
+        fecha: Date.now(),
+        payload: JSON.stringify({ stepId }),
+      });
+
+      return Resultado.exito(promptCompilado);
+    } catch (error) {
+      return Resultado.falla(
+        new ErrorDominio(
+          error instanceof Error
+            ? error.message
+            : "Error al compilar el prompt inicial."
+        )
+      );
+    }
+  }
+
+  /**
+   * Compila el Prompt de Continuación/Reanudación para Claude a partir del estado actual y notas de traspaso
+   */
+  public async compilarPromptReanudacion(
+    executionId: string
+  ): Promise<Resultado<string>> {
+    try {
+      const exe = await db.task_executions.get(executionId);
+      if (!exe)
+        return Resultado.falla(
+          new ErrorNoEncontrado("No se encontró la ejecución.")
+        );
+
+      const proj = await db.proyectos.get(exe.proyectoId as string);
+      const contexto = await db.proyecto_contexto.get(exe.proyectoId as string);
+
+      const steps = await db.workflow_steps
+        .where("templateId")
+        .equals(exe.templateId as string)
+        .sortBy("orden");
+
+      const states = await db.task_step_states
+        .where("executionId")
+        .equals(executionId)
+        .toArray();
+      const comments = await db.task_comments
+        .where("executionId")
+        .equals(executionId)
+        .toArray();
+
+      const commentsSection =
+        comments.length === 0
+          ? "- No se registraron comentarios de traspaso."
+          : comments
+              .map(
+                (c) =>
+                  `- [${new Date(c.creadoEn as number).toLocaleDateString()}] Desarrollador ${
+                    c.usuarioId || "Anon"
+                  }: "${c.comentario}"`
+              )
+              .join("\n");
+
+      const stepsSection = steps
+        .map((s) => {
+          const state = states.find((st) => st.stepId === s.id);
+          const checked = state?.completado
+            ? "[X] COMPLETADO"
+            : "[ ] PENDIENTE";
+          let detail = `- **${s.titulo}** (${checked})`;
+          if (state?.completado && state.outputs) {
+            detail += `\n   *Resultado:* \`\`\`\n${state.outputs}\n\`\`\``;
+          }
+          return detail;
+        })
+        .join("\n");
+
+      const promptContinuation = `# PROMPT DE REANUDACIÓN DE TAREA (ROLLOVER / TRASPASO)
+
+Eres un desarrollador Fullstack Senior. Estás tomando relevo de una tarea que fue pausada por un compañero. Tu objetivo es continuar la implementación sin perder contexto técnico.
+
+## 1. CONTEXTO GENERAL DEL PROYECTO
+- **Proyecto:** ${(proj as any)?.nombre || "N/A"}
+- **Fase de Ejecución:** ${exe.titulo}
+- **Stack Técnico:** Frontend: ${(proj as any)?.stack?.frontend?.join(", ")}, Backend: ${(proj as any)?.stack?.backend?.join(", ")}, BD: ${(proj as any)?.stack?.baseDatos?.join(", ")}
+- **Dolores del Cliente:** ${(contexto as any)?.doloresCliente || ""}
+- **Reglas de Negocio:** ${(contexto as any)?.reglasNegocio || ""}
+
+## 2. HISTORIAL DE BITÁCORA Y COMENTARIOS DE TRASPASO
+Aquí están las notas que dejaron tus compañeros sobre el estado de la implementación:
+${commentsSection}
+
+## 3. CHECKLIST DE PASOS Y AVANCE
+Revisa qué se ha completado y qué queda pendiente en el procedimiento:
+${stepsSection}
+
+## 4. INSTRUCCIONES DE ACCIÓN
+Analiza el estado actual, el código que ya fue aplicado en los pasos completados y las notas del desarrollador anterior. Continúa con los pasos pendientes asegurando el estándar del proyecto.`;
+
+      // Registrar acción en actas de auditoría
+      await db.actas_auditoria.add({
+        executionId,
+        tipoEvento: "PROMPT_EXPORTED",
+        mensaje: `Prompt de reanudación consolidado para la ejecución ${executionId}`,
+        usuarioId: exe.usuarioAsignadoId,
+        fecha: Date.now(),
+        payload: JSON.stringify({ executionId }),
+      });
+
+      return Resultado.exito(promptContinuation);
+    } catch (error) {
+      return Resultado.falla(
+        new ErrorDominio(
+          error instanceof Error
+            ? error.message
+            : "Error al compilar el prompt de reanudación."
+        )
+      );
+    }
+  }
+
+  private reemplazarPlaceholders(
+    template: string,
+    variables: Record<string, string>
+  ): string {
+    let result = template;
+    for (const key in variables) {
+      const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "gi");
+      result = result.replace(regex, variables[key]);
+    }
+    return result;
   }
 }

@@ -15,6 +15,9 @@ beforeEach(async () => {
   await db.actas_auditoria.clear();
   await db.workflow_templates.clear();
   await db.workflow_steps.clear();
+  await db.proyectos.clear();
+  await db.proyecto_contexto.clear();
+  await db.proyecto_design_system.clear();
 
   // Populate seeds manually for test consistency
   await db.workflow_templates.add({
@@ -40,9 +43,31 @@ beforeEach(async () => {
       titulo: "Exportar Prompt",
       descripcion: "Exporta el prompt",
       tipo: "prompt",
+      promptTemplate:
+        "Proyecto: {{dolores_cliente}} utilizando {{stack_frontend}}.",
       orden: 2,
     },
   ]);
+
+  // Seed project metadata
+  await db.proyectos.put({
+    id: PROYECTO_ID,
+    nombre: "Test App",
+    stack: {
+      frontend: ["ReactJS"],
+      backend: ["NodeJS"],
+    },
+  });
+
+  await db.proyecto_contexto.put({
+    proyectoId: PROYECTO_ID,
+    doloresCliente: "Lentitud al guardar",
+  });
+
+  await db.proyecto_design_system.put({
+    proyectoId: PROYECTO_ID,
+    arquetipo: "Brutalismo",
+  });
 });
 
 test("Sprint 15: Debería iniciar una ejecución de flujo y crear estados para cada paso", async () => {
@@ -184,4 +209,63 @@ test("Sprint 15: Debería completar un paso individual del procedimiento guardan
     .toArray();
   const stepLog = logs.find((l) => l.tipoEvento === "STEP_COMPLETED");
   assert.ok(stepLog);
+});
+
+test("Sprint 15: Debería compilar el prompt inicial resolviendo placeholders del contexto y stack", async () => {
+  const uc = new GestionarWorkflowsUseCase();
+  const resInit = await uc.iniciarEjecucion(
+    PROYECTO_ID,
+    TEMPLATE_ID,
+    "Feature Checkout",
+    "usr_mariano"
+  );
+  const exeId = resInit.valor;
+
+  const resPrompt = await uc.compilarPromptInicial(
+    exeId,
+    "ws_test_step_2",
+    "Implementar botón de checkout"
+  );
+
+  assert.strictEqual(resPrompt.ok, true);
+  const prompt = resPrompt.valor;
+  assert.match(prompt, /Lentitud al guardar/);
+  assert.match(prompt, /ReactJS/);
+});
+
+test("Sprint 15: Debería compilar el prompt de reanudación integrando comentarios y estados anteriores", async () => {
+  const uc = new GestionarWorkflowsUseCase();
+  const resInit = await uc.iniciarEjecucion(
+    PROYECTO_ID,
+    TEMPLATE_ID,
+    "Feature Ingesta",
+    "usr_mariano"
+  );
+  const exeId = resInit.valor;
+
+  // Complete step 1
+  await uc.actualizarEstadoPaso(
+    exeId,
+    "ws_test_step_1",
+    true,
+    "Crear rama local",
+    "Rama feature/checkout creada",
+    "usr_mariano"
+  );
+
+  // Add comment
+  await uc.agregarComentario(
+    exeId,
+    null,
+    "Por favor validar que pase el linter",
+    "usr_mateo"
+  );
+
+  const resReanuda = await uc.compilarPromptReanudacion(exeId);
+  assert.strictEqual(resReanuda.ok, true);
+
+  const prompt = resReanuda.valor;
+  assert.match(prompt, /Por favor validar que pase el linter/);
+  assert.match(prompt, /Rama feature\/checkout creada/);
+  assert.match(prompt, /COMPLETADO/);
 });

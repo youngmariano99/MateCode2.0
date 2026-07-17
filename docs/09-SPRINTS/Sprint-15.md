@@ -36,15 +36,15 @@
 - **Triggers de Auditoría Automatizados:** Cada acción relevante efectúa registros automáticos e inmutables en la tabla local `actas_auditoria`.
 - **Cobertura de Pruebas Unitarias (`sprint15.test.ts`):** Implementamos un set completo de pruebas unitarias cubriendo el ciclo de inicio, transiciones de estado, bitácoras de comentarios de traspaso y auditoría.
 
+### E. Sprint 3 - Motor de Inyección de Contexto y Exportación a IA
+
+- **Compilador de Prompt Inicial (`compilarPromptInicial`):** Desarrollamos el motor de parseo que lee la plantilla del paso, mapea los placeholders del briefing (dolores, reglas, público) y del design system, e inyecta la especificación manual y estándares de código de forma dinámica.
+- **Compilador de Prompt de Reanudación / Rollover (`compilarPromptReanudacion`):** Construimos el servicio que concatena la bitácora de traspaso de comentarios acumulados por compañeros, el estado actual del checklist detallando qué se completó (junto a sus outputs de código) y qué queda pendiente.
+- **Pruebas Unitarias de Prompts:** Añadimos cobertura de tests de integración offline validando que las inyecciones de marcadores y consolidación de bitácoras de traspaso formateen correctamente el prompt final para la IA.
+
 ---
 
 ## 2. Lo que Falta (Backlog Pendiente para Próximos Sprints)
-
-### Sprint 3: Motor de Inyección de Contexto y Exportación a IA (Fase 3)
-
-- Compilador de Prompts Iniciales inyectando Stack Técnico, Dolores y Estándares de Diseño del proyecto.
-- Compilador de Prompts de Continuación/Reanudación reuniendo comentarios de traspaso previos y estado de ejecución actual.
-- Copiado automático del prompt estructurado.
 
 ### Sprint 4: Libro de Actas e Inmutabilidad (Fase 4)
 
