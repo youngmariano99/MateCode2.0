@@ -50,15 +50,15 @@ export const Drawer: React.FC<DrawerProps> = ({
   if (!abierto) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6">
       {/* Dark backdrop overlay */}
       <div
         onClick={onCerrar}
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
+        className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity duration-300"
       />
 
-      {/* Drawer panel */}
-      <div className="animate-in slide-in-from-right relative z-10 flex h-full w-full max-w-2xl flex-col border-l border-[#2A2A2E] bg-[#121214] shadow-2xl duration-300">
+      {/* Spacious Modal panel */}
+      <div className="animate-in zoom-in-95 relative z-10 flex h-[88vh] w-full max-w-6xl flex-col rounded-3xl border border-[#2A2A2E] bg-[#121214] shadow-2xl duration-300">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#2A2A2E] px-6 py-4.5">
           <div>

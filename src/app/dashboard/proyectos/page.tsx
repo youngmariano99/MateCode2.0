@@ -40,6 +40,7 @@ import { PromptGenerator } from "../../../presentation/components/proyectos/prom
 import { DesignSystemForm } from "../../../presentation/components/proyectos/design-system-form";
 import { Drawer } from "../../../presentation/components/proyectos/drawer";
 import { SummaryCard } from "../../../presentation/components/proyectos/summary-card";
+import { PlanoGeneralBacklog } from "../../../presentation/components/proyectos/plano-general-backlog";
 
 type FaseCicloVida =
   "negocio" | "arquitectura" | "planificacion" | "ejecucion" | "cierre";
@@ -133,6 +134,8 @@ export default function ProyectosPage() {
         return "Gestión del Backlog de Ingeniería";
       case "sprints":
         return "Planificación de Sprints";
+      case "plano_backlog":
+        return "Plano General del Proyecto (Roadmap de Avance)";
       case "prompts":
         return "Generador de Prompts IA & Sincronización";
       case "roadmap":
@@ -202,6 +205,8 @@ export default function ProyectosPage() {
         return <BacklogBoard proyectoId={proyectoSeleccionado.id} />;
       case "sprints":
         return <SprintPlanner proyectoId={proyectoSeleccionado.id} />;
+      case "plano_backlog":
+        return <PlanoGeneralBacklog proyectoId={proyectoSeleccionado.id} />;
       case "prompts":
         return <PromptGenerator proyectoId={proyectoSeleccionado.id} />;
       case "roadmap":
@@ -570,6 +575,17 @@ export default function ProyectosPage() {
 
             {faseActiva === "planificacion" && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <SummaryCard
+                  titulo="Plano General de Avance"
+                  descripcion="Vista global interactiva de avance del backlog agrupado por Épica."
+                  estado="Configurado"
+                  icono={
+                    <span className="font-mono text-xs font-bold text-emerald-400">
+                      PL
+                    </span>
+                  }
+                  onClick={() => abrirModulo("plano_backlog")}
+                />
                 <SummaryCard
                   titulo="Backlog de Tareas"
                   descripcion="Gestión general de épicas e historias técnicas del backlog."
