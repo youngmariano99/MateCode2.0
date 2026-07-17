@@ -70,6 +70,11 @@ export const Sidebar: React.FC<{
       icono: Icono.MapPin,
     },
     { label: "Taller de IA", href: "/dashboard/taller", icono: Icono.Activity },
+    {
+      label: "Taller de Contacto",
+      href: "/dashboard/taller-contacto",
+      icono: Icono.Contactos,
+    },
     { label: "IA", href: "/dashboard/ia", icono: Icono.IA },
     {
       label: "Configuración",
@@ -245,6 +250,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     },
     { label: "Territorio", href: "/dashboard/territorio", icono: Icono.MapPin },
     { label: "Taller de IA", href: "/dashboard/taller", icono: Icono.Activity },
+    {
+      label: "Taller de Contacto",
+      href: "/dashboard/taller-contacto",
+      icono: Icono.Contactos,
+    },
     { label: "IA", href: "/dashboard/ia", icono: Icono.IA },
     {
       label: "Configuración",

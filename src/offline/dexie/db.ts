@@ -54,6 +54,11 @@ export class MateCodeDB extends Dexie {
   public task_comments!: Table<Record<string, unknown>, string>;
   public actas_auditoria!: Table<Record<string, unknown>, number>;
 
+  // Outbound CRM tables (Version 11)
+  public contacto_sesiones!: Table<Record<string, unknown>, string>;
+  public servicios_agencia!: Table<Record<string, unknown>, string>;
+  public reuniones_contacto!: Table<Record<string, unknown>, string>;
+
   constructor() {
     super("MateCodeLocalDB");
 
@@ -398,10 +403,106 @@ export class MateCodeDB extends Dexie {
         await tx.table("workflow_steps").bulkPut(defaultSteps);
       });
 
+    // Version 11 stores
+    this.version(11)
+      .stores({
+        clientes: "id, nombre, correo",
+        contactos: "id, nombre, clienteId",
+        contratos: "id, codigo, clienteId",
+        pagos: "id, codigo, contratoId",
+        proyectos: "id, nombre, clienteId",
+        tareas: "id, proyectoId, estado",
+        documentos: "id, titulo, tipo, clienteId",
+        recorridos: "id, fecha",
+        visitas: "id, clienteId, recorridoId",
+        epicas: "id, proyectoId",
+        historias: "id, proyectoId, epicaId, sprintId, estado",
+        sprints: "id, proyectoId, estado",
+        cola_eventos: "++id, tabla, accion, registroId",
+        logs_sincronizacion: "++id, tipo, fecha",
+        potenciales_clientes:
+          "id, nombre, visitado, convertido, creadoEn, sesionId, estadoOutbound",
+        comentarios_proyecto: "id, proyectoId, creadoEn",
+        archivos_proyecto: "id, proyectoId, creadoEn",
+        plantillas_backlog: "id, nombre",
+        prompt_templates: "id, fase",
+        proyecto_contexto: "proyectoId",
+        proyecto_design_system: "proyectoId",
+        proyecto_estado_tecnico: "proyectoId",
+        agencia_config: "id",
+        workflow_templates: "id, nombre, fase",
+        workflow_steps: "id, templateId, orden",
+        task_executions:
+          "id, proyectoId, templateId, estado, usuarioAsignadoId",
+        task_step_states: "id, executionId, stepId",
+        task_comments: "id, executionId, stepId, creadoEn",
+        actas_auditoria: "++id, executionId, tipoEvento, fecha",
+        // New CRM tables for cold outreach
+        contacto_sesiones: "id, nombre, creadoEn, estado",
+        servicios_agencia: "id, nombre",
+        reuniones_contacto: "id, prospectoId, tipo, fecha, completado",
+      })
+      .upgrade(async (tx) => {
+        const defaultServices = [
+          {
+            id: "serv_web_corp",
+            nombre: "Sitio Web Corporativo",
+            precio: 1200,
+            descripcion: "Sitio institucional premium",
+          },
+          {
+            id: "serv_ecommerce",
+            nombre: "Tienda Online / E-Commerce",
+            precio: 2200,
+            descripcion: "Tienda integrada con pasarela de pagos",
+          },
+          {
+            id: "serv_pwa",
+            nombre: "PWA Custom App",
+            precio: 3500,
+            descripcion: "Aplicación Web Progresiva a medida",
+          },
+          {
+            id: "serv_landing",
+            nombre: "Landing Page de Alta Conversión",
+            precio: 600,
+            descripcion: "Diseño brutalista enfocado a ventas",
+          },
+        ];
+        await tx.table("servicios_agencia").bulkPut(defaultServices);
+      });
+
     this.on("populate", async () => {
       await this.table("prompt_templates").bulkPut(defaultTemplates);
       await this.table("workflow_templates").bulkPut(defaultWorkflows);
       await this.table("workflow_steps").bulkPut(defaultSteps);
+      const defaultServices = [
+        {
+          id: "serv_web_corp",
+          nombre: "Sitio Web Corporativo",
+          precio: 1200,
+          descripcion: "Sitio institucional premium",
+        },
+        {
+          id: "serv_ecommerce",
+          nombre: "Tienda Online / E-Commerce",
+          precio: 2200,
+          descripcion: "Tienda integrada con pasarela de pagos",
+        },
+        {
+          id: "serv_pwa",
+          nombre: "PWA Custom App",
+          precio: 3500,
+          descripcion: "Aplicación Web Progresiva a medida",
+        },
+        {
+          id: "serv_landing",
+          nombre: "Landing Page de Alta Conversión",
+          precio: 600,
+          descripcion: "Diseño brutalista enfocado a ventas",
+        },
+      ];
+      await this.table("servicios_agencia").bulkPut(defaultServices);
     });
   }
 }
