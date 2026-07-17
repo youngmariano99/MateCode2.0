@@ -1,0 +1,140 @@
+🏗️ 1. Arquitectura de Datos (Los CRUDS necesarios)
+Para que el sistema sea flexible y editable, necesitas estructurar la información jerárquicamente.
+
+Entidades Principales
+Proyectos: Almacena el contexto global (Briefing, Stack tecnológico, Estándares de código, Reglas de negocio).
+
+Fases: Agrupa los momentos del ciclo de vida del software. El flujo universal recomendado es: Inicio, Diseño, Desarrollo, Testing y Deployment.  
+MD
+
+Procedimientos / Workflows: Plantillas ejecutables asignadas a una fase. Por ejemplo, "Desarrollar nueva Feature" o "Solucionar Fix".
+
+Pasos (Checklist): Las acciones atómicas dentro de un procedimiento. Pueden ser de tipo Manual (requiere un clic del usuario) o AI_Prompt (requiere generar texto para la IA).
+
+Ejecuciones (Sprints/Tickets): La instancia viva donde un usuario selecciona una actividad (Feature/Fix), elige el procedimiento y comienza a tildar el checklist.
+
+🔄 2. Mapeo de Fases y Procedimientos (Tu Semilla de Datos)
+Usando los archivos que proporcionaste, ya tienes la base de datos casi completa para poblar tus CRUDS. Así es como deberías categorizarlos en tu nuevo sistema:
+
+A. Fases de Única Ejecución (Lineales)
+Estas fases se completan una vez por proyecto o hito mayor para sentar las bases.
+
+Fase 1 - Inicio / Análisis:
+
+Procedimiento: Creación del "Project Scope" o "Briefing".  
+MD
++ 1
+
+Checklist: Alinear stakeholders, definir presupuesto, aprobar arquitectura.  
+MD
+
+Prompt AI: Generar decisiones técnicas justificadas, diagrama de arquitectura y schema de BD.  
+MD
+
+Fase 2 - Diseño:
+
+Procedimiento: Creación de Mockups y Prototipos interactivos.  
+MD
++ 1
+
+Prompt AI: Exportar el Design Brief exacto para herramientas visuales.  
+MD
+
+Fase 5 - Pre-Deployment y Post-Deployment:
+
+Procedimiento: Checklist de seguridad, validación de variables de entorno y monitoreo.  
+MD
+
+B. Fases Cíclicas (El Motor de Desarrollo)
+Aquí es donde ocurre la magia de tu flujo de Features y Fixes. Corresponde a la fase de Desarrollo y Testing.
+
+Tipo de Ciclo	Pasos del Procedimiento (Checklist)	Origen de Datos (Contexto a inyectar)
+Feature	
+1. Crear rama feature/nombre.  
+MD
+
+
+2. Exportar Prompt de Código.
+
+
+3. Aplicar código generado.
+
+
+4. Ejecutar tests unitarios (cobertura mínima 80%).  
+MD
+
+
+5. Crear Pull Request con template.  
+MD
+
+Contexto del proyecto + Historia de Usuario + Estándares de Código (TypeScript, React, etc.).  
+MD
+
+Fix	
+1. Crear rama bugfix/nombre.  
+MD
+
+
+2. Recopilar logs/errores.
+
+
+3. Exportar Prompt de Solución.
+
+
+4. Prueba manual y de regresión.
+
+
+5. Guardar solución en historial.
+
+Stack técnico + Logs del error + Archivos específicos afectados.
+Testing	
+1. Generar Unit Tests.
+
+
+2. Generar Integration Tests.
+
+
+3. E2E Testing manual o automatizado.  
+MD
+
+Código de la feature terminada + Checklist de testing de la API o Frontend.  
+MD
++ 1
+
+🤖 3. El Exportador de Prompts (El "Compilador" de Contexto)
+La funcionalidad estrella de tu módulo será el botón "Exportar Prompt". Para que la IA haga el trabajo exactamente como quieres, el sistema debe concatenar textos dinámicamente.
+
+Cuando estés en el paso 2 de un ciclo de Feature, el módulo debería ensamblar un bloque de texto Markdown con esta estructura lógica:
+
+Rol y Tarea: "Eres un desarrollador senior. Tu tarea es implementar la siguiente feature."
+
+Contexto del Proyecto (Auto-inyectado): Todo el BRIEFING o PROJECT_SCOPE.  
+MD
++ 1
+
+Estándares (Auto-inyectado): Inyectar las reglas de TypeScript, React, Naming y Error Handling para evitar que la IA alucine sus propias convenciones.  
+MD
+
+Especificación de la Actividad (Manual): La historia de usuario actual o el endpoint a crear.  
+MD
+
+Instrucciones de Salida (Auto-inyectado): "Genera el código production-ready, con tipado estricto y sin comentarios innecesarios".  
+MD
++ 1
+
+🛠️ 4. Flujo de Trabajo del Usuario en la Interfaz
+Para la UI/UX de tu herramienta, imagina un panel lateral o Kanban interactivo:
+
+Selección: Entras al Taller, eliges tu Proyecto actual.
+
+Selector de Flujo: Haces clic en el botón "Nueva Actividad" -> Eliges tipo: Feature.
+
+Ejecución: Aparece una barra de progreso vertical con los checkboxes.
+
+Generación: Llegas al paso "Generar Código". Haces clic en un botón que dice Copiar Prompt Integral. El sistema junta el contexto de la BD en tu portapapeles.
+
+Validación: Pegas la respuesta de la IA en tu editor, la pruebas y marcas el paso "Testeo manual" como [X] Completado.
+
+Cierre: Terminas el checklist, el sistema guarda el tiempo invertido y el resultado en el historial del proyecto.
+
+¿Te gustaría que diseñemos juntos el modelo relacional de la base de datos (tablas, columnas y relaciones en SQL o NoSQL) para soportar esta estructura de manera óptima?
