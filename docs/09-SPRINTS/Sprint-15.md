@@ -42,14 +42,16 @@
 - **Compilador de Prompt de Reanudación / Rollover (`compilarPromptReanudacion`):** Construimos el servicio que concatena la bitácora de traspaso de comentarios acumulados por compañeros, el estado actual del checklist detallando qué se completó (junto a sus outputs de código) y qué queda pendiente.
 - **Pruebas Unitarias de Prompts:** Añadimos cobertura de tests de integración offline validando que las inyecciones de marcadores y consolidación de bitácoras de traspaso formateen correctamente el prompt final para la IA.
 
+### F. Sprint 4 - Libro de Actas e Inmutabilidad (Trazabilidad y Auditoría)
+
+- **Bloqueos de Inmutabilidad Strict:** Incorporamos validaciones que comprueban si la ejecución de la tarea está en estado `COMPLETED` antes de permitir cambios de estado, reasignaciones de responsables, adición de comentarios o completitud de pasos.
+- **Persistencia de Outputs de Código:** Configuramos el almacenamiento estructurado de outputs en la tabla `task_step_states`, garantizando el guardado del código final de la IA.
+- **Acceso a Actas y Consultas Read-Only:** Agregamos métodos de consulta desacoplados `obtenerActasAuditoria` y `obtenerEstadosPasos` para alimentar el historial.
+- **Cobertura de Tests:** Desarrollamos pruebas unitarias específicas que intentan modificar transacciones completadas y aseguran que el sistema bloquee y retorne errores controlados de dominio.
+
 ---
 
 ## 2. Lo que Falta (Backlog Pendiente para Próximos Sprints)
-
-### Sprint 4: Libro de Actas e Inmutabilidad (Fase 4)
-
-- Lógica de registro inmutable en `actas_auditoria`.
-- Soporte para persistir y auditar outputs de código generados por la IA.
 
 ### Sprint 5: UI/UX y Panel de Control del Taller (Fase 5)
 

@@ -269,3 +269,53 @@ test("Sprint 15: Debería compilar el prompt de reanudación integrando comentar
   assert.match(prompt, /Rama feature\/checkout creada/);
   assert.match(prompt, /COMPLETADO/);
 });
+
+test("Sprint 15: Debería bloquear modificaciones, reasignaciones y comentarios si el flujo está completado", async () => {
+  const uc = new GestionarWorkflowsUseCase();
+  const resInit = await uc.iniciarEjecucion(
+    PROYECTO_ID,
+    TEMPLATE_ID,
+    "Lock Test",
+    "usr_mariano"
+  );
+  const exeId = resInit.valor;
+
+  // Mark execution as COMPLETED
+  const resCompleted = await uc.cambiarEstado(
+    exeId,
+    "COMPLETED",
+    "usr_mariano"
+  );
+  assert.strictEqual(resCompleted.ok, true);
+
+  // Try to reassign
+  const resAssign = await uc.asignarResponsable(
+    exeId,
+    "usr_mateo",
+    "usr_mariano"
+  );
+  assert.strictEqual(resAssign.ok, false);
+  assert.match(resAssign.error?.mensaje || "", /no se pueden/i);
+
+  // Try to add a comment
+  const resComment = await uc.agregarComentario(
+    exeId,
+    null,
+    "Nuevo comentario bloqueado",
+    "usr_mariano"
+  );
+  assert.strictEqual(resComment.ok, false);
+  assert.match(resComment.error?.mensaje || "", /no se pueden/i);
+
+  // Try to update a step state
+  const resStep = await uc.actualizarEstadoPaso(
+    exeId,
+    "ws_test_step_1",
+    true,
+    "input",
+    "output",
+    "usr_mariano"
+  );
+  assert.strictEqual(resStep.ok, false);
+  assert.match(resStep.error?.mensaje || "", /no se pueden/i);
+});

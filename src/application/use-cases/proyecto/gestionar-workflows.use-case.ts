@@ -81,6 +81,21 @@ export class GestionarWorkflowsUseCase {
     usuarioId: string
   ): Promise<Resultado<void>> {
     try {
+      const exe = await db.task_executions.get(executionId);
+      if (!exe)
+        return Resultado.falla(
+          new ErrorNoEncontrado("No se encontró la ejecución.")
+        );
+
+      // Strict immutability constraint
+      if (exe.estado === "COMPLETED") {
+        return Resultado.falla(
+          new ErrorDominio(
+            "No se puede modificar un flujo de trabajo que ya ha sido completado."
+          )
+        );
+      }
+
       await db.task_executions.update(executionId, {
         estado: nuevoEstado,
         actualizadoEn: Date.now(),
@@ -115,6 +130,21 @@ export class GestionarWorkflowsUseCase {
     usuarioId: string
   ): Promise<Resultado<void>> {
     try {
+      const exe = await db.task_executions.get(executionId);
+      if (!exe)
+        return Resultado.falla(
+          new ErrorNoEncontrado("No se encontró la ejecución.")
+        );
+
+      // Strict immutability constraint
+      if (exe.estado === "COMPLETED") {
+        return Resultado.falla(
+          new ErrorDominio(
+            "No se pueden reasignar responsables de un flujo de trabajo completado."
+          )
+        );
+      }
+
       await db.task_executions.update(executionId, {
         usuarioAsignadoId: nuevoResponsableId,
         actualizadoEn: Date.now(),
@@ -156,8 +186,23 @@ export class GestionarWorkflowsUseCase {
         new ErrorDominio("El comentario no puede estar vacío.")
       );
     }
-    const commentId = `com_${Date.now()}`;
     try {
+      const exe = await db.task_executions.get(executionId);
+      if (!exe)
+        return Resultado.falla(
+          new ErrorNoEncontrado("No se encontró la ejecución.")
+        );
+
+      // Strict immutability constraint
+      if (exe.estado === "COMPLETED") {
+        return Resultado.falla(
+          new ErrorDominio(
+            "No se pueden agregar comentarios a un flujo de trabajo completado."
+          )
+        );
+      }
+
+      const commentId = `com_${Date.now()}`;
       await db.task_comments.add({
         id: commentId,
         executionId,
@@ -204,6 +249,21 @@ export class GestionarWorkflowsUseCase {
   ): Promise<Resultado<void>> {
     const stateId = `${executionId}_${stepId}`;
     try {
+      const exe = await db.task_executions.get(executionId);
+      if (!exe)
+        return Resultado.falla(
+          new ErrorNoEncontrado("No se encontró la ejecución.")
+        );
+
+      // Strict immutability constraint
+      if (exe.estado === "COMPLETED") {
+        return Resultado.falla(
+          new ErrorDominio(
+            "No se pueden modificar los pasos de un flujo de trabajo completado."
+          )
+        );
+      }
+
       await db.task_step_states.update(stateId, {
         completado,
         fechaCompletado: completado ? Date.now() : 0,
@@ -420,6 +480,50 @@ Analiza el estado actual, el código que ya fue aplicado en los pasos completado
           error instanceof Error
             ? error.message
             : "Error al compilar el prompt de reanudación."
+        )
+      );
+    }
+  }
+
+  /**
+   * Obtiene la bitácora histórica (Actas de Auditoría) de una ejecución
+   */
+  public async obtenerActasAuditoria(
+    executionId: string
+  ): Promise<Resultado<any[]>> {
+    try {
+      const logs = await db.actas_auditoria
+        .where("executionId")
+        .equals(executionId)
+        .toArray();
+      return Resultado.exito(logs);
+    } catch (error) {
+      return Resultado.falla(
+        new ErrorDominio(
+          error instanceof Error ? error.message : "Error al obtener actas."
+        )
+      );
+    }
+  }
+
+  /**
+   * Obtiene el listado de estados de pasos asociados a una ejecución
+   */
+  public async obtenerEstadosPasos(
+    executionId: string
+  ): Promise<Resultado<any[]>> {
+    try {
+      const states = await db.task_step_states
+        .where("executionId")
+        .equals(executionId)
+        .toArray();
+      return Resultado.exito(states);
+    } catch (error) {
+      return Resultado.falla(
+        new ErrorDominio(
+          error instanceof Error
+            ? error.message
+            : "Error al obtener estados de pasos."
         )
       );
     }
