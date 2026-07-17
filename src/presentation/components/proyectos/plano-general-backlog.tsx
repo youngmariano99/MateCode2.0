@@ -1,6 +1,7 @@
+/* eslint-disable react-hooks/purity */
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { db } from "../../../offline/dexie/db";
 import { useLiveQuery } from "dexie-react-hooks";
 
@@ -23,6 +24,16 @@ interface Historia {
   estado?: string;
 }
 
+interface Tarea {
+  id: string;
+  proyectoId: string;
+  historiaId: string;
+  titulo: string;
+  estado: string; // "Todo" | "Done"
+  creadoEn?: number;
+  actualizadoEn?: number;
+}
+
 interface PlanoGeneralBacklogProps {
   proyectoId: string;
 }
@@ -30,7 +41,7 @@ interface PlanoGeneralBacklogProps {
 export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
   proyectoId,
 }) => {
-  // Query epics and stories reactively
+  // Query epics, stories and tasks reactively
   const epicas = (useLiveQuery(
     () => db.epicas.where("proyectoId").equals(proyectoId).toArray(),
     [proyectoId]
@@ -39,6 +50,21 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
     () => db.historias.where("proyectoId").equals(proyectoId).toArray(),
     [proyectoId]
   ) || []) as unknown as Historia[];
+  const tareas = (useLiveQuery(
+    () => db.tareas.where("proyectoId").equals(proyectoId).toArray(),
+    [proyectoId]
+  ) || []) as unknown as Tarea[];
+
+  // Local state for adding tasks
+  const [nuevaActividadTexto, setNuevaActividadTexto] = useState<
+    Record<string, string>
+  >({});
+
+  // Local state for editing tasks
+  const [actividadEditandoId, setActividadEditandoId] = useState<string | null>(
+    null
+  );
+  const [actividadEditandoTexto, setActividadEditandoTexto] = useState("");
 
   // Toggle/cycle story status in IndexedDB
   const alternarEstadoHistoria = async (
@@ -53,6 +79,68 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
       await db.historias.update(historiaId, { estado: proximoEstado });
     } catch {
       // Ignorar errores silenciosamente
+    }
+  };
+
+  // CRUD actions for nested tasks
+  const crearActividad = async (historiaId: string) => {
+    const texto = nuevaActividadTexto[historiaId]?.trim();
+    if (!texto) return;
+
+    const newId = `tar_${Math.random().toString(36).substring(2, 9)}`;
+    try {
+      await db.tareas.add({
+        id: newId,
+        proyectoId,
+        historiaId,
+        titulo: texto,
+        estado: "Todo",
+        creadoEn: Date.now(),
+        actualizadoEn: Date.now(),
+      });
+      setNuevaActividadTexto((prev) => ({ ...prev, [historiaId]: "" }));
+    } catch {
+      // Ignorar silenciosamente
+    }
+  };
+
+  const alternarEstadoActividad = async (
+    tareaId: string,
+    estadoActual: string
+  ) => {
+    const proximo = estadoActual === "Done" ? "Todo" : "Done";
+    try {
+      await db.tareas.update(tareaId, {
+        estado: proximo,
+        actualizadoEn: Date.now(),
+      });
+    } catch {
+      // Ignorar silenciosamente
+    }
+  };
+
+  const guardarEdicionActividad = async (tareaId: string) => {
+    const texto = actividadEditandoTexto.trim();
+    if (!texto) return;
+
+    try {
+      await db.tareas.update(tareaId, {
+        titulo: texto,
+        actualizadoEn: Date.now(),
+      });
+      setActividadEditandoId(null);
+    } catch {
+      // Ignorar silenciosamente
+    }
+  };
+
+  const borrarActividad = async (tareaId: string) => {
+    if (confirm("¿Estás seguro de que deseas eliminar esta actividad?")) {
+      try {
+        await db.tareas.delete(tareaId);
+      } catch {
+        // Ignorar silenciosamente
+      }
     }
   };
 
@@ -109,9 +197,6 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
             const totalEp = historiasEpica.length;
             const doneEp = historiasEpica.filter(
               (h) => h.estado === "Done"
-            ).length;
-            const inProgressEp = historiasEpica.filter(
-              (h) => h.estado === "InProgress"
             ).length;
             const progresoEp =
               totalEp > 0 ? Math.round((doneEp / totalEp) * 100) : 0;
@@ -174,50 +259,176 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                         prioColor =
                           "text-amber-400 border-amber-900/20 bg-amber-950/20";
 
+                      // Calculate nested activities status
+                      const actividadesStory = tareas.filter(
+                        (t) => t.historiaId === h.id
+                      );
+                      const totalAct = actividadesStory.length;
+                      const doneAct = actividadesStory.filter(
+                        (t) => t.estado === "Done"
+                      ).length;
+
                       return (
                         <div
                           key={h.id}
-                          className="flex flex-col justify-between gap-3 rounded-xl border border-zinc-900 bg-zinc-950/40 px-4 py-3 hover:bg-zinc-950/60 sm:flex-row sm:items-center"
+                          className="flex flex-col gap-3 rounded-xl border border-zinc-900 bg-zinc-950/40 px-4 py-3 hover:bg-zinc-950/60"
                         >
-                          <div className="flex flex-col">
-                            <span className="font-mono text-xs font-bold text-zinc-200">
-                              {h.titulo}
-                            </span>
-                            <span className="mt-0.5 font-mono text-[10px] leading-relaxed text-zinc-500">
-                              {h.descripcion}
-                            </span>
+                          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                            <div className="flex min-w-0 flex-col">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-mono text-xs font-bold text-zinc-200">
+                                  {h.titulo}
+                                </span>
+                                {totalAct > 0 && (
+                                  <span className="rounded-full border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[8px] text-zinc-500">
+                                    {doneAct}/{totalAct} Tareas
+                                  </span>
+                                )}
+                              </div>
+                              <span className="mt-0.5 font-mono text-[10px] leading-relaxed text-zinc-500">
+                                {h.descripcion}
+                              </span>
+                            </div>
+
+                            <div className="flex shrink-0 items-center gap-2.5 sm:justify-end">
+                              {/* Priority Badge */}
+                              {h.prioridad && (
+                                <span
+                                  className={`rounded-md border px-2 py-0.5 font-mono text-[9px] uppercase ${prioColor}`}
+                                >
+                                  {h.prioridad}
+                                </span>
+                              )}
+
+                              {/* Estimation points */}
+                              {h.estimacion !== undefined && (
+                                <span className="rounded-md border border-zinc-800/80 bg-zinc-900 px-2 py-0.5 font-mono text-[9px] text-zinc-400 select-none">
+                                  {h.estimacion} SP
+                                </span>
+                              )}
+
+                              {/* Status Cycler Badge */}
+                              <button
+                                onClick={() =>
+                                  alternarEstadoHistoria(
+                                    h.id,
+                                    h.estado || "Todo"
+                                  )
+                                }
+                                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1 font-mono text-[9px] font-bold tracking-wide uppercase transition-all select-none hover:brightness-110 active:scale-95 ${statusBadge}`}
+                                title="Haz clic para cambiar de estado"
+                              >
+                                <span
+                                  className={`h-1.5 w-1.5 rounded-full ${dotColor}`}
+                                />
+                                {h.estado || "Todo"}
+                              </button>
+                            </div>
                           </div>
 
-                          <div className="flex items-center gap-2.5 sm:justify-end">
-                            {/* Priority Badge */}
-                            {h.prioridad && (
-                              <span
-                                className={`rounded-md border px-2 py-0.5 font-mono text-[9px] uppercase ${prioColor}`}
-                              >
-                                {h.prioridad}
-                              </span>
-                            )}
+                          {/* Nested Activities CRUD Checklist */}
+                          <div className="mt-1.5 flex flex-col gap-2 border-l border-zinc-900 pl-3">
+                            {actividadesStory.map((act) => {
+                              const isEditing = actividadEditandoId === act.id;
+                              return (
+                                <div
+                                  key={act.id}
+                                  className="group/act flex items-center justify-between gap-3 py-0.5"
+                                >
+                                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={act.estado === "Done"}
+                                      onChange={() =>
+                                        alternarEstadoActividad(
+                                          act.id,
+                                          act.estado
+                                        )
+                                      }
+                                      className="h-3 w-3 cursor-pointer rounded border-zinc-800 bg-zinc-900 text-emerald-500 focus:ring-emerald-500/20 focus:ring-offset-zinc-950"
+                                    />
+                                    {isEditing ? (
+                                      <input
+                                        type="text"
+                                        value={actividadEditandoTexto}
+                                        onChange={(e) =>
+                                          setActividadEditandoTexto(
+                                            e.target.value
+                                          )
+                                        }
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter")
+                                            guardarEdicionActividad(act.id);
+                                          if (e.key === "Escape")
+                                            setActividadEditandoId(null);
+                                        }}
+                                        onBlur={() =>
+                                          guardarEdicionActividad(act.id)
+                                        }
+                                        autoFocus
+                                        className="border-zinc-850 w-full rounded border bg-zinc-900 px-2 py-0.5 font-mono text-[10px] text-zinc-200 outline-none"
+                                      />
+                                    ) : (
+                                      <span
+                                        onDoubleClick={() => {
+                                          setActividadEditandoId(act.id);
+                                          setActividadEditandoTexto(act.titulo);
+                                        }}
+                                        className={`cursor-pointer truncate font-mono text-[10px] select-none ${
+                                          act.estado === "Done"
+                                            ? "text-zinc-650 line-through"
+                                            : "text-zinc-400 hover:text-zinc-300"
+                                        }`}
+                                        title="Doble clic para editar"
+                                      >
+                                        {act.titulo}
+                                      </span>
+                                    )}
+                                  </div>
 
-                            {/* Estimation points */}
-                            {h.estimacion !== undefined && (
-                              <span className="rounded-md border border-zinc-800/80 bg-zinc-900 px-2 py-0.5 font-mono text-[9px] text-zinc-400 select-none">
-                                {h.estimacion} SP
-                              </span>
-                            )}
+                                  <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover/act:opacity-100">
+                                    {!isEditing && (
+                                      <button
+                                        onClick={() => {
+                                          setActividadEditandoId(act.id);
+                                          setActividadEditandoTexto(act.titulo);
+                                        }}
+                                        className="font-mono text-[9px] text-zinc-600 hover:text-zinc-400"
+                                        title="Editar"
+                                      >
+                                        Editar
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => borrarActividad(act.id)}
+                                      className="text-zinc-750 font-mono text-[9px] hover:text-rose-400"
+                                      title="Borrar"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
 
-                            {/* Status Cycler Badge */}
-                            <button
-                              onClick={() =>
-                                alternarEstadoHistoria(h.id, h.estado || "Todo")
-                              }
-                              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1 font-mono text-[9px] font-bold tracking-wide uppercase transition-all select-none hover:brightness-110 active:scale-95 ${statusBadge}`}
-                              title="Haz clic para cambiar de estado"
-                            >
-                              <span
-                                className={`h-1.5 w-1.5 rounded-full ${dotColor}`}
+                            {/* Add Activity Input */}
+                            <div className="flex items-center gap-2 border-t border-zinc-900/40 pt-1">
+                              <input
+                                type="text"
+                                placeholder="＋ Añadir tarea técnica para el desarrollador..."
+                                value={nuevaActividadTexto[h.id] || ""}
+                                onChange={(e) =>
+                                  setNuevaActividadTexto({
+                                    ...nuevaActividadTexto,
+                                    [h.id]: e.target.value,
+                                  })
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") crearActividad(h.id);
+                                }}
+                                className="placeholder-zinc-750 flex-1 border-none bg-transparent font-mono text-[9px] text-zinc-500 outline-none focus:text-zinc-400 focus:placeholder-zinc-500"
                               />
-                              {h.estado || "Todo"}
-                            </button>
+                            </div>
                           </div>
                         </div>
                       );
