@@ -340,9 +340,19 @@ export class GestionarWorkflowsUseCase {
       // Reemplazar placeholders en el template
       const variables: Record<string, string> = {
         especificacion_tarea: especificacionTarea,
-        dolores_cliente: (contexto as any)?.doloresCliente || "",
-        reglas_negocio: (contexto as any)?.reglasNegocio || "",
-        publico_objetivo: (contexto as any)?.publicoObjetivo || "",
+        dolores_cliente:
+          (contexto as any)?.doloresCliente ||
+          (contexto as any)?.relevamientoMarkdown ||
+          "",
+        reglas_negocio:
+          (contexto as any)?.reglasNegocio ||
+          (contexto as any)?.relevamientoMarkdown ||
+          "",
+        publico_objetivo:
+          (contexto as any)?.publicoObjetivo ||
+          (contexto as any)?.relevamientoMarkdown ||
+          "",
+        relevamiento_markdown: (contexto as any)?.relevamientoMarkdown || "",
         stack_frontend,
         stack_backend,
         stack_base_datos,
@@ -451,6 +461,7 @@ Eres un desarrollador Fullstack Senior. Estás tomando relevo de una tarea que f
 - **Stack Técnico:** Frontend: ${(proj as any)?.stack?.frontend?.join(", ")}, Backend: ${(proj as any)?.stack?.backend?.join(", ")}, BD: ${(proj as any)?.stack?.baseDatos?.join(", ")}
 - **Dolores del Cliente:** ${(contexto as any)?.doloresCliente || ""}
 - **Reglas de Negocio:** ${(contexto as any)?.reglasNegocio || ""}
+- **Relevamiento General (Markdown):** ${(contexto as any)?.relevamientoMarkdown || ""}
 
 ## 2. HISTORIAL DE BITÁCORA Y COMENTARIOS DE TRASPASO
 Aquí están las notas que dejaron tus compañeros sobre el estado de la implementación:

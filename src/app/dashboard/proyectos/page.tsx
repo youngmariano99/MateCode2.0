@@ -32,6 +32,7 @@ import { ModalImportarProyecto } from "../../../presentation/components/proyecto
 import { StackSelector } from "../../../presentation/components/proyectos/stack-selector";
 import { StandardSelector } from "../../../presentation/components/proyectos/standard-selector";
 import { MarkdownEditor } from "../../../presentation/components/proyectos/markdown-editor";
+import { RelevamientoWorkspace } from "../../../presentation/components/proyectos/relevamiento-workspace";
 import { BacklogBoard } from "../../../presentation/components/proyectos/backlog-board";
 import { SprintPlanner } from "../../../presentation/components/proyectos/sprint-planner";
 import { KanbanBoard } from "../../../presentation/components/proyectos/kanban-board";
@@ -62,6 +63,8 @@ interface ProyectoCRM {
   estandares?: EstandaresConfig;
   productOwner?: ProductOwnerConfig;
   financiero?: FinancieroConfig;
+  relevamientoNotasBrutas?: string;
+  relevamientoMarkdown?: string;
 }
 
 const ESTADOS_PROYECTO = [
@@ -74,18 +77,7 @@ const ESTADOS_PROYECTO = [
   "Finalizado",
 ];
 
-const TIPOS_PROYECTO = [
-  "Landing Page",
-  "Sitio Web",
-  "Sistema Web",
-  "Aplicación Móvil",
-  "E-commerce",
-  "Automatización",
-  "Diseño",
-  "Branding",
-  "Consultoría",
-  "Otro",
-];
+const TIPOS_PROYECTO = ["Sistemas", "Landing/Institucional"];
 
 export default function ProyectosPage() {
   const { mostrarToast } = useToast();
@@ -111,6 +103,11 @@ export default function ProyectosPage() {
     [proyectoSeleccionado]
   ) as Record<string, string> | undefined;
 
+  const currentContexto = useLiveQuery(
+    () => db.proyecto_contexto.get(proyectoSeleccionado?.id || ""),
+    [proyectoSeleccionado]
+  ) as Record<string, unknown> | undefined;
+
   const abrirModulo = (modulo: string) => {
     setModuloActivo(modulo);
     setDrawerAbierto(true);
@@ -124,6 +121,8 @@ export default function ProyectosPage() {
         return "Presupuesto y Estructura Financiera";
       case "product_owner":
         return "Definición del Product Owner";
+      case "relevamiento":
+        return "Taller de Relevamiento & Resumen IA";
       case "stack":
         return "Stack Tecnológico Seleccionado";
       case "estandares":
@@ -174,6 +173,21 @@ export default function ProyectosPage() {
             initialValues={proyectoSeleccionado.productOwner}
             onSave={async (po) => {
               await handleSaveProductOwner(po);
+              setDrawerAbierto(false);
+            }}
+          />
+        );
+      case "relevamiento":
+        return (
+          <RelevamientoWorkspace
+            proyectoId={proyectoSeleccionado.id}
+            tipoProyecto={proyectoSeleccionado.tipo}
+            onSave={async (notasBrutas, markdown) => {
+              setProyectoSeleccionado({
+                ...proyectoSeleccionado,
+                relevamientoNotasBrutas: notasBrutas,
+                relevamientoMarkdown: markdown,
+              } as ProyectoCRM);
               setDrawerAbierto(false);
             }}
           />
@@ -413,8 +427,8 @@ export default function ProyectosPage() {
                 {
                   id: "negocio",
                   num: "1",
-                  title: "Concepción",
-                  desc: "Presupuestos y Requerimientos PO",
+                  title: "Relevamiento",
+                  desc: "Notas, Selección de Prompt y Resumen IA",
                 },
                 {
                   id: "arquitectura",
@@ -506,19 +520,19 @@ export default function ProyectosPage() {
                   onClick={() => abrirModulo("financiero")}
                 />
                 <SummaryCard
-                  titulo="Definición Product Owner"
-                  descripcion="Dolores del cliente, objetivos del negocio, público objetivo y restricciones."
+                  titulo="Taller de Relevamiento (IA)"
+                  descripcion="Reúne notas brutas, genera prompts de relevamiento y consolida la especificación Markdown."
                   estado={
-                    proyectoSeleccionado.productOwner?.problema
+                    currentContexto?.relevamientoMarkdown
                       ? "Configurado"
                       : "Vacío"
                   }
                   icono={
                     <span className="font-mono text-xs font-bold text-sky-400">
-                      PO
+                      IA
                     </span>
                   }
-                  onClick={() => abrirModulo("product_owner")}
+                  onClick={() => abrirModulo("relevamiento")}
                 />
               </div>
             )}
