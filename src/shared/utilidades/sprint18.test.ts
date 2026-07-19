@@ -127,3 +127,139 @@ test("Sprint 18: Debería fall back a designSystemMarkdown en el compilador de p
   assert.match(res.valor, /Ficha de Branding/);
   assert.match(res.valor, /Colores: Negro y Verde/);
 });
+
+test("Sprint 18: Debería guardar requisitos y entidades en el contexto y cargarlos", async () => {
+  const projectId = "proj_planning_test";
+  await db.proyecto_contexto.put({
+    proyectoId: projectId,
+    requisitosFuncionales: "RF1: Autenticación",
+    requisitosNoFuncionales: "RNF1: Rápido",
+    sitemap: "Landing Page",
+    entidades: "Tabla: usuarios",
+  });
+
+  const ctx = await db.proyecto_contexto.get(projectId);
+  assert.ok(ctx);
+  assert.strictEqual(ctx.requisitosFuncionales, "RF1: Autenticación");
+  assert.strictEqual(ctx.entidades, "Tabla: usuarios");
+});
+
+test("Sprint 18: Debería importar backlog y sprints masivamente desde JSON", async () => {
+  const projectId = "proj_import_test";
+
+  // Mock backlog JSON structure
+  const backlogData = [
+    {
+      nombre: "Épica de Seguridad",
+      descripcion: "Seguridad y Roles",
+      historias: [
+        {
+          titulo: "Inicio de sesión",
+          descripcion: "Como usuario...",
+          prioridad: "Alta",
+          estimacion: 3,
+          actividades: ["Crear input", "Validar JWT"],
+        },
+      ],
+    },
+  ];
+
+  // Import Backlog logic
+  await db.transaction("rw", [db.epicas, db.historias, db.tareas], async () => {
+    for (const epica of backlogData) {
+      const epicaId = "epi_test_1";
+      await db.epicas.put({
+        id: epicaId,
+        proyectoId: projectId,
+        nombre: epica.nombre,
+        descripcion: epica.descripcion,
+      });
+
+      for (const historia of epica.historias) {
+        const historiaId = "hist_test_1";
+        await db.historias.put({
+          id: historiaId,
+          proyectoId: projectId,
+          epicaId,
+          titulo: historia.titulo,
+          descripcion: historia.descripcion,
+          prioridad: historia.prioridad,
+          estimacion: historia.estimacion,
+          estado: "todo",
+        });
+
+        for (const act of historia.actividades) {
+          await db.tareas.put({
+            id: `tar_${Math.random()}`,
+            proyectoId: projectId,
+            historiaId,
+            titulo: act,
+            estado: "todo",
+          });
+        }
+      }
+    }
+  });
+
+  const epics = await db.epicas.where("proyectoId").equals(projectId).toArray();
+  const stories = await db.historias
+    .where("proyectoId")
+    .equals(projectId)
+    .toArray();
+  const tasks = await db.tareas.where("proyectoId").equals(projectId).toArray();
+
+  assert.strictEqual(epics.length, 1);
+  assert.strictEqual(stories.length, 1);
+  assert.strictEqual(tasks.length, 2);
+  assert.strictEqual(epics[0].nombre, "Épica de Seguridad");
+  assert.strictEqual(stories[0].titulo, "Inicio de sesión");
+
+  // Mock sprint plan JSON
+  const sprintData = [
+    {
+      nombre: "Sprint 1: Cimiento",
+      objetivo: "Setup inicial",
+      duracionSemanas: 2,
+      capacidad: 20,
+      historiasTitulos: ["Inicio de sesión"],
+    },
+  ];
+
+  // Import Sprints logic
+  await db.transaction("rw", [db.sprints, db.historias], async () => {
+    for (const sprint of sprintData) {
+      const sprintId = "spr_test_1";
+      await db.sprints.put({
+        id: sprintId,
+        proyectoId: projectId,
+        nombre: sprint.nombre,
+        objetivo: sprint.objetivo,
+        duracionSemanas: sprint.duracionSemanas,
+        capacidad: sprint.capacidad,
+        estado: "planificacion",
+      });
+
+      for (const title of sprint.historiasTitulos) {
+        const matches = await db.historias
+          .where("proyectoId")
+          .equals(projectId)
+          .filter((h) => h.titulo === title)
+          .toArray();
+
+        for (const match of matches) {
+          await db.historias.update(match.id as string, { sprintId });
+        }
+      }
+    }
+  });
+
+  const sprints = await db.sprints
+    .where("proyectoId")
+    .equals(projectId)
+    .toArray();
+  const updatedStory = await db.historias.get("hist_test_1");
+
+  assert.strictEqual(sprints.length, 1);
+  assert.strictEqual(sprints[0].nombre, "Sprint 1: Cimiento");
+  assert.strictEqual(updatedStory?.sprintId, "spr_test_1");
+});

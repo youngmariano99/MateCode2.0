@@ -42,6 +42,7 @@ import { DesignSystemForm } from "../../../presentation/components/proyectos/des
 import { Drawer } from "../../../presentation/components/proyectos/drawer";
 import { SummaryCard } from "../../../presentation/components/proyectos/summary-card";
 import { PlanoGeneralBacklog } from "../../../presentation/components/proyectos/plano-general-backlog";
+import { PlanificacionIAWorkspace } from "../../../presentation/components/proyectos/planificacion-ia-workspace";
 
 type FaseCicloVida =
   "negocio" | "arquitectura" | "planificacion" | "ejecucion" | "cierre";
@@ -129,6 +130,8 @@ export default function ProyectosPage() {
         return "Estándares y Prácticas de Ingeniería";
       case "design_system":
         return "Design System & Metáforas Visuales";
+      case "planificacion_ia":
+        return "Planificación, Requerimientos y Sitemap (IA)";
       case "backlog":
         return "Gestión del Backlog de Ingeniería";
       case "sprints":
@@ -217,6 +220,10 @@ export default function ProyectosPage() {
 
       case "design_system":
         return <DesignSystemForm proyectoId={proyectoSeleccionado.id} />;
+      case "planificacion_ia":
+        return (
+          <PlanificacionIAWorkspace proyectoId={proyectoSeleccionado.id} />
+        );
       case "backlog":
         return <BacklogBoard proyectoId={proyectoSeleccionado.id} />;
       case "sprints":
@@ -590,7 +597,22 @@ export default function ProyectosPage() {
             )}
 
             {faseActiva === "planificacion" && (
-              <div className="grid max-w-4xl grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <SummaryCard
+                  titulo="Requerimientos y Entidades (IA)"
+                  descripcion="Requisitos funcionales, no funcionales, sitemaps y modelado de entidades en 3FN."
+                  estado={
+                    currentContexto?.requisitosFuncionales
+                      ? "Configurado"
+                      : "Vacío"
+                  }
+                  icono={
+                    <span className="font-mono text-xs font-bold text-sky-400">
+                      RQ
+                    </span>
+                  }
+                  onClick={() => abrirModulo("planificacion_ia")}
+                />
                 <SummaryCard
                   titulo="Plano General de Avance"
                   descripcion="Vista global interactiva de avance del backlog agrupado por Épica."

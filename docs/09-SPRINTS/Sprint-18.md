@@ -10,15 +10,17 @@
 - **Botones de Descarga:**
   - `especificacion_tecnica_{proyectoId}.md`: Stack tecnológico + Estándares seleccionados.
   - `design_system_{proyectoId}.md`: Directrices visuales completas.
+- **Taller de Planificación y Requerimientos (IA):** Nuevo panel para almacenar Requisitos Funcionales/No Funcionales, Sitemap, Modelado en 3FN e importar Backlog/Sprints mediante JSON, permitiendo además la exportación de archivos `.md` formateados como listas de verificación (`[ ]`).
 
 ## 2. Archivos Afectados
 
 - [standard-selector.tsx](file:///c:/Users/mari_/OneDrive/Escritorio/t/PROYECTS/ACTIVOS/PERSONALES/MateCode2.0/src/presentation/components/proyectos/standard-selector.tsx) [MODIFY]
 - [stack-selector.tsx](file:///c:/Users/mari_/OneDrive/Escritorio/t/PROYECTS/ACTIVOS/PERSONALES/MateCode2.0/src/presentation/components/proyectos/stack-selector.tsx) [MODIFY]
 - [design-system-form.tsx](file:///c:/Users/mari_/OneDrive/Escritorio/t/PROYECTS/ACTIVOS/PERSONALES/MateCode2.0/src/presentation/components/proyectos/design-system-form.tsx) [MODIFY]
+- [planificacion-ia-workspace.tsx](file:///c:/Users/mari_/OneDrive/Escritorio/t/PROYECTS/ACTIVOS/PERSONALES/MateCode2.0/src/presentation/components/proyectos/planificacion-ia-workspace.tsx) [NEW]
 - [page.tsx](file:///c:/Users/mari_/OneDrive/Escritorio/t/PROYECTS/ACTIVOS/PERSONALES/MateCode2.0/src/app/dashboard/proyectos/page.tsx) [MODIFY]
 - [gestionar-workflows.use-case.ts](file:///c:/Users/mari_/OneDrive/Escritorio/t/PROYECTS/ACTIVOS/PERSONALES/MateCode2.0/src/application/use-cases/proyecto/gestionar-workflows.use-case.ts) [MODIFY]
-- [sprint18.test.ts](file:///c:/Users/mari_/OneDrive/Escritorio/t/PROYECTS/ACTIVOS/PERSONALES/MateCode2.0/src/shared/utilidades/sprint18.test.ts) [NEW]
+- [sprint18.test.ts](file:///c:/Users/mari_/OneDrive/Escritorio/t/PROYECTS/ACTIVOS/PERSONALES/MateCode2.0/src/shared/utilidades/sprint18.test.ts) [MODIFY]
 
 ## 3. Pruebas Unitarias de Verificación
 
@@ -26,4 +28,6 @@
   1. Guardado y carga de presets de estándares en IndexedDB.
   2. Guardado y carga de presets de stacks tecnológicos.
   3. Fallback del compilador de prompts de workflow a la propiedad unificada `designSystemMarkdown`.
-- Resultado: **23 de 23 tests en verde**.
+  4. Persistencia de requerimientos y entidades.
+  5. Importación masiva de backlog y vinculación automatizada de sprints.
+- Resultado: **25 de 25 tests en verde**.
