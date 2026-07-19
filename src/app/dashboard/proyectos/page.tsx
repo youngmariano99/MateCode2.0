@@ -206,6 +206,7 @@ export default function ProyectosPage() {
       case "estandares":
         return (
           <StandardSelector
+            proyectoId={proyectoSeleccionado.id}
             initialEstandares={proyectoSeleccionado.estandares}
             onSave={async (estandares) => {
               await handleSaveTechnical({ estandares });
@@ -213,6 +214,7 @@ export default function ProyectosPage() {
             }}
           />
         );
+
       case "design_system":
         return <DesignSystemForm proyectoId={proyectoSeleccionado.id} />;
       case "backlog":

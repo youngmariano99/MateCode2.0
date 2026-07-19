@@ -333,9 +333,24 @@ export class GestionarWorkflowsUseCase {
       const stack_backend = (proj as any)?.stack?.backend?.join(", ") || "";
       const stack_base_datos =
         (proj as any)?.stack?.baseDatos?.join(", ") || "";
-      const estandares_codigo =
-        (proj as any)?.estandares?.join("\n- ") ||
-        "Limpieza y tipado estricto.";
+      let estandares_codigo = "Limpieza y tipado estricto.";
+      if (proj && (proj as any).estandares) {
+        const estObj = (proj as any).estandares;
+        if (Array.isArray(estObj)) {
+          estandares_codigo = estObj.join("\n- ");
+        } else if (typeof estObj === "object") {
+          const list: string[] = [];
+          Object.entries(estObj).forEach(([cat, items]) => {
+            if (Array.isArray(items) && items.length > 0) {
+              list.push(`${cat.toUpperCase()}:`);
+              items.forEach((item) => list.push(`  - ${item}`));
+            }
+          });
+          if (list.length > 0) {
+            estandares_codigo = list.join("\n");
+          }
+        }
+      }
 
       // Reemplazar placeholders en el template
       const variables: Record<string, string> = {
@@ -356,15 +371,22 @@ export class GestionarWorkflowsUseCase {
         stack_frontend,
         stack_backend,
         stack_base_datos,
-        arquetipo: (ds as any)?.arquetipo || "",
-        metafora: (ds as any)?.metafora || "",
+        arquetipo:
+          (ds as any)?.arquetipo || (ds as any)?.designSystemMarkdown || "",
+        metafora:
+          (ds as any)?.metafora || (ds as any)?.designSystemMarkdown || "",
         radio_bordes: (ds as any)?.radioBordes || "",
         sombras: (ds as any)?.sombras || "",
-        directrices_diseno: (ds as any)?.directrizNegacion || "",
+        directrices_diseno:
+          (ds as any)?.directrizNegacion ||
+          (ds as any)?.designSystemMarkdown ||
+          "",
         tipografias: (ds as any)?.parejaTipografica || "",
         escala_espaciado: (ds as any)?.escalaEspaciado || "",
-        reglas_color: (ds as any)?.reglaColor || "",
+        reglas_color:
+          (ds as any)?.reglaColor || (ds as any)?.designSystemMarkdown || "",
         animaciones: (ds as any)?.estiloAnimaciones || "",
+        design_system_markdown: (ds as any)?.designSystemMarkdown || "",
         estandares_codigo,
       };
 
@@ -410,6 +432,7 @@ export class GestionarWorkflowsUseCase {
 
       const proj = await db.proyectos.get(exe.proyectoId as string);
       const contexto = await db.proyecto_contexto.get(exe.proyectoId as string);
+      const ds = await db.proyecto_design_system.get(exe.proyectoId as string);
 
       const steps = await db.workflow_steps
         .where("templateId")
@@ -462,6 +485,7 @@ Eres un desarrollador Fullstack Senior. Estás tomando relevo de una tarea que f
 - **Dolores del Cliente:** ${(contexto as any)?.doloresCliente || ""}
 - **Reglas de Negocio:** ${(contexto as any)?.reglasNegocio || ""}
 - **Relevamiento General (Markdown):** ${(contexto as any)?.relevamientoMarkdown || ""}
+- **Sistema de Diseño (Markdown):** ${(ds as any)?.designSystemMarkdown || ""}
 
 ## 2. HISTORIAL DE BITÁCORA Y COMENTARIOS DE TRASPASO
 Aquí están las notas que dejaron tus compañeros sobre el estado de la implementación:
