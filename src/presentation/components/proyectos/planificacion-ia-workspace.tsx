@@ -231,7 +231,17 @@ export const PlanificacionIAWorkspace: React.FC<
 
   // Copiers
   const copiarPromptRequisitos = () => {
-    const relevamiento = contexto?.relevamientoMarkdown || "";
+    let relevamiento = contexto?.relevamientoMarkdown || "";
+    if (contexto?.copyContenido) {
+      relevamiento += `\n\nCONTENIDO Y COPYWRITING DE MARCA:\n${contexto.copyContenido}`;
+    }
+    if (
+      Array.isArray(contexto?.linksInspiracion) &&
+      contexto.linksInspiracion.length > 0
+    ) {
+      relevamiento += `\n\nLINKS DE INSPIRACIÓN VISUAL:\n${(contexto.linksInspiracion as string[]).join("\n")}`;
+    }
+
     if (!relevamiento.trim()) {
       mostrarToast(
         "Asegúrate de tener un Relevamiento guardado en la fase anterior.",
