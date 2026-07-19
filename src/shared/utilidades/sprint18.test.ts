@@ -263,3 +263,156 @@ test("Sprint 18: Debería importar backlog y sprints masivamente desde JSON", as
   assert.strictEqual(sprints[0].nombre, "Sprint 1: Cimiento");
   assert.strictEqual(updatedStory?.sprintId, "spr_test_1");
 });
+
+test("Sprint 18: Debería crear un ticket de Feature, generar prompt, y sincronizar checklist JSON", async () => {
+  const projectId = "proj_dev_test_1";
+  const actividadId = "tar_dev_test_1";
+
+  // Seed project activity
+  await db.tareas.put({
+    id: actividadId,
+    proyectoId: projectId,
+    historiaId: "hist_1",
+    titulo: "Desarrollar autenticación JWT",
+    estado: "todo",
+  });
+
+  // Start ticket logic
+  const ticketId = "tick_feat_test_1";
+  await db.transaction(
+    "rw",
+    [db.task_executions, db.task_step_states, db.tareas],
+    async () => {
+      await db.task_executions.put({
+        id: ticketId,
+        proyectoId: projectId,
+        templateId: "workflow_feature",
+        titulo: "FEAT: Desarrollar autenticación JWT",
+        estado: "IN_PROGRESS",
+        usuarioAsignadoId: "Mariano",
+        fechaInicio: Date.now(),
+        metadata: {
+          actividadId,
+          extraContext: "Usar biblioteca Jose",
+          rol: "Arquitecto",
+          criterioAceptacion: "Validar firma del token",
+        },
+      });
+
+      const steps = [
+        "Git Setup",
+        "Coding",
+        "PR Code Review",
+        "Staging",
+        "Deploy",
+      ];
+      for (let i = 0; i < steps.length; i++) {
+        await db.task_step_states.put({
+          id: `state_${ticketId}_step_${i + 1}`,
+          executionId: ticketId,
+          stepId: `step_${i + 1}`,
+          titulo: steps[i],
+          completado: false,
+        });
+      }
+
+      await db.tareas.update(actividadId, { estado: "doing" });
+    }
+  );
+
+  const exec = await db.task_executions.get(ticketId);
+  const steps = await db.task_step_states
+    .where("executionId")
+    .equals(ticketId)
+    .toArray();
+  const act = await db.tareas.get(actividadId);
+
+  assert.ok(exec);
+  assert.strictEqual(exec.estado, "IN_PROGRESS");
+  assert.strictEqual((exec.metadata as any).rol, "Arquitecto");
+  assert.strictEqual(steps.length, 5);
+  assert.strictEqual(act?.estado, "doing");
+
+  // Mock JSON Checklist sync
+  const responseJson = {
+    resumen_ia: "Creada lógica de firmas con jose",
+    checklist: [
+      { paso: 1, completado: true },
+      { paso: 2, completado: true },
+    ],
+  };
+
+  for (const item of responseJson.checklist) {
+    const matched = steps.find((s) => s.stepId === `step_${item.paso}`);
+    assert.ok(matched);
+    await db.task_step_states.update(matched.id as string, {
+      completado: item.completado,
+    });
+  }
+
+  const updatedSteps = await db.task_step_states
+    .where("executionId")
+    .equals(ticketId)
+    .toArray();
+  assert.strictEqual(updatedSteps[0].completado, true);
+  assert.strictEqual(updatedSteps[1].completado, true);
+  assert.strictEqual(updatedSteps[2].completado, false);
+});
+
+test("Sprint 18: Debería crear un ticket de Bug/Hotfix y cerrarlo registrando el post-mortem", async () => {
+  const projectId = "proj_dev_test_2";
+  const bugTicketId = "tick_bug_test_1";
+
+  // Create Bug Ticket
+  await db.transaction(
+    "rw",
+    [db.task_executions, db.task_step_states],
+    async () => {
+      await db.task_executions.put({
+        id: bugTicketId,
+        proyectoId: projectId,
+        templateId: "workflow_bugfix",
+        titulo: "BUGFIX: Error filtro de clientes",
+        estado: "IN_PROGRESS",
+        usuarioAsignadoId: "Mariano",
+        fechaInicio: Date.now(),
+        metadata: {
+          linkedTicketId: "tick_feat_test_1",
+          logs: "Cannot read properties of undefined (reading 'toLowerCase')",
+          tipoBug: "bugfix",
+        },
+      });
+
+      const steps = ["Rama", "Regression", "Fix", "QA Review", "Deploy"];
+      for (let i = 0; i < steps.length; i++) {
+        await db.task_step_states.put({
+          id: `state_${bugTicketId}_step_${i + 1}`,
+          executionId: bugTicketId,
+          stepId: `step_${i + 1}`,
+          titulo: steps[i],
+          completado: false,
+        });
+      }
+    }
+  );
+
+  const exec = await db.task_executions.get(bugTicketId);
+  assert.ok(exec);
+  assert.strictEqual(exec.estado, "IN_PROGRESS");
+  assert.strictEqual((exec.metadata as any).tipoBug, "bugfix");
+
+  // Finalize ticket
+  const aiSummary = "Se agregó validador null en filter helper";
+  await db.task_executions.update(bugTicketId, {
+    estado: "COMPLETED",
+    fechaFin: Date.now(),
+    metadata: {
+      ...(exec.metadata as any),
+      aiSummary,
+    },
+  });
+
+  const finalized = await db.task_executions.get(bugTicketId);
+  assert.strictEqual(finalized?.estado, "COMPLETED");
+  assert.strictEqual((finalized?.metadata as any).aiSummary, aiSummary);
+});

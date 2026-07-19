@@ -36,6 +36,7 @@ import { RelevamientoWorkspace } from "../../../presentation/components/proyecto
 import { BacklogBoard } from "../../../presentation/components/proyectos/backlog-board";
 import { SprintPlanner } from "../../../presentation/components/proyectos/sprint-planner";
 import { KanbanBoard } from "../../../presentation/components/proyectos/kanban-board";
+import { DesarrolloWorkspace } from "../../../presentation/components/proyectos/desarrollo-workspace";
 import { FinancialPanel } from "../../../presentation/components/proyectos/financial-panel";
 import { PromptGenerator } from "../../../presentation/components/proyectos/prompt-generator";
 import { DesignSystemForm } from "../../../presentation/components/proyectos/design-system-form";
@@ -639,7 +640,7 @@ export default function ProyectosPage() {
             )}
 
             {faseActiva === "ejecucion" && (
-              <KanbanBoard proyectoId={proyectoSeleccionado.id} />
+              <DesarrolloWorkspace proyectoId={proyectoSeleccionado.id} />
             )}
 
             {faseActiva === "cierre" && (
