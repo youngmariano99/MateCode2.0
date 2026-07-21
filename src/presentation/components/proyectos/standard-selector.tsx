@@ -20,16 +20,13 @@ interface StandardSelectorProps {
     robustez?: string[];
     devops?: string[];
     coberturaMinima?: number;
-    // Backward compatibility keys
-    arquitectura?: string[];
-    patrones?: string[];
-    buenasPracticas?: string[];
-    principios?: string[];
+    // Backward compatibility & custom keys
+    [key: string]: any;
   };
   onSave: (estandares: Record<string, unknown>) => void;
 }
 
-const CATEGORIES = {
+const CATEGORIES: Record<string, string> = {
   seguridad: "Seguridad Total (Anti-ataques y fugas)",
   escalabilidad: "Escalabilidad y Modularidad",
   dx: "Experiencia del Desarrollador (DX)",
@@ -122,6 +119,10 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
 
   const safeInitial = initialEstandares || {};
 
+  const [customCategories, setCustomCategories] = useState<
+    Record<string, string>
+  >({});
+
   const [estandares, setEstandares] = useState<Record<string, string[]>>({
     seguridad: safeInitial.seguridad || [],
     escalabilidad: safeInitial.escalabilidad || [],
@@ -136,9 +137,38 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
     safeInitial.coberturaMinima || 80
   );
 
+  // Sync effect when initialEstandares prop loads or updates
   useEffect(() => {
     if (initialEstandares) {
-      setEstandares({
+      const defaultKeys = [
+        "seguridad",
+        "escalabilidad",
+        "dx",
+        "testing",
+        "trazabilidad",
+        "robustez",
+        "devops",
+        "coberturaMinima",
+        "arquitectura",
+        "patrones",
+        "buenasPracticas",
+        "principios",
+      ];
+      const extraCats: Record<string, string> = {};
+      const nextEst: Record<string, string[]> = {};
+
+      Object.entries(initialEstandares).forEach(([key, val]) => {
+        if (!defaultKeys.includes(key) && Array.isArray(val)) {
+          const formattedLabel = key
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (l) => l.toUpperCase());
+          extraCats[key] = formattedLabel;
+          nextEst[key] = val;
+        }
+      });
+
+      setCustomCategories((prev) => ({ ...prev, ...extraCats }));
+      setEstandares((prev) => ({
         seguridad: initialEstandares.seguridad || [],
         escalabilidad: initialEstandares.escalabilidad || [],
         dx: initialEstandares.dx || [],
@@ -146,7 +176,9 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
         trazabilidad: initialEstandares.trazabilidad || [],
         robustez: initialEstandares.robustez || [],
         devops: initialEstandares.devops || [],
-      });
+        ...nextEst,
+        ...prev,
+      }));
       if (typeof initialEstandares.coberturaMinima === "number") {
         setCoberturaMinima(initialEstandares.coberturaMinima);
       }
@@ -154,43 +186,18 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
   }, [initialEstandares]);
 
   // State to hold manual entries input value for each category
-  const [manualInputs, setManualInputs] = useState<Record<string, string>>({
-    seguridad: "",
-    escalabilidad: "",
-    dx: "",
-    testing: "",
-    trazabilidad: "",
-    robustez: "",
-    devops: "",
-  });
+  const [manualInputs, setManualInputs] = useState<Record<string, string>>({});
 
   // Dynamic presets options
   const [dinamicosPresets, setDinamicosPresets] = useState<
     Record<string, string[]>
-  >({
-    seguridad: [],
-    escalabilidad: [],
-    dx: [],
-    testing: [],
-    trazabilidad: [],
-    robustez: [],
-    devops: [],
-  });
+  >({});
 
   // Load custom added standards to select list
   useEffect(() => {
-    const loaded: Record<string, string[]> = {
-      seguridad: [],
-      escalabilidad: [],
-      dx: [],
-      testing: [],
-      trazabilidad: [],
-      robustez: [],
-      devops: [],
-    };
+    const loaded: Record<string, string[]> = {};
 
-    // Load any custom entries that are selected but not in default list
-    (Object.keys(loaded) as Array<keyof typeof loaded>).forEach((cat) => {
+    Object.keys({ ...CATEGORIES, ...customCategories }).forEach((cat) => {
       const selected = estandares[cat] || [];
       const defaults = DEFAULT_PRESETS[cat] || [];
       const extra = selected.filter((s) => !defaults.includes(s));
@@ -198,15 +205,58 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
     });
 
     setDinamicosPresets(loaded);
-  }, [estandares]);
+  }, [estandares, customCategories]);
 
-  // Preset name state
+  // Preset name & JSON paste state
   const [nombrePreset, setNombrePreset] = useState("");
   const [selectedPresetId, setSelectedPresetId] = useState("");
-
-  // JSON Paste state
   const [jsonText, setJsonText] = useState("");
   const [showJsonArea, setShowJsonArea] = useState(false);
+
+  // Modal / Form state for creating a new custom category
+  const [showNuevaCatModal, setShowNuevaCatModal] = useState(false);
+  const [nuevaCatNombre, setNuevaCatNombre] = useState("");
+
+  const handleCrearCategoria = () => {
+    const cleanNombre = nuevaCatNombre.trim();
+    if (!cleanNombre) {
+      mostrarToast("Escribe un nombre para la categoría.", "error");
+      return;
+    }
+
+    const key = cleanNombre
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "_");
+
+    if (CATEGORIES[key] || customCategories[key]) {
+      mostrarToast("Ya existe una categoría con ese nombre.", "error");
+      return;
+    }
+
+    setCustomCategories((prev) => ({ ...prev, [key]: cleanNombre }));
+    setEstandares((prev) => ({ ...prev, [key]: [] }));
+    setManualInputs((prev) => ({ ...prev, [key]: "" }));
+    setNuevaCatNombre("");
+    setShowNuevaCatModal(false);
+    mostrarToast(`Categoría "${cleanNombre}" creada exitosamente.`, "exito");
+  };
+
+  const handleEliminarCategoria = (key: string) => {
+    const catLabel = customCategories[key] || key;
+    setCustomCategories((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    setEstandares((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    mostrarToast(`Categoría "${catLabel}" eliminada.`, "info");
+  };
 
   const togglePreset = (category: string, val: string) => {
     const current = estandares[category] || [];
@@ -227,7 +277,6 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
     const val = manualInputs[category]?.trim();
     if (!val) return;
 
-    // Add to selected list directly
     const current = estandares[category] || [];
     if (!current.includes(val)) {
       setEstandares({
@@ -242,10 +291,18 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
     });
   };
 
+  const removeSelected = (category: string, itemVal: string) => {
+    const current = estandares[category] || [];
+    setEstandares({
+      ...estandares,
+      [category]: current.filter((v) => v !== itemVal),
+    });
+  };
+
   const handleSavePreset = async () => {
     if (!nombrePreset.trim()) {
       mostrarToast(
-        "Escribe un nombre para guardar esta configuración.",
+        "Por favor escribe un nombre para la plantilla de la agencia.",
         "error"
       );
       return;
@@ -257,6 +314,7 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
       tipo: "preset_estandar",
       data: {
         estandares,
+        customCategories,
         coberturaMinima,
       },
     });
@@ -268,6 +326,9 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
     setSelectedPresetId(presetId);
     const found = customPresets.find((p) => p.id === presetId);
     if (found && found.data) {
+      if (found.data.customCategories) {
+        setCustomCategories(found.data.customCategories);
+      }
       setEstandares(found.data.estandares || {});
       setCoberturaMinima(found.data.coberturaMinima || 80);
       mostrarToast(`Configuración "${found.nombre}" cargada.`, "exito");
@@ -285,24 +346,25 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
   const importarJSON = () => {
     try {
       const parsed = JSON.parse(jsonText);
-      const importedEstandares: Record<string, string[]> = {
-        seguridad: Array.isArray(parsed.seguridad) ? parsed.seguridad : [],
-        escalabilidad: Array.isArray(parsed.escalabilidad)
-          ? parsed.escalabilidad
-          : [],
-        dx: Array.isArray(parsed.dx) ? parsed.dx : [],
-        testing: Array.isArray(parsed.testing) ? parsed.testing : [],
-        trazabilidad: Array.isArray(parsed.trazabilidad)
-          ? parsed.trazabilidad
-          : [],
-        robustez: Array.isArray(parsed.robustez) ? parsed.robustez : [],
-        devops: Array.isArray(parsed.devops) ? parsed.devops : [],
-      };
+      const newCustoms: Record<string, string> = {};
+      const importedEstandares: Record<string, string[]> = { ...estandares };
 
+      Object.entries(parsed).forEach(([k, v]) => {
+        if (k === "coberturaMinima" && typeof v === "number") {
+          setCoberturaMinima(v);
+        } else if (Array.isArray(v)) {
+          if (!CATEGORIES[k]) {
+            const label = k
+              .replace(/_/g, " ")
+              .replace(/\b\w/g, (l) => l.toUpperCase());
+            newCustoms[k] = label;
+          }
+          importedEstandares[k] = v as string[];
+        }
+      });
+
+      setCustomCategories((prev) => ({ ...prev, ...newCustoms }));
       setEstandares(importedEstandares);
-      if (typeof parsed.coberturaMinima === "number") {
-        setCoberturaMinima(parsed.coberturaMinima);
-      }
       setJsonText("");
       setShowJsonArea(false);
       mostrarToast("JSON importado y estándares actualizados.", "exito");
@@ -316,7 +378,9 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
       const proj = await db.proyectos.get(proyectoId);
       const stackData = proj?.stack as any;
 
-      let md = `# Especificación Técnica del Proyecto: ${proj?.nombre || "Detalles del Sistema"}\n\n`;
+      let md = `# Especificación Técnica del Proyecto: ${
+        proj?.nombre || "Detalles del Sistema"
+      }\n\n`;
       md += `*   **Tipo de Proyecto:** ${proj?.tipo || "No especificado"}\n`;
       md += `*   **Fecha de Documentación:** ${new Date().toLocaleDateString()}\n\n`;
       md += `## 1. Stack Tecnológico Seleccionado\n\n`;
@@ -339,11 +403,11 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
       md += `*   **Cobertura Mínima de Testing requerida:** ${coberturaMinima}%\n\n`;
 
       let hasStandards = false;
+      const allCatMap = { ...CATEGORIES, ...customCategories };
       Object.entries(estandares).forEach(([category, list]) => {
-        if (list.length > 0) {
+        if (Array.isArray(list) && list.length > 0) {
           hasStandards = true;
-          const catLabel =
-            CATEGORIES[category as keyof typeof CATEGORIES] || category;
+          const catLabel = allCatMap[category] || category;
           md += `### ${catLabel}\n`;
           list.forEach((std) => {
             md += `- ${std}\n`;
@@ -378,39 +442,50 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
     });
   };
 
+  const allCategoriesMap = { ...CATEGORIES, ...customCategories };
+
   return (
     <Card>
-      <div className="mb-4 flex items-center justify-between border-b border-[#2A2A2E] pb-3">
+      <div className="mb-4 flex items-start justify-between border-b border-[#2A2A2E] pb-3">
         <div>
           <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
-            Estándares de Ingeniería y Buenas Prácticas
+            Estándares y Prácticas de Ingeniería
           </h3>
-          <p className="text-zinc-550 mt-0.5 font-mono text-[9px]">
-            Elige los lineamientos técnicos para guiar el desarrollo de prompts
-            y código
+          <p className="text-zinc-550 mt-0.5 font-mono text-[10px]">
+            Estandariza los procedimientos del equipo. Selecciona presets o crea
+            nuevas categorías de ingeniería.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={descargarEspecificacionCompleta}
-          className="rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-[9px] font-bold text-sky-400 hover:text-sky-300"
-        >
-          📥 Descargar Especificación (.md)
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setShowNuevaCatModal(true)}
+            className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 font-mono text-[9px] font-bold text-emerald-400 uppercase transition-all hover:bg-emerald-500/20"
+          >
+            + Crear Nueva Categoría
+          </button>
+          <button
+            type="button"
+            onClick={descargarEspecificacionCompleta}
+            className="rounded border border-sky-500/20 bg-sky-500/10 px-2 py-1 font-mono text-[9px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
+          >
+            📥 Exportar .md
+          </button>
+        </div>
       </div>
 
-      {/* Preset Custom Configuration Loader */}
-      <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-zinc-900 bg-zinc-950/40 p-3 md:grid-cols-2">
-        <div className="flex flex-col gap-1">
-          <label className="font-mono text-[9px] font-bold text-zinc-500 uppercase">
-            Cargar Configuración Guardada
-          </label>
+      {/* Preset selector bar */}
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-900 bg-zinc-950 p-3">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
+            Plantillas Guardadas de la Agencia:
+          </span>
           <select
             value={selectedPresetId}
             onChange={(e) => handleLoadPreset(e.target.value)}
-            className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+            className="rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-[10px] text-zinc-200 outline-none"
           >
-            <option value="">Selecciona plantilla...</option>
+            <option value="">Cargar plantilla existente...</option>
             {customPresets.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nombre}
@@ -419,113 +494,128 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
           </select>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="font-mono text-[9px] font-bold text-zinc-500 uppercase">
-            Guardar Configuración Actual
-          </label>
-          <div className="flex gap-1.5">
-            <input
-              type="text"
-              value={nombrePreset}
-              onChange={(e) => setNombrePreset(e.target.value)}
-              placeholder="Nombre del preset..."
-              className="border-zinc-850 flex-1 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none focus:border-emerald-500"
-            />
-            <button
-              onClick={handleSavePreset}
-              className="shrink-0 rounded bg-emerald-500 px-3 py-1 text-[10px] font-bold text-zinc-950 uppercase"
-            >
-              Guardar
-            </button>
-          </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Nombre para guardar plantilla..."
+            value={nombrePreset}
+            onChange={(e) => setNombrePreset(e.target.value)}
+            className="w-[180px] rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-[10px] text-zinc-200 outline-none"
+          />
+          <button
+            type="button"
+            onClick={handleSavePreset}
+            className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+          >
+            Guardar Plantilla
+          </button>
         </div>
       </div>
 
-      {/* JSON Import/Export Actions */}
-      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950/20 p-3">
-        <div className="flex items-center justify-between">
-          <span className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
-            📦 Importar / Exportar con JSON
-          </span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={copiarPlantillaJSON}
-              className="text-[9px] font-bold text-emerald-400 hover:text-emerald-300"
-            >
-              📋 Copiar Plantilla JSON
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowJsonArea(!showJsonArea)}
-              className="text-[9px] font-bold text-zinc-400 hover:text-zinc-200"
-            >
-              {showJsonArea ? "Ocultar" : "Mostrar Caja JSON"}
-            </button>
-          </div>
+      {/* JSON actions toggle */}
+      <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-2">
+        <span className="font-mono text-[9px] font-bold text-zinc-500 uppercase">
+          Importación Rápida por JSON / Prompt IA
+        </span>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={copiarPlantillaJSON}
+            className="font-mono text-[9px] text-zinc-400 underline hover:text-zinc-200"
+          >
+            Copiar Estructura JSON para IA
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowJsonArea(!showJsonArea)}
+            className="font-mono text-[9px] font-bold text-sky-400 hover:text-sky-300"
+          >
+            {showJsonArea ? "Ocultar Input JSON" : "Pagar JSON de la IA"}
+          </button>
         </div>
-
-        {showJsonArea && (
-          <div className="animate-in slide-in-from-top-1 mt-1 flex flex-col gap-2">
-            <textarea
-              value={jsonText}
-              onChange={(e) => setJsonText(e.target.value)}
-              placeholder="Pega aquí tu JSON de estándares..."
-              rows={4}
-              className="border-zinc-850 rounded border bg-zinc-950 p-2 font-mono text-[9px] text-zinc-300 outline-none focus:border-emerald-500"
-            />
-            <button
-              onClick={importarJSON}
-              className="self-end rounded bg-emerald-500 px-4 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-600"
-            >
-              Cargar desde JSON
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Main Categories Selection */}
-      <div className="flex max-h-[50vh] flex-col gap-5 overflow-y-auto pr-1">
-        {(
-          Object.entries(CATEGORIES) as Array<[keyof typeof CATEGORIES, string]>
-        ).map(([category, catLabel]) => {
-          const list = estandares[category] || [];
+      {showJsonArea && (
+        <div className="mb-5 flex flex-col gap-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3">
+          <textarea
+            value={jsonText}
+            onChange={(e) => setJsonText(e.target.value)}
+            placeholder="Pega aquí la estructura JSON devuelta por la IA..."
+            rows={4}
+            className="border-zinc-850 w-full rounded border bg-zinc-950 p-2 font-mono text-[9px] text-zinc-300 outline-none"
+          />
+          <button
+            type="button"
+            onClick={importarJSON}
+            className="self-end rounded bg-sky-500 px-3 py-1 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-sky-400"
+          >
+            Procesar e Importar Estándares
+          </button>
+        </div>
+      )}
+
+      {/* Categories Grid */}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        {Object.entries(allCategoriesMap).map(([category, label]) => {
           const defaults = DEFAULT_PRESETS[category] || [];
-          const customList = dinamicosPresets[category] || [];
-          const allOptions = [...new Set([...defaults, ...customList])];
+          const extras = dinamicosPresets[category] || [];
+          const selected = estandares[category] || [];
+          const isCustomCategory = !CATEGORIES[category];
 
           return (
             <div
               key={category}
-              className="flex flex-col gap-2 border-b border-zinc-900 pb-4"
+              className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-zinc-950/40 p-3"
             >
-              <span className="font-mono text-[10px] font-bold text-zinc-300">
-                {catLabel}
-              </span>
+              <div className="flex items-center justify-between border-b border-zinc-900 pb-1.5">
+                <span className="font-mono text-[10px] font-bold text-zinc-200 uppercase">
+                  {label}
+                </span>
+                {isCustomCategory && (
+                  <button
+                    type="button"
+                    onClick={() => handleEliminarCategoria(category)}
+                    className="font-mono text-[8px] text-red-400 underline hover:text-red-300"
+                  >
+                    × Eliminar Categoría
+                  </button>
+                )}
+              </div>
 
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                {allOptions.map((preset) => {
-                  const active = list.includes(preset);
+              {/* Presets checkboxes */}
+              <div className="my-1 flex flex-col gap-1.5">
+                {[...defaults, ...extras].map((val) => {
+                  const isChecked = selected.includes(val);
                   return (
-                    <button
-                      key={preset}
-                      onClick={() => togglePreset(category, preset)}
-                      className={`rounded-lg border px-2.5 py-1.5 font-mono text-[9px] transition-all ${
-                        active
-                          ? "border-emerald-500/20 bg-emerald-500/10 font-bold text-emerald-400"
-                          : "border-zinc-850 bg-zinc-950 text-zinc-400 hover:border-zinc-700"
-                      }`}
+                    <label
+                      key={val}
+                      className="flex cursor-pointer items-start gap-2 text-zinc-300 hover:text-white"
                     >
-                      {preset}
-                    </button>
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => togglePreset(category, val)}
+                        className="mt-0.5 h-3.5 w-3.5 rounded border-zinc-800 bg-zinc-900 text-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:ring-offset-0 focus:outline-none"
+                      />
+                      <span
+                        className={`font-mono text-[10px] ${
+                          isChecked
+                            ? "font-bold text-emerald-400"
+                            : "text-zinc-400"
+                        }`}
+                      >
+                        {val}
+                      </span>
+                    </label>
                   );
                 })}
               </div>
 
-              {/* Add Custom Standard inline */}
+              {/* Manual input for category */}
               <div className="mt-1 flex gap-2">
                 <input
                   type="text"
+                  placeholder="Añadir regla o estándar..."
                   value={manualInputs[category] || ""}
                   onChange={(e) =>
                     setManualInputs({
@@ -533,42 +623,114 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
                       [category]: e.target.value,
                     })
                   }
-                  placeholder={`Agregar estándar personalizado en esta categoría...`}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddManual(category);
-                    }
-                  }}
-                  className="border-zinc-850 flex-1 rounded border bg-zinc-900 px-2 py-1 text-[10px] text-zinc-200 outline-none focus:border-emerald-500"
+                  onKeyDown={(e) =>
+                    e.key === "Enter" &&
+                    (e.preventDefault(), handleAddManual(category))
+                  }
+                  className="border-zinc-850 flex-1 rounded border bg-zinc-950 px-2 py-1 font-mono text-[9px] text-zinc-200 outline-none"
                 />
                 <button
+                  type="button"
                   onClick={() => handleAddManual(category)}
-                  className="hover:bg-zinc-750 rounded border border-zinc-700 bg-zinc-800 px-3 text-[10px] font-bold text-zinc-300"
+                  className="rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-[9px] font-bold text-zinc-300 hover:bg-zinc-800"
                 >
                   +
                 </button>
               </div>
+
+              {/* Selected custom chips */}
+              {selected.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1 border-t border-zinc-900/60 pt-1.5">
+                  {selected.map((itemVal) => (
+                    <span
+                      key={itemVal}
+                      className="inline-flex items-center gap-1 rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[8px] text-zinc-300"
+                    >
+                      <span className="max-w-[200px] truncate">{itemVal}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeSelected(category, itemVal)}
+                        className="text-zinc-550 font-bold hover:text-red-400"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
-
-        <div className="mt-2 flex flex-col gap-1.5">
-          <span className="font-mono text-[10px] font-bold text-zinc-400">
-            Cobertura Mínima de Tests (%)
-          </span>
-          <Input
-            type="number"
-            value={coberturaMinima}
-            onChange={(e) => setCoberturaMinima(Number(e.target.value))}
-            placeholder="80"
-          />
-        </div>
-
-        <div className="mt-2 flex shrink-0 justify-end border-t border-[#2A2A2E] pt-4">
-          <Button onClick={handleSave}>Guardar Estándares</Button>
-        </div>
       </div>
+
+      {/* Coverage Slider */}
+      <div className="mt-5 flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-3">
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
+            Pirámide de Testing & Cobertura Mínima
+          </span>
+          <span className="font-mono text-xs font-bold text-emerald-400">
+            {coberturaMinima}%
+          </span>
+        </div>
+        <input
+          type="range"
+          min="50"
+          max="100"
+          value={coberturaMinima}
+          onChange={(e) => setCoberturaMinima(Number(e.target.value))}
+          className="cursor-pointer accent-emerald-500"
+        />
+      </div>
+
+      <div className="mt-6 flex justify-end gap-2 border-t border-[#2A2A2E] pt-4">
+        <Button onClick={handleSave}>Guardar Estándares</Button>
+      </div>
+
+      {/* Modal for creating a new custom category */}
+      {showNuevaCatModal && (
+        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="border-zinc-850 w-[420px] rounded-xl border bg-zinc-950 p-5 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-3">
+              <span className="font-mono text-xs font-bold text-emerald-400 uppercase">
+                + Crear Nueva Categoría de Estándares
+              </span>
+              <button
+                onClick={() => setShowNuevaCatModal(false)}
+                className="font-mono text-[10px] text-zinc-500 uppercase hover:text-zinc-300"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
+                  Título de la Categoría
+                </label>
+                <input
+                  type="text"
+                  value={nuevaCatNombre}
+                  onChange={(e) => setNuevaCatNombre(e.target.value)}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" &&
+                    (e.preventDefault(), handleCrearCategoria())
+                  }
+                  placeholder="Ej: Usabilidad & Accesibilidad, Rendimiento & Caching..."
+                  className="border-zinc-850 rounded border bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none"
+                />
+              </div>
+
+              <button
+                onClick={handleCrearCategoria}
+                className="mt-1 w-full rounded bg-emerald-500 py-2 text-[10px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-600"
+              >
+                Crear Categoría
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 };

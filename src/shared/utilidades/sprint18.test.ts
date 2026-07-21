@@ -38,6 +38,36 @@ test("Sprint 18: Debería persistir y cargar presets de estándares en agencia_c
   assert.deepStrictEqual((preset.data as any).estandares.seguridad, ["OWASP"]);
 });
 
+test("Sprint 20: Debería persistir y cargar categorías personalizadas de estándares en agencia_config", async () => {
+  const presetId = "preset_estandar_custom_cat";
+  await db.agencia_config.put({
+    id: presetId,
+    nombre: "Preset con Categorías Personalizadas",
+    tipo: "preset_estandar",
+    data: {
+      customCategories: {
+        usabilidad_accesibilidad: "Usabilidad & Accesibilidad",
+      },
+      estandares: {
+        seguridad: ["OWASP"],
+        usabilidad_accesibilidad: ["WCAG 2.1 AA", "Navegación por Teclado"],
+      },
+      coberturaMinima: 85,
+    },
+  });
+
+  const preset = await db.agencia_config.get(presetId);
+  assert.ok(preset);
+  assert.strictEqual(
+    (preset.data as any).customCategories.usabilidad_accesibilidad,
+    "Usabilidad & Accesibilidad"
+  );
+  assert.deepStrictEqual(
+    (preset.data as any).estandares.usabilidad_accesibilidad,
+    ["WCAG 2.1 AA", "Navegación por Teclado"]
+  );
+});
+
 test("Sprint 18: Debería persistir y cargar presets de stack en agencia_config", async () => {
   const presetId = "preset_stack_test_1";
   await db.agencia_config.put({
