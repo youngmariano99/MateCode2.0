@@ -35,7 +35,6 @@ import { MarkdownEditor } from "../../../presentation/components/proyectos/markd
 import { RelevamientoWorkspace } from "../../../presentation/components/proyectos/relevamiento-workspace";
 import { BacklogBoard } from "../../../presentation/components/proyectos/backlog-board";
 import { SprintPlanner } from "../../../presentation/components/proyectos/sprint-planner";
-import { KanbanBoard } from "../../../presentation/components/proyectos/kanban-board";
 import { DesarrolloWorkspace } from "../../../presentation/components/proyectos/desarrollo-workspace";
 import { FinancialPanel } from "../../../presentation/components/proyectos/financial-panel";
 import { PromptGenerator } from "../../../presentation/components/proyectos/prompt-generator";
@@ -553,8 +552,10 @@ export default function ProyectosPage() {
                   titulo="Stack Tecnológico"
                   descripcion="Definición del frontend, backend, base de datos y DevOps."
                   estado={
-                    (proyectoSeleccionado.stack?.frontend?.length ?? 0) > 0 ||
-                    (proyectoSeleccionado.stack?.backend?.length ?? 0) > 0
+                    proyectoSeleccionado.stack &&
+                    Object.values(proyectoSeleccionado.stack).some(
+                      (val) => Array.isArray(val) && val.length > 0
+                    )
                       ? "Configurado"
                       : "Vacío"
                   }
@@ -569,8 +570,12 @@ export default function ProyectosPage() {
                   titulo="Estándares de Ingeniería"
                   descripcion="Buenas prácticas, patrones de diseño, arquitectura y testing."
                   estado={
-                    (proyectoSeleccionado.estandares?.arquitectura?.length ??
-                      0) > 0
+                    proyectoSeleccionado.estandares &&
+                    Object.values(proyectoSeleccionado.estandares).some(
+                      (val) =>
+                        (Array.isArray(val) && val.length > 0) ||
+                        (typeof val === "number" && val > 0)
+                    )
                       ? "Configurado"
                       : "Vacío"
                   }
@@ -585,7 +590,10 @@ export default function ProyectosPage() {
                   titulo="Design System & Vibe"
                   descripcion="Arquetipo estético, directrices visuales y tokens de UI."
                   estado={
-                    currentDesignSystem?.metafora ? "Configurado" : "Incompleto"
+                    currentDesignSystem?.designSystemMarkdown ||
+                    currentDesignSystem?.metafora
+                      ? "Configurado"
+                      : "Incompleto"
                   }
                   icono={
                     <span className="font-mono text-xs font-bold text-violet-400">

@@ -118,19 +118,38 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
       db.agencia_config.where("tipo").equals("preset_estandar").toArray()
     ) as any[] | undefined) || [];
 
+  const safeInitial = initialEstandares || {};
+
   const [estandares, setEstandares] = useState<Record<string, string[]>>({
-    seguridad: initialEstandares.seguridad || [],
-    escalabilidad: initialEstandares.escalabilidad || [],
-    dx: initialEstandares.dx || [],
-    testing: initialEstandares.testing || [],
-    trazabilidad: initialEstandares.trazabilidad || [],
-    robustez: initialEstandares.robustez || [],
-    devops: initialEstandares.devops || [],
+    seguridad: safeInitial.seguridad || [],
+    escalabilidad: safeInitial.escalabilidad || [],
+    dx: safeInitial.dx || [],
+    testing: safeInitial.testing || [],
+    trazabilidad: safeInitial.trazabilidad || [],
+    robustez: safeInitial.robustez || [],
+    devops: safeInitial.devops || [],
   });
 
   const [coberturaMinima, setCoberturaMinima] = useState(
-    initialEstandares.coberturaMinima || 80
+    safeInitial.coberturaMinima || 80
   );
+
+  useEffect(() => {
+    if (initialEstandares) {
+      setEstandares({
+        seguridad: initialEstandares.seguridad || [],
+        escalabilidad: initialEstandares.escalabilidad || [],
+        dx: initialEstandares.dx || [],
+        testing: initialEstandares.testing || [],
+        trazabilidad: initialEstandares.trazabilidad || [],
+        robustez: initialEstandares.robustez || [],
+        devops: initialEstandares.devops || [],
+      });
+      if (typeof initialEstandares.coberturaMinima === "number") {
+        setCoberturaMinima(initialEstandares.coberturaMinima);
+      }
+    }
+  }, [initialEstandares]);
 
   // State to hold manual entries input value for each category
   const [manualInputs, setManualInputs] = useState<Record<string, string>>({

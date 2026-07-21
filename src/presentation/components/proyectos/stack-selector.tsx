@@ -1,5 +1,5 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
 
 import React, { useState, useEffect } from "react";
 import { Card } from "../card";
@@ -148,14 +148,29 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
       db.agencia_config.where("tipo").equals("preset_stack").toArray()
     ) as any[] | undefined) || [];
 
+  const safeInitial = initialStack || {};
+
   const [stack, setStack] = useState({
-    frontend: initialStack.frontend || [],
-    backend: initialStack.backend || [],
-    baseDatos: initialStack.baseDatos || [],
-    infraestructura: initialStack.infraestructura || [],
-    seguridad: initialStack.seguridad || [],
-    integraciones: initialStack.integraciones || [],
+    frontend: safeInitial.frontend || [],
+    backend: safeInitial.backend || [],
+    baseDatos: safeInitial.baseDatos || [],
+    infraestructura: safeInitial.infraestructura || [],
+    seguridad: safeInitial.seguridad || [],
+    integraciones: safeInitial.integraciones || [],
   });
+
+  useEffect(() => {
+    if (initialStack) {
+      setStack({
+        frontend: initialStack.frontend || [],
+        backend: initialStack.backend || [],
+        baseDatos: initialStack.baseDatos || [],
+        infraestructura: initialStack.infraestructura || [],
+        seguridad: initialStack.seguridad || [],
+        integraciones: initialStack.integraciones || [],
+      });
+    }
+  }, [initialStack]);
 
   const [inputVal, setInputVal] = useState<Record<string, string>>({
     frontend: "",
