@@ -1046,19 +1046,20 @@ const TicketCardItem: React.FC<TicketCardItemProps> = ({
         : "Next.js (App Router), Tailwind CSS, React, TypeScript";
 
     const estList: string[] = [];
-    if (proyecto?.estandares) {
+    let estBlocks = "";
+    if (proyecto?.estandares && Object.keys(proyecto.estandares).length > 0) {
       Object.entries(proyecto.estandares).forEach(([cat, techs]) => {
         if (Array.isArray(techs) && techs.length > 0) {
-          estList.push(
-            `${cat}: ${Array.isArray(techs) ? techs.join(", ") : techs}`
-          );
+          estBlocks += `- ${cat}:\n  * ${techs.join("\n  * ")}\n`;
+        } else if (typeof techs === "string" && techs.trim()) {
+          estBlocks += `- ${cat}:\n  * ${techs.trim()}\n`;
         }
       });
     }
-    const estText =
-      estList.length > 0
-        ? estList.join(" | ")
-        : "NO neones, NO degradados, NO sombras pesadas, NO íconos 3D, NO rounded-full en botones (máximo rounded-md).";
+    if (!estBlocks) {
+      estBlocks =
+        "- General:\n  * NO neones, NO degradados, NO sombras pesadas, NO íconos 3D, NO rounded-full en botones (máximo rounded-md).\n";
+    }
 
     const arquetipo =
       ds?.arquetipo ||
@@ -1086,8 +1087,8 @@ const TicketCardItem: React.FC<TicketCardItemProps> = ({
     prompt += `- Estilo: ${arquetipo}\n`;
     prompt += `- Paleta: ${paleta}\n\n`;
 
-    prompt += `ESTÁNDARES:\n`;
-    prompt += `- Restricciones: ${estText}\n\n`;
+    prompt += `RESTRICCIONES/CONSIDERACIONES:\n`;
+    prompt += `${estBlocks}\n`;
 
     prompt += `STACK DE ESTE COMPONENTE:\n`;
     prompt += `- ${stackText}\n\n`;
@@ -1099,9 +1100,6 @@ const TicketCardItem: React.FC<TicketCardItemProps> = ({
     prompt += `REQUISITOS Y COPY DEL COMPONENTE:\n`;
     if (ticket.metadata?.seccionDescripcion) {
       prompt += `${ticket.metadata.seccionDescripcion}\n`;
-    }
-    if (contexto?.copyContenido) {
-      prompt += `\nContenido & Copywriting de Marca:\n${contexto.copyContenido}\n`;
     }
     if (
       Array.isArray(contexto?.linksInspiracion) &&
@@ -1123,7 +1121,7 @@ const TicketCardItem: React.FC<TicketCardItemProps> = ({
 
     prompt += `\nINSTRUCCIONES DE RESPUESTA:\n`;
     prompt += `1. Analiza los requisitos y el sistema de diseño.\n`;
-    prompt += `2. Escribe el código completo del componente en TypeScript y Tailwind CSS.\n`;
+    prompt += `2. Escribe el código completo del componente con alta calidad y rendimiento según el stack y estándares especificados.\n`;
     prompt += `3. Al finalizar tu respuesta, incluye obligatoriamente este JSON para sincronizar el checklist:\n`;
     prompt += `{\n  "resumen_ia": "Breve descripción técnica de lo implementado",\n  "checklist": [\n    { "paso": 1, "completado": true },\n    { "paso": 2, "completado": true }\n  ]\n}`;
 

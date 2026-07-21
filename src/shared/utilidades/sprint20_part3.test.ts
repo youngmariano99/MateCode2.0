@@ -108,14 +108,15 @@ test("Sprint 20 Part 3: Debería estructurar el prompt compilado según la plant
   // Compiler logic test
   let prompt = `ROL: ${ticket.metadata.rol}.\n\n`;
   prompt += `DS / UI DESIGN SYSTEM:\n- Estilo: ${ds.arquetipo}\n- Paleta: ${ds.reglaColor}\n\n`;
-  prompt += `ESTÁNDARES:\n- Restricciones: ${proyecto.estandares.Diseno}\n\n`;
+  prompt += `RESTRICCIONES/CONSIDERACIONES:\n- Diseno:\n  * ${proyecto.estandares.Diseno}\n\n`;
   prompt += `STACK DE ESTE COMPONENTE:\n- ${proyecto.stack.Frontend.join(", ")}\n\n`;
   prompt += `TAREA / TICKET:\n- Componente: HeaderNavegacion.tsx\n- Tipo: ${ticket.titulo}\n\n`;
   prompt += `REQUISITOS Y COPY DEL COMPONENTE:\n${ticket.metadata.seccionDescripcion}\n`;
 
   assert.ok(prompt.includes("ROL: Senior Frontend Developer"));
   assert.ok(prompt.includes("DS / UI DESIGN SYSTEM:"));
-  assert.ok(prompt.includes("ESTÁNDARES:"));
+  assert.ok(prompt.includes("RESTRICCIONES/CONSIDERACIONES:"));
+  assert.ok(prompt.includes("- Diseno:"));
   assert.ok(prompt.includes("STACK DE ESTE COMPONENTE:"));
   assert.ok(prompt.includes("TAREA / TICKET:"));
   assert.ok(prompt.includes("Componente: HeaderNavegacion.tsx"));
