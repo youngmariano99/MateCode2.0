@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Card } from "../card";
+import { Button } from "../button";
 import { Input } from "../input";
 import { db } from "../../../offline/dexie/db";
 import { useToast } from "../../hooks/useToast";
@@ -219,7 +220,6 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
         [category]: [...current, clean],
       };
       setStack(next);
-      onSave(next);
     }
     setInputVal({
       ...inputVal,
@@ -236,7 +236,6 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
       [category]: updated,
     };
     setStack(next);
-    onSave(next);
   };
 
   const cargarPlantillaStack = (
@@ -256,7 +255,6 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
       ],
     };
     setStack(next);
-    onSave(next);
     mostrarToast(
       `Plantilla "${DEFAULT_STACKS_TEMPLATES[tipo].nombre}" cargada.`,
       "exito"
@@ -297,7 +295,6 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
         seguridad: next.seguridad || [],
         integraciones: next.integraciones || [],
       });
-      onSave(next);
       mostrarToast(`Preset de stack "${found.nombre}" cargado.`, "exito");
     }
   };
@@ -322,176 +319,179 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
           ? parsed.integraciones
           : [],
       };
-
       setStack(importedStack);
-      onSave(importedStack);
-      setJsonText("");
       setShowJsonArea(false);
-      mostrarToast("JSON importado y stack tecnológico actualizado.", "exito");
+      setJsonText("");
+      mostrarToast("JSON importado y stack actualizado.", "exito");
     } catch (err: any) {
       mostrarToast(`JSON Inválido: ${err.message}`, "error");
     }
+  };
+
+  const handleSave = () => {
+    mostrarToast("Stack tecnológico guardado con éxito.", "exito");
+    onSave(stack);
   };
 
   return (
     <Card>
       <div className="mb-4 border-b border-[#2A2A2E] pb-3">
         <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
-          Stack Tecnológico del Proyecto
+          Stack Tecnológico Seleccionado
         </h3>
-        <p className="text-zinc-550 mt-0.5 font-mono text-[9px]">
-          Define las tecnologías organizadas por capa, importa desde JSON o
-          carga configuraciones guardadas
+        <p className="text-zinc-550 mt-0.5 font-mono text-[10px]">
+          Define las tecnologías que componen el proyecto. Selecciona presets o
+          añade tecnologías a medida.
         </p>
       </div>
 
-      {/* Preset Custom Configuration Loader */}
-      <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-zinc-900 bg-zinc-950/40 p-3 md:grid-cols-2">
-        <div className="flex flex-col gap-1">
-          <label className="font-mono text-[9px] font-bold text-zinc-500 uppercase">
-            Cargar Stack Guardado
-          </label>
+      {/* Preset templates selector bar */}
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-900 bg-zinc-950 p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
+            Plantillas Rápidas:
+          </span>
+          {Object.entries(DEFAULT_STACKS_TEMPLATES).map(([key, item]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() =>
+                cargarPlantillaStack(
+                  key as keyof typeof DEFAULT_STACKS_TEMPLATES
+                )
+              }
+              className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] font-bold text-emerald-400 hover:bg-emerald-500/20"
+            >
+              + {item.nombre.split(" ")[0]}
+            </button>
+          ))}
+        </div>
+
+        {/* Custom Presets dropdown & Save Preset */}
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={selectedPresetId}
             onChange={(e) => handleLoadPreset(e.target.value)}
-            className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+            className="rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-[10px] text-zinc-200 outline-none"
           >
-            <option value="">Selecciona preset...</option>
+            <option value="">Cargar plantilla de la agencia...</option>
             {customPresets.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nombre}
               </option>
             ))}
           </select>
-        </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="font-mono text-[9px] font-bold text-zinc-500 uppercase">
-            Guardar Stack Actual
-          </label>
-          <div className="flex gap-1.5">
-            <input
-              type="text"
-              value={nombrePreset}
-              onChange={(e) => setNombrePreset(e.target.value)}
-              placeholder="Nombre del preset..."
-              className="border-zinc-850 flex-1 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none focus:border-emerald-500"
-            />
-            <button
-              onClick={handleSavePreset}
-              className="shrink-0 rounded bg-emerald-500 px-3 py-1 text-[10px] font-bold text-zinc-950 uppercase"
-            >
-              Guardar
-            </button>
-          </div>
+          <input
+            type="text"
+            placeholder="Guardar como..."
+            value={nombrePreset}
+            onChange={(e) => setNombrePreset(e.target.value)}
+            className="w-[120px] rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-[10px] text-zinc-200 outline-none"
+          />
+          <button
+            type="button"
+            onClick={handleSavePreset}
+            className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+          >
+            Guardar
+          </button>
         </div>
       </div>
 
-      {/* Default Templates Loader */}
-      <div className="mb-4 flex flex-wrap gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-2">
-        <span className="w-full px-1 font-mono text-[8px] font-bold tracking-wide text-zinc-500 uppercase">
-          Plantillas Predeterminadas:
+      {/* JSON Import/Export Bar */}
+      <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-2">
+        <span className="font-mono text-[9px] font-bold text-zinc-500 uppercase">
+          Importación Rápida por JSON / IA
         </span>
-        <button
-          onClick={() => cargarPlantillaStack("landing")}
-          className="border-zinc-850 rounded border bg-zinc-900 px-2 py-0.5 font-mono text-[9px] text-zinc-300 hover:bg-zinc-800"
-        >
-          Landing Page
-        </button>
-        <button
-          onClick={() => cargarPlantillaStack("ecommerce")}
-          className="border-zinc-850 rounded border bg-zinc-900 px-2 py-0.5 font-mono text-[9px] text-zinc-300 hover:bg-zinc-800"
-        >
-          E-commerce
-        </button>
-        <button
-          onClick={() => cargarPlantillaStack("saas")}
-          className="border-zinc-850 rounded border bg-zinc-900 px-2 py-0.5 font-mono text-[9px] text-zinc-300 hover:bg-zinc-800"
-        >
-          SaaS / Backend
-        </button>
-      </div>
-
-      {/* JSON Import/Export Actions */}
-      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950/20 p-3">
-        <div className="flex items-center justify-between">
-          <span className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
-            📦 Importar con JSON
-          </span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={copiarPlantillaJSON}
-              className="text-[9px] font-bold text-emerald-400 hover:text-emerald-300"
-            >
-              📋 Copiar Plantilla JSON
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowJsonArea(!showJsonArea)}
-              className="text-[9px] font-bold text-zinc-400 hover:text-zinc-200"
-            >
-              {showJsonArea ? "Ocultar" : "Mostrar Caja JSON"}
-            </button>
-          </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={copiarPlantillaJSON}
+            className="font-mono text-[9px] text-zinc-400 underline hover:text-zinc-200"
+          >
+            Copiar Estructura JSON
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowJsonArea(!showJsonArea)}
+            className="font-mono text-[9px] font-bold text-sky-400 hover:text-sky-300"
+          >
+            {showJsonArea ? "Ocultar Input JSON" : "Pagar JSON de la IA"}
+          </button>
         </div>
-
-        {showJsonArea && (
-          <div className="animate-in slide-in-from-top-1 mt-1 flex flex-col gap-2">
-            <textarea
-              value={jsonText}
-              onChange={(e) => setJsonText(e.target.value)}
-              placeholder="Pega aquí tu JSON de stack..."
-              rows={4}
-              className="border-zinc-850 rounded border bg-zinc-950 p-2 font-mono text-[9px] text-zinc-300 outline-none focus:border-emerald-500"
-            />
-            <button
-              onClick={importarJSON}
-              className="self-end rounded bg-emerald-500 px-4 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-600"
-            >
-              Cargar desde JSON
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Categories listing */}
-      <div className="flex max-h-[50vh] flex-col gap-5 overflow-y-auto pr-1">
+      {showJsonArea && (
+        <div className="mb-5 flex flex-col gap-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3">
+          <textarea
+            value={jsonText}
+            onChange={(e) => setJsonText(e.target.value)}
+            placeholder="Pega aquí la estructura JSON de stack devuelta por la IA..."
+            rows={4}
+            className="border-zinc-850 w-full rounded border bg-zinc-950 p-2 font-mono text-[9px] text-zinc-300 outline-none"
+          />
+          <button
+            type="button"
+            onClick={importarJSON}
+            className="self-end rounded bg-sky-500 px-3 py-1 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-sky-400"
+          >
+            Procesar e Importar Stack
+          </button>
+        </div>
+      )}
+
+      {/* Technology Layers Grid */}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
         {(Object.keys(PRESETS) as Array<keyof typeof PRESETS>).map(
           (category) => (
             <div
               key={category}
-              className="flex flex-col gap-2 border-b border-zinc-900 pb-3"
+              className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-zinc-950/40 p-3"
             >
-              <span className="font-mono text-[10px] font-bold text-zinc-300 capitalize">
-                {category === "baseDatos" ? "Base de Datos" : category}
+              <span className="border-b border-zinc-900 pb-1 font-mono text-[10px] font-bold text-zinc-400 uppercase">
+                {category === "baseDatos"
+                  ? "Base de Datos"
+                  : category.toUpperCase()}
               </span>
 
-              <div className="mb-1 flex flex-wrap gap-1.5">
-                {(stack[category] || []).map((tech, idx) => (
-                  <span
-                    key={idx}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-[#2A2A2E] py-1 pr-1.5 pl-2 font-mono text-[9px] font-bold text-zinc-200"
-                  >
-                    {tech}
-                    <button
-                      onClick={() => removeChip(category, idx)}
-                      className="hover:text-zinc-350 p-0.5 text-[8px] font-extrabold text-zinc-500"
-                    >
-                      ×
-                    </button>
+              {/* Added chips list */}
+              <div className="flex min-h-[32px] flex-wrap items-center gap-1">
+                {(stack[category] || []).length === 0 ? (
+                  <span className="font-mono text-[9px] text-zinc-600 italic">
+                    Sin definir
                   </span>
-                ))}
+                ) : (
+                  (stack[category] || []).map((item, idx) => (
+                    <span
+                      key={item}
+                      className="inline-flex items-center gap-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-0.5 font-mono text-[9px] text-zinc-200"
+                    >
+                      {item}
+                      <button
+                        type="button"
+                        onClick={() => removeChip(category, idx)}
+                        className="font-bold text-zinc-500 hover:text-red-400"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))
+                )}
               </div>
 
-              <div className="flex gap-2">
+              {/* Add custom technology input */}
+              <div className="mt-1 flex gap-2">
                 <div className="flex-1">
                   <Input
-                    value={inputVal[category] || ""}
+                    placeholder="Agregar tecnología..."
+                    value={inputVal[category]}
                     onChange={(e) =>
-                      setInputVal({ ...inputVal, [category]: e.target.value })
+                      setInputVal({
+                        ...inputVal,
+                        [category]: e.target.value,
+                      })
                     }
-                    placeholder={`Agregar ${category === "baseDatos" ? "Base de datos" : category}...`}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
@@ -501,6 +501,7 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
                   />
                 </div>
                 <button
+                  type="button"
                   onClick={() => addChip(category, inputVal[category])}
                   className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-xs text-zinc-300 hover:bg-zinc-800"
                 >
@@ -545,6 +546,10 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
             </div>
           )
         )}
+      </div>
+
+      <div className="mt-6 flex justify-end gap-2 border-t border-[#2A2A2E] pt-4">
+        <Button onClick={handleSave}>Guardar Stack Tecnológico</Button>
       </div>
     </Card>
   );
