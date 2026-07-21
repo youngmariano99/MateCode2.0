@@ -168,7 +168,7 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
       });
 
       setCustomCategories((prev) => ({ ...prev, ...extraCats }));
-      setEstandares((prev) => ({
+      setEstandares({
         seguridad: initialEstandares.seguridad || [],
         escalabilidad: initialEstandares.escalabilidad || [],
         dx: initialEstandares.dx || [],
@@ -177,8 +177,7 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
         robustez: initialEstandares.robustez || [],
         devops: initialEstandares.devops || [],
         ...nextEst,
-        ...prev,
-      }));
+      });
       if (typeof initialEstandares.coberturaMinima === "number") {
         setCoberturaMinima(initialEstandares.coberturaMinima);
       }
@@ -436,6 +435,7 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
   };
 
   const handleSave = () => {
+    mostrarToast("Estándares guardados con éxito.", "exito");
     onSave({
       ...estandares,
       coberturaMinima,
