@@ -145,7 +145,9 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
   // Load custom stack presets from database
   const customPresets =
     (useLiveQuery(() =>
-      db.agencia_config.where("tipo").equals("preset_stack").toArray()
+      db.agencia_config
+        .filter((item: any) => item.tipo === "preset_stack")
+        .toArray()
     ) as any[] | undefined) || [];
 
   const safeInitial = initialStack || {};

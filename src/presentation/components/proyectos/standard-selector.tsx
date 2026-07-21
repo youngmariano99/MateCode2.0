@@ -115,7 +115,9 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
   // Load custom presets from DB
   const customPresets =
     (useLiveQuery(() =>
-      db.agencia_config.where("tipo").equals("preset_estandar").toArray()
+      db.agencia_config
+        .filter((item: any) => item.tipo === "preset_estandar")
+        .toArray()
     ) as any[] | undefined) || [];
 
   const safeInitial = initialEstandares || {};
