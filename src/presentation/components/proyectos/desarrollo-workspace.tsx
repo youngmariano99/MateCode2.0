@@ -126,6 +126,36 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
   const [seccionDescripcion, setSeccionDescripcion] = useState("");
   const [refinamientoInput, setRefinamientoInput] = useState("");
 
+  // Dynamic sitemap sections loaded from planning context
+  const seccionesSitemap =
+    (contexto?.seccionesSitemap as Array<{
+      id: string;
+      nombre: string;
+      descripcion: string;
+    }>) || [];
+
+  const seccionesDisponibles =
+    seccionesSitemap.length > 0
+      ? seccionesSitemap.map((s) => s.nombre)
+      : SECCIONES_LANDING_DEFAULT;
+
+  useEffect(() => {
+    if (seccionesSitemap.length > 0 && !seccionDescripcion) {
+      setSeccionNombre(seccionesSitemap[0].nombre);
+      setSeccionDescripcion(seccionesSitemap[0].descripcion);
+    }
+  }, [seccionesSitemap, seccionDescripcion]);
+
+  const handleSeleccionarSeccion = (val: string) => {
+    setSeccionNombre(val);
+    const matched = seccionesSitemap.find(
+      (s) => s.nombre.toUpperCase() === val.toUpperCase()
+    );
+    if (matched && matched.descripcion) {
+      setSeccionDescripcion(matched.descripcion);
+    }
+  };
+
   // Form states for creating Bug ticket
   const [isBugModalOpen, setIsBugModalOpen] = useState(false);
   const [bugNombre, setBugNombre] = useState("");
@@ -629,10 +659,10 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
                   </label>
                   <select
                     value={seccionNombre}
-                    onChange={(e) => setSeccionNombre(e.target.value)}
+                    onChange={(e) => handleSeleccionarSeccion(e.target.value)}
                     className="border-zinc-850 rounded border bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none"
                   >
-                    {SECCIONES_LANDING_DEFAULT.map((sec) => (
+                    {seccionesDisponibles.map((sec) => (
                       <option key={sec} value={sec}>
                         {sec}
                       </option>
