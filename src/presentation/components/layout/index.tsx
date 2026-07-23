@@ -70,6 +70,11 @@ export const Sidebar: React.FC<{
       icono: Icono.MapPin,
     },
     {
+      label: "Planificador de Contenidos",
+      href: "/dashboard/planificador-contenido",
+      icono: Icono.Calendario,
+    },
+    {
       label: "Taller de Contacto",
       href: "/dashboard/taller-contacto",
       icono: Icono.Contactos,
@@ -248,6 +253,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       icono: Icono.Contratos,
     },
     { label: "Territorio", href: "/dashboard/territorio", icono: Icono.MapPin },
+    {
+      label: "Planificador de Contenidos",
+      href: "/dashboard/planificador-contenido",
+      icono: Icono.Calendario,
+    },
     {
       label: "Taller de Contacto",
       href: "/dashboard/taller-contacto",
