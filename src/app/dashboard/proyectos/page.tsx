@@ -147,7 +147,7 @@ export default function ProyectosPage() {
       case "archivos":
         return "Repositorio de Archivos y Assets";
       case "comentarios":
-        return "Bitácora y Comentarios del Proyecto";
+        return "Garantías y Mejoras";
       default:
         return "Detalle del Módulo";
     }
@@ -654,56 +654,12 @@ export default function ProyectosPage() {
             {faseActiva === "cierre" && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <SummaryCard
-                  titulo="Generador de Prompts IA"
-                  descripcion="Prompt Engineering y sincronización bidireccional json-app-sync."
-                  estado="Configurado"
-                  icono={
-                    <span className="font-mono text-xs font-bold text-emerald-400">
-                      PR
-                    </span>
-                  }
-                  onClick={() => abrirModulo("prompts")}
-                />
-                <SummaryCard
-                  titulo="Roadmap del Proyecto"
-                  descripcion="Línea temporal, hitos y estimación de entrega de sprints."
-                  estado="Configurado"
-                  icono={
-                    <span className="font-mono text-xs font-bold text-indigo-400">
-                      RM
-                    </span>
-                  }
-                  onClick={() => abrirModulo("roadmap")}
-                />
-                <SummaryCard
-                  titulo="Wiki & Documentación"
-                  descripcion="Biblioteca local de documentos técnicos y guías de desarrollo."
-                  estado="Configurado"
-                  icono={
-                    <span className="font-mono text-xs font-bold text-violet-400">
-                      WK
-                    </span>
-                  }
-                  onClick={() => abrirModulo("documentos")}
-                />
-                <SummaryCard
-                  titulo="Repositorio de Archivos"
-                  descripcion="Gestión y carga local de assets, mocks e imágenes."
-                  estado="Configurado"
-                  icono={
-                    <span className="font-mono text-xs font-bold text-amber-400">
-                      AR
-                    </span>
-                  }
-                  onClick={() => abrirModulo("archivos")}
-                />
-                <SummaryCard
-                  titulo="Bitácora y Comentarios"
-                  descripcion="Muro de comentarios, auditorías e histórico del proyecto."
+                  titulo="Garantías y Mejoras"
+                  descripcion="Registro de cambios post-entrega, soporte y control de mejoras con formato Markdown."
                   estado="Configurado"
                   icono={
                     <span className="font-mono text-xs font-bold text-rose-400">
-                      CO
+                      GM
                     </span>
                   }
                   onClick={() => abrirModulo("comentarios")}
