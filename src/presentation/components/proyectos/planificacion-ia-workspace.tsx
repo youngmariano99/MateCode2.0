@@ -227,6 +227,7 @@ export const PlanificacionIAWorkspace: React.FC<
   // JSON input state for imports
   const [backlogJson, setBacklogJson] = useState("");
   const [sprintsJson, setSprintsJson] = useState("");
+  const [criteriosJson, setCriteriosJson] = useState("");
 
   useEffect(() => {
     if (contexto) {
@@ -591,6 +592,95 @@ export const PlanificacionIAWorkspace: React.FC<
     } catch (err: any) {
       mostrarToast(`Error al importar Backlog: ${err.message}`, "error");
     }
+  };
+
+  // Mass Criteria Importer
+  const handleImportarCriterios = async () => {
+    try {
+      const parsed = JSON.parse(criteriosJson);
+      if (!Array.isArray(parsed)) {
+        throw new Error(
+          "El JSON debe ser un arreglo de objetos con 'actividad' y 'criterios'."
+        );
+      }
+
+      // Fetch all tasks for the current project to find matching ones
+      const projectTareas = await db.tareas
+        .where("proyectoId")
+        .equals(proyectoId)
+        .toArray();
+
+      let matchedCount = 0;
+      for (const item of parsed) {
+        if (!item.actividad || !Array.isArray(item.criterios)) continue;
+
+        // Find matching task by title (case insensitive, trim)
+        const targetTitle = String(item.actividad).toLowerCase().trim();
+        const matchedTarea = projectTareas.find(
+          (t) => String(t.titulo).toLowerCase().trim() === targetTitle
+        );
+
+        if (matchedTarea) {
+          await db.tareas.update(matchedTarea.id as string, {
+            criteriosAceptacion: item.criterios,
+          });
+          matchedCount++;
+        }
+      }
+
+      setCriteriosJson("");
+      mostrarToast(
+        `¡Criterios de aceptación importados con éxito! Se vincularon ${matchedCount} actividades.`,
+        "exito"
+      );
+    } catch (err: any) {
+      mostrarToast(`Error al importar criterios: ${err.message}`, "error");
+    }
+  };
+
+  const copiarPromptCriterios = () => {
+    db.tareas
+      .where("proyectoId")
+      .equals(proyectoId)
+      .toArray()
+      .then((projectTareas) => {
+        if (projectTareas.length === 0) {
+          mostrarToast(
+            "No hay actividades cargadas en este proyecto para generar criterios.",
+            "error"
+          );
+          return;
+        }
+
+        const listadoActividades = projectTareas
+          .map((t) => `- ${t.titulo}`)
+          .join("\n");
+
+        const prompt = `Actúas como un QA Automation y Product Owner senior. Para el siguiente listado de actividades técnicas de desarrollo, genera criterios de aceptación detallados y precisos bajo el estándar BDD (Given/When/Then) o listas de verificación técnicas de calidad.
+
+Listado de Actividades:
+${listadoActividades}
+
+REQUISITOS DE RESPUESTA:
+1. Retorna ÚNICAMENTE un arreglo JSON válido, sin explicaciones ni bloques de código markdown extra.
+2. Cada objeto del arreglo debe tener exactamente estas claves:
+   - "actividad": el nombre exacto de la actividad de la lista.
+   - "criterios": un arreglo de strings, donde cada string es un criterio de aceptación claro y comprobable.
+
+Formato JSON esperado:
+[
+  {
+    "actividad": "Nombre exacto de la actividad",
+    "criterios": [
+      "Criterio 1: descripción...",
+      "Criterio 2: descripción..."
+    ]
+  }
+]`;
+
+        navigator.clipboard.writeText(prompt);
+        mostrarToast("¡Prompt de Criterios copiado al portapapeles!", "exito");
+      });
   };
 
   const handleLimpiarPlanificacion = async () => {
@@ -1090,6 +1180,39 @@ export const PlanificacionIAWorkspace: React.FC<
               className="self-end rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400"
             >
               Procesar e Importar Sprints
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
+                  3. Importación de Criterios de Aceptación por Actividad
+                </span>
+                <p className="font-mono text-[9px] text-zinc-500">
+                  Asocia criterios de aceptación BDD y QA a cada una de tus
+                  actividades técnicas inyectadas.
+                </p>
+              </div>
+              <button
+                onClick={copiarPromptCriterios}
+                className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+              >
+                📋 Copiar Prompt Criterios
+              </button>
+            </div>
+            <textarea
+              value={criteriosJson}
+              onChange={(e) => setCriteriosJson(e.target.value)}
+              placeholder="Pega aquí el JSON de criterios de aceptación..."
+              rows={5}
+              className="border-zinc-850 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none"
+            />
+            <button
+              onClick={handleImportarCriterios}
+              className="self-end rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400"
+            >
+              Procesar y Vincular Criterios
             </button>
           </div>
         </div>

@@ -130,6 +130,23 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
     }
   }, [seccionesSitemap, seccionDescripcion]);
 
+  useEffect(() => {
+    if (selectedActividadId) {
+      const act = tareas.find((t) => t.id === selectedActividadId);
+      if (act) {
+        if (Array.isArray(act.criteriosAceptacion)) {
+          setCriterioAceptacion(act.criteriosAceptacion.join("\n"));
+        } else if (typeof act.criteriosAceptacion === "string") {
+          setCriterioAceptacion(act.criteriosAceptacion);
+        } else {
+          setCriterioAceptacion("");
+        }
+      }
+    } else {
+      setCriterioAceptacion("");
+    }
+  }, [selectedActividadId, tareas]);
+
   const handleSeleccionarSeccion = (val: string) => {
     setSeccionNombre(val);
     const matched = seccionesSitemap.find(
@@ -240,7 +257,7 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
             proyectoId,
             templateId: "workflow_feature_code",
             titulo: `${epica?.nombre || "General"} > ${historia?.titulo || ""} > ${
-              actividad?.nombre || ""
+              actividad?.titulo || ""
             }`,
             estado: "IN_PROGRESS",
             usuarioAsignadoId: ticketMiembro,
@@ -609,8 +626,8 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
             </Card>
           ) : (
             <Card>
-              <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-3">
-                <div>
+              <div className="mb-4 flex flex-col justify-between gap-3 border-b border-zinc-900 pb-3 sm:flex-row sm:items-center">
+                <div className="min-w-0 flex-1">
                   <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
                     Sprint de Enfoque Activo
                   </h3>
@@ -618,11 +635,11 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
                     Visualiza y enfoca el desarrollo en un sprint de trabajo
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex shrink-0 gap-2">
                   <select
                     value={selectedSprintId}
                     onChange={(e) => setSelectedSprintId(e.target.value)}
-                    className="border-zinc-850 rounded border bg-zinc-900 px-2.5 py-1 font-mono text-[10px] text-zinc-200 outline-none"
+                    className="border-zinc-850 max-w-[280px] truncate rounded border bg-zinc-900 px-2.5 py-1 font-mono text-[10px] text-zinc-200 outline-none"
                   >
                     <option value="">Selecciona sprint...</option>
                     {sprints.map((s) => (
@@ -768,88 +785,100 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
           )}
 
           {/* Start implementing widget inline for Sprint Activities */}
-          {selectedActividadId && activeTabMode === "tickets" && (
-            <Card className="animate-in fade-in zoom-in-95 border border-emerald-500/20 bg-emerald-500/5">
-              <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
-                <span className="font-mono text-[10px] font-bold text-emerald-400 uppercase">
-                  🚀 Inicializar Feature Ticket
-                </span>
-                <button
-                  onClick={() => setSelectedActividadId("")}
-                  className="font-mono text-[9px] text-zinc-500 uppercase hover:text-zinc-300"
-                >
-                  Cancelar
-                </button>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex flex-col gap-1">
-                    <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                      Encargado
-                    </label>
-                    <input
-                      type="text"
-                      value={ticketMiembro}
-                      onChange={(e) => setTicketMiembro(e.target.value)}
-                      className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                      Rol IA
-                    </label>
-                    <select
-                      value={selectedRole}
-                      onChange={(e) => setSelectedRole(e.target.value)}
-                      className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+          {selectedActividadId &&
+            activeTabMode === "tickets" &&
+            (() => {
+              const act = tareas.find((t) => t.id === selectedActividadId);
+              return (
+                <Card className="animate-in fade-in zoom-in-95 border border-emerald-500/20 bg-emerald-500/5">
+                  <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
+                    <div className="flex flex-col">
+                      <span className="font-mono text-[10px] font-bold text-emerald-400 uppercase">
+                        🚀 Inicializar Feature Ticket
+                      </span>
+                      {act && (
+                        <span className="mt-1 font-mono text-[11px] font-bold text-zinc-200">
+                          Actividad: {act.titulo}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setSelectedActividadId("")}
+                      className="font-mono text-[9px] text-zinc-500 uppercase hover:text-zinc-300"
                     >
-                      {ROLES.map((r) => (
-                        <option key={r.key} value={r.key}>
-                          {r.label}
-                        </option>
-                      ))}
-                    </select>
+                      Cancelar
+                    </button>
                   </div>
-                </div>
 
-                {selectedRole === "custom" && (
-                  <div className="flex flex-col gap-1">
-                    <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                      Especificar Rol
-                    </label>
-                    <input
-                      type="text"
-                      value={customRoleText}
-                      onChange={(e) => setCustomRoleText(e.target.value)}
-                      placeholder="Ej: React Native Specialist..."
-                      className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
-                    />
+                  <div className="flex flex-col gap-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col gap-1">
+                        <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
+                          Encargado
+                        </label>
+                        <input
+                          type="text"
+                          value={ticketMiembro}
+                          onChange={(e) => setTicketMiembro(e.target.value)}
+                          className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
+                          Rol IA
+                        </label>
+                        <select
+                          value={selectedRole}
+                          onChange={(e) => setSelectedRole(e.target.value)}
+                          className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+                        >
+                          {ROLES.map((r) => (
+                            <option key={r.key} value={r.key}>
+                              {r.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {selectedRole === "custom" && (
+                      <div className="flex flex-col gap-1">
+                        <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
+                          Especificar Rol
+                        </label>
+                        <input
+                          type="text"
+                          value={customRoleText}
+                          onChange={(e) => setCustomRoleText(e.target.value)}
+                          placeholder="Ej: React Native Specialist..."
+                          className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-1">
+                      <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
+                        Criterios de Aceptación
+                      </label>
+                      <textarea
+                        value={criterioAceptacion}
+                        onChange={(e) => setCriterioAceptacion(e.target.value)}
+                        placeholder="Detalla cómo sabremos que esta actividad está terminada..."
+                        rows={2}
+                        className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+                      />
+                    </div>
+
+                    <button
+                      onClick={iniciarFeatureTicket}
+                      className="w-full rounded bg-emerald-500 py-2 text-[10px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-600"
+                    >
+                      Comenzar Feature
+                    </button>
                   </div>
-                )}
-
-                <div className="flex flex-col gap-1">
-                  <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                    Criterios de Aceptación
-                  </label>
-                  <textarea
-                    value={criterioAceptacion}
-                    onChange={(e) => setCriterioAceptacion(e.target.value)}
-                    placeholder="Detalla cómo sabremos que esta actividad está terminada..."
-                    rows={2}
-                    className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
-                  />
-                </div>
-
-                <button
-                  onClick={iniciarFeatureTicket}
-                  className="w-full rounded bg-emerald-500 py-2 text-[10px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-600"
-                >
-                  Comenzar Feature
-                </button>
-              </div>
-            </Card>
-          )}
+                </Card>
+              );
+            })()}
         </div>
 
         {/* Right panel: Stack of Collapsible Ticket Cards */}
