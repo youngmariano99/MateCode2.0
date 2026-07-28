@@ -574,7 +574,7 @@ export const PlanificacionIAWorkspace: React.FC<
                   id: tareaId,
                   proyectoId,
                   historiaId,
-                  nombre: actNombre.trim(),
+                  titulo: actNombre.trim(),
                   estado: "pendiente",
                 });
               }
