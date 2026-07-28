@@ -181,8 +181,20 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
       if (typeof initialEstandares.coberturaMinima === "number") {
         setCoberturaMinima(initialEstandares.coberturaMinima);
       }
+    } else {
+      setCustomCategories({});
+      setEstandares({
+        seguridad: [],
+        escalabilidad: [],
+        dx: [],
+        testing: [],
+        trazabilidad: [],
+        robustez: [],
+        devops: [],
+      });
+      setCoberturaMinima(80);
     }
-  }, [initialEstandares]);
+  }, [proyectoId]);
 
   // State to hold manual entries input value for each category
   const [manualInputs, setManualInputs] = useState<Record<string, string>>({});

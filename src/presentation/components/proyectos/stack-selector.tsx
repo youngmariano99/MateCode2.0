@@ -172,8 +172,17 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
         seguridad: initialStack.seguridad || [],
         integraciones: initialStack.integraciones || [],
       });
+    } else {
+      setStack({
+        frontend: [],
+        backend: [],
+        baseDatos: [],
+        infraestructura: [],
+        seguridad: [],
+        integraciones: [],
+      });
     }
-  }, [initialStack]);
+  }, [proyectoId]);
 
   const [inputVal, setInputVal] = useState<Record<string, string>>({
     frontend: "",
