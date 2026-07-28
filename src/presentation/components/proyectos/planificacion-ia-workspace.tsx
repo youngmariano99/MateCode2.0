@@ -554,8 +554,19 @@ export const PlanificacionIAWorkspace: React.FC<
               estado: "por_hacer",
             });
 
-            if (Array.isArray(historia.actividades)) {
-              for (const actNombre of historia.actividades) {
+            const actividadesList =
+              historia.actividades || historia.tareas || [];
+            if (Array.isArray(actividadesList)) {
+              for (const act of actividadesList) {
+                let actNombre = "";
+                if (typeof act === "string") {
+                  actNombre = act;
+                } else if (act && typeof act === "object") {
+                  actNombre =
+                    act.nombre || act.titulo || act.descripcion || String(act);
+                }
+                if (!actNombre) continue;
+
                 const tareaId = `tarea_${Date.now()}_${Math.random()
                   .toString(36)
                   .substring(2, 6)}`;
@@ -563,7 +574,7 @@ export const PlanificacionIAWorkspace: React.FC<
                   id: tareaId,
                   proyectoId,
                   historiaId,
-                  nombre: actNombre,
+                  nombre: actNombre.trim(),
                   estado: "pendiente",
                 });
               }
@@ -579,6 +590,24 @@ export const PlanificacionIAWorkspace: React.FC<
       );
     } catch (err: any) {
       mostrarToast(`Error al importar Backlog: ${err.message}`, "error");
+    }
+  };
+
+  const handleLimpiarPlanificacion = async () => {
+    if (
+      confirm(
+        "¿Estás seguro de que deseas eliminar permanentemente todas las Épicas, Historias, Sprints y Tareas de este proyecto? Esta acción no se puede deshacer."
+      )
+    ) {
+      try {
+        await db.epicas.where("proyectoId").equals(proyectoId).delete();
+        await db.historias.where("proyectoId").equals(proyectoId).delete();
+        await db.sprints.where("proyectoId").equals(proyectoId).delete();
+        await db.tareas.where("proyectoId").equals(proyectoId).delete();
+        mostrarToast("Planificación eliminada con éxito.", "exito");
+      } catch (err: any) {
+        mostrarToast(`Error al limpiar: ${err.message}`, "error");
+      }
     }
   };
 
@@ -977,6 +1006,26 @@ export const PlanificacionIAWorkspace: React.FC<
       {/* Tab 3: Importador JSON */}
       {activeTab === "importador" && (
         <div className="flex flex-col gap-5">
+          {/* Wipe section / Warning banner */}
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+            <div className="min-w-0 flex-1">
+              <span className="font-mono text-[10px] font-bold text-red-400 uppercase">
+                ⚠️ Zona de Peligro: Reiniciar Planificación
+              </span>
+              <p className="mt-1 font-mono text-[9px] text-zinc-500">
+                ¿Quieres volver a empezar? Esta opción eliminará permanentemente
+                todo el backlog (Épicas, Historias y Tareas/Actividades) y
+                Sprints asociados a este proyecto.
+              </p>
+            </div>
+            <button
+              onClick={handleLimpiarPlanificacion}
+              className="shrink-0 rounded border border-red-500/30 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase hover:bg-red-500/25"
+            >
+              🗑️ Limpiar Backlog y Sprints
+            </button>
+          </div>
+
           <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
             <div className="flex items-center justify-between">
               <div>
