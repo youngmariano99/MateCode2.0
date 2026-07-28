@@ -62,6 +62,9 @@ export default function TerritorioPage() {
     "recientes" | "antiguos" | "prioridad"
   >("prioridad");
 
+  // Pagination State
+  const [paginaActual, setPaginaActual] = useState(1);
+
   // Load potential clients from IndexedDB
   const rawProspectos =
     useLiveQuery(() => db.potenciales_clientes.toArray()) || [];
@@ -103,6 +106,17 @@ export default function TerritorioPage() {
         return (a.creadoEn || 0) - (b.creadoEn || 0);
       }
     });
+
+  const elementosPorPagina = 10;
+  const totalPaginas =
+    Math.ceil(prospectosFiltrados.length / elementosPorPagina) || 1;
+  const currentPage = Math.min(paginaActual, totalPaginas);
+  const indexInicial = (currentPage - 1) * elementosPorPagina;
+  const indexFinal = indexInicial + elementosPorPagina;
+  const prospectosPaginados = prospectosFiltrados.slice(
+    indexInicial,
+    indexFinal
+  );
 
   // KPI calculations
   const totalProspectos = prospectos.length;
@@ -451,9 +465,12 @@ export default function TerritorioPage() {
               </label>
               <select
                 value={filtroConversion}
-                onChange={(e) =>
-                  setFiltroConversion(e.target.value as typeof filtroConversion)
-                }
+                onChange={(e) => {
+                  setFiltroConversion(
+                    e.target.value as typeof filtroConversion
+                  );
+                  setPaginaActual(1);
+                }}
                 className="rounded-xl border border-zinc-800 bg-[#18181B] px-3 py-2 font-mono text-xs text-zinc-300 focus:border-emerald-500 focus:outline-none"
               >
                 <option value="todos">Mostrar Todos</option>
@@ -469,9 +486,10 @@ export default function TerritorioPage() {
               </label>
               <select
                 value={filtroVisita}
-                onChange={(e) =>
-                  setFiltroVisita(e.target.value as typeof filtroVisita)
-                }
+                onChange={(e) => {
+                  setFiltroVisita(e.target.value as typeof filtroVisita);
+                  setPaginaActual(1);
+                }}
                 className="rounded-xl border border-zinc-800 bg-[#18181B] px-3 py-2 font-mono text-xs text-zinc-300 focus:border-emerald-500 focus:outline-none"
               >
                 <option value="todos">Mostrar Todos</option>
@@ -487,7 +505,10 @@ export default function TerritorioPage() {
               </label>
               <select
                 value={filtroRubro}
-                onChange={(e) => setFiltroRubro(e.target.value)}
+                onChange={(e) => {
+                  setFiltroRubro(e.target.value);
+                  setPaginaActual(1);
+                }}
                 className="rounded-xl border border-zinc-800 bg-[#18181B] px-3 py-2 font-mono text-xs text-zinc-300 focus:border-emerald-500 focus:outline-none"
               >
                 <option value="todos">Todos los Rubros</option>
@@ -506,9 +527,10 @@ export default function TerritorioPage() {
               </label>
               <select
                 value={filtroOrden}
-                onChange={(e) =>
-                  setFiltroOrden(e.target.value as typeof filtroOrden)
-                }
+                onChange={(e) => {
+                  setFiltroOrden(e.target.value as typeof filtroOrden);
+                  setPaginaActual(1);
+                }}
                 className="rounded-xl border border-zinc-800 bg-[#18181B] px-3 py-2 font-mono text-xs text-zinc-300 focus:border-emerald-500 focus:outline-none"
               >
                 <option value="prioridad">🔴 Mayor Prioridad primero</option>
@@ -524,191 +546,301 @@ export default function TerritorioPage() {
           </span>
         </div>
 
-        {/* Prospects List Grid */}
+        {/* Prospects List Grid (Excel-like layout) */}
         <div className="flex flex-col gap-3">
-          <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-400 uppercase">
-            Listado de Prospectos (
-            {filtroConversion === "potenciales" ? "Activos" : "Todos"})
-          </h3>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {prospectosFiltrados.map((p) => (
-              <div
-                key={p.id}
-                className={`rounded-2xl border bg-zinc-950 p-4 transition-all hover:border-zinc-800 ${
-                  p.convertido
-                    ? "border-zinc-800/30 opacity-70"
-                    : p.visitado ||
-                        (p.estadoContacto && p.estadoContacto !== "Pendiente")
-                      ? "border-amber-500/20 bg-zinc-950/90"
-                      : "border-[#2A2A2E]"
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm font-bold text-zinc-100">
-                        {p.nombre}
-                      </span>
-                      <span
-                        className={`py-0.2 rounded-full px-1.5 text-[8px] font-bold uppercase ${
-                          p.prioridad === "Alta"
-                            ? "border border-red-500/20 bg-red-500/10 text-red-400"
-                            : p.prioridad === "Baja"
-                              ? "border border-zinc-800 bg-zinc-900 text-zinc-500"
-                              : "border border-amber-500/20 bg-amber-500/10 text-amber-400"
-                        }`}
-                      >
-                        {p.prioridad || "Media"}
-                      </span>
-                      <span className="py-0.2 rounded border border-zinc-800 bg-zinc-900 px-1.5 font-mono text-[9px] font-bold text-zinc-400 uppercase">
-                        {p.rubro || "General"}
-                      </span>
-                    </div>
-                    {p.contacto && (
-                      <span className="font-mono text-[10px] text-zinc-400">
-                        Contacto: {p.contacto}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex gap-1.5">
-                    {p.convertido ? (
-                      <span className="rounded-full border border-zinc-800 bg-gray-500/10 px-2 py-0.5 font-mono text-[8px] font-bold text-zinc-400 uppercase">
-                        CRM
-                      </span>
-                    ) : p.estadoContacto && p.estadoContacto !== "Pendiente" ? (
-                      <span className="rounded-full border border-pink-500/20 bg-pink-500/10 px-2 py-0.5 font-mono text-[8px] font-bold text-pink-400 uppercase">
-                        {p.estadoContacto}
-                      </span>
-                    ) : p.visitado ? (
-                      <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-mono text-[8px] font-bold text-amber-400 uppercase">
-                        Visitado
-                      </span>
-                    ) : (
-                      <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-[8px] font-bold text-emerald-400 uppercase">
-                        Activo
-                      </span>
-                    )}
-                  </div>
-                </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-400 uppercase">
+              Listado de Prospectos (
+              {filtroConversion === "potenciales" ? "Activos" : "Todos"})
+            </h3>
 
-                <div className="mt-3 flex flex-col gap-1 border-t border-[#2A2A2E]/50 pt-2.5 font-mono text-[10px] text-zinc-400">
-                  {p.direccion && (
-                    <span>
-                      <b>📍 Dirección:</b> {p.direccion}
-                    </span>
-                  )}
-                  {p.tipoServicio && (
-                    <span>
-                      <b>💼 Servicio:</b> {p.tipoServicio}
-                    </span>
-                  )}
-                  {p.pitch && (
-                    <span>
-                      <b>📣 Argumento:</b> {p.pitch}
-                    </span>
-                  )}
-
-                  {/* Digital channels indicator */}
-                  <div className="mt-1.5 flex gap-2 border-y border-[#2A2A2E]/20 py-1">
-                    {p.whatsapp && (
-                      <span className="text-[9px] text-emerald-400">
-                        ✓ WA: {p.whatsapp}
-                      </span>
-                    )}
-                    {p.email && (
-                      <span className="text-[9px] text-blue-400">✓ Mail</span>
-                    )}
-                    {p.instagram && (
-                      <span className="text-[9px] text-pink-400">✓ IG</span>
-                    )}
-                    {p.facebook && (
-                      <span className="text-[9px] text-indigo-400">✓ FB</span>
-                    )}
-                  </div>
-
-                  <span>
-                    <b>🔄 Visitas Campo:</b> {p.visitasCount || 0}
-                  </span>
-                  {p.ultimoCanalContacto && (
-                    <span>
-                      <b>📱 Último Contacto:</b> por {p.ultimoCanalContacto} (
-                      {p.estadoContacto})
-                    </span>
-                  )}
-                  {p.notasContacto && (
-                    <span className="mt-1 block rounded border border-[#2A2A2E]/50 bg-zinc-900/50 p-1.5 text-zinc-500 italic">
-                      &quot;{p.notasContacto}&quot;
-                    </span>
-                  )}
-                  {p.motivoNoVisita && (
-                    <span className="text-red-400">
-                      <b>⚠️ Salteado:</b> {p.motivoNoVisita}
-                    </span>
-                  )}
-                  {p.volverFecha && (
-                    <span className="font-bold text-blue-400">
-                      <b>📅 Volver el:</b> {p.volverFecha}
-                    </span>
-                  )}
-                </div>
-
-                {/* Card Actions */}
-                <div className="mt-4 flex flex-wrap gap-2 border-t border-[#2A2A2E]/50 pt-3">
-                  {!p.convertido && (
-                    <>
-                      <button
-                        onClick={() => {
-                          setProspectoVisita(p);
-                          setModalVisitaAbierto(true);
-                        }}
-                        className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-amber-400 transition-all hover:bg-amber-500 hover:text-black"
-                      >
-                        Visita Campo
-                      </button>
-                      <button
-                        onClick={() => {
-                          setProspectoContacto(p);
-                          setModalContactoAbierto(true);
-                        }}
-                        className="rounded-xl border border-pink-500/20 bg-pink-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-pink-400 transition-all hover:bg-pink-500 hover:text-black"
-                      >
-                        Log Digital
-                      </button>
-                      <button
-                        onClick={() => {
-                          setProspectoAConvertir(p);
-                          setModalCrmAbierto(true);
-                        }}
-                        className="ml-auto rounded-xl border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-blue-400 transition-all hover:bg-blue-500 hover:text-black"
-                      >
-                        Pasar a CRM
-                      </button>
-                    </>
-                  )}
-
-                  <button
-                    onClick={() => {
-                      setProspectoEdicion(p);
-                      setModalManualAbierto(true);
-                    }}
-                    className="rounded-xl border border-zinc-800 bg-zinc-900 px-2 py-1.5 font-mono text-[9px] text-zinc-300 transition-all hover:border-zinc-700"
-                    title="Editar Prospecto"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => eliminarProspecto(p.id)}
-                    className="rounded-xl border border-red-900/30 bg-red-950/20 px-2 py-1.5 font-mono text-[9px] text-red-400 transition-all hover:bg-red-900 hover:text-white"
-                    title="Eliminar Prospecto"
-                  >
-                    Borrar
-                  </button>
-                </div>
+            {/* Pagination Controls */}
+            {totalPaginas > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() =>
+                    setPaginaActual((prev) => Math.max(prev - 1, 1))
+                  }
+                  disabled={currentPage === 1}
+                  className="hover:bg-zinc-850 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1 font-mono text-[9px] font-bold text-zinc-300 uppercase transition-all hover:text-zinc-100 disabled:opacity-40"
+                >
+                  Anterior
+                </button>
+                <span className="font-mono text-[10px] text-zinc-400">
+                  Página <b>{currentPage}</b> de <b>{totalPaginas}</b>
+                </span>
+                <button
+                  onClick={() =>
+                    setPaginaActual((prev) => Math.min(prev + 1, totalPaginas))
+                  }
+                  disabled={currentPage === totalPaginas}
+                  className="hover:bg-zinc-850 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1 font-mono text-[9px] font-bold text-zinc-300 uppercase transition-all hover:text-zinc-100 disabled:opacity-40"
+                >
+                  Siguiente
+                </button>
               </div>
-            ))}
-            {prospectosFiltrados.length === 0 && (
-              <span className="col-span-full rounded-2xl border border-dashed border-[#2A2A2E] py-16 text-center font-mono text-xs text-zinc-500 italic">
-                Ningún potencial cliente coincide con los filtros activos.
+            )}
+          </div>
+
+          <div className="w-full overflow-x-auto rounded-xl border border-[#2A2A2E] bg-zinc-950">
+            <table className="w-full border-collapse text-left font-sans text-xs">
+              <thead>
+                <tr className="border-b border-[#2A2A2E] bg-zinc-900/50 font-mono text-[9px] font-bold text-zinc-400 uppercase">
+                  <th className="p-3 pl-4">Prospecto</th>
+                  <th className="p-3">Contacto</th>
+                  <th className="p-3">Dirección</th>
+                  <th className="p-3">Servicio Sugerido</th>
+                  <th className="p-3">Historial / Visitas</th>
+                  <th className="p-3 pr-4 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#2A2A2E]/50">
+                {prospectosPaginados.map((p) => {
+                  const isHighlighted =
+                    p.visitado ||
+                    (p.estadoContacto && p.estadoContacto !== "Pendiente");
+                  return (
+                    <tr
+                      key={p.id}
+                      className={`group transition-all hover:bg-zinc-900/20 ${
+                        p.convertido
+                          ? "opacity-60"
+                          : isHighlighted
+                            ? "bg-amber-500/[0.02]"
+                            : ""
+                      }`}
+                    >
+                      {/* Column 1: Prospecto */}
+                      <td className="p-3 pl-4 align-top">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-mono text-xs font-bold text-zinc-100 transition-colors group-hover:text-emerald-400">
+                              {p.nombre}
+                            </span>
+                            <span
+                              className={`rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase ${
+                                p.prioridad === "Alta"
+                                  ? "border border-red-500/20 bg-red-500/10 text-red-400"
+                                  : p.prioridad === "Baja"
+                                    ? "border border-zinc-800 bg-zinc-900 text-zinc-500"
+                                    : "border border-amber-500/20 bg-amber-500/10 text-amber-400"
+                              }`}
+                            >
+                              {p.prioridad || "Media"}
+                            </span>
+                            <span className="rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[8px] font-bold text-zinc-400 uppercase">
+                              {p.rubro || "General"}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            {p.convertido ? (
+                              <span className="rounded border border-zinc-800 bg-gray-500/10 px-1.5 py-0.5 font-mono text-[8px] font-bold text-zinc-400 uppercase">
+                                CRM
+                              </span>
+                            ) : p.estadoContacto &&
+                              p.estadoContacto !== "Pendiente" ? (
+                              <span className="rounded border border-pink-500/20 bg-pink-500/10 px-1.5 py-0.5 font-mono text-[8px] font-bold text-pink-400 uppercase">
+                                {p.estadoContacto}
+                              </span>
+                            ) : p.visitado ? (
+                              <span className="rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[8px] font-bold text-amber-400 uppercase">
+                                Visitado
+                              </span>
+                            ) : (
+                              <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[8px] font-bold text-emerald-400 uppercase">
+                                Activo
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Column 2: Contacto */}
+                      <td className="p-3 align-top">
+                        <div className="flex flex-col gap-1 text-[11px] text-zinc-300">
+                          {p.contacto && (
+                            <span className="font-mono text-zinc-300">
+                              👤 {p.contacto}
+                            </span>
+                          )}
+
+                          {/* Channel pills */}
+                          <div className="mt-1 flex flex-wrap gap-1 font-mono text-[8px]">
+                            {p.whatsapp && (
+                              <span
+                                className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-emerald-400"
+                                title={`WhatsApp: ${p.whatsapp}`}
+                              >
+                                WA
+                              </span>
+                            )}
+                            {p.email && (
+                              <span
+                                className="rounded border border-blue-500/20 bg-blue-500/10 px-1.5 py-0.5 text-blue-400"
+                                title={`Email: ${p.email}`}
+                              >
+                                Mail
+                              </span>
+                            )}
+                            {p.instagram && (
+                              <span className="rounded border border-pink-500/20 bg-pink-500/10 px-1.5 py-0.5 text-pink-400">
+                                IG
+                              </span>
+                            )}
+                            {p.facebook && (
+                              <span className="rounded border border-indigo-500/20 bg-indigo-500/10 px-1.5 py-0.5 text-indigo-400">
+                                FB
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Column 3: Dirección */}
+                      <td className="max-w-[180px] p-3 align-top">
+                        <div
+                          className="line-clamp-2 font-mono text-[11px] text-zinc-400"
+                          title={p.direccion}
+                        >
+                          {p.direccion ? `📍 ${p.direccion}` : "-"}
+                        </div>
+                      </td>
+
+                      {/* Column 4: Servicio Sugerido */}
+                      <td className="max-w-[220px] p-3 align-top">
+                        <div className="flex flex-col gap-1 font-mono text-[11px]">
+                          {p.tipoServicio && (
+                            <span className="text-zinc-200">
+                              💼 {p.tipoServicio}
+                            </span>
+                          )}
+                          {p.pitch && (
+                            <span
+                              className="text-zinc-550 line-clamp-2 text-[10px] italic"
+                              title={p.pitch}
+                            >
+                              📣 &quot;{p.pitch}&quot;
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Column 5: Historial / Visitas */}
+                      <td className="p-3 align-top">
+                        <div className="flex flex-col gap-1 font-mono text-[10px] text-zinc-400">
+                          <span>
+                            🔄 Visitas: <b>{p.visitasCount || 0}</b>
+                          </span>
+                          {p.ultimoCanalContacto && (
+                            <span className="text-[9px]">
+                              📱 {p.ultimoCanalContacto} ({p.estadoContacto})
+                            </span>
+                          )}
+                          {p.notasContacto && (
+                            <span
+                              className="text-zinc-550 max-w-[120px] truncate text-[9px] italic"
+                              title={p.notasContacto}
+                            >
+                              &quot;{p.notasContacto}&quot;
+                            </span>
+                          )}
+                          {p.motivoNoVisita && (
+                            <span className="text-[9px] text-red-400">
+                              ⚠️ Salteado: {p.motivoNoVisita}
+                            </span>
+                          )}
+                          {p.volverFecha && (
+                            <span className="text-[9px] font-bold text-blue-400">
+                              📅 Volver: {p.volverFecha}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Column 6: Acciones */}
+                      <td className="p-3 pr-4 text-right align-top">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {!p.convertido && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setProspectoVisita(p);
+                                  setModalVisitaAbierto(true);
+                                }}
+                                className="rounded border border-amber-500/20 bg-amber-500/10 px-2 py-1 font-mono text-[9px] font-bold text-amber-400 transition-all hover:bg-amber-500 hover:text-black"
+                              >
+                                Visita Campo
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setProspectoContacto(p);
+                                  setModalContactoAbierto(true);
+                                }}
+                                className="rounded border border-pink-500/20 bg-pink-500/10 px-2 py-1 font-mono text-[9px] font-bold text-pink-400 transition-all hover:bg-pink-500 hover:text-black"
+                              >
+                                Log Digital
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setProspectoAConvertir(p);
+                                  setModalCrmAbierto(true);
+                                }}
+                                className="rounded border border-blue-500/20 bg-blue-500/10 px-2 py-1 font-mono text-[9px] font-bold text-blue-400 transition-all hover:bg-blue-500 hover:text-black"
+                              >
+                                Pasar a CRM
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => {
+                              setProspectoEdicion(p);
+                              setModalManualAbierto(true);
+                            }}
+                            className="rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-[9px] text-zinc-300 transition-all hover:border-zinc-700"
+                            title="Editar Prospecto"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => eliminarProspecto(p.id)}
+                            className="rounded border border-red-900/30 bg-red-950/20 px-2 py-1 font-mono text-[9px] text-red-400 transition-all hover:bg-red-900 hover:text-white"
+                            title="Eliminar Prospecto"
+                          >
+                            Borrar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {prospectosFiltrados.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="p-12 text-center font-mono text-xs text-zinc-500 italic"
+                    >
+                      Ningún potencial cliente coincide con los filtros activos.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Bottom Pagination Info */}
+          <div className="flex items-center justify-between rounded-xl border border-[#2A2A2E]/50 bg-zinc-900/10 p-3 font-mono text-[9px] text-zinc-500">
+            <span>
+              Mostrando{" "}
+              <b>
+                {indexInicial + 1} -{" "}
+                {Math.min(indexFinal, prospectosFiltrados.length)}
+              </b>{" "}
+              de <b>{prospectosFiltrados.length}</b> registrados filtrados
+            </span>
+            {totalPaginas > 1 && (
+              <span className="font-mono text-[9px] text-zinc-400">
+                Página <b>{currentPage}</b> de <b>{totalPaginas}</b>
               </span>
             )}
           </div>
