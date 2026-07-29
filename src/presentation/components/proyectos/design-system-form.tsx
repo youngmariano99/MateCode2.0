@@ -12,29 +12,81 @@ interface DesignSystemFormProps {
   proyectoId: string;
 }
 
-const DESIGN_SYSTEM_PROMPT = `Eres un Diseñador UI/UX Senior y Especialista en Design Systems. A partir del siguiente Relevamiento del Cliente y requerimientos, debes diseñar un Sistema de Diseño visual completo, coherente, premium y no genérico.
+const DESIGN_SYSTEM_PROMPT = `Eres un Diseñador UI/UX Senior y Especialista en Design Systems. A partir del Relevamiento del Cliente o la Idea de Negocio, debes diseñar un Sistema de Diseño visual premium, técnico y de alta precisión.
 
-RELEVAMIENTO DEL CLIENTE:
+RELEVAMIENTO DEL CLIENTE / IDEA DE NEGOCIO:
 ---
 {{relevamiento_markdown}}
 ---
 
-INSTRUCCIONES Y ESTRUCTURA REQUERIDA PARA EL DOCUMENTO:
-Debes devolver únicamente un documento en formato Markdown estructurado con las siguientes secciones obligatorias:
-1. **Arquetipo de Diseño & Metáfora Visual**: Describe la dirección artística y la vibra del diseño (ej. Neo-Brutalismo, Diseños Suizos, Cyberpunk).
-2. **Pareja Tipográfica**: Define la combinación de fuentes y pesos recomendados para títulos y textos.
-3. **Escala de Espaciado & Ritmo Vertical**: Directrices de espaciados (denso, holgado, etc.).
-4. **Paleta de Colores & Reglas de Color**: Define los colores de fondo, texto principal, acento y colores secundarios en HSL o Hexadecimal.
-5. **Bordes y Sombras (UI Tokens)**: Especifica radios de bordes (ej: 0px, 12px) y dureza de sombras.
-6. **Micro-interacciones y Animaciones**: Reglas para transiciones de estados, duraciones y curvas físicas (spring/ease).
-7. **Directriz de Negación (Freno de IA)**: Detalla explícitamente qué estilos NO deben usarse para evitar diseños genéricos o aburridos.
+INSTRUCCIONES Y ESTRUCTURA REQUERIDA PARA EL DOCUMENTO (DESIGN.md):
+Devuelve únicamente el documento en formato Markdown estructurado exactamente como sigue, sin introducciones ni comentarios explicativos externos:
 
-Por favor, genera únicamente el contenido estructurado en formato Markdown, sin introducciones ni comentarios.`;
+# Sistema de Diseño: {{nombre_proyecto}} UI SYSTEM
+
+<ui-tokens>
+  - theme-mode: dark-only
+  - min-touch-target: 44px
+  - font-size-base: 16px (mínimo absoluto: 14px)
+  - border-radius-sm: 4px
+  - border-radius-md: 8px
+  - transition-duration: 150ms-200ms
+</ui-tokens>
+
+---
+
+## 1. Arquetipo de Diseño & Metáfora Visual
+- **Arquetipo:** Minimalismo Industrial Oscuro ("Dark Utility Premium").
+- **Vibra y Personalidad:** Herramienta técnica, sólida, limpia y de alta precisión. Evita marketing genérico; debe asemejarse a un software de ingeniería.
+- **Enfoque UX:** Alta legibilidad, baja fatiga visual y UX Educativa (placeholders ejemplares, ayuda en estados vacíos).
+
+---
+
+## 2. Paleta de Colores & Mapeo Estricto a Tailwind CSS
+Fondo oscuro profundo (sin usar negro puro #000000 para evitar fatiga por contraste extremo) y un único color de acento minimalista.
+
+| Rol | Hexadecimal | Variable / Clase Tailwind | Uso Permitido |
+| :--- | :--- | :--- | :--- |
+| **Fondo Base** | \`#0B0F19\` | \`bg-slate-950\` | General de la página / Layout base |
+| **Superficie 1** | \`#1E293B\` | \`bg-slate-800\` | Tarjetas, contenedores de tablas, modales |
+| **Superficie 2** | \`#334155\` | \`bg-slate-700\` | Hover en filas, fondos de inputs |
+| **Texto Principal**| \`#F8FAFC\` | \`text-slate-50\` | Títulos, párrafos, labels de formularios |
+| **Texto Muted** | \`#94A3B8\` | \`text-slate-400\` | Placeholders, leyendas, metadatos |
+| **Acento Core** | \`#3B82F6\` | \`bg-blue-500\` / \`text-blue-500\` | Botón primario, links activos, selección |
+| **Éxito (Semántico)**| \`#10B981\` | \`text-emerald-500\` | Stock positivo, guardado exitoso |
+| **Error (Semántico)**| \`#EF4444\` | \`text-red-500\` / \`border-red-500\` | Errores de formulario, alertas destructivas |
+
+---
+
+## 3. Pareja Tipográfica & Jerarquía
+- **Títulos y Display (\`font-display\`):** Satoshi o Plus Jakarta Sans (Weight: 600 SemiBold / 700 Bold).
+- **UI & Lectura (\`font-sans\`):** Inter (Weight: 400 Regular para cuerpo, 500 Medium para botones y labels).
+- **Datos y Números (\`font-mono\`):** JetBrains Mono. Obligatorio para precios, SKUs, fechas y columnas de tablas (garantiza alineación perfecta en columnas).
+
+---
+
+## 4. Patrones de Interacción & UX Educativa
+- **Placeholders Educativos:** No usar placeholders genéricos. Ejemplo: \`ej. juan.perez@comercio.com\`.
+- **Formularios Fail-Fast:** Validación visual con bordes rojos (\`border-red-500\`), ícono de alerta ⚠️ y mensaje explicativo claro.
+- **Empty States (Estados Vacíos):** Mostrar contenedor con borde discontinuo (\`border-dashed\`), texto explicativo amigable y un botón de Call To Action (CTA) azul principal.
+
+---
+
+## 5. Directrices de Negación ("El Freno de IA")
+Queda ESTRICTAMENTE PROHIBIDO en todo código frontend de este proyecto:
+- NO usar el color púrpura, violeta o índigo de Tailwind.
+- NO generar fuentes de tamaño menor a 14px.
+- NO usar negro puro (\`#000000\`) ni blanco puro (\`#FFFFFF\`).
+- NO comunicar errores únicamente por color (añadir textos e iconos descriptivos).
+- NO crear botones o enlaces interactivos de menos de 44x44px (áreas táctiles accesibles).`;
 
 export const DesignSystemForm: React.FC<DesignSystemFormProps> = ({
   proyectoId,
 }) => {
   const { mostrarToast } = useToast();
+
+  // Load project query
+  const proyecto = useLiveQuery(() => db.proyectos.get(proyectoId));
 
   // Load design system from DB
   const dsData = useLiveQuery(() =>
@@ -111,7 +163,7 @@ export const DesignSystemForm: React.FC<DesignSystemFormProps> = ({
     const finalPrompt = DESIGN_SYSTEM_PROMPT.replace(
       "{{relevamiento_markdown}}",
       relevamiento || "No hay notas de relevamiento cargadas."
-    );
+    ).replace("{{nombre_proyecto}}", String(proyecto?.nombre || "NODEXA"));
     navigator.clipboard.writeText(finalPrompt);
     mostrarToast("¡Prompt de Design System copiado al portapapeles!", "exito");
   };

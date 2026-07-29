@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/purity */
+/* eslint-disable react-hooks/purity, @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState } from "react";
@@ -787,20 +787,100 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                                         className="border-zinc-850 w-full rounded border bg-zinc-900 px-2 py-0.5 font-mono text-[10px] text-zinc-200 outline-none"
                                       />
                                     ) : (
-                                      <span
-                                        onDoubleClick={() => {
-                                          setActividadEditandoId(act.id);
-                                          setActividadEditandoTexto(act.titulo);
-                                        }}
-                                        className={`cursor-pointer truncate font-mono text-[10px] select-none ${
-                                          act.estado === "done"
-                                            ? "text-zinc-650 line-through"
-                                            : "text-zinc-400 hover:text-zinc-300"
-                                        }`}
-                                        title="Doble clic para editar"
-                                      >
-                                        {act.titulo}
-                                      </span>
+                                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <span
+                                            onDoubleClick={() => {
+                                              setActividadEditandoId(act.id);
+                                              setActividadEditandoTexto(
+                                                act.titulo
+                                              );
+                                            }}
+                                            className={`cursor-pointer truncate font-mono text-[10px] font-bold select-none ${
+                                              act.estado === "done"
+                                                ? "text-zinc-650 line-through"
+                                                : "text-zinc-450 hover:text-zinc-300"
+                                            }`}
+                                            title="Doble clic para editar"
+                                          >
+                                            {act.titulo}
+                                          </span>
+                                          {Array.isArray(
+                                            (act as any).etiquetas
+                                          ) &&
+                                            (act as any).etiquetas.length >
+                                              0 && (
+                                              <div className="flex flex-wrap gap-1">
+                                                {(act as any).etiquetas.map(
+                                                  (tag: string) => {
+                                                    let colorClass =
+                                                      "bg-zinc-850 text-zinc-400 border-zinc-800";
+                                                    if (
+                                                      tag.toUpperCase() ===
+                                                      "FRONTEND"
+                                                    )
+                                                      colorClass =
+                                                        "bg-sky-500/10 text-sky-400 border-sky-500/20";
+                                                    if (
+                                                      tag.toUpperCase() ===
+                                                      "BACKEND"
+                                                    )
+                                                      colorClass =
+                                                        "bg-amber-500/10 text-amber-400 border-amber-500/20";
+                                                    if (
+                                                      tag.toUpperCase() ===
+                                                        "BD" ||
+                                                      tag.toUpperCase() ===
+                                                        "DATABASE"
+                                                    )
+                                                      colorClass =
+                                                        "bg-purple-500/10 text-purple-400 border-purple-500/20";
+                                                    if (
+                                                      tag.toUpperCase() ===
+                                                      "TESTING"
+                                                    )
+                                                      colorClass =
+                                                        "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+                                                    return (
+                                                      <span
+                                                        key={tag}
+                                                        className={`py-0.2 rounded border px-1 font-mono text-[6px] font-bold uppercase ${colorClass}`}
+                                                      >
+                                                        {tag}
+                                                      </span>
+                                                    );
+                                                  }
+                                                )}
+                                              </div>
+                                            )}
+                                        </div>
+                                        {((act as any).rol ||
+                                          (act as any).componente ||
+                                          (act as any).modulo) && (
+                                          <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[8px] text-zinc-500">
+                                            {(act as any).modulo && (
+                                              <span>
+                                                📦 {(act as any).modulo}
+                                              </span>
+                                            )}
+                                            {(act as any).rol && (
+                                              <span>👤 {(act as any).rol}</span>
+                                            )}
+                                            {(act as any).componente && (
+                                              <span>
+                                                📄 {(act as any).componente}
+                                              </span>
+                                            )}
+                                            {(act as any).pasos &&
+                                              (act as any).pasos.length > 0 && (
+                                                <span>
+                                                  📋 {(act as any).pasos.length}{" "}
+                                                  pasos
+                                                </span>
+                                              )}
+                                          </div>
+                                        )}
+                                      </div>
                                     )}
                                   </div>
 

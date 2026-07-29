@@ -59,6 +59,62 @@ RELEVAMIENTO DE MARCA:
 
 Genera una propuesta de texto limpia, persuasiva y estructurada por secciones lista para colocar en el diseño visual.`;
 
+const PROMPT_IDEA_PRODUCTO = `<role>
+Actúa como un Arquitecto de Producto Senior y Analista de Dominio (DDD - Domain-Driven Design).
+Tu misión es analizar la información en crudo proporcionada sobre un proyecto o SaaS y generar el "Objeto Maestro de Contexto", un manifiesto técnico y de negocio que alimentará la arquitectura de software, bases de datos y sistemas de diseño sin caer en convencionalismos ni descripciones genéricas.
+</role>
+
+<input_crudo>
+{{notas_brutas}}
+</input_crudo>
+
+<directrices_de_inferencia>
+1. PRINCIPIO DE LA REALIDAD SUCIA: Prohibido usar adjetivos genéricos como "interfaz limpia", "usuarios generales", "rápido" o "moderno". Si el input no lo aclara explícitamente, DEDUCE el contexto real e imperfecto del rubro basándote en tu conocimiento de la industria:
+   - ¿Dónde se usa realmente el sistema? (ej. mostrador ruidoso, almacén sin luz, vehículo, oficina bajo presión).
+   - ¿Qué dispositivos físicos predominan en ese sector? (ej. POS antiguo, celular de gama baja, lector de código de barras USB, monitor de 27").
+   - ¿Cuál es el nivel real de alfabetización digital y el estrés del usuario final en el momento crítico de uso?
+2. VOCABULARIO DE DOMINIO (Ubiquitous Language): Identifica los sustantivos y verbos exactos del negocio. No los reemplaces por "usuario", "ítem" o "registro". Utiliza los términos del rubro (ej. en un taller mecánico: "Orden de Trabajo", "Repuesto", "Elevador").
+3. REGLAS INNEGOCIABLES Y EDGE CASES: Identifica o infiere al menos 2 reglas de negocio críticas donde el software NO PUEDE FALLAR (ej. manejo de stock negativo, inmutabilidad fiscal, qué sucede en cortes de conectividad).
+</directrices_de_inferencia>
+
+<instrucciones_ejecucion>
+Analiza profundamente el input y devuelve ÚNICAMENTE un objeto JSON válido que cumpla estrictamente con la siguiente estructura. No incluyas explicaciones previas, introducciones ni bloques de código de marcado adicionales fuera del JSON:
+
+{
+  "proyecto": {
+    "nombre": "Nombre real o deducido del proyecto",
+    "rubro": "Sector o nicho específico del negocio",
+    "diferenciador_core": "La propuesta de valor innegociable que justifica por qué el cliente pagará por esto en lugar de usar Excel o una herramienta genérica"
+  },
+  "contexto_usuario": {
+    "entorno_fisico": "Descripción cruda del lugar donde se opera el software",
+    "dispositivo_primario": "Hardware específico desde donde se opera (móvil, desktop antigua, tablet POS, etc.)",
+    "nivel_estres": "Nivel de urgencia o presión en el flujo principal y por qué ocurre",
+    "alfabetizacion_digital": "Nivel técnico del operador del sistema y requerimientos pedagógicos para la interfaz"
+  },
+  "reglas_negocio_y_dominio": {
+    "glosario": {
+      "TerminoExacto1": "Definición dentro del contexto de este negocio",
+      "TerminoExacto2": "Definición dentro del contexto de este negocio",
+      "TerminoExacto3": "Definición dentro del contexto de este negocio"
+    },
+    "reglas_innegociables": [
+      "Regla 1 sobre cómo se comportan las transacciones o el flujo operativo",
+      "Regla 2 sobre situaciones críticas del día a día (edge cases)"
+    ]
+  },
+  "datos_y_seguridad": {
+    "modelo_tenancy": "Estrategia de multitenencia y aislamiento recomendada",
+    "volumen_esperado": "Estimación del comportamiento transaccional (alta lectura vs alta escritura)",
+    "auditoria_y_sensibilidad": "Qué tablas o flujos requieren borrado lógico obligatorio, logs inmutables y nivel de sensibilidad del dato"
+  },
+  "integraciones": [
+    "Integración hardware/software 1 requerida o típica del sector",
+    "Integración hardware/software 2 requerida o típica del sector"
+  ]
+}
+</instrucciones_ejecucion>`;
+
 export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
   proyectoId,
   tipoProyecto,
@@ -82,14 +138,18 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
   const isLandingType =
     tipoProyecto?.toLowerCase().includes("landing") ||
     tipoProyecto?.toLowerCase().includes("institucional");
-  const [promptType, setPromptType] = useState<"sistemas" | "landing">(
-    isLandingType ? "landing" : "sistemas"
-  );
+  const [promptType, setPromptType] = useState<
+    "sistemas" | "landing" | "idea_producto"
+  >(isLandingType ? "landing" : "sistemas");
 
   useEffect(() => {
     if (contexto) {
       setNotasBrutas((contexto.relevamientoNotasBrutas as string) || "");
-      setRelevamientoMarkdown((contexto.relevamientoMarkdown as string) || "");
+      setRelevamientoMarkdown(
+        (contexto.relevamientoMarkdown as string) ||
+          (contexto.masterContextJson as string) ||
+          ""
+      );
       setLinksInspiracion(
         Array.isArray(contexto.linksInspiracion)
           ? (contexto.linksInspiracion as string[])
@@ -180,6 +240,10 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
         publicoObjetivo,
         linksInspiracion,
         copyContenido,
+        masterContextJson:
+          promptType === "idea_producto"
+            ? relevamientoMarkdown
+            : currentContext.masterContextJson || "",
       });
 
       mostrarToast("Relevamiento, Copy y Links guardados con éxito.", "exito");
@@ -197,8 +261,10 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
       return;
     }
 
-    const template =
-      promptType === "landing" ? PROMPT_LANDING : PROMPT_SISTEMAS;
+    let template = PROMPT_SISTEMAS;
+    if (promptType === "landing") template = PROMPT_LANDING;
+    else if (promptType === "idea_producto") template = PROMPT_IDEA_PRODUCTO;
+
     let finalPrompt = template.replace("{{notas_brutas}}", notasBrutas);
 
     if (linksInspiracion.length > 0) {
@@ -343,28 +409,39 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
             <span className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
               ⚙️ Selector de Prompt IA
             </span>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => setPromptType("sistemas")}
-                className={`flex-1 rounded py-1.5 font-mono text-[9px] font-bold uppercase transition-all ${
+                className={`min-w-[100px] flex-1 rounded py-1.5 font-mono text-[9px] font-bold uppercase transition-all ${
                   promptType === "sistemas"
                     ? "bg-emerald-500 text-zinc-950"
                     : "border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200"
                 }`}
               >
-                Sistemas (Procesos / Reglas)
+                Sistemas
               </button>
               <button
                 type="button"
                 onClick={() => setPromptType("landing")}
-                className={`flex-1 rounded py-1.5 font-mono text-[9px] font-bold uppercase transition-all ${
+                className={`min-w-[100px] flex-1 rounded py-1.5 font-mono text-[9px] font-bold uppercase transition-all ${
                   promptType === "landing"
                     ? "bg-emerald-500 text-zinc-950"
                     : "border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200"
                 }`}
               >
-                Landing / Marca (Branding)
+                Landing / Marca
+              </button>
+              <button
+                type="button"
+                onClick={() => setPromptType("idea_producto")}
+                className={`min-w-[100px] flex-1 rounded py-1.5 font-mono text-[9px] font-bold uppercase transition-all ${
+                  promptType === "idea_producto"
+                    ? "bg-emerald-500 text-zinc-950"
+                    : "border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                💡 Idea (Contexto DDD)
               </button>
             </div>
             <button
@@ -372,16 +449,18 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
               onClick={copiarPrompt}
               className="mt-1 rounded border border-emerald-500/20 bg-emerald-500/10 py-2 font-mono text-[9px] font-bold text-emerald-400 uppercase transition-all hover:bg-emerald-500/20"
             >
-              🚀 Copiar Prompt + Notas + Inspiración
+              🚀 Copiar Prompt + Notas
             </button>
           </div>
         </div>
 
-        {/* Right pane: Markdown input, Copywriting text, and save/download actions */}
+        {/* Right pane: Markdown/JSON input, Copywriting text, and save/download actions */}
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
-              ✨ 2. Resumen Estructurado (Markdown de la IA)
+              {promptType === "idea_producto"
+                ? "✨ 2. Objeto Maestro de Contexto (JSON)"
+                : "✨ 2. Resumen Estructurado (Markdown de la IA)"}
             </span>
             {(relevamientoMarkdown.trim() || copyContenido.trim()) && (
               <button
@@ -397,34 +476,42 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
           <textarea
             value={relevamientoMarkdown}
             onChange={(e) => setRelevamientoMarkdown(e.target.value)}
-            placeholder="Pega aquí el resultado en formato Markdown devuelto por Claude / ChatGPT..."
+            placeholder={
+              promptType === "idea_producto"
+                ? "Pega aquí el Objeto Maestro de Contexto en formato JSON devuelto por la IA..."
+                : "Pega aquí el resultado en formato Markdown devuelto por Claude / ChatGPT..."
+            }
             className="h-[200px] w-full resize-none rounded-xl border border-[#2A2A2E] bg-zinc-950 p-3 font-mono text-xs text-zinc-200 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
           />
 
           {/* Copywriting & Contenido de Marca */}
-          <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-[9px] font-bold text-amber-400 uppercase">
-                ✍️ Contenido y Copywriting (Texto del Sitio)
-              </span>
-              <button
-                type="button"
-                onClick={copiarPromptCopy}
-                className="font-mono text-[8px] text-amber-400 underline hover:text-amber-300"
-              >
-                Copiar Prompt para generar Copy
-              </button>
+          {promptType !== "idea_producto" && (
+            <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[9px] font-bold text-amber-400 uppercase">
+                  ✍️ Contenido y Copywriting (Texto del Sitio)
+                </span>
+                <button
+                  type="button"
+                  onClick={copiarPromptCopy}
+                  className="font-mono text-[8px] text-amber-400 underline hover:text-amber-300"
+                >
+                  Copiar Prompt para generar Copy
+                </button>
+              </div>
+              <textarea
+                value={copyContenido}
+                onChange={(e) => setCopyContenido(e.target.value)}
+                placeholder="Escribe o pega aquí el copy redactado para los encabezados, llamados a la acción, beneficios, etc..."
+                className="h-[120px] w-full resize-none rounded-xl border border-[#2A2A2E] bg-zinc-950 p-2 font-mono text-xs text-zinc-200 focus:ring-1 focus:ring-amber-500 focus:outline-none"
+              />
             </div>
-            <textarea
-              value={copyContenido}
-              onChange={(e) => setCopyContenido(e.target.value)}
-              placeholder="Escribe o pega aquí el copy redactado para los encabezados, llamados a la acción, beneficios, etc..."
-              className="h-[120px] w-full resize-none rounded-xl border border-[#2A2A2E] bg-zinc-950 p-2 font-mono text-xs text-zinc-200 focus:ring-1 focus:ring-amber-500 focus:outline-none"
-            />
-          </div>
+          )}
 
           <div className="mt-2 flex shrink-0 justify-end gap-2 border-t border-[#2A2A2E] pt-3.5">
-            <Button onClick={handleSave}>Guardar Relevamiento y Copy</Button>
+            <Button onClick={handleSave}>
+              Guardar Relevamiento y Contexto
+            </Button>
           </div>
         </div>
       </div>

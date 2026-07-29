@@ -1,5 +1,5 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, react-hooks/purity */
 
 import React, { useState, useEffect } from "react";
 import { Card } from "../card";
@@ -93,6 +93,32 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
   // Active focused Sprint State
   const [selectedSprintId, setSelectedSprintId] = useState("");
 
+  // Conveyor Belt (Cinta de Producción) states
+  const [selectedHistoriaCinta, setSelectedHistoriaCinta] = useState<
+    any | null
+  >(null);
+  const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
+  const [cintaPipelineConfig, setCintaPipelineConfig] = useState<string[]>([
+    "BD",
+    "Backend",
+    "Frontend",
+    "QA",
+  ]);
+
+  // Reactive query for the active Cinta Task Execution
+  const activeCintaExecution = useLiveQuery(async () => {
+    if (!selectedHistoriaCinta) return undefined;
+    return await db.task_executions.get(`cinta_hu_${selectedHistoriaCinta.id}`);
+  }, [selectedHistoriaCinta]) as any;
+
+  // Focus Mode local input states
+  const [cintaHandoffInput, setCintaHandoffInput] = useState("");
+  const [cintaIterationFeedback, setCintaIterationFeedback] = useState("");
+  const [cintaBugLogs, setCintaBugLogs] = useState("");
+  const [cintaBugExpected, setCintaBugExpected] = useState("");
+  const [cintaBugReal, setCintaBugReal] = useState("");
+  const [isCicdModalOpen, setIsCicdModalOpen] = useState(false);
+
   // Form states for Feature ticket
   const [selectedActividadId, setSelectedActividadId] = useState("");
   const [featureExtraContext, setFeatureExtraContext] = useState("");
@@ -141,11 +167,377 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
         } else {
           setCriterioAceptacion("");
         }
+
+        if (act.rol) {
+          const exists = ROLES.some((r) => r.key === act.rol);
+          if (exists) {
+            setSelectedRole(act.rol);
+          } else {
+            setSelectedRole("custom");
+            setCustomRoleText(act.rol);
+          }
+        }
       }
     } else {
       setCriterioAceptacion("");
     }
   }, [selectedActividadId, tareas]);
+
+  const generarPromptEstacion = (
+    historia: any,
+    estacion: string,
+    execution: any
+  ) => {
+    if (!proyecto) return "";
+
+    const shortId = `hu-${historia.id.split("_").pop() || "hu"}`;
+    const cleanTitle = historia.titulo
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-");
+    const branchName = `feature/mc-${shortId}-${cleanTitle}`;
+
+    let handoffStr = "No hay handoff previo (estación inicial).";
+    if (execution && execution.metadata?.handoffs) {
+      const pipeline = execution.metadata.pipeline || [];
+      const currentIdx = pipeline.indexOf(estacion);
+      if (currentIdx > 0) {
+        const prevStationName = pipeline[currentIdx - 1];
+        const prevHandoff = execution.metadata.handoffs[prevStationName];
+        if (prevHandoff) {
+          handoffStr = JSON.stringify(prevHandoff, null, 2);
+        }
+      }
+    }
+
+    const stationIterations = execution?.metadata?.iterations?.[estacion] || [];
+    let iterationsStr = "";
+    if (stationIterations.length > 0) {
+      iterationsStr =
+        "\n" +
+        stationIterations
+          .map((it: any, idx: number) => {
+            return `[Iteración ${idx + 1} - ${it.fecha}]: ${it.feedback}`;
+          })
+          .join("\n") +
+        "\n";
+    }
+
+    const stationBugs = execution?.metadata?.bugs?.[estacion] || [];
+    let bugsStr = "";
+    const activeBug = stationBugs.find((b: any) => !b.resuelto);
+    if (activeBug) {
+      bugsStr = `\n<reporte_error_bug_activo>
+  - Logs/Error de consola: ${activeBug.logs}
+  - Comportamiento esperado: ${activeBug.comportamientoEsperado}
+  - Comportamiento real: ${activeBug.comportamientoReal}
+  - Rama de depuración: bugfix/mc-bug-${shortId}
+</reporte_error_bug_activo>\n`;
+    }
+
+    let role = "Desarrollador Fullstack Senior";
+    if (estacion === "BD") role = "Arquitecto de Base de Datos Senior";
+    if (estacion === "Backend") role = "Desarrollador Backend Senior";
+    if (estacion === "Frontend")
+      role = "Diseñador UI/UX & Frontend Developer Senior";
+    if (estacion === "QA") role = "Ingeniero QA y Devops Senior";
+
+    let prom = `<role>
+Actúa como un ${role} de nivel Senior.
+Tu objetivo es resolver el ticket de la estación "${estacion}" de manera ejecutiva, escribiendo código limpio, modular y listo para producción sin agregar introducciones, saludos ni disculpas.
+</role>
+
+<ticket_context>
+  - Proyecto: ${proyecto.nombre || "MateCode"}
+  - Historia: ${historia.titulo}
+  - Prioridad: ${historia.prioridad || "Media"}
+  - Estación Actual: ${estacion}
+  - Criterios de Aceptación: ${historia.descripcion || "Ver requerimientos generales."}
+  - Instrucción local: "Consulta los archivos de especificación local en tu repositorio si tienes dudas (CLAUDE.md, SCHEMA.md, DESIGN.md, SITEMAP.md, ROLES.md)."
+</ticket_context>
+
+<handoff_estacion_anterior>
+${handoffStr}
+</handoff_estacion_anterior>
+`;
+
+    if (iterationsStr) {
+      prom += `\n<refinamientos_solicitados>${iterationsStr}</refinamientos_solicitados>\n`;
+    }
+
+    if (bugsStr) {
+      prom += `\n<instrucciones_correccion_error>
+${bugsStr}
+  Analiza la causa raíz del error reportado arriba y proporciona la corrección pertinente asegurando no romper contratos ni firmas previas.
+</instrucciones_correccion_error>\n`;
+    }
+
+    prom += `
+<instrucciones_git>
+  Trabaja y realiza los cambios sobre la rama "${branchName}".
+</instrucciones_git>
+
+<salida_requerida>
+Devuelve el código limpio completo que deba ser creado o modificado.
+Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estructura exacta para realizar el handoff hacia la siguiente estación:
+
+\`\`\`json
+{
+  "handoff": {
+    "archivos_creados_o_modificados": ["lista de archivos modificados"],
+    "firmas_o_contratos_exportados": ["lista de firmas, endpoints o esquemas"],
+    "resumen_tecnico": "breve descripción de las decisiones tomadas en esta estación"
+  }
+}
+\`\`\`
+</salida_requerida>`;
+
+    return prom;
+  };
+
+  const iniciarCintaProduccion = async (historia: any) => {
+    if (!historia) return;
+    const ticketId = `cinta_hu_${historia.id}`;
+
+    try {
+      const existing = await db.task_executions.get(ticketId);
+      if (!existing) {
+        await db.task_executions.put({
+          id: ticketId,
+          proyectoId,
+          templateId: "cinta_produccion_hu",
+          titulo: `HU: ${historia.titulo}`,
+          estado: "IN_PROGRESS",
+          usuarioAsignadoId: ticketMiembro,
+          fechaInicio: Date.now(),
+          metadata: {
+            historiaId: historia.id,
+            sprintId: selectedSprintId,
+            pipeline: cintaPipelineConfig,
+            activeStationIndex: 0,
+            handoffs: {},
+            iterations: {},
+            bugs: {},
+          },
+        });
+      }
+      setSelectedHistoriaCinta(historia);
+      setIsFocusMode(true);
+      mostrarToast(
+        `Cinta de Producción iniciada para "${historia.titulo}"`,
+        "exito"
+      );
+    } catch (err: any) {
+      mostrarToast(`Error al iniciar la cinta: ${err.message}`, "error");
+    }
+  };
+
+  const handleTogglePipelineStation = (station: string) => {
+    setCintaPipelineConfig((prev) => {
+      if (prev.includes(station)) {
+        if (station === "QA") return prev;
+        return prev.filter((s) => s !== station);
+      } else {
+        const order = ["BD", "Backend", "Frontend", "QA"];
+        const next = [...prev, station];
+        return order.filter((s) => next.includes(s));
+      }
+    });
+  };
+
+  const avanzarEstacionCinta = async (
+    estacion: string,
+    handoffJson: string
+  ) => {
+    if (!activeCintaExecution || !selectedHistoriaCinta) return;
+
+    try {
+      let handoffParsed = {};
+      try {
+        let cleanJson = handoffJson.trim();
+        if (cleanJson.includes("```")) {
+          const match = cleanJson.match(/```(?:json)?([\s\S]*?)```/);
+          if (match && match[1]) {
+            cleanJson = match[1].trim();
+          }
+        }
+        const parsed = JSON.parse(cleanJson);
+        handoffParsed = parsed.handoff || parsed;
+      } catch (e: any) {
+        mostrarToast(
+          `JSON de Handoff inválido: ${e.message}. Asegúrate de pegar la estructura requerida.`,
+          "error"
+        );
+        return;
+      }
+
+      const meta = activeCintaExecution.metadata || {};
+      const updatedHandoffs = {
+        ...(meta.handoffs || {}),
+        [estacion]: {
+          ...handoffParsed,
+          fecha: new Date().toLocaleTimeString(),
+        },
+      };
+
+      const pipeline = meta.pipeline || [];
+      const currentIdx = pipeline.indexOf(estacion);
+      const isLast = currentIdx === pipeline.length - 1;
+
+      if (isLast) {
+        await db.transaction(
+          "rw",
+          [db.task_executions, db.historias],
+          async () => {
+            await db.task_executions.update(activeCintaExecution.id, {
+              estado: "COMPLETED",
+              fechaFin: Date.now(),
+              metadata: {
+                ...meta,
+                handoffs: updatedHandoffs,
+              },
+            });
+            await db.historias.update(selectedHistoriaCinta.id, {
+              estado: "done",
+            });
+          }
+        );
+
+        setIsFocusMode(false);
+        setSelectedHistoriaCinta(null);
+        mostrarToast(
+          `¡Historia "${selectedHistoriaCinta.titulo}" completada con éxito en la Cinta!`,
+          "exito"
+        );
+      } else {
+        const nextIdx = currentIdx + 1;
+        await db.task_executions.update(activeCintaExecution.id, {
+          metadata: {
+            ...meta,
+            handoffs: updatedHandoffs,
+            activeStationIndex: nextIdx,
+          },
+        });
+        mostrarToast(
+          `Handoff registrado. Avanzando a la estación: ${pipeline[nextIdx]}`,
+          "exito"
+        );
+      }
+    } catch (err: any) {
+      mostrarToast(`Error al avanzar estación: ${err.message}`, "error");
+    }
+  };
+
+  const registrarIteracionEstacion = async (
+    estacion: string,
+    feedback: string
+  ) => {
+    if (!activeCintaExecution || !selectedHistoriaCinta || !feedback.trim())
+      return;
+
+    try {
+      const meta = activeCintaExecution.metadata || {};
+      const stationIterations = meta.iterations?.[estacion] || [];
+      const versionNumber = `v${stationIterations.length + 1}`;
+
+      const newIteration = {
+        fecha: new Date().toLocaleTimeString(),
+        version: versionNumber,
+        feedback: feedback.trim(),
+        promptGenerado: generarPromptEstacion(
+          selectedHistoriaCinta,
+          estacion,
+          activeCintaExecution
+        ),
+      };
+
+      const updatedIterations = {
+        ...(meta.iterations || {}),
+        [estacion]: [...stationIterations, newIteration],
+      };
+
+      await db.task_executions.update(activeCintaExecution.id, {
+        metadata: {
+          ...meta,
+          iterations: updatedIterations,
+        },
+      });
+
+      mostrarToast(`Iteración ${versionNumber} registrada con éxito.`, "exito");
+    } catch (err: any) {
+      mostrarToast(`Error al guardar iteración: ${err.message}`, "error");
+    }
+  };
+
+  const registrarBugEstacion = async (
+    estacion: string,
+    logs: string,
+    expected: string,
+    real: string
+  ) => {
+    if (!activeCintaExecution || !selectedHistoriaCinta || !logs.trim()) return;
+
+    try {
+      const meta = activeCintaExecution.metadata || {};
+      const stationBugs = meta.bugs?.[estacion] || [];
+
+      const newBug = {
+        fecha: new Date().toLocaleTimeString(),
+        logs: logs.trim(),
+        comportamientoEsperado: expected.trim(),
+        comportamientoReal: real.trim(),
+        resuelto: false,
+        solucionPrompt: "",
+      };
+
+      const updatedBugs = {
+        ...(meta.bugs || {}),
+        [estacion]: [...stationBugs, newBug],
+      };
+
+      await db.task_executions.update(activeCintaExecution.id, {
+        metadata: {
+          ...meta,
+          bugs: updatedBugs,
+        },
+      });
+
+      mostrarToast(
+        "Bug registrado en la estación actual. Usa el prompt de depuración.",
+        "exito"
+      );
+    } catch (err: any) {
+      mostrarToast(`Error al registrar bug: ${err.message}`, "error");
+    }
+  };
+
+  const resolverBugEstacion = async (estacion: string) => {
+    if (!activeCintaExecution) return;
+
+    try {
+      const meta = activeCintaExecution.metadata || {};
+      const stationBugs = meta.bugs?.[estacion] || [];
+      const updatedBugs = stationBugs.map((b: any) => {
+        if (!b.resuelto) {
+          return { ...b, resuelto: true };
+        }
+        return b;
+      });
+
+      await db.task_executions.update(activeCintaExecution.id, {
+        metadata: {
+          ...meta,
+          bugs: {
+            ...(meta.bugs || {}),
+            [estacion]: updatedBugs,
+          },
+        },
+      });
+
+      mostrarToast("Bug marcado como resuelto.", "exito");
+    } catch (err: any) {
+      mostrarToast(`Error al resolver bug: ${err.message}`, "error");
+    }
+  };
 
   const handleSeleccionarSeccion = (val: string) => {
     setSeccionNombre(val);
@@ -479,6 +871,532 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
 
   return (
     <div className="flex flex-col gap-5">
+      {/* Focus Mode Fullscreen Conveyor Belt Viewport */}
+      {isFocusMode &&
+        selectedHistoriaCinta &&
+        activeCintaExecution &&
+        (() => {
+          const meta = activeCintaExecution.metadata || {};
+          const pipeline = meta.pipeline || [];
+          const activeIdx = meta.activeStationIndex || 0;
+          const activeStation = pipeline[activeIdx] || "QA";
+          const shortId = `hu-${selectedHistoriaCinta.id.split("_").pop() || "hu"}`;
+          const cleanTitle = selectedHistoriaCinta.titulo
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-");
+          const branchName = `feature/mc-${shortId}-${cleanTitle}`;
+          const promptMagro = generarPromptEstacion(
+            selectedHistoriaCinta,
+            activeStation,
+            activeCintaExecution
+          );
+
+          // Previous station handoffs list for audit
+          const allHandoffs = Object.entries(meta.handoffs || {}) as Array<
+            [string, any]
+          >;
+          const stationIterations = meta.iterations?.[activeStation] || [];
+          const stationBugs = meta.bugs?.[activeStation] || [];
+          const activeBug = stationBugs.find((b: any) => !b.resuelto);
+
+          return (
+            <div className="animate-in fade-in fixed inset-0 z-50 flex flex-col overflow-y-auto bg-[#0B0F19] p-6 font-mono text-zinc-100 duration-200 select-none">
+              {/* Header Bar */}
+              <div className="mb-5 flex items-center justify-between border-b border-zinc-800 pb-4">
+                <div className="flex items-center gap-3">
+                  <span className="animate-pulse rounded border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold text-emerald-400 uppercase">
+                    CINTA ACTIVA
+                  </span>
+                  <div>
+                    <h2 className="text-sm font-bold text-zinc-200 uppercase">
+                      Cinta: mc-{shortId} — {selectedHistoriaCinta.titulo}
+                    </h2>
+                    <p className="mt-0.5 text-[9px] text-zinc-500">
+                      Rama: {branchName} | Sprint Asignado:{" "}
+                      {focusedSprint?.nombre || "General"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsFocusMode(false)}
+                  className="rounded border border-red-500/20 bg-red-500/10 px-3.5 py-1.5 text-[9px] font-bold text-red-400 uppercase transition-all hover:bg-red-500/20"
+                >
+                  ❌ Salir del Modo Enfoque
+                </button>
+              </div>
+
+              {/* Conveyor Belt Ribbon */}
+              <div className="mb-6 flex items-center justify-center gap-2 rounded-xl border border-zinc-900 bg-zinc-950/40 p-4">
+                {pipeline.map((st: string, idx: number) => {
+                  const isCompleted = idx < activeIdx;
+                  const isActive = idx === activeIdx;
+
+                  let stateClass = "border-zinc-800 bg-zinc-900 text-zinc-500";
+                  if (isActive)
+                    stateClass =
+                      "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 ring-2 ring-emerald-500/10 animate-pulse";
+                  if (isCompleted)
+                    stateClass = "border-sky-500/30 bg-sky-500/10 text-sky-400";
+
+                  return (
+                    <React.Fragment key={st}>
+                      <div
+                        className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-[10px] font-bold uppercase transition-all ${stateClass}`}
+                      >
+                        {isCompleted ? "✓ " : ""}
+                        {st}
+                      </div>
+                      {idx < pipeline.length - 1 && (
+                        <span className="text-zinc-750 text-xs">➔</span>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+
+              {/* Workstation Workspace split */}
+              <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-12">
+                {/* Left Column - Prompt & Handoff workspace */}
+                <div className="flex flex-col gap-4 xl:col-span-7">
+                  {/* Prompt Magro Container */}
+                  <div className="rounded-xl border border-zinc-900 bg-zinc-950/60 p-4">
+                    <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
+                      <div>
+                        <span className="text-[10px] font-bold text-zinc-200 uppercase">
+                          📋 Prompt de la Estación: {activeStation}
+                        </span>
+                        <p className="mt-0.5 text-[8px] text-zinc-500">
+                          XML limpio de handoffs anteriores para alimentar a la
+                          IA
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(promptMagro);
+                          mostrarToast(
+                            `Prompt de la estación ${activeStation} copiado.`,
+                            "exito"
+                          );
+                        }}
+                        className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+                      >
+                        📋 Copiar Prompt
+                      </button>
+                    </div>
+
+                    <textarea
+                      readOnly
+                      value={promptMagro}
+                      rows={12}
+                      className="w-full rounded border border-zinc-900 bg-zinc-900/30 p-3 font-mono text-[10px] text-zinc-400 outline-none"
+                    />
+                  </div>
+
+                  {/* Handoff Submission Box */}
+                  <div className="flex flex-col gap-3 rounded-xl border border-zinc-900 bg-zinc-950/60 p-4">
+                    <div>
+                      <span className="text-[10px] font-bold text-zinc-200 uppercase">
+                        📥 Registrar Handoff & Avanzar
+                      </span>
+                      <p className="mt-0.5 text-[8px] text-zinc-500">
+                        Pega la salida JSON entregada por la IA para pasar el
+                        contexto a la siguiente estación.
+                      </p>
+                    </div>
+
+                    <textarea
+                      value={cintaHandoffInput}
+                      onChange={(e) => setCintaHandoffInput(e.target.value)}
+                      placeholder='Ej: {"handoff": {"archivos_creados_o_modificados": [...], "firmas_o_contratos_exportados": [...], "resumen_tecnico": "..."}}'
+                      rows={4}
+                      className="w-full rounded border border-zinc-900 bg-zinc-900 p-2 font-mono text-[10px] text-zinc-300 outline-none focus:border-emerald-500/40"
+                    />
+
+                    <div className="mt-1 flex items-center justify-between">
+                      <span className="text-[8px] text-zinc-500">
+                        * El JSON guardado se usará para alimentar
+                        automáticamente el prompt de la próxima estación.
+                      </span>
+                      <button
+                        onClick={() => {
+                          avanzarEstacionCinta(
+                            activeStation,
+                            cintaHandoffInput
+                          );
+                          setCintaHandoffInput("");
+                        }}
+                        disabled={!cintaHandoffInput.trim()}
+                        className="rounded bg-emerald-500 px-4 py-2 text-[10px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400 disabled:opacity-40"
+                      >
+                        Sincronizar y Avanzar ➔
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Git Mezcla & Workflow final section rendered in QA */}
+                  {activeStation === "QA" && (
+                    <div className="flex flex-col gap-3 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
+                      <div>
+                        <span className="text-[10px] font-bold text-sky-400 uppercase">
+                          🚀 Git Flow de Cierre & CI/CD
+                        </span>
+                        <p className="text-zinc-550 mt-0.5 text-[8px]">
+                          Comandos sugeridos para mezclar los cambios de
+                          feature/mc-{shortId} en main
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 rounded border border-zinc-900 bg-zinc-950 p-2.5">
+                        <code className="text-zinc-350 text-[9px] break-all select-all">
+                          {`git add . && git commit -m "feat(mc-${shortId}): implementa ${selectedHistoriaCinta.titulo.toLowerCase().replace(/"/g, "")}" && git checkout main && git merge ${branchName} && git push origin main`}
+                        </code>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(
+                              `git add .\ngit commit -m "feat(mc-${shortId}): implementa ${selectedHistoriaCinta.titulo}"\ngit checkout main\ngit merge ${branchName}\ngit push origin main`
+                            );
+                            mostrarToast(
+                              "Comandos Git copiados al portapapeles.",
+                              "exito"
+                            );
+                          }}
+                          className="shrink-0 rounded border border-sky-500/20 bg-sky-500/10 px-2.5 py-1.5 text-[8px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
+                        >
+                          📋 Copiar Git
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={() => setIsCicdModalOpen(true)}
+                        className="w-full rounded border border-sky-500/20 bg-sky-500/10 py-1.5 text-center font-mono text-[9px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
+                      >
+                        🛠️ Configurar GitHub Actions Workflow (CI/CD)
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Column - Audit, Iterations & Bugs */}
+                <div className="flex flex-col gap-4 xl:col-span-5">
+                  {/* Acceptance Criteria */}
+                  <div className="rounded-xl border border-zinc-900 bg-zinc-950/60 p-4">
+                    <span className="text-[9px] font-bold text-zinc-400 uppercase">
+                      🎯 Criterios de Aceptación HU
+                    </span>
+                    <div className="mt-2 max-h-[80px] overflow-y-auto pr-1 text-[10px] leading-relaxed text-zinc-300">
+                      {selectedHistoriaCinta.descripcion ||
+                        "No hay criterios de aceptación detallados cargados."}
+                    </div>
+                  </div>
+
+                  {/* Refinement Iterations Card */}
+                  <div className="flex flex-col gap-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
+                    <span className="text-[10px] font-bold text-sky-400 uppercase">
+                      🔄 Carril de Iteraciones ({stationIterations.length})
+                    </span>
+                    <p className="text-[8px] text-zinc-500">
+                      Registra feedback para que la IA refine o ajuste la
+                      nomenclatura/diseño.
+                    </p>
+
+                    <textarea
+                      value={cintaIterationFeedback}
+                      onChange={(e) =>
+                        setCintaIterationFeedback(e.target.value)
+                      }
+                      placeholder="Describe los ajustes requeridos sobre el código generado..."
+                      rows={2}
+                      className="text-zinc-250 w-full rounded border border-zinc-900 bg-zinc-950 p-2 text-[10px] outline-none focus:border-sky-500/40"
+                    />
+
+                    <div className="mt-1 flex justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          registrarIteracionEstacion(
+                            activeStation,
+                            cintaIterationFeedback
+                          );
+                          setCintaIterationFeedback("");
+                        }}
+                        disabled={!cintaIterationFeedback.trim()}
+                        className="rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-[9px] font-bold text-zinc-300 uppercase transition-all hover:bg-zinc-800 disabled:opacity-40"
+                      >
+                        + Guardar Iteración
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (!cintaIterationFeedback.trim()) {
+                            mostrarToast(
+                              "Escribe tus ajustes primero.",
+                              "error"
+                            );
+                            return;
+                          }
+                          const p = `ROL: Desarrollador Senior\n\nTICKET: mc-${shortId} (${activeStation})\n\nAJUSTES:\n${cintaIterationFeedback.trim()}\n\nAplica los ajustes indicados manteniendo consistencia con el código actual.\nDevuelve el código completo y el bloque JSON de handoff.`;
+                          navigator.clipboard.writeText(p);
+                          mostrarToast(
+                            "Prompt de refinamiento copiado.",
+                            "exito"
+                          );
+                        }}
+                        className="animate-pulse rounded bg-sky-500 px-3 py-1.5 text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-sky-400"
+                      >
+                        Copiar Prompt Refinamiento
+                      </button>
+                    </div>
+
+                    {stationIterations.length > 0 && (
+                      <div className="mt-2 flex max-h-[120px] flex-col gap-1.5 overflow-y-auto border-t border-sky-500/20 pt-2 pr-1">
+                        {stationIterations.map((it: any, idx: number) => (
+                          <div
+                            key={idx}
+                            className="text-zinc-350 rounded border border-zinc-900 bg-zinc-950 p-2 text-[9px]"
+                          >
+                            <span className="font-mono font-bold text-sky-400">
+                              [{it.fecha} - {it.version}]:
+                            </span>{" "}
+                            {it.feedback}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bug Tracking Card */}
+                  <div className="flex flex-col gap-2 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+                    <span className="text-[10px] font-bold text-red-400 uppercase">
+                      🐛 Carril de Errores & Bugs ({stationBugs.length})
+                    </span>
+
+                    {activeBug ? (
+                      <div className="flex flex-col gap-2">
+                        <div className="rounded border border-red-500/10 bg-zinc-950 p-2.5 text-[9px]">
+                          <span className="mb-1 block font-bold text-red-400">
+                            LOGS DEL ERROR:
+                          </span>
+                          <pre className="max-h-[80px] overflow-y-auto font-mono break-all whitespace-pre-wrap text-zinc-400 select-text">
+                            {activeBug.logs}
+                          </pre>
+                          {activeBug.comportamientoEsperado && (
+                            <div className="mt-2 text-zinc-300">
+                              <span className="font-bold text-zinc-500">
+                                Esperado:
+                              </span>{" "}
+                              {activeBug.comportamientoEsperado}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => {
+                              const p = `ROL: Senior Debugger\n\nERROR EN ESTACIÓN: ${activeStation}\n\nLOGS:\n${activeBug.logs}\n\nAnaliza y soluciona el crash de arriba en feature/mc-${shortId}. Asegura no romper contratos previos.\nDevuelve el código completo y el bloque JSON de handoff.`;
+                              navigator.clipboard.writeText(p);
+                              mostrarToast(
+                                "Prompt de depuración de bug copiado.",
+                                "exito"
+                              );
+                            }}
+                            className="animate-pulse rounded bg-red-500 px-3.5 py-1.5 text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-red-400"
+                          >
+                            Copiar Prompt Bug
+                          </button>
+                          <button
+                            onClick={() => resolverBugEstacion(activeStation)}
+                            className="rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-[9px] font-bold text-zinc-300 uppercase transition-all hover:bg-zinc-800"
+                          >
+                            Resolver Bug
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <p className="text-[8px] text-zinc-500">
+                          Si el código generado produce algún crash o error en
+                          terminal, repórtalo aquí.
+                        </p>
+                        <textarea
+                          value={cintaBugLogs}
+                          onChange={(e) => setCintaBugLogs(e.target.value)}
+                          placeholder="Pega aquí el crash stacktrace o logs del error..."
+                          rows={2}
+                          className="w-full rounded border border-zinc-900 bg-zinc-950 p-2 font-mono text-[10px] text-zinc-200 outline-none focus:border-red-500/40"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            value={cintaBugExpected}
+                            onChange={(e) =>
+                              setCintaBugExpected(e.target.value)
+                            }
+                            placeholder="Esperado..."
+                            className="rounded border border-zinc-900 bg-zinc-950 p-1.5 text-[9px] text-zinc-200 outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={cintaBugReal}
+                            onChange={(e) => setCintaBugReal(e.target.value)}
+                            placeholder="Obtenido..."
+                            className="rounded border border-zinc-900 bg-zinc-950 p-1.5 text-[9px] text-zinc-200 outline-none"
+                          />
+                        </div>
+                        <button
+                          onClick={() => {
+                            registrarBugEstacion(
+                              activeStation,
+                              cintaBugLogs,
+                              cintaBugExpected,
+                              cintaBugReal
+                            );
+                            setCintaBugLogs("");
+                            setCintaBugExpected("");
+                            setCintaBugReal("");
+                          }}
+                          disabled={!cintaBugLogs.trim()}
+                          className="self-end rounded border border-red-500/20 bg-red-500/10 px-3.5 py-1.5 text-[9px] font-bold text-red-400 uppercase transition-all hover:bg-red-500/20 disabled:opacity-40"
+                        >
+                          Reportar Bug
+                        </button>
+                      </div>
+                    )}
+
+                    {stationBugs.length > 0 && (
+                      <div className="mt-1.5 flex max-h-[100px] flex-col gap-1 overflow-y-auto border-t border-red-500/10 pt-2 pr-1">
+                        {stationBugs.map((b: any, idx: number) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between rounded border border-zinc-900 bg-zinc-950 p-1.5 text-[8px] text-zinc-400"
+                          >
+                            <span className="max-w-[280px] truncate">
+                              [{b.fecha}] {b.logs}
+                            </span>
+                            <span
+                              className={`rounded px-1 text-[7px] font-bold ${b.resuelto ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-400" : "border border-red-500/20 bg-red-500/10 text-red-400"}`}
+                            >
+                              {b.resuelto ? "Resuelto" : "Activo"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Handoffs Audit Logs */}
+                  <div className="rounded-xl border border-zinc-900 bg-zinc-950/60 p-4">
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase">
+                      📂 Historial de Handoffs ({allHandoffs.length})
+                    </span>
+
+                    {allHandoffs.length === 0 ? (
+                      <p className="text-zinc-550 mt-2 text-[8px]">
+                        Aún no se han completado estaciones en esta cinta.
+                      </p>
+                    ) : (
+                      <div className="mt-2.5 flex max-h-[180px] flex-col gap-2 overflow-y-auto pr-1">
+                        {allHandoffs.map(
+                          ([stationName, data]: [string, any]) => (
+                            <div
+                              key={stationName}
+                              className="flex flex-col gap-1 rounded border border-zinc-900 bg-zinc-900/40 p-2.5 text-[9px]"
+                            >
+                              <div className="flex items-center justify-between text-[8px]">
+                                <span className="font-bold text-sky-400 uppercase">
+                                  Estación: {stationName}
+                                </span>
+                                <span className="text-zinc-500">
+                                  [{data.fecha || "Completada"}]
+                                </span>
+                              </div>
+                              {data.archivos_creados_o_modificados && (
+                                <div className="mt-1 text-[8px] text-zinc-400">
+                                  📁 <b>Archivos:</b>{" "}
+                                  {data.archivos_creados_o_modificados.join(
+                                    ", "
+                                  )}
+                                </div>
+                              )}
+                              {data.resumen_tecnico && (
+                                <div className="mt-0.5 text-[8px] text-zinc-300 italic">
+                                  📝 <b>Notas:</b> {data.resumen_tecnico}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* GitHub Actions CI/CD Assistant Modal */}
+              {isCicdModalOpen && (
+                <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm duration-200">
+                  <div className="w-[550px] rounded-xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
+                    <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-3">
+                      <span className="font-mono text-xs font-bold text-sky-400 uppercase">
+                        🛠️ Configurar GitHub Actions Workflow
+                      </span>
+                      <button
+                        onClick={() => setIsCicdModalOpen(false)}
+                        className="text-zinc-550 hover:text-zinc-350 font-mono text-[9px] uppercase"
+                      >
+                        Cerrar
+                      </button>
+                    </div>
+
+                    <div className="flex flex-col gap-3">
+                      <p className="text-[9px] leading-relaxed text-zinc-400">
+                        Copia el prompt estructurado de abajo y pásaselo a
+                        Claude para generar el archivo de integración continua
+                        `.github/workflows/ci.yml`.
+                      </p>
+
+                      <textarea
+                        readOnly
+                        value={`Actúa como un DevOps Engineer Senior. Necesito configurar un workflow de GitHub Actions para el proyecto Next.js en la ruta de trabajo.
+Crea el archivo \`.github/workflows/ci.yml\` con las siguientes especificaciones:
+- Se debe disparar en cada push o pull_request hacia la rama 'main'.
+- Debe instalar dependencias de forma eficiente usando caché.
+- Debe ejecutar estrictamente las tareas de verificación:
+  1. Linter (\`npm run lint\` o \`npx eslint .\`)
+  2. Type checking (\`npx tsc --noEmit\`)
+  3. Pruebas (\`npm run test\` si existen)
+
+Devuelve el YAML completo optimizado y limpio sin explicaciones introductorias.`}
+                        rows={8}
+                        className="w-full rounded border border-zinc-900 bg-zinc-900/50 p-2.5 font-mono text-[9px] text-zinc-400 outline-none"
+                      />
+
+                      <button
+                        onClick={() => {
+                          const p = `Actúa como un DevOps Engineer Senior. Necesito configurar un workflow de GitHub Actions para el proyecto Next.js en la ruta de trabajo.
+Crea el archivo \`.github/workflows/ci.yml\` con las siguientes especificaciones:
+- Se debe disparar en cada push o pull_request hacia la rama 'main'.
+- Debe instalar dependencias de forma eficiente usando caché.
+- Debe ejecutar estrictamente las tareas de verificación:
+  1. Linter (\`npm run lint\` o \`npx eslint .\`)
+  2. Type checking (\`npx tsc --noEmit\`)
+  3. Pruebas (\`npm run test\` si existen)
+
+Devuelve el YAML completo optimizado y limpio sin explicaciones introductorias.`;
+                          navigator.clipboard.writeText(p);
+                          mostrarToast(
+                            "Prompt de CI/CD copiado al portapapeles.",
+                            "exito"
+                          );
+                        }}
+                        className="w-full rounded bg-sky-500 py-2 text-center text-[10px] font-bold text-zinc-950 uppercase hover:bg-sky-400"
+                      >
+                        📋 Copiar Prompt de CI/CD
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
       {/* Header bar with controls */}
       <div className="flex items-center justify-between border-b border-[#2A2A2E] pb-3">
         <div>
@@ -635,11 +1553,11 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
                     Visualiza y enfoca el desarrollo en un sprint de trabajo
                   </p>
                 </div>
-                <div className="flex shrink-0 gap-2">
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
                   <select
                     value={selectedSprintId}
                     onChange={(e) => setSelectedSprintId(e.target.value)}
-                    className="border-zinc-850 max-w-[280px] truncate rounded border bg-zinc-900 px-2.5 py-1 font-mono text-[10px] text-zinc-200 outline-none"
+                    className="max-w-[320px] rounded border-zinc-800 bg-zinc-900 px-2.5 py-1.5 font-mono text-[10px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500"
                   >
                     <option value="">Selecciona sprint...</option>
                     {sprints.map((s) => (
@@ -735,11 +1653,88 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
                                 subTareas.map((t) => (
                                   <div
                                     key={t.id}
-                                    className="hover:border-zinc-850 flex items-center justify-between rounded border border-zinc-900/40 bg-zinc-950/40 p-2"
+                                    className={`flex items-center justify-between gap-4 rounded border p-2 transition-all hover:border-zinc-800 ${
+                                      selectedActividadId === t.id
+                                        ? "border-emerald-500/40 bg-emerald-500/10"
+                                        : "border-zinc-900/40 bg-zinc-950/40"
+                                    }`}
                                   >
-                                    <span className="font-mono text-[10px] text-zinc-300">
-                                      {t.titulo}
-                                    </span>
+                                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="truncate font-mono text-[10px] font-bold text-zinc-200">
+                                          {t.titulo}
+                                        </span>
+                                        {Array.isArray((t as any).etiquetas) &&
+                                          (t as any).etiquetas.length > 0 && (
+                                            <div className="flex flex-wrap gap-1">
+                                              {(t as any).etiquetas.map(
+                                                (tag: string) => {
+                                                  let colorClass =
+                                                    "bg-zinc-850 text-zinc-400 border-zinc-800";
+                                                  if (
+                                                    tag.toUpperCase() ===
+                                                    "FRONTEND"
+                                                  )
+                                                    colorClass =
+                                                      "bg-sky-500/10 text-sky-400 border-sky-500/20";
+                                                  if (
+                                                    tag.toUpperCase() ===
+                                                    "BACKEND"
+                                                  )
+                                                    colorClass =
+                                                      "bg-amber-500/10 text-amber-400 border-amber-500/20";
+                                                  if (
+                                                    tag.toUpperCase() ===
+                                                      "BD" ||
+                                                    tag.toUpperCase() ===
+                                                      "DATABASE"
+                                                  )
+                                                    colorClass =
+                                                      "bg-purple-500/10 text-purple-400 border-purple-500/20";
+                                                  if (
+                                                    tag.toUpperCase() ===
+                                                    "TESTING"
+                                                  )
+                                                    colorClass =
+                                                      "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+                                                  return (
+                                                    <span
+                                                      key={tag}
+                                                      className={`py-0.2 rounded border px-1 font-mono text-[6px] font-bold uppercase ${colorClass}`}
+                                                    >
+                                                      {tag}
+                                                    </span>
+                                                  );
+                                                }
+                                              )}
+                                            </div>
+                                          )}
+                                      </div>
+                                      {((t as any).rol ||
+                                        (t as any).componente ||
+                                        (t as any).modulo) && (
+                                        <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[8px] text-zinc-500">
+                                          {(t as any).modulo && (
+                                            <span>📦 {(t as any).modulo}</span>
+                                          )}
+                                          {(t as any).rol && (
+                                            <span>👤 {(t as any).rol}</span>
+                                          )}
+                                          {(t as any).componente && (
+                                            <span>
+                                              📄 {(t as any).componente}
+                                            </span>
+                                          )}
+                                          {(t as any).pasos &&
+                                            (t as any).pasos.length > 0 && (
+                                              <span>
+                                                📋 {(t as any).pasos.length}{" "}
+                                                pasos
+                                              </span>
+                                            )}
+                                        </div>
+                                      )}
+                                    </div>
                                     <div className="flex items-center gap-2">
                                       <select
                                         value={t.estado || "todo"}
@@ -769,6 +1764,41 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
                                   </div>
                                 ))
                               )}
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-900/50 pt-2.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono text-[8px] text-zinc-500 uppercase">
+                                  Pipeline:
+                                </span>
+                                {["BD", "Backend", "Frontend", "QA"].map(
+                                  (st) => {
+                                    const isActive =
+                                      cintaPipelineConfig.includes(st);
+                                    return (
+                                      <button
+                                        key={st}
+                                        onClick={() =>
+                                          handleTogglePipelineStation(st)
+                                        }
+                                        className={`rounded border px-1.5 py-0.5 font-mono text-[7px] font-bold transition-all ${
+                                          isActive
+                                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                                            : "text-zinc-550 border-zinc-800 bg-zinc-900"
+                                        }`}
+                                      >
+                                        {st}
+                                      </button>
+                                    );
+                                  }
+                                )}
+                              </div>
+                              <button
+                                onClick={() => iniciarCintaProduccion(hist)}
+                                className="flex items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 font-mono text-[8px] font-bold text-emerald-400 uppercase shadow-sm transition-all hover:border-emerald-500/40 hover:bg-emerald-500/20"
+                              >
+                                ⚙️ Cinta de Producción
+                              </button>
                             </div>
                           </div>
                         );
@@ -1074,7 +2104,6 @@ const TicketCardItem: React.FC<TicketCardItemProps> = ({
         ? stackList.join(", ")
         : "Next.js (App Router), Tailwind CSS, React, TypeScript";
 
-    const estList: string[] = [];
     let estBlocks = "";
     if (proyecto?.estandares && Object.keys(proyecto.estandares).length > 0) {
       Object.entries(proyecto.estandares).forEach(([cat, techs]) => {
