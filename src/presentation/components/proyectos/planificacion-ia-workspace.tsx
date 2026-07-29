@@ -99,6 +99,13 @@ INSTRUCCIONES DE DISEÑO:
 6. Escribe únicamente la documentación en Markdown sin códigos externos ni introducciones.`;
 
 const PROMPT_BACKLOG = `Eres un Product Owner y Scrum Master. Debes transformar los requerimientos y entidades del proyecto en un plan de backlog detallado de Épicas, Historias de Usuario y Actividades.
+Es crítico que la arquitectura y descomposición de tareas siga estrictamente los estándares y stack del proyecto elegidos para garantizar consistencia.
+
+STACK DEL PROYECTO:
+- Stack: {{stack_summary}}
+
+ESTÁNDARES DE INGENIERÍA:
+- Estándares: {{estandares_summary}}
 
 REQUISITOS DEL PROYECTO:
 ---
@@ -137,6 +144,13 @@ FORMATO JSON ESPERADO:
 \`\`\``;
 
 const PROMPT_SPRINTS = `Eres un Scrum Master Senior. A partir del backlog del proyecto y la lista de Épicas/Historias/Actividades, debes organizar el trabajo en sprints de manera lógica y coherente.
+Es obligatorio que la organización en sprints respete estrictamente los estándares y la arquitectura elegida para el desarrollo.
+
+STACK DEL PROYECTO:
+- Stack: {{stack_summary}}
+
+ESTÁNDARES DE INGENIERÍA:
+- Estándares: {{estandares_summary}}
 
 BACKLOG DE HISTORIAS DEL PROYECTO:
 ---
@@ -176,6 +190,137 @@ Proporciona paso a paso las instrucciones del setup:
 2. Comandos de instalación de dependencias del stack.
 3. Configuración inicial de herramientas de desarrollo (ESLint, Prettier, TypeScript, Dockerfiles).
 4. Estructura de carpetas inicial.`;
+
+const PROMPT_MODULAR_EPICAS = `Eres un Product Owner Senior. Tu objetivo es analizar los requisitos funcionales, no funcionales y el modelo de base de datos para generar las Épicas del backlog del proyecto.
+Es crítico que la arquitectura sugerida siga estrictamente los estándares y stack del proyecto definidos a continuación para garantizar consistencia.
+
+STACK DEL PROYECTO:
+- Stack: {{stack_summary}}
+
+ESTÁNDARES DE INGENIERÍA:
+- Estándares: {{estandares_summary}}
+
+REQUISITOS DEL PROYECTO:
+---
+{{requisitos}}
+---
+
+ENTIDADES DE BASE DE DATOS:
+---
+{{entidades}}
+---
+
+INSTRUCCIONES DE RESPUESTA:
+Devuelve un JSON estrictamente estructurado según el siguiente formato, sin explicaciones ni markdown decorativo.
+
+FORMATO JSON ESPERADO:
+\`\`\`json
+[
+  {
+    "nombre": "Épica 1: Nombre descriptivo",
+    "descripcion": "Descripción detallada del alcance de la épica"
+  }
+]
+\`\`\``;
+
+const PROMPT_MODULAR_HISTORIAS = `Eres un Product Owner Senior. Tu objetivo es detallar las Historias de Usuario para cada una de las Épicas ya creadas en el proyecto.
+Es obligatorio que todas las historias de usuario sigan los estándares y stack definidos.
+
+STACK DEL PROYECTO:
+- Stack: {{stack_summary}}
+
+ESTÁNDARES DE INGENIERÍA:
+- Estándares: {{estandares_summary}}
+
+REQUISITOS DEL PROYECTO:
+---
+{{requisitos}}
+---
+
+ÉPICAS DISPONIBLES EN EL SISTEMA:
+{{epicas_list}}
+
+INSTRUCCIONES DE RESPUESTA:
+Devuelve un JSON estrictamente estructurado según el siguiente formato. Asegúrate de asociar cada historia a su épica correspondiente mediante "epicNombre".
+
+FORMATO JSON ESPERADO:
+\`\`\`json
+[
+  {
+    "epicNombre": "Nombre exacto de la Épica de la lista",
+    "titulo": "Título corto y claro de la Historia",
+    "descripcion": "Como [rol] quiero [acción] para [beneficio]",
+    "prioridad": "Alta" | "Media" | "Baja",
+    "estimacion": 3
+  }
+]
+\`\`\``;
+
+const PROMPT_MODULAR_ACTIVIDADES = `Eres un Tech Lead Senior. Tu objetivo es descomponer las Historias de Usuario en Actividades/Tareas Técnicas concretas listas para ser implementadas por los desarrolladores.
+Sigue estrictamente el stack de tecnología y estándares definidos.
+
+STACK DEL PROYECTO:
+- Stack: {{stack_summary}}
+
+ESTÁNDARES DE INGENIERÍA:
+- Estándares: {{estandares_summary}}
+
+HISTORIAS DE USUARIO DISPONIBLES EN EL SISTEMA:
+{{historias_list}}
+
+INSTRUCCIONES DE RESPUESTA:
+Devuelve un JSON estrictamente estructurado según el siguiente formato. Asocia cada actividad técnica a su historia correspondiente mediante "storyTitulo".
+
+FORMATO JSON ESPERADO:
+\`\`\`json
+[
+  {
+    "storyTitulo": "Título exacto de la Historia de la lista",
+    "titulo": "Título de la Actividad Técnica (ej: Crear vista de Login, Configurar RLS de Tabla)",
+    "descripcion": "Indicaciones técnicas claras de lo que debe resolver esta actividad"
+  }
+]
+\`\`\``;
+
+const PROMPT_CONFIG_ACTIVIDADES = `Eres un Arquitecto y Tech Lead Senior. Tu objetivo es elaborar la especificación de desarrollo técnico y los pasos de ejecución para cada una de las actividades técnicas del backlog.
+Toda la arquitectura, nombres de componentes, rutas e instrucciones de código deben respetar estrictamente los estándares y el stack tecnológico especificados para garantizar consistencia.
+
+STACK DEL PROYECTO:
+- Stack: {{stack_summary}}
+
+ESTÁNDARES DE INGENIERÍA:
+- Estándares: {{estandares_summary}}
+
+ACTIVIDADES TÉCNICAS DISPONIBLES EN EL BACKLOG:
+{{actividades_list}}
+
+INSTRUCCIONES DE RESPUESTA:
+Devuelve un JSON estructurado como un array que contenga un objeto para cada actividad técnica de la lista. Cada objeto debe definir:
+- "actividadTitulo": El título exacto de la actividad técnica de la lista.
+- "rol": El rol senior recomendado para resolver esta tarea (ej: "Senior Frontend Developer (Next.js)", "Senior Database Architect (Supabase)", etc.).
+- "componente": El nombre exacto del archivo/componente principal a crear o modificar (ej: "auth-modal.tsx", "use-auth.ts").
+- "ruta": La ruta de carpetas sugerida dentro de la estructura estándar (ej: "src/presentation/components/auth/", "src/application/hooks/").
+- "modulo": El módulo de negocio al que pertenece (ej: "Autenticación", "Ventas", "Dashboard").
+- "pasos": Un array conteniendo entre 3 y 6 pasos ordenados que debe seguir la IA para implementar la tarea. Deben ser pasos concretos que terminen con verificación.
+
+FORMATO JSON ESPERADO:
+\`\`\`json
+[
+  {
+    "actividadTitulo": "Título exacto de la actividad técnica",
+    "rol": "Senior Fullstack Developer (React/Next.js)",
+    "componente": "login-form.tsx",
+    "ruta": "src/presentation/components/auth/",
+    "modulo": "Autenticación",
+    "pasos": [
+      "Paso 1: Crear la estructura del componente de formulario usando React",
+      "Paso 2: Integrar la validación del esquema de email y password",
+      "Paso 3: Conectar el flujo con la API de autenticación y manejar estados",
+      "Paso 4: Realizar la verificación manual o tests unitarios del login"
+    ]
+  }
+]
+\`\`\``;
 
 export const PlanificacionIAWorkspace: React.FC<
   PlanificacionIAWorkspaceProps
@@ -224,10 +369,64 @@ export const PlanificacionIAWorkspace: React.FC<
     SeccionLandingSitemap[]
   >([]);
 
+  // Real-time DB counts for progress indication
+  const epicasCount =
+    useLiveQuery(
+      () => db.epicas.where("proyectoId").equals(proyectoId).count(),
+      [proyectoId]
+    ) || 0;
+  const historiasCount =
+    useLiveQuery(
+      () => db.historias.where("proyectoId").equals(proyectoId).count(),
+      [proyectoId]
+    ) || 0;
+  const tareasCount =
+    useLiveQuery(
+      () => db.tareas.where("proyectoId").equals(proyectoId).count(),
+      [proyectoId]
+    ) || 0;
+  const sprintsCount =
+    useLiveQuery(
+      () => db.sprints.where("proyectoId").equals(proyectoId).count(),
+      [proyectoId]
+    ) || 0;
+
+  // Count criteria configured
+  const criteriosCount =
+    useLiveQuery(async () => {
+      const items = await db.tareas
+        .where("proyectoId")
+        .equals(proyectoId)
+        .toArray();
+      return items.filter(
+        (t: any) =>
+          t.criterioAceptacion && t.criterioAceptacion.trim().length > 0
+      ).length;
+    }, [proyectoId]) || 0;
+
+  // Count tech configs configured (where custom steps, rol, or path is configured)
+  const configCount =
+    useLiveQuery(async () => {
+      const items = await db.tareas
+        .where("proyectoId")
+        .equals(proyectoId)
+        .toArray();
+      return items.filter(
+        (t) => (t as any).pasos && (t as any).pasos.length > 0
+      ).length;
+    }, [proyectoId]) || 0;
+
   // JSON input state for imports
   const [backlogJson, setBacklogJson] = useState("");
   const [sprintsJson, setSprintsJson] = useState("");
   const [criteriosJson, setCriteriosJson] = useState("");
+  const [epicasJson, setEpicasJson] = useState("");
+  const [historiasJson, setHistoriasJson] = useState("");
+  const [actividadesJson, setActividadesJson] = useState("");
+  const [configJson, setConfigJson] = useState("");
+  const [tipoImportacion, setTipoImportacion] = useState<
+    "unificada" | "modular"
+  >("modular");
 
   useEffect(() => {
     if (contexto) {
@@ -479,10 +678,10 @@ export const PlanificacionIAWorkspace: React.FC<
 
   const copiarPromptBacklog = () => {
     const reqText = `Requisitos Funcionales:\n${requisitosFuncionales}\n\nRequisitos No Funcionales:\n${requisitosNoFuncionales}\n\nSitemap:\n${sitemap}`;
-    const prompt = PROMPT_BACKLOG.replace("{{requisitos}}", reqText).replace(
-      "{{entidades}}",
-      entidades || "No configurado."
-    );
+    const prompt = PROMPT_BACKLOG.replace("{{requisitos}}", reqText)
+      .replace("{{entidades}}", entidades || "No configurado.")
+      .replace("{{stack_summary}}", compileStackSummary())
+      .replace("{{estandares_summary}}", compileStandardsSummary());
 
     navigator.clipboard.writeText(prompt);
     mostrarToast("Prompt de Backlog copiado al portapapeles.", "exito");
@@ -503,7 +702,9 @@ export const PlanificacionIAWorkspace: React.FC<
     const prompt = PROMPT_SPRINTS.replace(
       "{{backlog_stories}}",
       list || "No hay historias registradas aún."
-    );
+    )
+      .replace("{{stack_summary}}", compileStackSummary())
+      .replace("{{estandares_summary}}", compileStandardsSummary());
 
     navigator.clipboard.writeText(prompt);
     mostrarToast("Prompt de Planificación de Sprints copiado.", "exito");
@@ -519,7 +720,298 @@ export const PlanificacionIAWorkspace: React.FC<
     mostrarToast("Prompt de Setup Inicializador copiado.", "exito");
   };
 
-  const generarClaudeMd = () => {
+  const copiarPromptEpicasModulares = () => {
+    const reqText = `Requisitos Funcionales:\n${requisitosFuncionales}\n\nRequisitos No Funcionales:\n${requisitosNoFuncionales}\n\nSitemap:\n${sitemap}`;
+    const prompt = PROMPT_MODULAR_EPICAS.replace("{{requisitos}}", reqText)
+      .replace("{{entidades}}", entidades || "No configurado.")
+      .replace("{{stack_summary}}", compileStackSummary())
+      .replace("{{estandares_summary}}", compileStandardsSummary());
+
+    navigator.clipboard.writeText(prompt);
+    mostrarToast("Prompt de Épicas Modulares copiado.", "exito");
+  };
+
+  const handleImportarEpicasModulares = async () => {
+    if (!epicasJson.trim()) {
+      mostrarToast("Pega el JSON de épicas primero.", "error");
+      return;
+    }
+    try {
+      const parsed = JSON.parse(epicasJson);
+      if (!Array.isArray(parsed)) {
+        throw new Error("El JSON debe ser un arreglo de Épicas.");
+      }
+      for (const item of parsed) {
+        await db.epicas.add({
+          id: `epic_${Math.random()}`,
+          proyectoId,
+          nombre: item.nombre,
+          descripcion: item.descripcion,
+        });
+      }
+      setEpicasJson("");
+      mostrarToast(`¡${parsed.length} Épicas importadas con éxito!`, "exito");
+    } catch (err: any) {
+      mostrarToast(`Error al importar: ${err.message}`, "error");
+    }
+  };
+
+  const copiarPromptHistoriasModulares = async () => {
+    const epicas = await db.epicas
+      .where("proyectoId")
+      .equals(proyectoId)
+      .toArray();
+    const epicasList = epicas
+      .map((e) => `- ${e.nombre} (${e.descripcion})`)
+      .join("\n");
+
+    const reqText = `Requisitos Funcionales:\n${requisitosFuncionales}\n\nRequisitos No Funcionales:\n${requisitosNoFuncionales}`;
+    const prompt = PROMPT_MODULAR_HISTORIAS.replace("{{requisitos}}", reqText)
+      .replace("{{epicas_list}}", epicasList || "Ninguna épica cargada aún.")
+      .replace("{{stack_summary}}", compileStackSummary())
+      .replace("{{estandares_summary}}", compileStandardsSummary());
+
+    navigator.clipboard.writeText(prompt);
+    mostrarToast("Prompt de Historias Modulares copiado.", "exito");
+  };
+
+  const handleImportarHistoriasModulares = async () => {
+    if (!historiasJson.trim()) {
+      mostrarToast("Pega el JSON de historias primero.", "error");
+      return;
+    }
+    try {
+      const parsed = JSON.parse(historiasJson);
+      if (!Array.isArray(parsed)) {
+        throw new Error("El JSON debe ser un arreglo de historias.");
+      }
+      const epicas = await db.epicas
+        .where("proyectoId")
+        .equals(proyectoId)
+        .toArray();
+      let importedCount = 0;
+      for (const item of parsed) {
+        const matched = epicas.find(
+          (e: any) =>
+            e.nombre.toLowerCase().trim() ===
+            item.epicNombre.toLowerCase().trim()
+        );
+        if (matched) {
+          await db.historias.add({
+            id: `story_${Math.random()}`,
+            proyectoId,
+            epicaId: (matched as any).id,
+            titulo: item.titulo,
+            descripcion: item.descripcion,
+            prioridad: item.prioridad || "Media",
+            estimacion: item.estimacion || 3,
+            estado: "todo",
+          });
+          importedCount++;
+        }
+      }
+      setHistoriasJson("");
+      mostrarToast(
+        `¡${importedCount} de ${parsed.length} Historias importadas con éxito!`,
+        "exito"
+      );
+    } catch (err: any) {
+      mostrarToast(`Error al importar: ${err.message}`, "error");
+    }
+  };
+
+  const copiarPromptActividadesModulares = async () => {
+    const stories = await db.historias
+      .where("proyectoId")
+      .equals(proyectoId)
+      .toArray();
+    const storiesList = stories
+      .map((s) => `- ${s.titulo} (${s.descripcion})`)
+      .join("\n");
+
+    const prompt = PROMPT_MODULAR_ACTIVIDADES.replace(
+      "{{historias_list}}",
+      storiesList || "Ninguna historia cargada aún."
+    )
+      .replace("{{stack_summary}}", compileStackSummary())
+      .replace("{{estandares_summary}}", compileStandardsSummary());
+
+    navigator.clipboard.writeText(prompt);
+    mostrarToast("Prompt de Actividades Modulares copiado.", "exito");
+  };
+
+  const handleImportarActividadesModulares = async () => {
+    if (!actividadesJson.trim()) {
+      mostrarToast("Pega el JSON de actividades primero.", "error");
+      return;
+    }
+    try {
+      const parsed = JSON.parse(actividadesJson);
+      if (!Array.isArray(parsed)) {
+        throw new Error("El JSON debe ser un arreglo de actividades.");
+      }
+      const stories = await db.historias
+        .where("proyectoId")
+        .equals(proyectoId)
+        .toArray();
+      let importedCount = 0;
+      for (const item of parsed) {
+        const matched = stories.find(
+          (s: any) =>
+            s.titulo.toLowerCase().trim() ===
+            item.storyTitulo.toLowerCase().trim()
+        );
+        if (matched) {
+          await db.tareas.add({
+            id: `tar_${Math.random()}`,
+            proyectoId,
+            historiaId: (matched as any).id,
+            titulo: item.titulo,
+            estado: "todo",
+          });
+          importedCount++;
+        }
+      }
+      setActividadesJson("");
+      mostrarToast(
+        `¡${importedCount} de ${parsed.length} Actividades importadas con éxito!`,
+        "exito"
+      );
+    } catch (err: any) {
+      mostrarToast(`Error al importar: ${err.message}`, "error");
+    }
+  };
+
+  const copiarPromptConfigActividades = async () => {
+    const tasks = await db.tareas
+      .where("proyectoId")
+      .equals(proyectoId)
+      .toArray();
+    const tasksList = tasks.map((t) => `- ${(t as any).titulo}`).join("\n");
+
+    const prompt = PROMPT_CONFIG_ACTIVIDADES.replace(
+      "{{actividades_list}}",
+      tasksList || "Ninguna actividad cargada aún."
+    )
+      .replace("{{stack_summary}}", compileStackSummary())
+      .replace("{{estandares_summary}}", compileStandardsSummary());
+
+    navigator.clipboard.writeText(prompt);
+    mostrarToast("Prompt de Configuración de Actividades copiado.", "exito");
+  };
+
+  const handleImportarConfigActividades = async () => {
+    if (!configJson.trim()) {
+      mostrarToast("Pega el JSON de configuración primero.", "error");
+      return;
+    }
+    try {
+      const parsed = JSON.parse(configJson);
+      if (!Array.isArray(parsed)) {
+        throw new Error("El JSON debe ser un arreglo de configuraciones.");
+      }
+      const tasks = await db.tareas
+        .where("proyectoId")
+        .equals(proyectoId)
+        .toArray();
+      let updatedCount = 0;
+      for (const item of parsed) {
+        const matched = tasks.find(
+          (t: any) =>
+            t.titulo.toLowerCase().trim() ===
+            item.actividadTitulo.toLowerCase().trim()
+        );
+        if (matched) {
+          await db.tareas.update((matched as any).id as string, {
+            rol: item.rol,
+            componente: item.componente,
+            ruta: item.ruta,
+            modulo: item.modulo,
+            pasos: item.pasos || [],
+          });
+          updatedCount++;
+        }
+      }
+      setConfigJson("");
+      mostrarToast(
+        `¡${updatedCount} Actividades configuradas técnicamente con éxito!`,
+        "exito"
+      );
+    } catch (err: any) {
+      mostrarToast(`Error al importar: ${err.message}`, "error");
+    }
+  };
+
+  const comprimirEsquema = (rawEntidades: string): string => {
+    if (!rawEntidades) return "No especificado.";
+    if (rawEntidades.includes("- Tabla ") || rawEntidades.includes("- Table "))
+      return rawEntidades;
+
+    const lines = rawEntidades.split("\n");
+    const tables: { name: string; columns: string[] }[] = [];
+    let currentTable: { name: string; columns: string[] } | null = null;
+
+    for (let line of lines) {
+      line = line.trim();
+      if (!line) continue;
+
+      const createTableMatch = line.match(
+        /CREATE\s+TABLE\s+(?:public\.)?([a-zA-Z0-9_"]+)/i
+      );
+      const tableHeaderMatch = line.match(
+        /(?:^#+\s+|^Table\s+)([a-zA-Z0-9_"]+)/i
+      );
+
+      if (createTableMatch || tableHeaderMatch) {
+        if (currentTable) tables.push(currentTable);
+        const tableName = (
+          createTableMatch ? createTableMatch[1] : tableHeaderMatch![1]
+        ).replace(/"/g, "");
+        currentTable = { name: tableName, columns: [] };
+      } else if (currentTable) {
+        if (line === ");" || line === ")") {
+          tables.push(currentTable);
+          currentTable = null;
+          continue;
+        }
+        if (
+          line.toUpperCase().startsWith("CONSTRAINT") ||
+          line.toUpperCase().startsWith("PRIMARY KEY") ||
+          line.toUpperCase().startsWith("FOREIGN KEY") ||
+          line.startsWith("--")
+        ) {
+          continue;
+        }
+        const colMatch = line.match(/^([a-zA-Z0-9_"]+)\s+([a-zA-Z0-9_()[\]]+)/);
+        if (colMatch) {
+          currentTable.columns.push(
+            `${colMatch[1].replace(/"/g, "")} (${colMatch[2].toLowerCase()})`
+          );
+        } else {
+          const mdMatch = line.match(
+            /^[-*+]\s+([a-zA-Z0-9_]+)(?:\s*[:(]\s*([a-zA-Z0-9_]+))?/
+          );
+          if (mdMatch) {
+            currentTable.columns.push(
+              `${mdMatch[1]} (${mdMatch[2] ? mdMatch[2].toLowerCase() : "any"})`
+            );
+          }
+        }
+      }
+    }
+    if (currentTable) tables.push(currentTable);
+    if (tables.length === 0)
+      return (
+        rawEntidades.split("\n").slice(0, 30).join("\n") +
+        "\n... (esquema simplificado)"
+      );
+
+    return tables
+      .map((t) => `- Tabla ${t.name}: ${t.columns.join(", ")}`)
+      .join("\n");
+  };
+
+  const generarClaudeMd = (incluirEsquemaCompleto = true) => {
     if (!proyecto) return "";
 
     // Formatear Stack
@@ -544,14 +1036,9 @@ export const PlanificacionIAWorkspace: React.FC<
     }
     if (!estandaresStr) estandaresStr = "- No configurados.";
 
-    // Obtener esquema base (máximo 100 líneas para no romper el límite de longitud)
-    let schemaStr = entidades ? entidades.trim() : "No especificado.";
-    const schemaLines = schemaStr.split("\n");
-    if (schemaLines.length > 100) {
-      schemaStr =
-        schemaLines.slice(0, 100).join("\n") +
-        "\n... (esquema truncado para mantener brevedad)";
-    }
+    const schemaStr = incluirEsquemaCompleto
+      ? comprimirEsquema(entidades)
+      : "El esquema detallado de base de datos se encuentra documentado en el archivo SCHEMA.md de forma completa.";
 
     return `# CLAUDE.md
 
@@ -585,23 +1072,55 @@ ${schemaStr.trim()}
 `;
   };
 
-  const descargarClaudeMd = () => {
-    const content = generarClaudeMd();
+  const generarSchemaMd = () => {
+    if (!proyecto) return "";
+    return `# SCHEMA.md
+
+## Modelo de Base de Datos Completo (3FN)
+<database-schema>
+${comprimirEsquema(entidades)}
+</database-schema>
+`;
+  };
+
+  const descargarArchivo = (content: string, filename: string) => {
     const blob = new Blob([content], { type: "text/markdown;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", "CLAUDE.md");
+    link.setAttribute("download", filename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    mostrarToast("¡Archivo CLAUDE.md descargado con éxito!", "exito");
+  };
+
+  const descargarClaudeMdCompleto = () => {
+    descargarArchivo(generarClaudeMd(true), "CLAUDE.md");
+    mostrarToast("¡Archivo CLAUDE.md (Completo) descargado!", "exito");
+  };
+
+  const descargarClaudeMdDividido = () => {
+    descargarArchivo(generarClaudeMd(false), "CLAUDE.md");
+    mostrarToast("¡Archivo CLAUDE.md (Dividido) descargado!", "exito");
+  };
+
+  const descargarSchemaMd = () => {
+    descargarArchivo(generarSchemaMd(), "SCHEMA.md");
+    mostrarToast("¡Archivo SCHEMA.md descargado!", "exito");
   };
 
   const copiarClaudeMd = () => {
-    const content = generarClaudeMd();
+    const fullContent = generarClaudeMd(true);
+    const totalLines = fullContent.split("\n").length;
+    // Si supera el límite de 300, copiamos el dividido por defecto para cuidar el contexto
+    const content = totalLines > 300 ? generarClaudeMd(false) : fullContent;
     navigator.clipboard.writeText(content);
-    mostrarToast("¡Inducción CLAUDE.md copiada al portapapeles!", "exito");
+    mostrarToast(
+      totalLines > 300
+        ? "¡Inducción CLAUDE.md (Dividido) copiada al portapapeles!"
+        : "¡Inducción CLAUDE.md copiada al portapapeles!",
+      "exito"
+    );
   };
 
   // Mass Backlog Importer
@@ -1201,54 +1720,212 @@ Formato JSON esperado:
             </button>
           </div>
 
-          <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
-                  1. Importación Masiva de Backlog (Épicas / Historias /
-                  Actividades)
-                </span>
-                <p className="font-mono text-[9px] text-zinc-500">
-                  Copia el prompt del backlog, pásalo a la IA y pega el JSON
-                  devuelto aquí para cargar todo el backlog automáticamente.
-                </p>
-              </div>
-              <button
-                onClick={copiarPromptBacklog}
-                className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
-              >
-                📋 Copiar Prompt Backlog
-              </button>
-            </div>
-            <textarea
-              value={backlogJson}
-              onChange={(e) => setBacklogJson(e.target.value)}
-              placeholder="Pega aquí el JSON devuelto por la IA..."
-              rows={5}
-              className="border-zinc-850 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none"
-            />
+          {/* Import option selector */}
+          <div className="flex border-b border-zinc-900 pb-2">
             <button
-              onClick={handleImportarBacklog}
-              className="self-end rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400"
+              onClick={() => setTipoImportacion("modular")}
+              className={`px-4 py-2 font-mono text-[10px] font-bold uppercase transition-all ${
+                tipoImportacion === "modular"
+                  ? "border-b-2 border-emerald-500 text-emerald-400"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
             >
-              Procesar e Importar Backlog
+              🔄 Paso a Paso Modular (Recomendado)
+            </button>
+            <button
+              onClick={() => setTipoImportacion("unificada")}
+              className={`px-4 py-2 font-mono text-[10px] font-bold uppercase transition-all ${
+                tipoImportacion === "unificada"
+                  ? "border-b-2 border-emerald-500 text-emerald-400"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              📦 Ingesta Unificada (JSON Único)
             </button>
           </div>
 
+          {/* Unified Bulk Importer */}
+          {tipoImportacion === "unificada" && (
+            <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
+                    Importación Masiva de Backlog (Épicas / Historias /
+                    Actividades)
+                  </span>
+                  <p className="font-mono text-[9px] text-zinc-500">
+                    Copia el prompt del backlog, pásalo a la IA y pega el JSON
+                    devuelto aquí para cargar todo el backlog automáticamente.
+                  </p>
+                </div>
+                <button
+                  onClick={copiarPromptBacklog}
+                  className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+                >
+                  📋 Copiar Prompt Backlog
+                </button>
+              </div>
+              <textarea
+                value={backlogJson}
+                onChange={(e) => setBacklogJson(e.target.value)}
+                placeholder="Pega aquí el JSON devuelto por la IA..."
+                rows={5}
+                className="border-zinc-850 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none"
+              />
+              <button
+                onClick={handleImportarBacklog}
+                className="self-end rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400"
+              >
+                Procesar e Importar Backlog
+              </button>
+            </div>
+          )}
+
+          {/* Modular Step-by-Step Importers */}
+          {tipoImportacion === "modular" && (
+            <div className="flex flex-col gap-4">
+              {/* Step 1: Epicas */}
+              <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
+                        Fase 1: Importar Épicas
+                      </span>
+                      <span className="rounded bg-zinc-900 px-1.5 py-0.5 font-mono text-[8px] text-zinc-400">
+                        {epicasCount} creadas
+                      </span>
+                    </div>
+                    <p className="font-mono text-[9px] text-zinc-500">
+                      Analiza tus requerimientos y genera el listado base de
+                      Épicas de tu Backlog.
+                    </p>
+                  </div>
+                  <button
+                    onClick={copiarPromptEpicasModulares}
+                    className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+                  >
+                    📋 Copiar Prompt Épicas
+                  </button>
+                </div>
+                <textarea
+                  value={epicasJson}
+                  onChange={(e) => setEpicasJson(e.target.value)}
+                  placeholder="Pega aquí el JSON de Épicas devuelto por la IA..."
+                  rows={4}
+                  className="border-zinc-850 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none"
+                />
+                <button
+                  onClick={handleImportarEpicasModulares}
+                  className="self-end rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400"
+                >
+                  Procesar e Importar Épicas
+                </button>
+              </div>
+
+              {/* Step 2: Historias */}
+              <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
+                        Fase 2: Importar Historias de Usuario
+                      </span>
+                      <span className="rounded bg-zinc-900 px-1.5 py-0.5 font-mono text-[8px] text-zinc-400">
+                        {historiasCount} creadas
+                      </span>
+                    </div>
+                    <p className="font-mono text-[9px] text-zinc-500">
+                      Asocia historias de usuario detalladas a cada una de tus
+                      Épicas importadas.
+                    </p>
+                  </div>
+                  <button
+                    disabled={epicasCount === 0}
+                    onClick={copiarPromptHistoriasModulares}
+                    className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20 disabled:opacity-40"
+                  >
+                    📋 Copiar Prompt Historias
+                  </button>
+                </div>
+                <textarea
+                  value={historiasJson}
+                  onChange={(e) => setHistoriasJson(e.target.value)}
+                  placeholder="Pega aquí el JSON de Historias de Usuario devuelto por la IA..."
+                  rows={4}
+                  className="border-zinc-850 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none"
+                />
+                <button
+                  onClick={handleImportarHistoriasModulares}
+                  className="self-end rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400"
+                >
+                  Procesar e Importar Historias
+                </button>
+              </div>
+
+              {/* Step 3: Actividades */}
+              <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
+                        Fase 3: Importar Actividades Técnicas
+                      </span>
+                      <span className="rounded bg-zinc-900 px-1.5 py-0.5 font-mono text-[8px] text-zinc-400">
+                        {tareasCount} creadas
+                      </span>
+                    </div>
+                    <p className="font-mono text-[9px] text-zinc-500">
+                      Descompone las historias de usuario en tareas o
+                      actividades técnicas concretas.
+                    </p>
+                  </div>
+                  <button
+                    disabled={historiasCount === 0}
+                    onClick={copiarPromptActividadesModulares}
+                    className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20 disabled:opacity-40"
+                  >
+                    📋 Copiar Prompt Actividades
+                  </button>
+                </div>
+                <textarea
+                  value={actividadesJson}
+                  onChange={(e) => setActividadesJson(e.target.value)}
+                  placeholder="Pega aquí el JSON de Actividades Técnicas devuelto por la IA..."
+                  rows={4}
+                  className="border-zinc-850 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none"
+                />
+                <button
+                  onClick={handleImportarActividadesModulares}
+                  className="self-end rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400"
+                >
+                  Procesar e Importar Actividades
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Sprints Configuration */}
           <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
             <div className="flex items-center justify-between">
               <div>
-                <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
-                  2. Importación Masiva de Configuración de Sprints
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
+                    Configuración de Sprints
+                  </span>
+                  <span className="rounded bg-zinc-900 px-1.5 py-0.5 font-mono text-[8px] text-zinc-400">
+                    {sprintsCount} sprints
+                  </span>
+                </div>
                 <p className="font-mono text-[9px] text-zinc-500">
                   Organiza las historias de usuario en Sprints pegando el JSON
                   devuelto por la IA.
                 </p>
               </div>
               <button
+                disabled={historiasCount === 0}
                 onClick={copiarPromptSprints}
-                className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+                className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20 disabled:opacity-40"
               >
                 📋 Copiar Prompt Sprints
               </button>
@@ -1268,20 +1945,27 @@ Formato JSON esperado:
             </button>
           </div>
 
+          {/* Acceptance Criteria */}
           <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
             <div className="flex items-center justify-between">
               <div>
-                <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
-                  3. Importación de Criterios de Aceptación por Actividad
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
+                    Criterios de Aceptación por Actividad
+                  </span>
+                  <span className="rounded bg-zinc-900 px-1.5 py-0.5 font-mono text-[8px] text-zinc-400">
+                    {criteriosCount} con criterios
+                  </span>
+                </div>
                 <p className="font-mono text-[9px] text-zinc-500">
                   Asocia criterios de aceptación BDD y QA a cada una de tus
                   actividades técnicas inyectadas.
                 </p>
               </div>
               <button
+                disabled={tareasCount === 0}
                 onClick={copiarPromptCriterios}
-                className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+                className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20 disabled:opacity-40"
               >
                 📋 Copiar Prompt Criterios
               </button>
@@ -1298,6 +1982,48 @@ Formato JSON esperado:
               className="self-end rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400"
             >
               Procesar y Vincular Criterios
+            </button>
+          </div>
+
+          {/* Technical Configuration of Activities */}
+          <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
+                    Configuración Técnica de Actividades (Rol, Pasos y
+                    Componente)
+                  </span>
+                  <span className="rounded bg-zinc-900 px-1.5 py-0.5 font-mono text-[8px] text-zinc-400">
+                    {configCount} configuradas
+                  </span>
+                </div>
+                <p className="font-mono text-[9px] text-zinc-500">
+                  Importa el JSON con el rol recomendado, componente, ruta,
+                  módulo y lista de pasos de checklist dinámico de la IA para
+                  cada actividad.
+                </p>
+              </div>
+              <button
+                disabled={tareasCount === 0}
+                onClick={copiarPromptConfigActividades}
+                className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20 disabled:opacity-40"
+              >
+                📋 Copiar Prompt Config
+              </button>
+            </div>
+            <textarea
+              value={configJson}
+              onChange={(e) => setConfigJson(e.target.value)}
+              placeholder="Pega aquí el JSON de configuración técnica de actividades..."
+              rows={5}
+              className="border-zinc-850 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none"
+            />
+            <button
+              onClick={handleImportarConfigActividades}
+              className="self-end rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400"
+            >
+              Procesar y Configurar Actividades
             </button>
           </div>
         </div>
@@ -1325,41 +2051,88 @@ Formato JSON esperado:
           </div>
 
           {/* CLAUDE.md Induction File Generator */}
-          <div className="flex flex-col gap-3 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
-                  Inducción para IA (CLAUDE.md)
-                </span>
-                <p className="font-mono text-[9px] text-zinc-500">
-                  Genera el archivo de inducción para la IA para inicializar
-                  cada sesión con las reglas de arquitectura, base de datos y
-                  stack de tu proyecto.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={copiarClaudeMd}
-                  className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
-                >
-                  📋 Copiar
-                </button>
-                <button
-                  onClick={descargarClaudeMd}
-                  className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
-                >
-                  📥 Descargar
-                </button>
-              </div>
-            </div>
+          {(() => {
+            const fullContent = generarClaudeMd(true);
+            const lineasClaude = fullContent.split("\n").length;
+            const superaLimite = lineasClaude > 300;
+            const previewContent = generarClaudeMd(!superaLimite);
 
-            <textarea
-              readOnly
-              value={generarClaudeMd()}
-              rows={12}
-              className="border-zinc-850 w-full rounded border bg-zinc-900/50 p-2 font-mono text-[9px] text-zinc-400 outline-none"
-            />
-          </div>
+            return (
+              <div className="flex flex-col gap-3 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
+                      Inducción para IA (CLAUDE.md)
+                    </span>
+                    <p className="font-mono text-[9px] text-zinc-500">
+                      Genera el archivo de inducción para la IA para inicializar
+                      cada sesión con las reglas de arquitectura, base de datos
+                      y stack de tu proyecto.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={copiarClaudeMd}
+                      className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+                    >
+                      📋 Copiar
+                    </button>
+                    {!superaLimite ? (
+                      <button
+                        onClick={descargarClaudeMdCompleto}
+                        className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+                      >
+                        📥 Descargar CLAUDE.md
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={descargarClaudeMdCompleto}
+                          className="rounded border border-red-500/20 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase hover:bg-red-500/20"
+                          title="Descargar CLAUDE.md incluyendo el esquema completo, superando las 300 líneas"
+                        >
+                          📥 Descargar Completo
+                        </button>
+                        <button
+                          onClick={descargarClaudeMdDividido}
+                          className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+                          title="Descargar CLAUDE.md compacto sin esquema completo"
+                        >
+                          📥 Descargar Dividido
+                        </button>
+                        <button
+                          onClick={descargarSchemaMd}
+                          className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+                          title="Descargar SCHEMA.md con el esquema de base de datos completo"
+                        >
+                          📥 Descargar SCHEMA.md
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {superaLimite && (
+                  <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-3 font-mono text-[9px] text-amber-300">
+                    ⚠️ <b>Advertencia de Longitud:</b> El archivo CLAUDE.md
+                    completo tiene <b>{lineasClaude} líneas</b> y supera el
+                    límite recomendado de 300 líneas.
+                    <br />
+                    Te sugerimos descargar la versión{" "}
+                    <b>Dividida (CLAUDE.md + SCHEMA.md)</b> para evitar saturar
+                    el contexto de la IA y reducir costos.
+                  </div>
+                )}
+
+                <textarea
+                  readOnly
+                  value={previewContent}
+                  rows={12}
+                  className="border-zinc-850 w-full rounded border bg-zinc-900/50 p-2 font-mono text-[9px] text-zinc-400 outline-none"
+                />
+              </div>
+            );
+          })()}
         </div>
       )}
     </Card>
