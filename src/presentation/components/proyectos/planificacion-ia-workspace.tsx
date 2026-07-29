@@ -259,7 +259,30 @@ Devuelve un archivo Markdown (ROLES.md) con la siguiente estructura:
 
 Por favor, devuelve únicamente el contenido en Markdown, sin introducciones ni comentarios.`;
 
-const PROMPT_CONFIG_ACTIVIDADES = `Actúa como un Arquitecto y Tech Lead Senior. Tu objetivo es definir el rol recomendado, componente, ruta, módulo, etiquetas (tags) y el checklist paso a paso de implementación para cada actividad técnica.
+const PROMPT_DICCIONARIO_ERRORES = `Actúa como un Arquitecto de Software Principal y PO Senior.
+Genera el diccionario de excepciones y errores de negocio estandarizado para el proyecto basándote en el relevamiento y las reglas de dominio.
+
+INSTRUCCIONES Y ESTRUCTURA REQUERIDA (ERRORS.md):
+Devuelve un archivo Markdown (ERRORS.md) detallando:
+1. **Códigos de Error Estructurados**: Nomenclatura del error (ej: MC_USER_DUPLICATE, MC_INSUFFICIENT_FUNDS).
+2. **Mensaje de Usuario Amigable**: Explicación legible y clara en español latino.
+3. **Capa y Código HTTP**: Capa lógica del error y estado HTTP recomendado (ej: 400 Bad Request, 422 Unprocessable Entity).
+4. **Instrucciones de Manejo**: Directriz breve de cómo reportar o capturar el error.
+
+Por favor, devuelve únicamente el contenido en Markdown, sin introducciones ni comentarios.`;
+
+const PROMPT_SEED_DATA = `Actúa como un Administrador de Base de Datos y Tech Lead Senior.
+Genera el plan de datos semilla (Seed Data / Fixtures) para poblar y probar la base de datos del proyecto de manera realista.
+
+INSTRUCCIONES Y ESTRUCTURA REQUERIDA (SEED.md):
+Devuelve un archivo Markdown (SEED.md) con la siguiente estructura:
+1. **Estrategia de Datos Semilla**: Indicar la cantidad lógica de registros para pruebas desafiantes (ej: 50 productos para filtros/paginación, pero 3-4 roles).
+2. **Tablas y Volumen a Generar**: Resumen de cada entidad y volumen de datos de muestra para simular estrés y verificar la interfaz.
+3. **Scripts SQL o Data Fixtures**: Código completo de siembra (seed.sql) o fixtures JSON/TypeScript listos para importar.
+
+Por favor, devuelve únicamente el contenido en Markdown, sin introducciones ni comentarios.`;
+
+const PROMPT_CONFIG_ACTIVIDADES = `Actúa como un Arquitecto y Tech Lead Senior. Tu objetivo es definir el rol recomendado, componente, ruta, módulo, etiquetas (tags), checklist paso a paso de implementación, y los requisitos de datos semilla (seed data) para cada actividad técnica.
 La arquitectura, nombres de componentes y convenciones de rutas deben ajustarse estrictamente a lo establecido en el archivo CLAUDE.md.
 
 <actividades_del_backlog>
@@ -283,7 +306,12 @@ FORMATO JSON ESPERADO:
       "Paso 2: Integrar la validación del esquema de email y password",
       "Paso 3: Conectar el flujo con la API de autenticación y manejar estados",
       "Paso 4: Realizar la verificación manual o tests unitarios del login"
-    ]
+    ],
+    "seed": {
+      "modelo": "usuarios",
+      "volumen": 10,
+      "indicaciones": "Crear roles administrador, supervisor, operador con datos realistas para verificar permisos."
+    }
   }
 ]
 \`\`\``;
@@ -307,6 +335,8 @@ export const PlanificacionIAWorkspace: React.FC<
     | "requisitos"
     | "sitemap"
     | "roles"
+    | "errores"
+    | "seeds"
     | "entidades"
     | "importador"
     | "descargas"
@@ -346,6 +376,8 @@ export const PlanificacionIAWorkspace: React.FC<
   );
   const [sitemapSystemMarkdown, setSitemapSystemMarkdown] = useState("");
   const [rolesMarkdown, setRolesMarkdown] = useState("");
+  const [erroresMarkdown, setErroresMarkdown] = useState("");
+  const [seedMarkdown, setSeedMarkdown] = useState("");
 
   // Real-time DB counts for progress indication
   const epicasCount =
@@ -415,6 +447,8 @@ export const PlanificacionIAWorkspace: React.FC<
       setSitemapMarkup(contexto.sitemapMarkup || "");
       setSitemapSystemMarkdown(contexto.sitemapSystemMarkdown || "");
       setRolesMarkdown(contexto.rolesMarkdown || "");
+      setSeedMarkdown(contexto.seedMarkdown || "");
+      setErroresMarkdown(contexto.erroresMarkdown || "");
 
       if (Array.isArray(contexto.seccionesSitemap)) {
         setSeccionesSitemap(contexto.seccionesSitemap);
@@ -558,6 +592,8 @@ export const PlanificacionIAWorkspace: React.FC<
         seccionesSitemap,
         sitemapSystemMarkdown,
         rolesMarkdown,
+        seedMarkdown,
+        erroresMarkdown,
       });
       mostrarToast(
         "Planificación y requerimientos guardados correctamente.",
@@ -920,6 +956,7 @@ export const PlanificacionIAWorkspace: React.FC<
             modulo: item.modulo,
             pasos: item.pasos || [],
             etiquetas: item.etiquetas || [],
+            seed: item.seed || null,
           });
           updatedCount++;
         }
@@ -1099,6 +1136,56 @@ ${comprimirEsquema(entidades)}
   const descargarSchemaMd = () => {
     descargarArchivo(generarSchemaMd(), "SCHEMA.md");
     mostrarToast("¡Archivo SCHEMA.md descargado!", "exito");
+  };
+
+  const descargarRequerimientosMd = () => {
+    let md = `# REQUISITOS_${
+      String(proyecto?.nombre || "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "_") || "PROYECTO"
+    }.md\n\n`;
+    md += `## Requisitos Funcionales\n${requisitosFuncionales || "*No configurado*"}\n\n`;
+    md += `## Requisitos No Funcionales\n${requisitosNoFuncionales || "*No configurado*"}\n`;
+    descargarArchivo(md, `REQUISITOS_${proyecto?.nombre || "PROYECTO"}.md`);
+    mostrarToast("¡Requisitos descargados!", "exito");
+  };
+
+  const descargarDesignMd = () => {
+    const content =
+      ds?.designSystemMarkdown || `# DESIGN.md\n\n*No configurado*`;
+    descargarArchivo(content, "DESIGN.md");
+    mostrarToast("¡Archivo DESIGN.md descargado!", "exito");
+  };
+
+  const descargarSitemapMd = () => {
+    let content = `# SITEMAP.md\n\n`;
+    if (sitemapSystemMarkdown) {
+      content += sitemapSystemMarkdown;
+    } else if (sitemapMarkup) {
+      content += sitemapMarkup;
+    } else {
+      content += sitemap || "*No configurado*";
+    }
+    descargarArchivo(content, "SITEMAP.md");
+    mostrarToast("¡Archivo SITEMAP.md descargado!", "exito");
+  };
+
+  const descargarRolesMd = () => {
+    const content = rolesMarkdown || `# ROLES.md\n\n*No configurado*`;
+    descargarArchivo(content, "ROLES.md");
+    mostrarToast("¡Archivo ROLES.md descargado!", "exito");
+  };
+
+  const descargarSeedMd = () => {
+    const content = seedMarkdown || `# SEED.md\n\n*No configurado*`;
+    descargarArchivo(content, "SEED.md");
+    mostrarToast("¡Archivo SEED.md descargado!", "exito");
+  };
+
+  const descargarErrorsMd = () => {
+    const content = erroresMarkdown || `# ERRORS.md\n\n*No configurado*`;
+    descargarArchivo(content, "ERRORS.md");
+    mostrarToast("¡Archivo ERRORS.md descargado!", "exito");
   };
 
   const copiarClaudeMd = () => {
@@ -1436,6 +1523,26 @@ Formato JSON esperado:
           3. Roles & Seguridad
         </button>
         <button
+          onClick={() => setActiveTab("errores")}
+          className={`rounded-lg px-3 py-1.5 font-mono text-[10px] font-bold uppercase transition-all ${
+            activeTab === "errores"
+              ? "bg-emerald-500 text-zinc-950 shadow"
+              : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+          }`}
+        >
+          3.1. Errores de Negocio
+        </button>
+        <button
+          onClick={() => setActiveTab("seeds")}
+          className={`rounded-lg px-3 py-1.5 font-mono text-[10px] font-bold uppercase transition-all ${
+            activeTab === "seeds"
+              ? "bg-emerald-500 text-zinc-950 shadow"
+              : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+          }`}
+        >
+          3.2. Estrategia de Seeds
+        </button>
+        <button
           onClick={() => setActiveTab("entidades")}
           className={`rounded-lg px-3 py-1.5 font-mono text-[10px] font-bold uppercase transition-all ${
             activeTab === "entidades"
@@ -1770,6 +1877,90 @@ Formato JSON esperado:
               value={rolesMarkdown}
               onChange={(e) => setRolesMarkdown(e.target.value)}
               placeholder="Pega aquí la especificación de roles y permisos devuelta por la IA..."
+              rows={15}
+              className="border-zinc-850 w-full rounded border bg-zinc-950 p-3 font-mono text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Errores de Negocio */}
+      {activeTab === "errores" && (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start justify-between rounded-xl border border-zinc-900 bg-zinc-950 p-3">
+            <div>
+              <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
+                Diccionario de Errores de Negocio (ERRORS.md)
+              </span>
+              <p className="mt-0.5 font-mono text-[9px] text-zinc-500">
+                Copia el prompt para diseñar los códigos de error
+                estandarizados, mensajes amigables y códigos HTTP.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(PROMPT_DICCIONARIO_ERRORES);
+                mostrarToast(
+                  "Prompt de Diccionario de Errores copiado.",
+                  "exito"
+                );
+              }}
+              className="shrink-0 rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+            >
+              📋 Copiar Prompt Errores
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
+              Códigos de Error & Diccionario (ERRORS.md)
+            </label>
+            <textarea
+              value={erroresMarkdown}
+              onChange={(e) => setErroresMarkdown(e.target.value)}
+              placeholder="Pega aquí el diccionario de errores devuelto por la IA..."
+              rows={15}
+              className="border-zinc-850 w-full rounded border bg-zinc-950 p-3 font-mono text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Estrategia de Seeds */}
+      {activeTab === "seeds" && (
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start justify-between rounded-xl border border-zinc-900 bg-zinc-950 p-3">
+            <div>
+              <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
+                Planificación de Datos Semilla (SEED.md)
+              </span>
+              <p className="mt-0.5 font-mono text-[9px] text-zinc-500">
+                Diseña la estrategia de volumen de pruebas desafiantes para
+                filtros, paginación y test de estrés.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(PROMPT_SEED_DATA);
+                mostrarToast(
+                  "Prompt de Estrategia de Datos Semilla copiado.",
+                  "exito"
+                );
+              }}
+              className="shrink-0 rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+            >
+              📋 Copiar Prompt Seeds
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
+              Estrategia y Scripts Fixtures (SEED.md)
+            </label>
+            <textarea
+              value={seedMarkdown}
+              onChange={(e) => setSeedMarkdown(e.target.value)}
+              placeholder="Pega aquí el plan y código de siembra devuelto por la IA..."
               rows={15}
               className="border-zinc-850 w-full rounded border bg-zinc-950 p-3 font-mono text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500 focus:outline-none"
             />
@@ -2148,6 +2339,98 @@ Formato JSON esperado:
       {/* Tab 4: Descargas / Prompt Inicializador */}
       {activeTab === "descargas" && (
         <div className="flex flex-col gap-4">
+          {/* Docs Dashboard - Centro de Descargas Grid */}
+          <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                name: "CLAUDE.md",
+                desc: "Reglas de inducción, arquitectura y estándares para inicializar la IA.",
+                status: true,
+                onDownload: descargarClaudeMdCompleto,
+              },
+              {
+                name: "SCHEMA.md",
+                desc: "Esquema completo y tablas de base de datos en 3FN.",
+                status: !!entidades?.trim(),
+                onDownload: descargarSchemaMd,
+              },
+              {
+                name: "REQUERIMIENTOS.md",
+                desc: "Especificación completa de requisitos funcionales y no funcionales.",
+                status: !!(
+                  requisitosFuncionales?.trim() ||
+                  requisitosNoFuncionales?.trim()
+                ),
+                onDownload: descargarRequerimientosMd,
+              },
+              {
+                name: "DESIGN.md",
+                desc: "Reglas de estilo, tokens, paletas de colores y tipografía.",
+                status: !!ds?.designSystemMarkdown?.trim(),
+                onDownload: descargarDesignMd,
+              },
+              {
+                name: "SITEMAP.md",
+                desc: "Rutas de la aplicación (Next.js App Router) y accesos.",
+                status: !!(
+                  sitemapSystemMarkdown?.trim() ||
+                  sitemapMarkup?.trim() ||
+                  sitemap?.trim()
+                ),
+                onDownload: descargarSitemapMd,
+              },
+              {
+                name: "ROLES.md",
+                desc: "Políticas Supabase RLS y matriz de accesos de usuarios.",
+                status: !!rolesMarkdown?.trim(),
+                onDownload: descargarRolesMd,
+              },
+              {
+                name: "SEED.md",
+                desc: "Estrategia de datos de prueba desafiantes y volumen de siembra.",
+                status: !!seedMarkdown?.trim(),
+                onDownload: descargarSeedMd,
+              },
+              {
+                name: "ERRORS.md",
+                desc: "Diccionario unificado de excepciones de negocio y códigos HTTP.",
+                status: !!erroresMarkdown?.trim(),
+                onDownload: descargarErrorsMd,
+              },
+            ].map((doc) => (
+              <div
+                key={doc.name}
+                className="flex flex-col justify-between gap-3 rounded-xl border border-zinc-900 bg-zinc-950/60 p-3.5 font-mono"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-bold text-zinc-100 uppercase">
+                      {doc.name}
+                    </span>
+                    <span
+                      className={`rounded border px-1.5 py-0.5 text-[8px] font-bold ${
+                        doc.status
+                          ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                          : "border-amber-500/20 bg-amber-500/10 text-amber-400"
+                      }`}
+                    >
+                      {doc.status ? "🟢 Armado" : "🟡 Pendiente"}
+                    </span>
+                  </div>
+                  <p className="text-zinc-550 mt-2 text-[8px] leading-relaxed">
+                    {doc.desc}
+                  </p>
+                </div>
+                <button
+                  onClick={doc.onDownload}
+                  className="w-full rounded border border-zinc-800 bg-zinc-900/60 py-1.5 text-center text-[8px] font-bold text-zinc-300 uppercase transition-all hover:bg-zinc-900 hover:text-zinc-100 disabled:opacity-40"
+                >
+                  📥 Descargar
+                </button>
+              </div>
+            ))}
+          </div>
+
           <div className="flex items-center justify-between rounded-xl border border-zinc-900 bg-zinc-950 p-4">
             <div>
               <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">

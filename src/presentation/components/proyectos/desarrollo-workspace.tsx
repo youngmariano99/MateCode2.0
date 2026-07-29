@@ -53,7 +53,7 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
   const contexto = useLiveQuery(
     () => db.proyecto_contexto.get(proyectoId),
     [proyectoId]
-  );
+  ) as any;
   const ds = useLiveQuery(
     () => db.proyecto_design_system.get(proyectoId),
     [proyectoId]
@@ -259,6 +259,35 @@ Tu objetivo es resolver el ticket de la estación "${estacion}" de manera ejecut
 ${handoffStr}
 </handoff_estacion_anterior>
 `;
+
+    if (contexto?.erroresMarkdown) {
+      prom += `\n<errores_de_negocio>
+Implementa y maneja el control de excepciones de negocio siguiendo estrictamente las definiciones y códigos estandarizados documentados en el archivo "ERRORS.md" y su especificación:
+${contexto.erroresMarkdown}
+</errores_de_negocio>\n`;
+    }
+
+    const storyTareas = (tareas || []).filter(
+      (t: any) => t.historiaId === historia.id
+    );
+    const tareasWithSeed = storyTareas.filter(
+      (t: any) => t.seed && t.seed.modelo
+    );
+    if (tareasWithSeed.length > 0) {
+      prom +=
+        `\n<requerimiento_datos_semilla>
+Para la siembra y pruebas volumétricas del sistema, genera scripts de datos semilla (Seed Data) correspondientes:
+` +
+        tareasWithSeed
+          .map((t: any) => {
+            const s = t.seed;
+            return `  - Modelo: "${s.modelo}" (Volumen deseado: ${s.volumen} registros)
+    * Directrices: ${s.indicaciones || "Generar datos de muestra realistas para simular estrés y probar filtros/paginaciones."}`;
+          })
+          .join("\n") +
+        `\nNota: La cantidad de registros a simular debe seguir los volúmenes indicados para probar adecuadamente paginaciones y límites del frontend.
+</requerimiento_datos_semilla>\n`;
+    }
 
     if (iterationsStr) {
       prom += `\n<refinamientos_solicitados>${iterationsStr}</refinamientos_solicitados>\n`;
