@@ -98,26 +98,17 @@ INSTRUCCIONES DE DISEÑO:
 5. Devuelve la especificación en formato Markdown explicativo de las tablas y campos.
 6. Escribe únicamente la documentación en Markdown sin códigos externos ni introducciones.`;
 
-const PROMPT_BACKLOG = `Eres un Product Owner y Scrum Master. Debes transformar los requerimientos y entidades del proyecto en un plan de backlog detallado de Épicas, Historias de Usuario y Actividades.
-Es crítico que la arquitectura y descomposición de tareas siga estrictamente los estándares y stack del proyecto elegidos para garantizar consistencia.
+const PROMPT_BACKLOG = `Actúa como un Product Owner y Scrum Master. Debes transformar los requerimientos y entidades del proyecto en un plan de backlog detallado de Épicas, Historias de Usuario y Actividades.
+Debes basarte estrictamente en la arquitectura, el stack y los estándares definidos en el archivo CLAUDE.md.
 
-STACK DEL PROYECTO:
-- Stack: {{stack_summary}}
-
-ESTÁNDARES DE INGENIERÍA:
-- Estándares: {{estandares_summary}}
-
-REQUISITOS DEL PROYECTO:
----
+<requisitos>
 {{requisitos}}
----
+</requisitos>
 
-ENTIDADES DE BASE DE DATOS:
----
+<base_de_datos>
 {{entidades}}
----
+</base_de_datos>
 
-INSTRUCCIONES DE RESPUESTA:
 Devuelve un JSON estrictamente estructurado según el siguiente formato, sin explicaciones ni markdown decorativo. Las descripciones y títulos deben ser en lenguaje simple y claro para desarrolladores junior.
 
 FORMATO JSON ESPERADO:
@@ -143,21 +134,13 @@ FORMATO JSON ESPERADO:
 ]
 \`\`\``;
 
-const PROMPT_SPRINTS = `Eres un Scrum Master Senior. A partir del backlog del proyecto y la lista de Épicas/Historias/Actividades, debes organizar el trabajo en sprints de manera lógica y coherente.
-Es obligatorio que la organización en sprints respete estrictamente los estándares y la arquitectura elegida para el desarrollo.
+const PROMPT_SPRINTS = `Actúa como un Scrum Master Senior. A partir de las historias de usuario dadas, organízalas en sprints lógicos y coherentes.
+Debes considerar los criterios y la arquitectura del archivo CLAUDE.md.
 
-STACK DEL PROYECTO:
-- Stack: {{stack_summary}}
-
-ESTÁNDARES DE INGENIERÍA:
-- Estándares: {{estandares_summary}}
-
-BACKLOG DE HISTORIAS DEL PROYECTO:
----
+<historias_disponibles>
 {{backlog_stories}}
----
+</historias_disponibles>
 
-INSTRUCCIONES DE RESPUESTA:
 Devuelve un JSON estrictamente estructurado según el siguiente formato, sin explicaciones ni markdown decorativo.
 
 FORMATO JSON ESPERADO:
@@ -176,13 +159,7 @@ FORMATO JSON ESPERADO:
 ]
 \`\`\``;
 
-const PROMPT_INICIALIZADOR = `Eres un DevOps y Tech Lead Experto. A partir del stack y estándares elegidos, genera los comandos y scripts de terminal necesarios para inicializar manualmente el proyecto en limpio.
-
-STACK TECNOLÓGICO:
-- Stack: {{stack_summary}}
-
-ESTÁNDARES DE INGENIERÍA:
-- Estándares: {{estandares_summary}}
+const PROMPT_INICIALIZADOR = `Eres un DevOps y Tech Lead Experto. Genera los comandos y scripts de terminal necesarios para inicializar manualmente el proyecto en limpio basándote en la especificación de stack de CLAUDE.md.
 
 INSTRUCCIONES:
 Proporciona paso a paso las instrucciones del setup:
@@ -191,27 +168,18 @@ Proporciona paso a paso las instrucciones del setup:
 3. Configuración inicial de herramientas de desarrollo (ESLint, Prettier, TypeScript, Dockerfiles).
 4. Estructura de carpetas inicial.`;
 
-const PROMPT_MODULAR_EPICAS = `Eres un Product Owner Senior. Tu objetivo es analizar los requisitos funcionales, no funcionales y el modelo de base de datos para generar las Épicas del backlog del proyecto.
-Es crítico que la arquitectura sugerida siga estrictamente los estándares y stack del proyecto definidos a continuación para garantizar consistencia.
+const PROMPT_MODULAR_EPICAS = `Actúa como un Product Owner Senior. Tu objetivo es analizar los requisitos y la base de datos para generar las Épicas del backlog del proyecto.
+Debes basarte estrictamente en la arquitectura, el stack y los estándares definidos en el archivo CLAUDE.md.
 
-STACK DEL PROYECTO:
-- Stack: {{stack_summary}}
-
-ESTÁNDARES DE INGENIERÍA:
-- Estándares: {{estandares_summary}}
-
-REQUISITOS DEL PROYECTO:
----
+<requisitos>
 {{requisitos}}
----
+</requisitos>
 
-ENTIDADES DE BASE DE DATOS:
----
+<base_de_datos>
 {{entidades}}
----
+</base_de_datos>
 
-INSTRUCCIONES DE RESPUESTA:
-Devuelve un JSON estrictamente estructurado según el siguiente formato, sin explicaciones ni markdown decorativo.
+Devuelve un JSON estrictamente estructurado con las Épicas resultantes, sin introducciones ni markdown decorativo.
 
 FORMATO JSON ESPERADO:
 \`\`\`json
@@ -223,32 +191,25 @@ FORMATO JSON ESPERADO:
 ]
 \`\`\``;
 
-const PROMPT_MODULAR_HISTORIAS = `Eres un Product Owner Senior. Tu objetivo es detallar las Historias de Usuario para cada una de las Épicas ya creadas en el proyecto.
-Es obligatorio que todas las historias de usuario sigan los estándares y stack definidos.
+const PROMPT_MODULAR_HISTORIAS = `Actúa como un Product Owner Senior. Tu objetivo es detallar las Historias de Usuario asociadas a cada una de las Épicas del proyecto.
+Debes basarte en la arquitectura y estándares definidos en el archivo CLAUDE.md.
 
-STACK DEL PROYECTO:
-- Stack: {{stack_summary}}
-
-ESTÁNDARES DE INGENIERÍA:
-- Estándares: {{estandares_summary}}
-
-REQUISITOS DEL PROYECTO:
----
+<requisitos>
 {{requisitos}}
----
+</requisitos>
 
-ÉPICAS DISPONIBLES EN EL SISTEMA:
+<epicas_existentes>
 {{epicas_list}}
+</epicas_existentes>
 
-INSTRUCCIONES DE RESPUESTA:
-Devuelve un JSON estrictamente estructurado según el siguiente formato. Asegúrate de asociar cada historia a su épica correspondiente mediante "epicNombre".
+Devuelve un JSON estrictamente estructurado con las Historias de Usuario vinculadas a sus épicas (epicNombre), sin comentarios ni markdown decorativo.
 
 FORMATO JSON ESPERADO:
 \`\`\`json
 [
   {
     "epicNombre": "Nombre exacto de la Épica de la lista",
-    "titulo": "Título corto y claro de la Historia",
+    "titulo": "Título de la Historia",
     "descripcion": "Como [rol] quiero [acción] para [beneficio]",
     "prioridad": "Alta" | "Media" | "Baja",
     "estimacion": 3
@@ -256,52 +217,34 @@ FORMATO JSON ESPERADO:
 ]
 \`\`\``;
 
-const PROMPT_MODULAR_ACTIVIDADES = `Eres un Tech Lead Senior. Tu objetivo es descomponer las Historias de Usuario en Actividades/Tareas Técnicas concretas listas para ser implementadas por los desarrolladores.
-Sigue estrictamente el stack de tecnología y estándares definidos.
+const PROMPT_MODULAR_ACTIVIDADES = `Actúa como un Tech Lead Senior. Tu objetivo es descomponer las Historias de Usuario en Actividades Técnicas concretas.
+Debes alinear cada actividad a la estructura y estándares del archivo CLAUDE.md.
 
-STACK DEL PROYECTO:
-- Stack: {{stack_summary}}
-
-ESTÁNDARES DE INGENIERÍA:
-- Estándares: {{estandares_summary}}
-
-HISTORIAS DE USUARIO DISPONIBLES EN EL SISTEMA:
+<historias_de_usuario>
 {{historias_list}}
+</historias_de_usuario>
 
-INSTRUCCIONES DE RESPUESTA:
-Devuelve un JSON estrictamente estructurado según el siguiente formato. Asocia cada actividad técnica a su historia correspondiente mediante "storyTitulo".
+Devuelve un JSON estrictamente estructurado con las actividades técnicas vinculadas a su historia (storyTitulo), sin comentarios ni markdown decorativo.
 
 FORMATO JSON ESPERADO:
 \`\`\`json
 [
   {
     "storyTitulo": "Título exacto de la Historia de la lista",
-    "titulo": "Título de la Actividad Técnica (ej: Crear vista de Login, Configurar RLS de Tabla)",
-    "descripcion": "Indicaciones técnicas claras de lo que debe resolver esta actividad"
+    "titulo": "Título de la Actividad Técnica (ej: Configurar Supabase Auth, Crear formulario de contacto)",
+    "descripcion": "Instrucciones técnicas de implementación"
   }
 ]
 \`\`\``;
 
-const PROMPT_CONFIG_ACTIVIDADES = `Eres un Arquitecto y Tech Lead Senior. Tu objetivo es elaborar la especificación de desarrollo técnico y los pasos de ejecución para cada una de las actividades técnicas del backlog.
-Toda la arquitectura, nombres de componentes, rutas e instrucciones de código deben respetar estrictamente los estándares y el stack tecnológico especificados para garantizar consistencia.
+const PROMPT_CONFIG_ACTIVIDADES = `Actúa como un Arquitecto y Tech Lead Senior. Tu objetivo es definir el rol recomendado, componente, ruta, módulo y el checklist paso a paso de implementación para cada actividad técnica.
+La arquitectura, nombres de componentes y convenciones de rutas deben ajustarse estrictamente a lo establecido en el archivo CLAUDE.md.
 
-STACK DEL PROYECTO:
-- Stack: {{stack_summary}}
-
-ESTÁNDARES DE INGENIERÍA:
-- Estándares: {{estandares_summary}}
-
-ACTIVIDADES TÉCNICAS DISPONIBLES EN EL BACKLOG:
+<actividades_del_backlog>
 {{actividades_list}}
+</actividades_del_backlog>
 
-INSTRUCCIONES DE RESPUESTA:
-Devuelve un JSON estructurado como un array que contenga un objeto para cada actividad técnica de la lista. Cada objeto debe definir:
-- "actividadTitulo": El título exacto de la actividad técnica de la lista.
-- "rol": El rol senior recomendado para resolver esta tarea (ej: "Senior Frontend Developer (Next.js)", "Senior Database Architect (Supabase)", etc.).
-- "componente": El nombre exacto del archivo/componente principal a crear o modificar (ej: "auth-modal.tsx", "use-auth.ts").
-- "ruta": La ruta de carpetas sugerida dentro de la estructura estándar (ej: "src/presentation/components/auth/", "src/application/hooks/").
-- "modulo": El módulo de negocio al que pertenece (ej: "Autenticación", "Ventas", "Dashboard").
-- "pasos": Un array conteniendo entre 3 y 6 pasos ordenados que debe seguir la IA para implementar la tarea. Deben ser pasos concretos que terminen con verificación.
+Devuelve un JSON estructurado con los detalles de configuración técnica por actividad, sin introducciones ni markdown decorativo.
 
 FORMATO JSON ESPERADO:
 \`\`\`json
