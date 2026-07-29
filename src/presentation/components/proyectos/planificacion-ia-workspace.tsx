@@ -412,9 +412,27 @@ export const PlanificacionIAWorkspace: React.FC<
         .toArray();
       return items.filter(
         (t: any) =>
-          t.criterioAceptacion && t.criterioAceptacion.trim().length > 0
+          (Array.isArray(t.criteriosAceptacion) &&
+            t.criteriosAceptacion.length > 0) ||
+          (typeof t.criterioAceptacion === "string" &&
+            t.criterioAceptacion.trim().length > 0)
       ).length;
     }, [proyectoId]) || 0;
+
+  const tareasConCriterios =
+    useLiveQuery(async () => {
+      const items = await db.tareas
+        .where("proyectoId")
+        .equals(proyectoId)
+        .toArray();
+      return items.filter(
+        (t: any) =>
+          (Array.isArray(t.criteriosAceptacion) &&
+            t.criteriosAceptacion.length > 0) ||
+          (typeof t.criterioAceptacion === "string" &&
+            t.criterioAceptacion.trim().length > 0)
+      );
+    }, [proyectoId]) || [];
 
   // Count tech configs configured (where custom steps, rol, or path is configured)
   const configCount =
@@ -432,6 +450,9 @@ export const PlanificacionIAWorkspace: React.FC<
   const [backlogJson, setBacklogJson] = useState("");
   const [sprintsJson, setSprintsJson] = useState("");
   const [criteriosJson, setCriteriosJson] = useState("");
+  const [selectedAuditTareaId, setSelectedAuditTareaId] = useState<
+    string | null
+  >(null);
   const [epicasJson, setEpicasJson] = useState("");
   const [historiasJson, setHistoriasJson] = useState("");
   const [actividadesJson, setActividadesJson] = useState("");
@@ -2445,8 +2466,8 @@ Formato JSON esperado:
           </div>
 
           {/* Acceptance Criteria */}
-          <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
-            <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
+            <div className="flex items-center justify-between border-b border-zinc-900 pb-2">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
@@ -2469,19 +2490,116 @@ Formato JSON esperado:
                 📋 Copiar Prompt Criterios
               </button>
             </div>
-            <textarea
-              value={criteriosJson}
-              onChange={(e) => setCriteriosJson(e.target.value)}
-              placeholder="Pega aquí el JSON de criterios de aceptación..."
-              rows={5}
-              className="border-zinc-850 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none"
-            />
-            <button
-              onClick={handleImportarCriterios}
-              className="self-end rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400"
-            >
-              Procesar y Vincular Criterios
-            </button>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+              {/* Import Box */}
+              <div className="flex flex-col gap-2 md:col-span-6">
+                <span className="text-zinc-450 mb-1 block font-mono text-[8px] font-bold uppercase">
+                  📥 Importador de Criterios (JSON)
+                </span>
+                <textarea
+                  value={criteriosJson}
+                  onChange={(e) => setCriteriosJson(e.target.value)}
+                  placeholder="Pega aquí el JSON de criterios de aceptación..."
+                  rows={6}
+                  className="border-zinc-850 text-zinc-350 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] outline-none focus:border-emerald-500/30"
+                />
+                <button
+                  onClick={handleImportarCriterios}
+                  className="self-end rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase shadow-sm transition-all hover:bg-emerald-400"
+                >
+                  Procesar y Vincular Criterios
+                </button>
+              </div>
+
+              {/* Visualizer list */}
+              <div className="flex flex-col gap-2 border-t border-zinc-900 pt-4 md:col-span-6 md:border-t-0 md:border-l md:pt-0 md:pl-4">
+                <span className="text-zinc-450 mb-1 block font-mono text-[8px] font-bold uppercase">
+                  🔍 Visualizador de Criterios Vinculados
+                </span>
+
+                {(() => {
+                  const listToShow = (tareasConCriterios || []) as any[];
+                  if (listToShow.length === 0) {
+                    return (
+                      <div className="rounded border border-zinc-900/60 bg-zinc-900/10 py-8 text-center font-mono text-[9px] text-zinc-500">
+                        Aún no hay criterios vinculados. Pega el JSON a la
+                        izquierda para procesar.
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex max-h-[140px] flex-col gap-1 overflow-y-auto rounded border border-zinc-900 bg-zinc-900/20 p-1.5 pr-1">
+                        {listToShow.map((t) => {
+                          const isSelected = selectedAuditTareaId === t.id;
+                          const listSize = Array.isArray(t.criteriosAceptacion)
+                            ? t.criteriosAceptacion.length
+                            : 1;
+                          return (
+                            <button
+                              key={t.id}
+                              onClick={() =>
+                                setSelectedAuditTareaId(
+                                  isSelected ? null : t.id
+                                )
+                              }
+                              className={`flex w-full items-center justify-between gap-2 rounded border p-1.5 text-left font-mono text-[8px] transition-all ${
+                                isSelected
+                                  ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                                  : "text-zinc-350 border-zinc-800/40 bg-zinc-900/40 hover:bg-zinc-900/80"
+                              }`}
+                            >
+                              <span className="flex-1 truncate">
+                                {t.titulo}
+                              </span>
+                              <span className="shrink-0 rounded border border-zinc-800 bg-zinc-900/80 px-1 py-0.5 font-bold text-zinc-400">
+                                📋 {listSize}{" "}
+                                {listSize === 1 ? "criterio" : "criterios"}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Selected task criteria list detail view */}
+                      {(() => {
+                        if (!selectedAuditTareaId) return null;
+                        const activeT = listToShow.find(
+                          (t) => t.id === selectedAuditTareaId
+                        );
+                        if (!activeT) return null;
+
+                        let criteriaArr: string[] = [];
+                        if (Array.isArray(activeT.criteriosAceptacion)) {
+                          criteriaArr = activeT.criteriosAceptacion;
+                        } else if (
+                          typeof activeT.criterioAceptacion === "string"
+                        ) {
+                          criteriaArr = [activeT.criterioAceptacion];
+                        }
+
+                        return (
+                          <div className="mt-1 max-h-[150px] overflow-y-auto rounded border border-emerald-500/10 bg-emerald-500/5 p-2.5 pr-1">
+                            <span className="mb-1 block text-[8px] font-bold text-emerald-400 uppercase">
+                              Criterios para: {activeT.titulo}
+                            </span>
+                            <ul className="flex list-disc flex-col gap-1 pl-3 font-mono text-[9px] text-zinc-300">
+                              {criteriaArr.map((crit, idx) => (
+                                <li key={idx} className="leading-normal">
+                                  {crit}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
           </div>
 
           {/* Technical Configuration of Activities */}

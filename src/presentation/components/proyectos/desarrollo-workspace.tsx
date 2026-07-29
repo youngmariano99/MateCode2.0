@@ -179,6 +179,11 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
   const [auditSearchQuery, setAuditSearchQuery] = useState("");
   const [auditFilterType, setAuditFilterType] = useState("all");
 
+  const [storiesPage, setStoriesPage] = useState(1);
+  const [expandedStoryIds, setExpandedStoryIds] = useState<
+    Record<string, boolean>
+  >({});
+
   const seccionesDisponibles =
     seccionesSitemap.length > 0
       ? seccionesSitemap.map((s) => s.nombre)
@@ -1982,9 +1987,9 @@ Devuelve el YAML completo optimizado y limpio sin explicaciones introductorias.`
           })()}
         </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+        <div className="flex w-full flex-col gap-6">
           {/* Left panel: Sprint / Section Ticket Form */}
-          <div className="flex flex-col gap-4 xl:col-span-6">
+          <div className="flex w-full flex-col gap-4">
             {activeTabMode === "secciones" ? (
               <Card>
                 <div className="mb-4 border-b border-zinc-900 pb-3">
@@ -2151,241 +2156,370 @@ Devuelve el YAML completo optimizado y limpio sin explicaciones introductorias.`
                         </span>
                       </div>
                     </div>
+                    {/* Spacious Table list of User Stories */}
+                    {(() => {
+                      if (historiasSprint.length === 0) {
+                        return (
+                          <p className="text-zinc-550 rounded-xl border border-zinc-900 bg-zinc-950/20 py-8 text-center font-mono text-[10px]">
+                            No hay historias asociadas a este sprint de enfoque.
+                          </p>
+                        );
+                      }
 
-                    {/* Grouped by Epic/Stories */}
-                    <div className="flex max-h-[50vh] flex-col gap-4 overflow-y-auto pr-1">
-                      {historiasSprint.length === 0 ? (
-                        <p className="text-zinc-550 py-5 text-center font-mono text-[10px]">
-                          No hay historias asociadas a este sprint.
-                        </p>
-                      ) : (
-                        historiasSprint.map((hist) => {
-                          const matchedEpic = epicas.find(
-                            (e) => e.id === hist.epicaId
-                          );
-                          const subTareas = actividadesSprint.filter(
-                            (t) => t.historiaId === hist.id
-                          );
+                      const storiesList = historiasSprint;
+                      const totalStories = storiesList.length;
+                      const itemsPerPage = 4;
+                      const totalPages = Math.ceil(totalStories / itemsPerPage);
+                      const activePage = Math.max(
+                        1,
+                        Math.min(storiesPage, totalPages)
+                      );
+                      const startIndex = (activePage - 1) * itemsPerPage;
+                      const paginatedStories = storiesList.slice(
+                        startIndex,
+                        startIndex + itemsPerPage
+                      );
 
-                          return (
-                            <div
-                              key={hist.id}
-                              className="rounded-lg border border-zinc-900 bg-zinc-950/20 p-3"
-                            >
-                              <div className="mb-2 flex items-start justify-between border-b border-zinc-900/60 pb-1.5">
-                                <div>
-                                  <span className="rounded border border-sky-500/20 bg-sky-500/10 px-1 font-mono text-[8px] font-bold text-sky-400 uppercase">
-                                    {matchedEpic
-                                      ? matchedEpic.nombre
-                                      : "Épica general"}
-                                  </span>
-                                  <h4 className="mt-1 text-[10px] font-bold text-zinc-200">
-                                    {hist.titulo}
-                                  </h4>
-                                </div>
-                                <div className="flex shrink-0 flex-col items-end gap-1">
-                                  <span className="font-mono text-[9px] text-zinc-500">
-                                    {hist.prioridad} · {hist.estimacion}h
-                                  </span>
-                                  <select
-                                    value={hist.sprintId || ""}
-                                    onChange={async (e) => {
-                                      const newSprintId = e.target.value;
-                                      try {
-                                        await db.historias.update(hist.id, {
-                                          sprintId: newSprintId,
-                                        });
-                                        mostrarToast(
-                                          "Historia reasignada de sprint correctamente.",
-                                          "exito"
-                                        );
-                                      } catch (err: any) {
-                                        mostrarToast(
-                                          `Error al mover historia: ${err.message}`,
-                                          "error"
-                                        );
-                                      }
-                                    }}
-                                    className="rounded border border-zinc-800 bg-zinc-900/80 px-1 py-0.5 font-mono text-[8px] text-zinc-400 outline-none focus:ring-1 focus:ring-emerald-500/25"
-                                  >
-                                    <option value="">
-                                      (Sin Sprint / Backlog)
-                                    </option>
-                                    {sprints.map((s) => (
-                                      <option key={s.id} value={s.id}>
-                                        Mover a: {s.nombre}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                              </div>
+                      return (
+                        <div className="flex flex-col gap-4">
+                          <div className="overflow-x-auto rounded-xl border border-zinc-900 bg-zinc-950/20">
+                            <table className="w-full border-collapse text-left font-mono">
+                              <thead>
+                                <tr className="border-b border-zinc-900 bg-zinc-950/60 text-[9px] font-bold text-zinc-400 uppercase">
+                                  <th className="w-[180px] p-3">
+                                    Épica / Módulo
+                                  </th>
+                                  <th className="p-3">Historia de Usuario</th>
+                                  <th className="w-[120px] p-3 text-center">
+                                    Estimación / Prioridad
+                                  </th>
+                                  <th className="w-[100px] p-3 text-center">
+                                    Estado
+                                  </th>
+                                  <th className="w-[230px] p-3">
+                                    Mover Sprint
+                                  </th>
+                                  <th className="w-[130px] p-3 text-center">
+                                    Acciones
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-zinc-900/60 text-[10px]">
+                                {paginatedStories.map((hist) => {
+                                  const matchedEpic = epicas.find(
+                                    (e) => e.id === hist.epicaId
+                                  );
+                                  const subTareas = actividadesSprint.filter(
+                                    (t) => t.historiaId === hist.id
+                                  );
+                                  const isExpanded =
+                                    !!expandedStoryIds[hist.id];
 
-                              {/* Activities list */}
-                              <div className="mt-2 flex flex-col gap-1.5">
-                                {subTareas.length === 0 ? (
-                                  <span className="text-zinc-550 font-mono text-[8px]">
-                                    Sin actividades.
-                                  </span>
-                                ) : (
-                                  subTareas.map((t) => (
-                                    <div
-                                      key={t.id}
-                                      className={`flex items-center justify-between gap-4 rounded border p-2 transition-all hover:border-zinc-800 ${
-                                        selectedActividadId === t.id
-                                          ? "border-emerald-500/40 bg-emerald-500/10"
-                                          : "border-zinc-900/40 bg-zinc-950/40"
-                                      }`}
-                                    >
-                                      <div className="flex min-w-0 flex-1 flex-col gap-1">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                          <span className="truncate font-mono text-[10px] font-bold text-zinc-200">
-                                            {t.titulo}
+                                  let priorityColor =
+                                    "bg-zinc-900 text-zinc-400 border-zinc-800";
+                                  if (
+                                    hist.prioridad === "Alta" ||
+                                    hist.prioridad === "Crítica"
+                                  ) {
+                                    priorityColor =
+                                      "bg-red-500/10 text-red-400 border-red-500/20";
+                                  } else if (hist.prioridad === "Media") {
+                                    priorityColor =
+                                      "bg-amber-500/10 text-amber-400 border-amber-500/20";
+                                  } else {
+                                    priorityColor =
+                                      "bg-sky-500/10 text-sky-400 border-sky-500/20";
+                                  }
+
+                                  let statusColor =
+                                    "bg-zinc-900 text-zinc-400 border-zinc-850";
+                                  if (hist.estado === "done") {
+                                    statusColor =
+                                      "bg-emerald-500/10 text-emerald-400 border-emerald-500/25";
+                                  } else if (hist.estado === "doing") {
+                                    statusColor =
+                                      "bg-sky-500/10 text-sky-400 border-sky-500/25";
+                                  }
+
+                                  return (
+                                    <React.Fragment key={hist.id}>
+                                      <tr
+                                        className={`transition-all hover:bg-zinc-900/20 ${isExpanded ? "bg-zinc-900/10" : ""}`}
+                                      >
+                                        <td className="p-3 align-middle">
+                                          <span className="inline-block max-w-[170px] truncate rounded border border-sky-500/20 bg-sky-500/5 px-2 py-0.5 text-[8px] font-bold text-sky-400 uppercase">
+                                            {matchedEpic
+                                              ? matchedEpic.nombre
+                                              : "Épica General"}
                                           </span>
-                                          {Array.isArray(
-                                            (t as any).etiquetas
-                                          ) &&
-                                            (t as any).etiquetas.length > 0 && (
-                                              <div className="flex flex-wrap gap-1">
-                                                {(t as any).etiquetas.map(
-                                                  (tag: string) => {
-                                                    let colorClass =
-                                                      "bg-zinc-850 text-zinc-400 border-zinc-800";
-                                                    if (
-                                                      tag.toUpperCase() ===
-                                                      "FRONTEND"
-                                                    )
-                                                      colorClass =
-                                                        "bg-sky-500/10 text-sky-400 border-sky-500/20";
-                                                    if (
-                                                      tag.toUpperCase() ===
-                                                      "BACKEND"
-                                                    )
-                                                      colorClass =
-                                                        "bg-amber-500/10 text-amber-400 border-amber-500/20";
-                                                    if (
-                                                      tag.toUpperCase() ===
-                                                        "BD" ||
-                                                      tag.toUpperCase() ===
-                                                        "DATABASE"
-                                                    )
-                                                      colorClass =
-                                                        "bg-purple-500/10 text-purple-400 border-purple-500/20";
-                                                    if (
-                                                      tag.toUpperCase() ===
-                                                      "TESTING"
-                                                    )
-                                                      colorClass =
-                                                        "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-                                                    return (
-                                                      <span
-                                                        key={tag}
-                                                        className={`py-0.2 rounded border px-1 font-mono text-[6px] font-bold uppercase ${colorClass}`}
-                                                      >
-                                                        {tag}
-                                                      </span>
-                                                    );
-                                                  }
-                                                )}
-                                              </div>
-                                            )}
-                                        </div>
-                                        {((t as any).rol ||
-                                          (t as any).componente ||
-                                          (t as any).modulo) && (
-                                          <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[8px] text-zinc-500">
-                                            {(t as any).modulo && (
-                                              <span>
-                                                📦 {(t as any).modulo}
-                                              </span>
-                                            )}
-                                            {(t as any).rol && (
-                                              <span>👤 {(t as any).rol}</span>
-                                            )}
-                                            {(t as any).componente && (
-                                              <span>
-                                                📄 {(t as any).componente}
-                                              </span>
-                                            )}
-                                            {(t as any).pasos &&
-                                              (t as any).pasos.length > 0 && (
-                                                <span>
-                                                  📋 {(t as any).pasos.length}{" "}
-                                                  pasos
-                                                </span>
-                                              )}
+                                        </td>
+                                        <td className="p-3 align-middle font-bold text-zinc-200">
+                                          {hist.titulo}
+                                        </td>
+                                        <td className="p-3 text-center align-middle">
+                                          <div className="flex flex-col items-center gap-1">
+                                            <span className="text-[9px] font-bold text-zinc-400">
+                                              {hist.estimacion}h
+                                            </span>
+                                            <span
+                                              className={`py-0.2 rounded border px-1.5 text-[7px] font-bold uppercase ${priorityColor}`}
+                                            >
+                                              {hist.prioridad}
+                                            </span>
                                           </div>
-                                        )}
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <select
-                                          value={t.estado || "todo"}
-                                          onChange={(e) =>
-                                            handleUpdateActividadEstado(
-                                              t.id,
-                                              e.target.value
-                                            )
-                                          }
-                                          className="border-zinc-850 rounded border bg-zinc-900 p-1 font-mono text-[8px] text-zinc-300 outline-none"
-                                        >
-                                          {COMPONENTES_PUNTOS.map((cp) => (
-                                            <option key={cp.key} value={cp.key}>
-                                              {cp.label}
+                                        </td>
+                                        <td className="p-3 text-center align-middle">
+                                          <span
+                                            className={`rounded border px-1.5 py-0.5 text-[8px] font-bold uppercase ${statusColor}`}
+                                          >
+                                            {hist.estado || "todo"}
+                                          </span>
+                                        </td>
+                                        <td className="p-3 align-middle">
+                                          <select
+                                            value={hist.sprintId || ""}
+                                            onChange={async (e) => {
+                                              const newSprintId =
+                                                e.target.value;
+                                              try {
+                                                await db.historias.update(
+                                                  hist.id,
+                                                  { sprintId: newSprintId }
+                                                );
+                                                mostrarToast(
+                                                  "Historia reasignada de sprint correctamente.",
+                                                  "exito"
+                                                );
+                                              } catch (err: any) {
+                                                mostrarToast(
+                                                  `Error al mover historia: ${err.message}`,
+                                                  "error"
+                                                );
+                                              }
+                                            }}
+                                            className="w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-[9px] text-zinc-400 outline-none focus:ring-1 focus:ring-emerald-500/25"
+                                          >
+                                            <option value="">
+                                              (Sin Sprint / Backlog)
                                             </option>
-                                          ))}
-                                        </select>
-                                        <button
-                                          onClick={() =>
-                                            setSelectedActividadId(t.id)
-                                          }
-                                          className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-[8px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
-                                        >
-                                          🚀 Implementar
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ))
-                                )}
-                              </div>
+                                            {sprints.map((s) => (
+                                              <option key={s.id} value={s.id}>
+                                                Mover a: {s.nombre}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </td>
+                                        <td className="p-3 text-center align-middle">
+                                          <div className="flex items-center justify-center gap-1.5">
+                                            <button
+                                              onClick={() =>
+                                                setExpandedStoryIds((prev) => ({
+                                                  ...prev,
+                                                  [hist.id]: !prev[hist.id],
+                                                }))
+                                              }
+                                              className={`rounded border px-2.5 py-1.5 text-[8px] font-bold uppercase transition-all ${
+                                                isExpanded
+                                                  ? "border-sky-500/30 bg-sky-500/10 text-sky-400"
+                                                  : "text-zinc-450 border-zinc-800 bg-zinc-900 hover:text-zinc-200"
+                                              }`}
+                                            >
+                                              {isExpanded
+                                                ? "Ocultar"
+                                                : `Ver Tareas (${subTareas.length})`}
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
 
-                              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-900/50 pt-2.5">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-mono text-[8px] text-zinc-500 uppercase">
-                                    Pipeline:
-                                  </span>
-                                  {["BD", "Backend", "Frontend", "QA"].map(
-                                    (st) => {
-                                      const isActive =
-                                        cintaPipelineConfig.includes(st);
-                                      return (
-                                        <button
-                                          key={st}
-                                          onClick={() =>
-                                            handleTogglePipelineStation(st)
-                                          }
-                                          className={`rounded border px-1.5 py-0.5 font-mono text-[7px] font-bold transition-all ${
-                                            isActive
-                                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                                              : "text-zinc-550 border-zinc-800 bg-zinc-900"
-                                          }`}
-                                        >
-                                          {st}
-                                        </button>
-                                      );
-                                    }
-                                  )}
-                                </div>
+                                      {isExpanded && (
+                                        <tr>
+                                          <td
+                                            colSpan={6}
+                                            className="border-t border-zinc-900/40 bg-zinc-950/60 p-4"
+                                          >
+                                            <div className="flex flex-col gap-3 font-mono">
+                                              <div className="flex items-center justify-between border-b border-zinc-900 pb-1.5">
+                                                <span className="text-zinc-550 text-[8px] font-bold uppercase">
+                                                  Actividades Técnicas
+                                                  Relacionadas
+                                                </span>
+                                                <button
+                                                  onClick={() =>
+                                                    iniciarCintaProduccion(hist)
+                                                  }
+                                                  className="flex items-center gap-1 rounded border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[8px] font-bold text-emerald-400 uppercase shadow-sm transition-all hover:border-emerald-500/45 hover:bg-emerald-500/20"
+                                                >
+                                                  ⚙️ Iniciar Cinta de Producción
+                                                </button>
+                                              </div>
+
+                                              {subTareas.length === 0 ? (
+                                                <div className="text-zinc-550 py-4 text-center text-[9px]">
+                                                  Esta historia no contiene
+                                                  actividades técnicas.
+                                                </div>
+                                              ) : (
+                                                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                                  {subTareas.map((t) => {
+                                                    const isTarget =
+                                                      selectedActividadId ===
+                                                      t.id;
+                                                    return (
+                                                      <div
+                                                        key={t.id}
+                                                        className={`flex flex-col gap-2 rounded-lg border p-3 transition-all ${
+                                                          isTarget
+                                                            ? "border-emerald-500/30 bg-emerald-500/5 shadow-md shadow-emerald-500/5"
+                                                            : "border-zinc-900 bg-zinc-950/20 hover:border-zinc-800"
+                                                        }`}
+                                                      >
+                                                        <div className="flex items-start justify-between gap-3">
+                                                          <div className="min-w-0 flex-1">
+                                                            <span className="block truncate text-[9px] font-bold text-zinc-200">
+                                                              {t.titulo}
+                                                            </span>
+                                                            <div className="mt-1 flex flex-wrap gap-2 text-[7px] text-zinc-500">
+                                                              {t.modulo && (
+                                                                <span>
+                                                                  📦 {t.modulo}
+                                                                </span>
+                                                              )}
+                                                              {t.rol && (
+                                                                <span>
+                                                                  👤 {t.rol}
+                                                                </span>
+                                                              )}
+                                                              {t.componente && (
+                                                                <span>
+                                                                  📄{" "}
+                                                                  {t.componente}
+                                                                </span>
+                                                              )}
+                                                            </div>
+                                                          </div>
+                                                          <span className="text-zinc-450 shrink-0 rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[7px] font-bold uppercase">
+                                                            {(
+                                                              t.etiquetas || []
+                                                            ).join(", ") ||
+                                                              "GENERAL"}
+                                                          </span>
+                                                        </div>
+
+                                                        {t.pasos &&
+                                                          t.pasos.length >
+                                                            0 && (
+                                                            <div className="border-t border-zinc-900/60 pt-1.5">
+                                                              <span className="mb-1 block text-[7px] font-bold text-zinc-500 uppercase">
+                                                                Pasos Técnicos (
+                                                                {t.pasos.length}
+                                                                ):
+                                                              </span>
+                                                              <div className="max-h-[60px] overflow-y-auto pr-1 text-[8px] leading-normal text-zinc-400">
+                                                                {t.pasos.map(
+                                                                  (
+                                                                    p: string,
+                                                                    pidx: number
+                                                                  ) => (
+                                                                    <div
+                                                                      key={pidx}
+                                                                      className="truncate"
+                                                                    >
+                                                                      • {p}
+                                                                    </div>
+                                                                  )
+                                                                )}
+                                                              </div>
+                                                            </div>
+                                                          )}
+
+                                                        <div className="mt-auto flex items-center justify-between gap-2 border-t border-zinc-900/60 pt-2">
+                                                          <select
+                                                            value={
+                                                              t.estado || "todo"
+                                                            }
+                                                            onChange={(e) =>
+                                                              handleUpdateActividadEstado(
+                                                                t.id,
+                                                                e.target.value
+                                                              )
+                                                            }
+                                                            className="rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[8px] text-zinc-300 outline-none focus:ring-1 focus:ring-emerald-500/25"
+                                                          >
+                                                            {COMPONENTES_PUNTOS.map(
+                                                              (cp) => (
+                                                                <option
+                                                                  key={cp.key}
+                                                                  value={cp.key}
+                                                                >
+                                                                  {cp.label}
+                                                                </option>
+                                                              )
+                                                            )}
+                                                          </select>
+
+                                                          <button
+                                                            onClick={() =>
+                                                              setSelectedActividadId(
+                                                                t.id
+                                                              )
+                                                            }
+                                                            className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[8px] font-bold text-emerald-400 uppercase transition-all hover:bg-emerald-500/20"
+                                                          >
+                                                            🚀 Implementar
+                                                          </button>
+                                                        </div>
+                                                      </div>
+                                                    );
+                                                  })}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      )}
+                                    </React.Fragment>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* Pagination Controls */}
+                          {totalPages > 1 && (
+                            <div className="flex items-center justify-between border-t border-zinc-900 pt-3">
+                              <span className="font-mono text-[8px] text-zinc-500">
+                                Mostrando historias {startIndex + 1}-
+                                {Math.min(
+                                  startIndex + itemsPerPage,
+                                  totalStories
+                                )}{" "}
+                                de {totalStories}
+                              </span>
+                              <div className="flex items-center gap-1.5">
                                 <button
-                                  onClick={() => iniciarCintaProduccion(hist)}
-                                  className="flex items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 font-mono text-[8px] font-bold text-emerald-400 uppercase shadow-sm transition-all hover:border-emerald-500/40 hover:bg-emerald-500/20"
+                                  disabled={activePage === 1}
+                                  onClick={() => setStoriesPage(activePage - 1)}
+                                  className="text-zinc-350 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-[8px] font-bold hover:text-zinc-100 disabled:opacity-40"
                                 >
-                                  ⚙️ Cinta de Producción
+                                  ◀ Anterior
+                                </button>
+                                <span className="font-mono text-[9px] font-bold text-zinc-400">
+                                  Pág {activePage} de {totalPages}
+                                </span>
+                                <button
+                                  disabled={activePage === totalPages}
+                                  onClick={() => setStoriesPage(activePage + 1)}
+                                  className="text-zinc-350 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-[8px] font-bold hover:text-zinc-100 disabled:opacity-40"
+                                >
+                                  Siguiente ▶
                                 </button>
                               </div>
                             </div>
-                          );
-                        })
-                      )}
-                    </div>
+                          )}
+                        </div>
+                      );
+                    })()}{" "}
                   </div>
                 ) : (
                   <p className="text-zinc-550 py-5 text-center font-mono text-[10px]">
@@ -2495,7 +2629,7 @@ Devuelve el YAML completo optimizado y limpio sin explicaciones introductorias.`
           </div>
 
           {/* Right panel: Stack of Collapsible Ticket Cards */}
-          <div className="flex flex-col gap-4 xl:col-span-6">
+          <div className="flex w-full flex-col gap-4">
             <Card>
               <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-3">
                 <div>
