@@ -519,6 +519,91 @@ export const PlanificacionIAWorkspace: React.FC<
     mostrarToast("Prompt de Setup Inicializador copiado.", "exito");
   };
 
+  const generarClaudeMd = () => {
+    if (!proyecto) return "";
+
+    // Formatear Stack
+    let stackStr = "";
+    if (proyecto.stack) {
+      Object.entries(proyecto.stack).forEach(([layer, techs]) => {
+        if (Array.isArray(techs) && techs.length > 0) {
+          stackStr += `- **${layer.charAt(0).toUpperCase() + layer.slice(1)}**: ${techs.join(", ")}\n`;
+        }
+      });
+    }
+    if (!stackStr) stackStr = "- No configurado.";
+
+    // Formatear Estándares
+    let estandaresStr = "";
+    if (proyecto.estandares) {
+      Object.entries(proyecto.estandares).forEach(([cat, techs]) => {
+        if (Array.isArray(techs) && techs.length > 0) {
+          estandaresStr += `- **${cat.charAt(0).toUpperCase() + cat.slice(1)}**: ${techs.join(", ")}\n`;
+        }
+      });
+    }
+    if (!estandaresStr) estandaresStr = "- No configurados.";
+
+    // Obtener esquema base (máximo 100 líneas para no romper el límite de longitud)
+    let schemaStr = entidades ? entidades.trim() : "No especificado.";
+    const schemaLines = schemaStr.split("\n");
+    if (schemaLines.length > 100) {
+      schemaStr =
+        schemaLines.slice(0, 100).join("\n") +
+        "\n... (esquema truncado para mantener brevedad)";
+    }
+
+    return `# CLAUDE.md
+
+## Propósito del Proyecto
+- **Nombre**: ${proyecto.nombre || "Sin Nombre"}
+- **Tipo**: ${proyecto.tipo || "General"}
+- **Descripción**: ${proyecto.descripcion || "Sin descripción."}
+
+## Comandos de Desarrollo
+<commands>
+- Servidor de Desarrollo: npm run dev
+- Type Check: npx tsc --noEmit
+- Correr Tests: npm run test
+- Lint y Formateo: npm run lint
+</commands>
+
+## Stack Tecnológico
+<stack>
+${stackStr.trim()}
+</stack>
+
+## Estándares de Codificación
+<coding-standards>
+${estandaresStr.trim()}
+</coding-standards>
+
+## Modelo de Base de Datos (3FN)
+<database-schema>
+${schemaStr.trim()}
+</database-schema>
+`;
+  };
+
+  const descargarClaudeMd = () => {
+    const content = generarClaudeMd();
+    const blob = new Blob([content], { type: "text/markdown;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "CLAUDE.md");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    mostrarToast("¡Archivo CLAUDE.md descargado con éxito!", "exito");
+  };
+
+  const copiarClaudeMd = () => {
+    const content = generarClaudeMd();
+    navigator.clipboard.writeText(content);
+    mostrarToast("¡Inducción CLAUDE.md copiada al portapapeles!", "exito");
+  };
+
   // Mass Backlog Importer
   const handleImportarBacklog = async () => {
     try {
@@ -1237,6 +1322,43 @@ Formato JSON esperado:
             >
               📋 Copiar Prompt Setup
             </button>
+          </div>
+
+          {/* CLAUDE.md Induction File Generator */}
+          <div className="flex flex-col gap-3 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
+                  Inducción para IA (CLAUDE.md)
+                </span>
+                <p className="font-mono text-[9px] text-zinc-500">
+                  Genera el archivo de inducción para la IA para inicializar
+                  cada sesión con las reglas de arquitectura, base de datos y
+                  stack de tu proyecto.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={copiarClaudeMd}
+                  className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+                >
+                  📋 Copiar
+                </button>
+                <button
+                  onClick={descargarClaudeMd}
+                  className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+                >
+                  📥 Descargar
+                </button>
+              </div>
+            </div>
+
+            <textarea
+              readOnly
+              value={generarClaudeMd()}
+              rows={12}
+              className="border-zinc-850 w-full rounded border bg-zinc-900/50 p-2 font-mono text-[9px] text-zinc-400 outline-none"
+            />
           </div>
         </div>
       )}
