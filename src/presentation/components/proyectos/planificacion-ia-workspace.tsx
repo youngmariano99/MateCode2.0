@@ -378,6 +378,8 @@ export const PlanificacionIAWorkspace: React.FC<
   const [rolesMarkdown, setRolesMarkdown] = useState("");
   const [erroresMarkdown, setErroresMarkdown] = useState("");
   const [seedMarkdown, setSeedMarkdown] = useState("");
+  const [selectedDocName, setSelectedDocName] = useState<string>("CLAUDE.md");
+  const [docEditContent, setDocEditContent] = useState<string>("");
 
   // Real-time DB counts for progress indication
   const epicasCount =
@@ -1188,6 +1190,190 @@ ${comprimirEsquema(entidades)}
     mostrarToast("¡Archivo ERRORS.md descargado!", "exito");
   };
 
+  const selectDocumentForEdit = (name: string) => {
+    setSelectedDocName(name);
+    let content = "";
+    if (name === "CLAUDE.md") {
+      content = contexto?.claudeMarkdownOverride || generarClaudeMd(true);
+    } else if (name === "SCHEMA.md") {
+      content = entidades || "";
+    } else if (name === "REQUERIMIENTOS.md") {
+      if (contexto?.requerimientosMarkdownOverride) {
+        content = contexto.requerimientosMarkdownOverride;
+      } else {
+        content = `# REQUISITOS_${
+          String(proyecto?.nombre || "")
+            .toUpperCase()
+            .replace(/[^A-Z0-9]+/g, "_") || "PROYECTO"
+        }.md\n\n## Requisitos Funcionales\n${requisitosFuncionales || ""}\n\n## Requisitos No Funcionales\n${requisitosNoFuncionales || ""}`;
+      }
+    } else if (name === "DESIGN.md") {
+      content = ds?.designSystemMarkdown || "";
+    } else if (name === "SITEMAP.md") {
+      content = sitemapSystemMarkdown || sitemapMarkup || sitemap || "";
+    } else if (name === "ROLES.md") {
+      content = rolesMarkdown || "";
+    } else if (name === "SEED.md") {
+      content = seedMarkdown || "";
+    } else if (name === "ERRORS.md") {
+      content = erroresMarkdown || "";
+    }
+    setDocEditContent(content);
+  };
+
+  useEffect(() => {
+    if (activeTab === "descargas") {
+      selectDocumentForEdit(selectedDocName);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    activeTab,
+    selectedDocName,
+    entidades,
+    requisitosFuncionales,
+    requisitosNoFuncionales,
+    sitemapSystemMarkdown,
+    sitemapMarkup,
+    sitemap,
+    rolesMarkdown,
+    seedMarkdown,
+    erroresMarkdown,
+    contexto,
+  ]);
+
+  const handleSaveSelectedDoc = async () => {
+    try {
+      const currentCtx = (await db.proyecto_contexto.get(proyectoId)) || {
+        proyectoId,
+      };
+      if (selectedDocName === "CLAUDE.md") {
+        await db.proyecto_contexto.put({
+          ...currentCtx,
+          claudeMarkdownOverride: docEditContent,
+        });
+      } else if (selectedDocName === "SCHEMA.md") {
+        setEntidades(docEditContent);
+        await db.proyecto_contexto.put({
+          ...currentCtx,
+          entidades: docEditContent,
+        });
+      } else if (selectedDocName === "REQUERIMIENTOS.md") {
+        const parts = docEditContent.split("## Requisitos No Funcionales");
+        const func = parts[0]
+          .replace("# REQUISITOS", "")
+          .replace("## Requisitos Funcionales", "")
+          .trim();
+        const noFunc = parts[1] ? parts[1].trim() : "";
+        setRequisitosFuncionales(func);
+        setRequisitosNoFuncionales(noFunc);
+        await db.proyecto_contexto.put({
+          ...currentCtx,
+          requisitosFuncionales: func,
+          requisitosNoFuncionales: noFunc,
+          requerimientosMarkdownOverride: docEditContent,
+        });
+      } else if (selectedDocName === "DESIGN.md") {
+        const currentDs = (await db.proyecto_design_system.get(proyectoId)) || {
+          proyectoId,
+        };
+        await db.proyecto_design_system.put({
+          ...currentDs,
+          designSystemMarkdown: docEditContent,
+        });
+      } else if (selectedDocName === "SITEMAP.md") {
+        setSitemapSystemMarkdown(docEditContent);
+        await db.proyecto_contexto.put({
+          ...currentCtx,
+          sitemapSystemMarkdown: docEditContent,
+        });
+      } else if (selectedDocName === "ROLES.md") {
+        setRolesMarkdown(docEditContent);
+        await db.proyecto_contexto.put({
+          ...currentCtx,
+          rolesMarkdown: docEditContent,
+        });
+      } else if (selectedDocName === "SEED.md") {
+        setSeedMarkdown(docEditContent);
+        await db.proyecto_contexto.put({
+          ...currentCtx,
+          seedMarkdown: docEditContent,
+        });
+      } else if (selectedDocName === "ERRORS.md") {
+        setErroresMarkdown(docEditContent);
+        await db.proyecto_contexto.put({
+          ...currentCtx,
+          erroresMarkdown: docEditContent,
+        });
+      }
+      mostrarToast(`¡Archivo ${selectedDocName} guardado con éxito!`, "exito");
+    } catch (err: any) {
+      mostrarToast(`Error al guardar cambios: ${err.message}`, "error");
+    }
+  };
+
+  const descargarZipDocumentos = async () => {
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+
+      const claude = contexto?.claudeMarkdownOverride || generarClaudeMd(true);
+      const schema = entidades || generarSchemaMd();
+      let reqs = contexto?.requerimientosMarkdownOverride || "";
+      if (!reqs) {
+        reqs = `# REQUISITOS_${
+          String(proyecto?.nombre || "")
+            .toUpperCase()
+            .replace(/[^A-Z0-9]+/g, "_") || "PROYECTO"
+        }.md\n\n## Requisitos Funcionales\n${requisitosFuncionales || ""}\n\n## Requisitos No Funcionales\n${requisitosNoFuncionales || ""}`;
+      }
+      const design =
+        ds?.designSystemMarkdown || `# DESIGN.md\n\n*No configurado*`;
+      const sitemapContent =
+        sitemapSystemMarkdown ||
+        sitemapMarkup ||
+        sitemap ||
+        `# SITEMAP.md\n\n*No configurado*`;
+      const rolesContent = rolesMarkdown || `# ROLES.md\n\n*No configurado*`;
+      const seedContent = seedMarkdown || `# SEED.md\n\n*No configurado*`;
+      const errorsContent =
+        erroresMarkdown || `# ERRORS.md\n\n*No configurado*`;
+
+      zip.file("CLAUDE.md", claude);
+
+      const docsFolder = zip.folder("docs");
+      if (docsFolder) {
+        docsFolder.file("SCHEMA.md", schema);
+        docsFolder.file(
+          `REQUERIMIENTOS_${String(proyecto?.nombre || "PROYECTO")
+            .toUpperCase()
+            .replace(/[^A-Z0-9]+/g, "_")}.md`,
+          reqs
+        );
+        docsFolder.file("DESIGN.md", design);
+        docsFolder.file("SITEMAP.md", sitemapContent);
+        docsFolder.file("ROLES.md", rolesContent);
+        docsFolder.file("SEED.md", seedContent);
+        docsFolder.file("ERRORS.md", errorsContent);
+      }
+
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(content);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `documentacion_${proyecto?.nombre || "proyecto"}.zip`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      mostrarToast("¡ZIP de documentación descargado con éxito!", "exito");
+    } catch (err: any) {
+      mostrarToast(`Error al generar ZIP: ${err.message}`, "error");
+    }
+  };
+
   const copiarClaudeMd = () => {
     const fullContent = generarClaudeMd(true);
     const totalLines = fullContent.split("\n").length;
@@ -1485,6 +1671,12 @@ Formato JSON esperado:
             className="rounded border border-sky-500/20 bg-sky-500/10 px-2 py-1 font-mono text-[9px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
           >
             📥 Exportar .md
+          </button>
+          <button
+            onClick={descargarZipDocumentos}
+            className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+          >
+            📦 Descargar .zip
           </button>
           <Button onClick={handleSave}>Guardar Planificación</Button>
         </div>
@@ -2397,38 +2589,53 @@ Formato JSON esperado:
                 status: !!erroresMarkdown?.trim(),
                 onDownload: descargarErrorsMd,
               },
-            ].map((doc) => (
-              <div
-                key={doc.name}
-                className="flex flex-col justify-between gap-3 rounded-xl border border-zinc-900 bg-zinc-950/60 p-3.5 font-mono"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-bold text-zinc-100 uppercase">
-                      {doc.name}
-                    </span>
-                    <span
-                      className={`rounded border px-1.5 py-0.5 text-[8px] font-bold ${
-                        doc.status
-                          ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
-                          : "border-amber-500/20 bg-amber-500/10 text-amber-400"
-                      }`}
-                    >
-                      {doc.status ? "🟢 Armado" : "🟡 Pendiente"}
-                    </span>
-                  </div>
-                  <p className="text-zinc-550 mt-2 text-[8px] leading-relaxed">
-                    {doc.desc}
-                  </p>
-                </div>
-                <button
-                  onClick={doc.onDownload}
-                  className="w-full rounded border border-zinc-800 bg-zinc-900/60 py-1.5 text-center text-[8px] font-bold text-zinc-300 uppercase transition-all hover:bg-zinc-900 hover:text-zinc-100 disabled:opacity-40"
+            ].map((doc) => {
+              const isSelected = selectedDocName === doc.name;
+              return (
+                <div
+                  key={doc.name}
+                  onClick={() => selectDocumentForEdit(doc.name)}
+                  className={`flex cursor-pointer flex-col justify-between gap-3 rounded-xl border p-3.5 font-mono transition-all hover:bg-zinc-900/40 ${
+                    isSelected
+                      ? "border-emerald-500 bg-zinc-900/60 shadow-[0_0_12px_rgba(16,185,129,0.1)]"
+                      : "border-zinc-900 bg-zinc-950/60 hover:border-zinc-800"
+                  }`}
                 >
-                  📥 Descargar
-                </button>
-              </div>
-            ))}
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className={`text-[10px] font-bold uppercase ${
+                          isSelected ? "text-emerald-400" : "text-zinc-100"
+                        }`}
+                      >
+                        {doc.name}
+                      </span>
+                      <span
+                        className={`rounded border px-1.5 py-0.5 text-[8px] font-bold ${
+                          doc.status
+                            ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                            : "border-amber-500/20 bg-amber-500/10 text-amber-400"
+                        }`}
+                      >
+                        {doc.status ? "🟢 Armado" : "🟡 Pendiente"}
+                      </span>
+                    </div>
+                    <p className="text-zinc-550 mt-2 text-[8px] leading-relaxed">
+                      {doc.desc}
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      doc.onDownload();
+                    }}
+                    className="w-full rounded border border-zinc-800 bg-zinc-900/60 py-1.5 text-center text-[8px] font-bold text-zinc-300 uppercase transition-all hover:bg-zinc-900 hover:text-zinc-100"
+                  >
+                    📥 Descargar
+                  </button>
+                </div>
+              );
+            })}
           </div>
 
           <div className="flex items-center justify-between rounded-xl border border-zinc-900 bg-zinc-950 p-4">
@@ -2449,89 +2656,48 @@ Formato JSON esperado:
             </button>
           </div>
 
-          {/* CLAUDE.md Induction File Generator */}
-          {(() => {
-            const fullContent = generarClaudeMd(true);
-            const lineasClaude = fullContent.split("\n").length;
-            const superaLimite = lineasClaude > 300;
-            const previewContent = generarClaudeMd(!superaLimite);
-
-            return (
-              <div className="flex flex-col gap-3 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
-                      Inducción para IA (CLAUDE.md)
-                    </span>
-                    <p className="font-mono text-[9px] text-zinc-500">
-                      Genera el archivo de inducción para la IA para inicializar
-                      cada sesión con las reglas de arquitectura, base de datos
-                      y stack de tu proyecto.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={copiarClaudeMd}
-                      className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
-                    >
-                      📋 Copiar
-                    </button>
-                    {!superaLimite ? (
-                      <button
-                        onClick={descargarClaudeMdCompleto}
-                        className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
-                      >
-                        📥 Descargar CLAUDE.md
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          onClick={descargarClaudeMdCompleto}
-                          className="rounded border border-red-500/20 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase hover:bg-red-500/20"
-                          title="Descargar CLAUDE.md incluyendo el esquema completo, superando las 300 líneas"
-                        >
-                          📥 Descargar Completo
-                        </button>
-                        <button
-                          onClick={descargarClaudeMdDividido}
-                          className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
-                          title="Descargar CLAUDE.md compacto sin esquema completo"
-                        >
-                          📥 Descargar Dividido
-                        </button>
-                        <button
-                          onClick={descargarSchemaMd}
-                          className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
-                          title="Descargar SCHEMA.md con el esquema de base de datos completo"
-                        >
-                          📥 Descargar SCHEMA.md
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {superaLimite && (
-                  <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-3 font-mono text-[9px] text-amber-300">
-                    ⚠️ <b>Advertencia de Longitud:</b> El archivo CLAUDE.md
-                    completo tiene <b>{lineasClaude} líneas</b> y supera el
-                    límite recomendado de 300 líneas.
-                    <br />
-                    Te sugerimos descargar la versión{" "}
-                    <b>Dividida (CLAUDE.md + SCHEMA.md)</b> para evitar saturar
-                    el contexto de la IA y reducir costos.
-                  </div>
-                )}
-
-                <textarea
-                  readOnly
-                  value={previewContent}
-                  rows={12}
-                  className="border-zinc-850 w-full rounded border bg-zinc-900/50 p-2 font-mono text-[9px] text-zinc-400 outline-none"
-                />
+          {/* Interactive Document Editor Workspace */}
+          <div className="flex flex-col gap-3 rounded-xl border border-zinc-900 bg-zinc-950 p-4 font-mono">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#2A2A2E] pb-3">
+              <div>
+                <span className="text-[10px] font-bold text-zinc-100 uppercase">
+                  📝 Editor Interactivo: {selectedDocName}
+                </span>
+                <p className="text-zinc-550 mt-0.5 text-[9px]">
+                  Modifica y guarda los cambios de {selectedDocName}{" "}
+                  directamente en el proyecto.
+                </p>
               </div>
-            );
-          })()}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(docEditContent);
+                    mostrarToast(
+                      `Contenido de ${selectedDocName} copiado al portapapeles.`,
+                      "exito"
+                    );
+                  }}
+                  className="rounded border border-zinc-800 bg-zinc-900/60 px-3 py-1.5 text-[9px] font-bold text-zinc-300 uppercase transition-all hover:bg-zinc-900"
+                >
+                  📋 Copiar
+                </button>
+                <button
+                  onClick={handleSaveSelectedDoc}
+                  className="rounded bg-emerald-500 px-4 py-1.5 text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
+                >
+                  💾 Guardar Cambios
+                </button>
+              </div>
+            </div>
+
+            <textarea
+              value={docEditContent}
+              onChange={(e) => setDocEditContent(e.target.value)}
+              rows={16}
+              placeholder={`Contenido del archivo ${selectedDocName}...`}
+              className="border-zinc-850 w-full rounded border bg-zinc-900/50 p-3 font-mono text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+          </div>
         </div>
       )}
     </Card>

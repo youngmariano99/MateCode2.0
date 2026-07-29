@@ -1,5 +1,5 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, react-hooks/purity */
+/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
 
 import React, { useState, useEffect } from "react";
 import { Card } from "../card";
@@ -11,6 +11,34 @@ import { useToast } from "../../hooks/useToast";
 interface DesarrolloWorkspaceProps {
   proyectoId: string;
 }
+
+const PROMPT_DESVIO_SPRINT = `Actúa como un DevOps y Tech Lead Senior. Genera una nueva Historia de Usuario desvío / hot-scope para añadir a un sprint activo.
+Deberás devolver un bloque JSON con esta estructura exacta, sin markdown decorativo ni introducciones:
+{
+  "titulo": "Título de la Historia de Desvío",
+  "descripcion": "Criterios de Aceptación / Definición de lo que se debe construir",
+  "prioridad": "Alta",
+  "estimacion": 3,
+  "actividades": [
+    {
+      "actividadTitulo": "Nombre de la Actividad Técnica",
+      "rol": "Senior Backend Developer",
+      "componente": "modulo-controller.ts",
+      "ruta": "src/application/controllers/",
+      "modulo": "Pedidos",
+      "etiquetas": ["BACKEND", "BD"],
+      "pasos": [
+        "Paso 1: Definir los endpoints de creación y consulta",
+        "Paso 2: Escribir tests unitarios para los casos de negocio"
+      ],
+      "seed": {
+        "modelo": "pedidos",
+        "volumen": 30,
+        "indicaciones": "Generar pedidos con estados variados (pendiente, completado, cancelado) para testear filtros de interfaz."
+      }
+    }
+  ]
+}`;
 
 const ROLES = [
   { key: "desarrollador", label: "Desarrollador Fullstack" },
@@ -63,9 +91,9 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
     (proyecto?.tipo as string)?.toLowerCase().includes("landing") ||
     (proyecto?.tipo as string)?.toLowerCase().includes("institucional");
 
-  const [activeTabMode, setActiveTabMode] = useState<"secciones" | "tickets">(
-    isLandingType ? "secciones" : "tickets"
-  );
+  const [activeTabMode, setActiveTabMode] = useState<
+    "secciones" | "tickets" | "auditoria"
+  >(isLandingType ? "secciones" : "tickets");
 
   useEffect(() => {
     if (isLandingType) {
@@ -118,6 +146,7 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
   const [cintaBugExpected, setCintaBugExpected] = useState("");
   const [cintaBugReal, setCintaBugReal] = useState("");
   const [isCicdModalOpen, setIsCicdModalOpen] = useState(false);
+  const [detectedDocUpdates, setDetectedDocUpdates] = useState<any>(null);
 
   // Form states for Feature ticket
   const [selectedActividadId, setSelectedActividadId] = useState("");
@@ -143,6 +172,12 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
       nombre: string;
       descripcion: string;
     }>) || [];
+
+  const [isImportDesvioOpen, setIsImportDesvioOpen] = useState(false);
+  const [desvioJsonText, setDesvioJsonText] = useState("");
+
+  const [auditSearchQuery, setAuditSearchQuery] = useState("");
+  const [auditFilterType, setAuditFilterType] = useState("all");
 
   const seccionesDisponibles =
     seccionesSitemap.length > 0
@@ -307,7 +342,7 @@ ${bugsStr}
 
 <salida_requerida>
 Devuelve el código limpio completo que deba ser creado o modificado.
-Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estructura exacta para realizar el handoff hacia la siguiente estación:
+Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estructura exacta para realizar el handoff e indicar si realizaste algún cambio en los documentos de especificaciones locales (SCHEMA.md, SITEMAP.md, ROLES.md, SEED.md, ERRORS.md o DESIGN.md). Si no hubo cambios en un documento, omite su propiedad en "update_docs":
 
 \`\`\`json
 {
@@ -315,6 +350,14 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
     "archivos_creados_o_modificados": ["lista de archivos modificados"],
     "firmas_o_contratos_exportados": ["lista de firmas, endpoints o esquemas"],
     "resumen_tecnico": "breve descripción de las decisiones tomadas en esta estación"
+  },
+  "update_docs": {
+    "schema": "contenido completo de SCHEMA.md si cambió, sino omitir",
+    "sitemap": "contenido completo de SITEMAP.md si cambió, sino omitir",
+    "roles": "contenido completo de ROLES.md si cambió, sino omitir",
+    "errors": "contenido completo de ERRORS.md si cambió, sino omitir",
+    "seed": "contenido completo de SEED.md si cambió, sino omitir",
+    "design": "contenido completo de DESIGN.md si cambió, sino omitir"
   }
 }
 \`\`\`
@@ -629,6 +672,27 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
     }
   }, [sprints, selectedSprintId]);
 
+  useEffect(() => {
+    if (!cintaHandoffInput.trim()) {
+      setDetectedDocUpdates(null);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(cintaHandoffInput);
+      if (
+        parsed &&
+        parsed.update_docs &&
+        Object.keys(parsed.update_docs).length > 0
+      ) {
+        setDetectedDocUpdates(parsed.update_docs);
+      } else {
+        setDetectedDocUpdates(null);
+      }
+    } catch (e) {
+      setDetectedDocUpdates(null);
+    }
+  }, [cintaHandoffInput]);
+
   const focusedSprint = sprints.find((s) => s.id === selectedSprintId);
   const historiasSprint = historias.filter(
     (h) => h.sprintId === selectedSprintId
@@ -723,6 +787,234 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
       mostrarToast("Ticket de Feature iniciado con éxito.", "exito");
     } catch (err: any) {
       mostrarToast(`Error al iniciar ticket: ${err.message}`, "error");
+    }
+  };
+
+  const handleImportarDesvio = async () => {
+    if (!desvioJsonText.trim()) {
+      mostrarToast("Pega el JSON de desvío primero.", "error");
+      return;
+    }
+    if (!selectedSprintId) {
+      mostrarToast("No hay un sprint activo seleccionado.", "error");
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(desvioJsonText);
+      if (!parsed.titulo || !parsed.descripcion) {
+        throw new Error("El JSON debe contener 'titulo' y 'descripcion'.");
+      }
+
+      const historiaId = `historia_${Date.now()}`;
+      await db.transaction("rw", [db.historias, db.tareas], async () => {
+        // Create user story
+        await db.historias.put({
+          id: historiaId,
+          proyectoId,
+          sprintId: selectedSprintId,
+          titulo: `[DESVÍO] ${parsed.titulo}`,
+          descripcion: parsed.descripcion,
+          prioridad: parsed.prioridad || "Alta",
+          estimacion: parsed.estimacion || 3,
+          estado: "todo",
+        });
+
+        // Insert activities
+        if (Array.isArray(parsed.actividades)) {
+          for (const act of parsed.actividades) {
+            const tareaId = `tarea_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+            await db.tareas.put({
+              id: tareaId,
+              proyectoId,
+              historiaId,
+              titulo:
+                act.actividadTitulo ||
+                act.titulo ||
+                act.actividadTitulo ||
+                "Actividad de Desvío",
+              estado: "todo",
+              rol: act.rol || "Senior Fullstack Developer",
+              componente: act.componente || "",
+              ruta: act.ruta || "",
+              modulo: act.modulo || "General",
+              etiquetas: act.etiquetas || ["DESVÍO"],
+              pasos: act.pasos || [],
+              seed: act.seed || null,
+            });
+          }
+        }
+      });
+
+      mostrarToast(
+        "¡Desvío e historias de usuario importados correctamente!",
+        "exito"
+      );
+      setDesvioJsonText("");
+      setIsImportDesvioOpen(false);
+    } catch (err: any) {
+      mostrarToast(`Error al procesar JSON de desvío: ${err.message}`, "error");
+    }
+  };
+
+  const handleAplicarActualizacionesDocs = async () => {
+    if (!detectedDocUpdates) return;
+    try {
+      const currentCtx = (await db.proyecto_contexto.get(proyectoId)) || {
+        proyectoId,
+      };
+      const currentDs = (await db.proyecto_design_system.get(proyectoId)) || {
+        proyectoId,
+      };
+
+      const updatedFields: string[] = [];
+
+      if (detectedDocUpdates.schema !== undefined) {
+        currentCtx.entidades = detectedDocUpdates.schema;
+        updatedFields.push("SCHEMA.md");
+      }
+      if (detectedDocUpdates.sitemap !== undefined) {
+        currentCtx.sitemapSystemMarkdown = detectedDocUpdates.sitemap;
+        updatedFields.push("SITEMAP.md");
+      }
+      if (detectedDocUpdates.roles !== undefined) {
+        currentCtx.rolesMarkdown = detectedDocUpdates.roles;
+        updatedFields.push("ROLES.md");
+      }
+      if (detectedDocUpdates.errors !== undefined) {
+        currentCtx.erroresMarkdown = detectedDocUpdates.errors;
+        updatedFields.push("ERRORS.md");
+      }
+      if (detectedDocUpdates.seed !== undefined) {
+        currentCtx.seedMarkdown = detectedDocUpdates.seed;
+        updatedFields.push("SEED.md");
+      }
+      if (detectedDocUpdates.design !== undefined) {
+        currentDs.designSystemMarkdown = detectedDocUpdates.design;
+        await db.proyecto_design_system.put(currentDs);
+        updatedFields.push("DESIGN.md");
+      }
+
+      await db.proyecto_contexto.put(currentCtx);
+      mostrarToast(
+        `¡Documentos actualizados en base de datos: ${updatedFields.join(", ")}!`,
+        "exito"
+      );
+      setDetectedDocUpdates(null);
+    } catch (err: any) {
+      mostrarToast(`Error al actualizar documentos: ${err.message}`, "error");
+    }
+  };
+
+  const descargarContextoCompleto = async () => {
+    try {
+      let md = `# CONTEXTO_EJECUCION_${
+        String(proyecto?.nombre || "")
+          .toUpperCase()
+          .replace(/[^A-Z0-9]+/g, "_") || "PROYECTO"
+      }.md\n\n`;
+      md += `Generado el: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}\n\n`;
+      md += `Este archivo resume el estado exacto de desarrollo y ejecución de la Cinta de Producción. Úsalo para alimentar y dar contexto a una nueva sesión de IA.\n\n`;
+
+      md += `## 1. Sprints e Historias de Usuario\n\n`;
+      for (const sprint of sprints) {
+        md += `### Sprint: ${sprint.nombre} (${sprint.estado})\n`;
+        md += `- Objetivo: ${sprint.objetivo || "Sin objetivo definido"}\n\n`;
+
+        const sprintHistorias = historias.filter(
+          (h) => h.sprintId === sprint.id
+        );
+        if (sprintHistorias.length === 0) {
+          md += `*No hay historias en este sprint.*\n\n`;
+        } else {
+          for (const hist of sprintHistorias) {
+            md += `#### Historia: ${hist.titulo} (Estimación: ${hist.estimacion}h, Prioridad: ${hist.prioridad})\n`;
+            md += `- Descripción: ${hist.descripcion || "Sin descripción"}\n`;
+            md += `- Estado: ${hist.estado || "Por Hacer"}\n\n`;
+
+            const histTareas = tareas.filter((t) => t.historiaId === hist.id);
+            if (histTareas.length > 0) {
+              md += `##### Actividades Técnicas:\n`;
+              for (const t of histTareas) {
+                md += `  - [${t.estado === "done" ? "x" : " "}] ${t.titulo} (Rol: ${t.rol || "N/D"}, Módulo: ${t.modulo || "N/D"})\n`;
+                if (t.seed) {
+                  md += `    * Requerimiento de Datos Semilla: Modelo "${t.seed.modelo}" (${t.seed.volumen} registros)\n`;
+                }
+              }
+              md += `\n`;
+            }
+          }
+        }
+      }
+
+      md += `## 2. Historial de Ejecuciones de Tickets (Cinta de Producción)\n\n`;
+      if (ticketExecutions.length === 0) {
+        md += `*No hay ejecuciones de tickets registradas aún.*\n\n`;
+      } else {
+        for (const exec of ticketExecutions) {
+          md += `### Ticket: ${exec.titulo} [${exec.estado}]\n`;
+          md += `- ID: ${exec.id}\n`;
+          md += `- Fecha de Inicio: ${exec.fechaInicio ? new Date(exec.fechaInicio).toLocaleString() : "N/D"}\n`;
+          if (exec.metadata?.criterioAceptacion) {
+            md += `- Criterio de Aceptación: ${exec.metadata.criterioAceptacion}\n`;
+          }
+          if (exec.metadata?.aiSummary) {
+            md += `- Resumen Técnico (Post-Mortem): ${exec.metadata.aiSummary}\n`;
+          }
+
+          if (
+            exec.metadata?.handoffs &&
+            Object.keys(exec.metadata.handoffs).length > 0
+          ) {
+            md += `\n**Handoffs por Estación:**\n`;
+            Object.entries(exec.metadata.handoffs).forEach(
+              ([station, handoff]: [string, any]) => {
+                md += `- **${station}**:\n`;
+                md += `  * Resumen: ${handoff.resumen_tecnico || "N/D"}\n`;
+                if (Array.isArray(handoff.archivos_creados_o_modificados)) {
+                  md += `  * Archivos: ${handoff.archivos_creados_o_modificados.join(", ")}\n`;
+                }
+              }
+            );
+          }
+
+          const bugsList = exec.metadata?.bugs || [];
+          if (bugsList.length > 0) {
+            md += `\n**Bugs Reportados:**\n`;
+            for (const b of bugsList) {
+              md += `  - [${b.resuelto ? "RESUELTO" : "ACTIVO"}] Logs: ${b.logs?.substr(0, 150)}... | Esperado: ${b.comportamientoEsperado}\n`;
+            }
+          }
+
+          const iterationsList = exec.metadata?.iterations || [];
+          if (iterationsList.length > 0) {
+            md += `\n**Iteraciones de Refinamiento:**\n`;
+            for (const it of iterationsList) {
+              md += `  - [v${it.version}] Fecha: ${it.fecha} | Feedback: ${it.feedback}\n`;
+            }
+          }
+          md += `\n---\n\n`;
+        }
+      }
+
+      const blob = new Blob([md], { type: "text/markdown;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `CONTEXTO_EJECUCION_${proyecto?.nombre || "proyecto"}.md`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      mostrarToast(
+        "¡Archivo de contexto de ejecución descargado con éxito!",
+        "exito"
+      );
+    } catch (err: any) {
+      mostrarToast(`Error al compilar contexto: ${err.message}`, "error");
     }
   };
 
@@ -1040,6 +1332,29 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
                       rows={4}
                       className="w-full rounded border border-zinc-900 bg-zinc-900 p-2 font-mono text-[10px] text-zinc-300 outline-none focus:border-emerald-500/40"
                     />
+
+                    {detectedDocUpdates && (
+                      <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3 font-mono">
+                        <div className="min-w-0 flex-1">
+                          <span className="block text-[9px] font-bold text-emerald-400 uppercase">
+                            🔄 Actualizaciones de Documentación Detectadas
+                          </span>
+                          <span className="mt-1 block text-[8px] leading-normal text-zinc-400">
+                            La IA sugiere cambios para:{" "}
+                            {Object.keys(detectedDocUpdates)
+                              .map((k) => `${k.toUpperCase()}.md`)
+                              .join(", ")}
+                            .
+                          </span>
+                        </div>
+                        <button
+                          onClick={handleAplicarActualizacionesDocs}
+                          className="hover:bg-emerald-450 shrink-0 rounded bg-emerald-500 px-2.5 py-1.5 text-[8px] font-bold text-zinc-950 uppercase transition-all"
+                        >
+                          Aplicar y Sincronizar
+                        </button>
+                      </div>
+                    )}
 
                     <div className="mt-1 flex items-center justify-between">
                       <span className="text-[8px] text-zinc-500">
@@ -1469,519 +1784,759 @@ Devuelve el YAML completo optimizado y limpio sin explicaciones introductorias.`
         >
           ⚡ Desarrollo por Sprints & Actividades
         </button>
+        <button
+          onClick={() => setActiveTabMode("auditoria")}
+          className={`rounded-lg px-3 py-1.5 font-mono text-[10px] font-bold uppercase transition-all ${
+            activeTabMode === "auditoria"
+              ? "bg-emerald-500 text-zinc-950 shadow"
+              : "border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+          }`}
+        >
+          📋 Historial & Auditoría
+        </button>
       </div>
 
       {/* Main Grid Layout */}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-        {/* Left panel: Sprint / Section Ticket Form */}
-        <div className="flex flex-col gap-4 xl:col-span-6">
-          {activeTabMode === "secciones" ? (
-            <Card>
-              <div className="mb-4 border-b border-zinc-900 pb-3">
-                <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
-                  Desarrollo Seccional del Sitio
-                </h3>
-                <p className="text-zinc-550 mt-0.5 font-mono text-[9px]">
-                  Selecciona la sección a maquetar o refinar para generar el
-                  ticket y prompt visual
-                </p>
+      {activeTabMode === "auditoria" ? (
+        <Card className="col-span-12 font-mono">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-900 pb-3">
+            <div>
+              <h3 className="text-xs font-bold text-zinc-100 uppercase">
+                Consola de Auditoría y Contexto del Proyecto
+              </h3>
+              <p className="text-zinc-550 mt-0.5 text-[9px]">
+                Busca, filtra e inspecciona el historial de handoffs,
+                refinamientos de iteración y logs de bugs del proyecto.
+              </p>
+            </div>
+            <button
+              onClick={descargarContextoCompleto}
+              className="rounded bg-emerald-500 px-3.5 py-1.5 text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
+            >
+              📥 Exportar Contexto de Sesión (.md)
+            </button>
+          </div>
+
+          {/* Filters Row */}
+          <div className="mb-4 flex flex-wrap gap-2">
+            <input
+              type="text"
+              value={auditSearchQuery}
+              onChange={(e) => setAuditSearchQuery(e.target.value)}
+              placeholder="Buscar por título, módulo o resumen técnico..."
+              className="min-w-[200px] flex-1 rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-[10px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500/30"
+            />
+            <select
+              value={auditFilterType}
+              onChange={(e) => setAuditFilterType(e.target.value)}
+              className="rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-[10px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500/30"
+            >
+              <option value="all">Todas las Ejecuciones</option>
+              <option value="IN_PROGRESS">En Progreso</option>
+              <option value="COMPLETED">Finalizadas</option>
+              <option value="bugs">Con Bugs Activos/Resueltos</option>
+              <option value="iterations">Con Iteraciones</option>
+            </select>
+          </div>
+
+          {/* Ticket Executions list */}
+          {(() => {
+            const filtered = ticketExecutions.filter((t: any) => {
+              const matchesSearch =
+                (t.titulo || "")
+                  .toLowerCase()
+                  .includes(auditSearchQuery.toLowerCase()) ||
+                (t.metadata?.aiSummary || "")
+                  .toLowerCase()
+                  .includes(auditSearchQuery.toLowerCase()) ||
+                (t.metadata?.handoffs &&
+                  JSON.stringify(t.metadata.handoffs)
+                    .toLowerCase()
+                    .includes(auditSearchQuery.toLowerCase()));
+
+              let matchesFilter = true;
+              if (auditFilterType === "IN_PROGRESS") {
+                matchesFilter = t.estado === "IN_PROGRESS";
+              } else if (auditFilterType === "COMPLETED") {
+                matchesFilter = t.estado === "COMPLETED";
+              } else if (auditFilterType === "bugs") {
+                matchesFilter =
+                  Array.isArray(t.metadata?.bugs) && t.metadata.bugs.length > 0;
+              } else if (auditFilterType === "iterations") {
+                matchesFilter =
+                  Array.isArray(t.metadata?.iterations) &&
+                  t.metadata.iterations.length > 0;
+              }
+
+              return matchesSearch && matchesFilter;
+            });
+
+            if (filtered.length === 0) {
+              return (
+                <div className="text-zinc-550 rounded-xl border border-zinc-900 bg-zinc-950/20 py-8 text-center text-[10px]">
+                  Ninguna ejecución de ticket coincide con los criterios de
+                  búsqueda.
+                </div>
+              );
+            }
+
+            return (
+              <div className="flex max-h-[60vh] flex-col gap-4 overflow-y-auto pr-1">
+                {filtered.map((t: any) => {
+                  const bugsCount = t.metadata?.bugs?.length || 0;
+                  const activeBugsCount =
+                    t.metadata?.bugs?.filter((b: any) => !b.resuelto).length ||
+                    0;
+                  const iterationsCount = t.metadata?.iterations?.length || 0;
+                  const hasHandoffs =
+                    t.metadata?.handoffs &&
+                    Object.keys(t.metadata.handoffs).length > 0;
+
+                  return (
+                    <div
+                      key={t.id}
+                      className="flex flex-col gap-3 rounded-xl border border-zinc-900 bg-zinc-950/40 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-900 pb-2">
+                        <div>
+                          <span
+                            className={`mr-2 rounded border px-1.5 py-0.5 text-[8px] font-bold ${
+                              t.estado === "COMPLETED"
+                                ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                                : "border-sky-500/20 bg-sky-500/10 text-sky-400"
+                            }`}
+                          >
+                            {t.estado}
+                          </span>
+                          <span className="text-[10px] font-bold text-zinc-200">
+                            {t.titulo}
+                          </span>
+                          <span className="mt-1 block text-[8px] text-zinc-500">
+                            ID: {t.id}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {bugsCount > 0 && (
+                            <span
+                              className={`rounded border px-1.5 py-0.5 text-[8px] font-bold ${
+                                activeBugsCount > 0
+                                  ? "animate-pulse border-red-500/20 bg-red-500/10 text-red-400"
+                                  : "border-zinc-700 bg-zinc-800 text-zinc-400"
+                              }`}
+                            >
+                              🐛 {bugsCount} {bugsCount === 1 ? "Bug" : "Bugs"}{" "}
+                              {activeBugsCount > 0 ? "Activo" : ""}
+                            </span>
+                          )}
+                          {iterationsCount > 0 && (
+                            <span className="rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-bold text-amber-400">
+                              🔄 {iterationsCount}{" "}
+                              {iterationsCount === 1
+                                ? "Iteración"
+                                : "Iteraciones"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {t.metadata?.aiSummary && (
+                        <div className="rounded border border-zinc-900 bg-zinc-950 p-2.5">
+                          <span className="mb-1 block text-[8px] font-bold text-zinc-500 uppercase">
+                            💾 Resumen Técnico Guardado:
+                          </span>
+                          <p className="text-zinc-350 text-[10px] leading-relaxed">
+                            {t.metadata.aiSummary}
+                          </p>
+                        </div>
+                      )}
+
+                      {hasHandoffs && (
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[8px] font-bold text-zinc-500 uppercase">
+                            Handoffs Registrados por Estación:
+                          </span>
+                          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-4">
+                            {Object.entries(t.metadata.handoffs).map(
+                              ([station, handoff]: [string, any]) => (
+                                <div
+                                  key={station}
+                                  className="rounded border border-zinc-900 bg-zinc-950/60 p-2 text-[9px]"
+                                >
+                                  <span className="mb-1 block border-b border-zinc-900 pb-1 font-bold text-sky-400">
+                                    {station}
+                                  </span>
+                                  <p className="line-clamp-3 font-mono leading-snug text-zinc-400">
+                                    {handoff.resumen_tecnico || "Sin notas."}
+                                  </p>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                    Sección a Trabajar
-                  </label>
-                  <select
-                    value={seccionNombre}
-                    onChange={(e) => handleSeleccionarSeccion(e.target.value)}
-                    className="border-zinc-850 rounded border bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none"
-                  >
-                    {seccionesDisponibles.map((sec) => (
-                      <option key={sec} value={sec}>
-                        {sec}
-                      </option>
-                    ))}
-                  </select>
+            );
+          })()}
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+          {/* Left panel: Sprint / Section Ticket Form */}
+          <div className="flex flex-col gap-4 xl:col-span-6">
+            {activeTabMode === "secciones" ? (
+              <Card>
+                <div className="mb-4 border-b border-zinc-900 pb-3">
+                  <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
+                    Desarrollo Seccional del Sitio
+                  </h3>
+                  <p className="text-zinc-550 mt-0.5 font-mono text-[9px]">
+                    Selecciona la sección a maquetar o refinar para generar el
+                    ticket y prompt visual
+                  </p>
                 </div>
 
-                {seccionNombre === "Sección Personalizada" && (
+                <div className="flex flex-col gap-3">
                   <div className="flex flex-col gap-1">
                     <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                      Nombre de Sección Personalizada
-                    </label>
-                    <input
-                      type="text"
-                      value={seccionNombreCustom}
-                      onChange={(e) => setSeccionNombreCustom(e.target.value)}
-                      placeholder="Ej: Calculadora de Tarifas..."
-                      className="border-zinc-850 rounded border bg-zinc-900 p-2 text-[10px] text-zinc-200 outline-none"
-                    />
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-1">
-                  <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                    Descripción & Indicaciones Específicas
-                  </label>
-                  <textarea
-                    value={seccionDescripcion}
-                    onChange={(e) => setSeccionDescripcion(e.target.value)}
-                    placeholder="Escribe cómo deseas que sea esta sección (ej: fondo oscuro con degradado, botón verde esmeralda centrado)..."
-                    rows={3}
-                    className="border-zinc-850 rounded border bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex flex-col gap-1">
-                    <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                      Encargado
-                    </label>
-                    <input
-                      type="text"
-                      value={ticketMiembro}
-                      onChange={(e) => setTicketMiembro(e.target.value)}
-                      className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                      Rol IA
+                      Sección a Trabajar
                     </label>
                     <select
-                      value={selectedRole}
-                      onChange={(e) => setSelectedRole(e.target.value)}
-                      className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+                      value={seccionNombre}
+                      onChange={(e) => handleSeleccionarSeccion(e.target.value)}
+                      className="border-zinc-850 rounded border bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none"
                     >
-                      {ROLES.map((r) => (
-                        <option key={r.key} value={r.key}>
-                          {r.label}
+                      {seccionesDisponibles.map((sec) => (
+                        <option key={sec} value={sec}>
+                          {sec}
                         </option>
                       ))}
                     </select>
                   </div>
-                </div>
 
-                <button
-                  onClick={iniciarSeccionLandingTicket}
-                  className="mt-2 w-full rounded-lg bg-emerald-500 py-2.5 text-[10px] font-bold text-zinc-950 uppercase shadow transition-all hover:bg-emerald-600"
-                >
-                  🚀 Iniciar Ticket de Sección
-                </button>
-              </div>
-            </Card>
-          ) : (
-            <Card>
-              <div className="mb-4 flex flex-col justify-between gap-3 border-b border-zinc-900 pb-3 sm:flex-row sm:items-center">
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
-                    Sprint de Enfoque Activo
-                  </h3>
-                  <p className="text-zinc-550 mt-0.5 font-mono text-[9px]">
-                    Visualiza y enfoca el desarrollo en un sprint de trabajo
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  <select
-                    value={selectedSprintId}
-                    onChange={(e) => setSelectedSprintId(e.target.value)}
-                    className="max-w-[320px] rounded border-zinc-800 bg-zinc-900 px-2.5 py-1.5 font-mono text-[10px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500"
-                  >
-                    <option value="">Selecciona sprint...</option>
-                    {sprints.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.nombre} ({s.estado})
-                      </option>
-                    ))}
-                  </select>
-                  {focusedSprint &&
-                    focusedSprint.estado === "planificacion" && (
-                      <button
-                        onClick={iniciarSprint}
-                        className="rounded bg-emerald-500 px-2 py-1 font-mono text-[9px] font-bold text-zinc-950 uppercase"
-                      >
-                        Iniciar
-                      </button>
-                    )}
-                </div>
-              </div>
-
-              {focusedSprint ? (
-                <div className="flex flex-col gap-2">
-                  <div className="mb-2 grid grid-cols-3 gap-2 rounded-lg border border-zinc-900 bg-zinc-950/40 p-2.5">
-                    <div className="border-r border-zinc-900 text-center">
-                      <span className="text-zinc-550 block font-mono text-[8px] uppercase">
-                        Objetivo
-                      </span>
-                      <span className="block truncate font-mono text-[10px] font-bold text-zinc-300">
-                        {focusedSprint.objetivo || "Sin objetivo"}
-                      </span>
-                    </div>
-                    <div className="border-r border-zinc-900 text-center">
-                      <span className="text-zinc-550 block font-mono text-[8px] uppercase">
-                        Capacidad
-                      </span>
-                      <span className="block font-mono text-[10px] font-bold text-zinc-300">
-                        {focusedSprint.capacidad || 0} Ptos
-                      </span>
-                    </div>
-                    <div className="text-center">
-                      <span className="text-zinc-550 block font-mono text-[8px] uppercase">
-                        Semanas
-                      </span>
-                      <span className="block font-mono text-[10px] font-bold text-zinc-300">
-                        {focusedSprint.duracionSemanas || 2} Sem
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Grouped by Epic/Stories */}
-                  <div className="flex max-h-[50vh] flex-col gap-4 overflow-y-auto pr-1">
-                    {historiasSprint.length === 0 ? (
-                      <p className="text-zinc-550 py-5 text-center font-mono text-[10px]">
-                        No hay historias asociadas a este sprint.
-                      </p>
-                    ) : (
-                      historiasSprint.map((hist) => {
-                        const matchedEpic = epicas.find(
-                          (e) => e.id === hist.epicaId
-                        );
-                        const subTareas = actividadesSprint.filter(
-                          (t) => t.historiaId === hist.id
-                        );
-
-                        return (
-                          <div
-                            key={hist.id}
-                            className="rounded-lg border border-zinc-900 bg-zinc-950/20 p-3"
-                          >
-                            <div className="mb-2 flex items-start justify-between border-b border-zinc-900/60 pb-1.5">
-                              <div>
-                                <span className="rounded border border-sky-500/20 bg-sky-500/10 px-1 font-mono text-[8px] font-bold text-sky-400 uppercase">
-                                  {matchedEpic
-                                    ? matchedEpic.nombre
-                                    : "Épica general"}
-                                </span>
-                                <h4 className="mt-1 text-[10px] font-bold text-zinc-200">
-                                  {hist.titulo}
-                                </h4>
-                              </div>
-                              <span className="shrink-0 font-mono text-[9px] text-zinc-500">
-                                {hist.prioridad} · {hist.estimacion}h
-                              </span>
-                            </div>
-
-                            {/* Activities list */}
-                            <div className="mt-2 flex flex-col gap-1.5">
-                              {subTareas.length === 0 ? (
-                                <span className="text-zinc-550 font-mono text-[8px]">
-                                  Sin actividades.
-                                </span>
-                              ) : (
-                                subTareas.map((t) => (
-                                  <div
-                                    key={t.id}
-                                    className={`flex items-center justify-between gap-4 rounded border p-2 transition-all hover:border-zinc-800 ${
-                                      selectedActividadId === t.id
-                                        ? "border-emerald-500/40 bg-emerald-500/10"
-                                        : "border-zinc-900/40 bg-zinc-950/40"
-                                    }`}
-                                  >
-                                    <div className="flex min-w-0 flex-1 flex-col gap-1">
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <span className="truncate font-mono text-[10px] font-bold text-zinc-200">
-                                          {t.titulo}
-                                        </span>
-                                        {Array.isArray((t as any).etiquetas) &&
-                                          (t as any).etiquetas.length > 0 && (
-                                            <div className="flex flex-wrap gap-1">
-                                              {(t as any).etiquetas.map(
-                                                (tag: string) => {
-                                                  let colorClass =
-                                                    "bg-zinc-850 text-zinc-400 border-zinc-800";
-                                                  if (
-                                                    tag.toUpperCase() ===
-                                                    "FRONTEND"
-                                                  )
-                                                    colorClass =
-                                                      "bg-sky-500/10 text-sky-400 border-sky-500/20";
-                                                  if (
-                                                    tag.toUpperCase() ===
-                                                    "BACKEND"
-                                                  )
-                                                    colorClass =
-                                                      "bg-amber-500/10 text-amber-400 border-amber-500/20";
-                                                  if (
-                                                    tag.toUpperCase() ===
-                                                      "BD" ||
-                                                    tag.toUpperCase() ===
-                                                      "DATABASE"
-                                                  )
-                                                    colorClass =
-                                                      "bg-purple-500/10 text-purple-400 border-purple-500/20";
-                                                  if (
-                                                    tag.toUpperCase() ===
-                                                    "TESTING"
-                                                  )
-                                                    colorClass =
-                                                      "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-                                                  return (
-                                                    <span
-                                                      key={tag}
-                                                      className={`py-0.2 rounded border px-1 font-mono text-[6px] font-bold uppercase ${colorClass}`}
-                                                    >
-                                                      {tag}
-                                                    </span>
-                                                  );
-                                                }
-                                              )}
-                                            </div>
-                                          )}
-                                      </div>
-                                      {((t as any).rol ||
-                                        (t as any).componente ||
-                                        (t as any).modulo) && (
-                                        <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[8px] text-zinc-500">
-                                          {(t as any).modulo && (
-                                            <span>📦 {(t as any).modulo}</span>
-                                          )}
-                                          {(t as any).rol && (
-                                            <span>👤 {(t as any).rol}</span>
-                                          )}
-                                          {(t as any).componente && (
-                                            <span>
-                                              📄 {(t as any).componente}
-                                            </span>
-                                          )}
-                                          {(t as any).pasos &&
-                                            (t as any).pasos.length > 0 && (
-                                              <span>
-                                                📋 {(t as any).pasos.length}{" "}
-                                                pasos
-                                              </span>
-                                            )}
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <select
-                                        value={t.estado || "todo"}
-                                        onChange={(e) =>
-                                          handleUpdateActividadEstado(
-                                            t.id,
-                                            e.target.value
-                                          )
-                                        }
-                                        className="border-zinc-850 rounded border bg-zinc-900 p-1 font-mono text-[8px] text-zinc-300 outline-none"
-                                      >
-                                        {COMPONENTES_PUNTOS.map((cp) => (
-                                          <option key={cp.key} value={cp.key}>
-                                            {cp.label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                      <button
-                                        onClick={() =>
-                                          setSelectedActividadId(t.id)
-                                        }
-                                        className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-[8px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
-                                      >
-                                        🚀 Implementar
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-
-                            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-900/50 pt-2.5">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-mono text-[8px] text-zinc-500 uppercase">
-                                  Pipeline:
-                                </span>
-                                {["BD", "Backend", "Frontend", "QA"].map(
-                                  (st) => {
-                                    const isActive =
-                                      cintaPipelineConfig.includes(st);
-                                    return (
-                                      <button
-                                        key={st}
-                                        onClick={() =>
-                                          handleTogglePipelineStation(st)
-                                        }
-                                        className={`rounded border px-1.5 py-0.5 font-mono text-[7px] font-bold transition-all ${
-                                          isActive
-                                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                                            : "text-zinc-550 border-zinc-800 bg-zinc-900"
-                                        }`}
-                                      >
-                                        {st}
-                                      </button>
-                                    );
-                                  }
-                                )}
-                              </div>
-                              <button
-                                onClick={() => iniciarCintaProduccion(hist)}
-                                className="flex items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 font-mono text-[8px] font-bold text-emerald-400 uppercase shadow-sm transition-all hover:border-emerald-500/40 hover:bg-emerald-500/20"
-                              >
-                                ⚙️ Cinta de Producción
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-zinc-550 py-5 text-center font-mono text-[10px]">
-                  Selecciona o crea un sprint para enfocar el desarrollo.
-                </p>
-              )}
-            </Card>
-          )}
-
-          {/* Start implementing widget inline for Sprint Activities */}
-          {selectedActividadId &&
-            activeTabMode === "tickets" &&
-            (() => {
-              const act = tareas.find((t) => t.id === selectedActividadId);
-              return (
-                <Card className="animate-in fade-in zoom-in-95 border border-emerald-500/20 bg-emerald-500/5">
-                  <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
-                    <div className="flex flex-col">
-                      <span className="font-mono text-[10px] font-bold text-emerald-400 uppercase">
-                        🚀 Inicializar Feature Ticket
-                      </span>
-                      {act && (
-                        <span className="mt-1 font-mono text-[11px] font-bold text-zinc-200">
-                          Actividad: {act.titulo}
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => setSelectedActividadId("")}
-                      className="font-mono text-[9px] text-zinc-500 uppercase hover:text-zinc-300"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-
-                  <div className="flex flex-col gap-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="flex flex-col gap-1">
-                        <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                          Encargado
-                        </label>
-                        <input
-                          type="text"
-                          value={ticketMiembro}
-                          onChange={(e) => setTicketMiembro(e.target.value)}
-                          className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                          Rol IA
-                        </label>
-                        <select
-                          value={selectedRole}
-                          onChange={(e) => setSelectedRole(e.target.value)}
-                          className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
-                        >
-                          {ROLES.map((r) => (
-                            <option key={r.key} value={r.key}>
-                              {r.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {selectedRole === "custom" && (
-                      <div className="flex flex-col gap-1">
-                        <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                          Especificar Rol
-                        </label>
-                        <input
-                          type="text"
-                          value={customRoleText}
-                          onChange={(e) => setCustomRoleText(e.target.value)}
-                          placeholder="Ej: React Native Specialist..."
-                          className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
-                        />
-                      </div>
-                    )}
-
+                  {seccionNombre === "Sección Personalizada" && (
                     <div className="flex flex-col gap-1">
                       <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                        Criterios de Aceptación
+                        Nombre de Sección Personalizada
                       </label>
-                      <textarea
-                        value={criterioAceptacion}
-                        onChange={(e) => setCriterioAceptacion(e.target.value)}
-                        placeholder="Detalla cómo sabremos que esta actividad está terminada..."
-                        rows={2}
+                      <input
+                        type="text"
+                        value={seccionNombreCustom}
+                        onChange={(e) => setSeccionNombreCustom(e.target.value)}
+                        placeholder="Ej: Calculadora de Tarifas..."
+                        className="border-zinc-850 rounded border bg-zinc-900 p-2 text-[10px] text-zinc-200 outline-none"
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-1">
+                    <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
+                      Descripción & Indicaciones Específicas
+                    </label>
+                    <textarea
+                      value={seccionDescripcion}
+                      onChange={(e) => setSeccionDescripcion(e.target.value)}
+                      placeholder="Escribe cómo deseas que sea esta sección (ej: fondo oscuro con degradado, botón verde esmeralda centrado)..."
+                      rows={3}
+                      className="border-zinc-850 rounded border bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex flex-col gap-1">
+                      <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
+                        Encargado
+                      </label>
+                      <input
+                        type="text"
+                        value={ticketMiembro}
+                        onChange={(e) => setTicketMiembro(e.target.value)}
                         className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
                       />
                     </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
+                        Rol IA
+                      </label>
+                      <select
+                        value={selectedRole}
+                        onChange={(e) => setSelectedRole(e.target.value)}
+                        className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+                      >
+                        {ROLES.map((r) => (
+                          <option key={r.key} value={r.key}>
+                            {r.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
 
-                    <button
-                      onClick={iniciarFeatureTicket}
-                      className="w-full rounded bg-emerald-500 py-2 text-[10px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-600"
+                  <button
+                    onClick={iniciarSeccionLandingTicket}
+                    className="mt-2 w-full rounded-lg bg-emerald-500 py-2.5 text-[10px] font-bold text-zinc-950 uppercase shadow transition-all hover:bg-emerald-600"
+                  >
+                    🚀 Iniciar Ticket de Sección
+                  </button>
+                </div>
+              </Card>
+            ) : (
+              <Card>
+                <div className="mb-4 flex flex-col justify-between gap-3 border-b border-zinc-900 pb-3 sm:flex-row sm:items-center">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
+                      Sprint de Enfoque Activo
+                    </h3>
+                    <p className="text-zinc-550 mt-0.5 font-mono text-[9px]">
+                      Visualiza y enfoca el desarrollo en un sprint de trabajo
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <select
+                      value={selectedSprintId}
+                      onChange={(e) => setSelectedSprintId(e.target.value)}
+                      className="max-w-[320px] rounded border-zinc-800 bg-zinc-900 px-2.5 py-1.5 font-mono text-[10px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500"
                     >
-                      Comenzar Feature
+                      <option value="">Selecciona sprint...</option>
+                      {sprints.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.nombre} ({s.estado})
+                        </option>
+                      ))}
+                    </select>
+                    {focusedSprint &&
+                      focusedSprint.estado === "planificacion" && (
+                        <button
+                          onClick={iniciarSprint}
+                          className="rounded bg-emerald-500 px-2 py-1 font-mono text-[9px] font-bold text-zinc-950 uppercase"
+                        >
+                          Iniciar
+                        </button>
+                      )}
+                    <button
+                      onClick={() => setIsImportDesvioOpen(true)}
+                      className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+                    >
+                      ➕ Importar Desvío
                     </button>
                   </div>
-                </Card>
-              );
-            })()}
-        </div>
+                </div>
 
-        {/* Right panel: Stack of Collapsible Ticket Cards */}
-        <div className="flex flex-col gap-4 xl:col-span-6">
-          <Card>
-            <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-3">
-              <div>
-                <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
-                  Consola de Tickets Abiertos ({ticketsOrdenados.length})
-                </h3>
-                <p className="text-zinc-550 mt-0.5 font-mono text-[9px]">
-                  Apilados en orden de creación. Despliega cada tarjeta para
-                  consultar prompts e iterar con la IA.
-                </p>
-              </div>
-            </div>
+                {focusedSprint ? (
+                  <div className="flex flex-col gap-2">
+                    <div className="mb-2 grid grid-cols-3 gap-2 rounded-lg border border-zinc-900 bg-zinc-950/40 p-2.5">
+                      <div className="border-r border-zinc-900 text-center">
+                        <span className="text-zinc-550 block font-mono text-[8px] uppercase">
+                          Objetivo
+                        </span>
+                        <span className="block truncate font-mono text-[10px] font-bold text-zinc-300">
+                          {focusedSprint.objetivo || "Sin objetivo"}
+                        </span>
+                      </div>
+                      <div className="border-r border-zinc-900 text-center">
+                        <span className="text-zinc-550 block font-mono text-[8px] uppercase">
+                          Capacidad
+                        </span>
+                        <span className="block font-mono text-[10px] font-bold text-zinc-300">
+                          {focusedSprint.capacidad || 0} Ptos
+                        </span>
+                      </div>
+                      <div className="text-center">
+                        <span className="text-zinc-550 block font-mono text-[8px] uppercase">
+                          Semanas
+                        </span>
+                        <span className="block font-mono text-[10px] font-bold text-zinc-300">
+                          {focusedSprint.duracionSemanas || 2} Sem
+                        </span>
+                      </div>
+                    </div>
 
-            {ticketsOrdenados.length === 0 ? (
-              <p className="text-zinc-550 py-10 text-center font-mono text-[10px]">
-                Ningún ticket en curso en este momento. Selecciona una sección o
-                actividad para comenzar.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {ticketsOrdenados.map((ticket) => (
-                  <TicketCardItem
-                    key={ticket.id}
-                    ticket={ticket}
-                    proyecto={proyecto}
-                    contexto={contexto}
-                    ds={ds}
-                    isExpanded={!!expandedTicketIds[ticket.id]}
-                    onToggleExpand={() => toggleExpandTicket(ticket.id)}
-                    onDeleteTicket={() =>
-                      handleEliminarTicket(ticket.id, ticket.titulo)
-                    }
-                    mostrarToast={mostrarToast}
-                  />
-                ))}
-              </div>
+                    {/* Grouped by Epic/Stories */}
+                    <div className="flex max-h-[50vh] flex-col gap-4 overflow-y-auto pr-1">
+                      {historiasSprint.length === 0 ? (
+                        <p className="text-zinc-550 py-5 text-center font-mono text-[10px]">
+                          No hay historias asociadas a este sprint.
+                        </p>
+                      ) : (
+                        historiasSprint.map((hist) => {
+                          const matchedEpic = epicas.find(
+                            (e) => e.id === hist.epicaId
+                          );
+                          const subTareas = actividadesSprint.filter(
+                            (t) => t.historiaId === hist.id
+                          );
+
+                          return (
+                            <div
+                              key={hist.id}
+                              className="rounded-lg border border-zinc-900 bg-zinc-950/20 p-3"
+                            >
+                              <div className="mb-2 flex items-start justify-between border-b border-zinc-900/60 pb-1.5">
+                                <div>
+                                  <span className="rounded border border-sky-500/20 bg-sky-500/10 px-1 font-mono text-[8px] font-bold text-sky-400 uppercase">
+                                    {matchedEpic
+                                      ? matchedEpic.nombre
+                                      : "Épica general"}
+                                  </span>
+                                  <h4 className="mt-1 text-[10px] font-bold text-zinc-200">
+                                    {hist.titulo}
+                                  </h4>
+                                </div>
+                                <div className="flex shrink-0 flex-col items-end gap-1">
+                                  <span className="font-mono text-[9px] text-zinc-500">
+                                    {hist.prioridad} · {hist.estimacion}h
+                                  </span>
+                                  <select
+                                    value={hist.sprintId || ""}
+                                    onChange={async (e) => {
+                                      const newSprintId = e.target.value;
+                                      try {
+                                        await db.historias.update(hist.id, {
+                                          sprintId: newSprintId,
+                                        });
+                                        mostrarToast(
+                                          "Historia reasignada de sprint correctamente.",
+                                          "exito"
+                                        );
+                                      } catch (err: any) {
+                                        mostrarToast(
+                                          `Error al mover historia: ${err.message}`,
+                                          "error"
+                                        );
+                                      }
+                                    }}
+                                    className="rounded border border-zinc-800 bg-zinc-900/80 px-1 py-0.5 font-mono text-[8px] text-zinc-400 outline-none focus:ring-1 focus:ring-emerald-500/25"
+                                  >
+                                    <option value="">
+                                      (Sin Sprint / Backlog)
+                                    </option>
+                                    {sprints.map((s) => (
+                                      <option key={s.id} value={s.id}>
+                                        Mover a: {s.nombre}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+
+                              {/* Activities list */}
+                              <div className="mt-2 flex flex-col gap-1.5">
+                                {subTareas.length === 0 ? (
+                                  <span className="text-zinc-550 font-mono text-[8px]">
+                                    Sin actividades.
+                                  </span>
+                                ) : (
+                                  subTareas.map((t) => (
+                                    <div
+                                      key={t.id}
+                                      className={`flex items-center justify-between gap-4 rounded border p-2 transition-all hover:border-zinc-800 ${
+                                        selectedActividadId === t.id
+                                          ? "border-emerald-500/40 bg-emerald-500/10"
+                                          : "border-zinc-900/40 bg-zinc-950/40"
+                                      }`}
+                                    >
+                                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <span className="truncate font-mono text-[10px] font-bold text-zinc-200">
+                                            {t.titulo}
+                                          </span>
+                                          {Array.isArray(
+                                            (t as any).etiquetas
+                                          ) &&
+                                            (t as any).etiquetas.length > 0 && (
+                                              <div className="flex flex-wrap gap-1">
+                                                {(t as any).etiquetas.map(
+                                                  (tag: string) => {
+                                                    let colorClass =
+                                                      "bg-zinc-850 text-zinc-400 border-zinc-800";
+                                                    if (
+                                                      tag.toUpperCase() ===
+                                                      "FRONTEND"
+                                                    )
+                                                      colorClass =
+                                                        "bg-sky-500/10 text-sky-400 border-sky-500/20";
+                                                    if (
+                                                      tag.toUpperCase() ===
+                                                      "BACKEND"
+                                                    )
+                                                      colorClass =
+                                                        "bg-amber-500/10 text-amber-400 border-amber-500/20";
+                                                    if (
+                                                      tag.toUpperCase() ===
+                                                        "BD" ||
+                                                      tag.toUpperCase() ===
+                                                        "DATABASE"
+                                                    )
+                                                      colorClass =
+                                                        "bg-purple-500/10 text-purple-400 border-purple-500/20";
+                                                    if (
+                                                      tag.toUpperCase() ===
+                                                      "TESTING"
+                                                    )
+                                                      colorClass =
+                                                        "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+                                                    return (
+                                                      <span
+                                                        key={tag}
+                                                        className={`py-0.2 rounded border px-1 font-mono text-[6px] font-bold uppercase ${colorClass}`}
+                                                      >
+                                                        {tag}
+                                                      </span>
+                                                    );
+                                                  }
+                                                )}
+                                              </div>
+                                            )}
+                                        </div>
+                                        {((t as any).rol ||
+                                          (t as any).componente ||
+                                          (t as any).modulo) && (
+                                          <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[8px] text-zinc-500">
+                                            {(t as any).modulo && (
+                                              <span>
+                                                📦 {(t as any).modulo}
+                                              </span>
+                                            )}
+                                            {(t as any).rol && (
+                                              <span>👤 {(t as any).rol}</span>
+                                            )}
+                                            {(t as any).componente && (
+                                              <span>
+                                                📄 {(t as any).componente}
+                                              </span>
+                                            )}
+                                            {(t as any).pasos &&
+                                              (t as any).pasos.length > 0 && (
+                                                <span>
+                                                  📋 {(t as any).pasos.length}{" "}
+                                                  pasos
+                                                </span>
+                                              )}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <select
+                                          value={t.estado || "todo"}
+                                          onChange={(e) =>
+                                            handleUpdateActividadEstado(
+                                              t.id,
+                                              e.target.value
+                                            )
+                                          }
+                                          className="border-zinc-850 rounded border bg-zinc-900 p-1 font-mono text-[8px] text-zinc-300 outline-none"
+                                        >
+                                          {COMPONENTES_PUNTOS.map((cp) => (
+                                            <option key={cp.key} value={cp.key}>
+                                              {cp.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <button
+                                          onClick={() =>
+                                            setSelectedActividadId(t.id)
+                                          }
+                                          className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-[8px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+                                        >
+                                          🚀 Implementar
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+
+                              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-900/50 pt-2.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono text-[8px] text-zinc-500 uppercase">
+                                    Pipeline:
+                                  </span>
+                                  {["BD", "Backend", "Frontend", "QA"].map(
+                                    (st) => {
+                                      const isActive =
+                                        cintaPipelineConfig.includes(st);
+                                      return (
+                                        <button
+                                          key={st}
+                                          onClick={() =>
+                                            handleTogglePipelineStation(st)
+                                          }
+                                          className={`rounded border px-1.5 py-0.5 font-mono text-[7px] font-bold transition-all ${
+                                            isActive
+                                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                                              : "text-zinc-550 border-zinc-800 bg-zinc-900"
+                                          }`}
+                                        >
+                                          {st}
+                                        </button>
+                                      );
+                                    }
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => iniciarCintaProduccion(hist)}
+                                  className="flex items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 font-mono text-[8px] font-bold text-emerald-400 uppercase shadow-sm transition-all hover:border-emerald-500/40 hover:bg-emerald-500/20"
+                                >
+                                  ⚙️ Cinta de Producción
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-zinc-550 py-5 text-center font-mono text-[10px]">
+                    Selecciona o crea un sprint para enfocar el desarrollo.
+                  </p>
+                )}
+              </Card>
             )}
-          </Card>
+
+            {/* Start implementing widget inline for Sprint Activities */}
+            {selectedActividadId &&
+              activeTabMode === "tickets" &&
+              (() => {
+                const act = tareas.find((t) => t.id === selectedActividadId);
+                return (
+                  <Card className="animate-in fade-in zoom-in-95 border border-emerald-500/20 bg-emerald-500/5">
+                    <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
+                      <div className="flex flex-col">
+                        <span className="font-mono text-[10px] font-bold text-emerald-400 uppercase">
+                          🚀 Inicializar Feature Ticket
+                        </span>
+                        {act && (
+                          <span className="mt-1 font-mono text-[11px] font-bold text-zinc-200">
+                            Actividad: {act.titulo}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setSelectedActividadId("")}
+                        className="font-mono text-[9px] text-zinc-500 uppercase hover:text-zinc-300"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+
+                    <div className="flex flex-col gap-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col gap-1">
+                          <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
+                            Encargado
+                          </label>
+                          <input
+                            type="text"
+                            value={ticketMiembro}
+                            onChange={(e) => setTicketMiembro(e.target.value)}
+                            className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
+                            Rol IA
+                          </label>
+                          <select
+                            value={selectedRole}
+                            onChange={(e) => setSelectedRole(e.target.value)}
+                            className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+                          >
+                            {ROLES.map((r) => (
+                              <option key={r.key} value={r.key}>
+                                {r.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {selectedRole === "custom" && (
+                        <div className="flex flex-col gap-1">
+                          <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
+                            Especificar Rol
+                          </label>
+                          <input
+                            type="text"
+                            value={customRoleText}
+                            onChange={(e) => setCustomRoleText(e.target.value)}
+                            placeholder="Ej: React Native Specialist..."
+                            className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex flex-col gap-1">
+                        <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
+                          Criterios de Aceptación
+                        </label>
+                        <textarea
+                          value={criterioAceptacion}
+                          onChange={(e) =>
+                            setCriterioAceptacion(e.target.value)
+                          }
+                          placeholder="Detalla cómo sabremos que esta actividad está terminada..."
+                          rows={2}
+                          className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+                        />
+                      </div>
+
+                      <button
+                        onClick={iniciarFeatureTicket}
+                        className="w-full rounded bg-emerald-500 py-2 text-[10px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-600"
+                      >
+                        Comenzar Feature
+                      </button>
+                    </div>
+                  </Card>
+                );
+              })()}
+          </div>
+
+          {/* Right panel: Stack of Collapsible Ticket Cards */}
+          <div className="flex flex-col gap-4 xl:col-span-6">
+            <Card>
+              <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-3">
+                <div>
+                  <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
+                    Consola de Tickets Abiertos ({ticketsOrdenados.length})
+                  </h3>
+                  <p className="text-zinc-550 mt-0.5 font-mono text-[9px]">
+                    Apilados en orden de creación. Despliega cada tarjeta para
+                    consultar prompts e iterar con la IA.
+                  </p>
+                </div>
+              </div>
+
+              {ticketsOrdenados.length === 0 ? (
+                <p className="text-zinc-550 py-10 text-center font-mono text-[10px]">
+                  Ningún ticket en curso en este momento. Selecciona una sección
+                  o actividad para comenzar.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {ticketsOrdenados.map((ticket) => (
+                    <TicketCardItem
+                      key={ticket.id}
+                      ticket={ticket}
+                      proyecto={proyecto}
+                      contexto={contexto}
+                      ds={ds}
+                      isExpanded={!!expandedTicketIds[ticket.id]}
+                      onToggleExpand={() => toggleExpandTicket(ticket.id)}
+                      onDeleteTicket={() =>
+                        handleEliminarTicket(ticket.id, ticket.titulo)
+                      }
+                      mostrarToast={mostrarToast}
+                    />
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Modal / Panel for Bug Tickets */}
       {isBugModalOpen && (
@@ -2066,6 +2621,73 @@ Devuelve el YAML completo optimizado y limpio sin explicaciones introductorias.`
                 className="mt-2 w-full rounded bg-red-500 py-2 text-[10px] font-bold text-zinc-950 uppercase transition-all hover:bg-red-600"
               >
                 Comenzar Solución
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Importar Desvío JSON */}
+      {isImportDesvioOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/80 p-4 backdrop-blur-sm">
+          <div className="border-zinc-850 flex w-full max-w-lg flex-col gap-4 rounded-xl border bg-zinc-950 p-5 font-mono shadow-2xl">
+            <div className="flex items-center justify-between border-b border-zinc-900 pb-2">
+              <span className="text-[10px] font-bold text-zinc-100 uppercase">
+                ➕ Importar Historia de Desvío (JSON)
+              </span>
+              <button
+                onClick={() => setIsImportDesvioOpen(false)}
+                className="text-zinc-400 hover:text-zinc-200"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <p className="text-[9px] leading-relaxed text-zinc-500">
+                Copia el prompt de inducción a continuación, pásalo a la IA en
+                tu chat para diseñar la historia de desvío y pega el JSON
+                resultante.
+              </p>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(PROMPT_DESVIO_SPRINT);
+                  mostrarToast(
+                    "Prompt de desvío copiado al portapapeles.",
+                    "exito"
+                  );
+                }}
+                className="w-full rounded border border-emerald-500/20 bg-emerald-500/10 py-1.5 text-center text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+              >
+                📋 Copiar Prompt de Inducción Desvío
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[8px] font-bold text-zinc-400 uppercase">
+                Resultado JSON devuelto por la IA
+              </label>
+              <textarea
+                value={desvioJsonText}
+                onChange={(e) => setDesvioJsonText(e.target.value)}
+                placeholder="Pega aquí el JSON devuelto..."
+                rows={8}
+                className="border-zinc-850 w-full rounded border bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500/20"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-zinc-900 pt-3">
+              <button
+                onClick={() => setIsImportDesvioOpen(false)}
+                className="rounded border border-zinc-800 bg-zinc-900/60 px-3 py-1.5 text-[9px] font-bold text-zinc-300 uppercase hover:bg-zinc-900"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleImportarDesvio}
+                className="rounded bg-emerald-500 px-4 py-1.5 text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
+              >
+                Procesar e Importar
               </button>
             </div>
           </div>
