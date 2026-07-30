@@ -678,16 +678,21 @@ Formato JSON esperado:
   };
 
   const generarClaudeMd = (incluirGuia = true): string => {
-    let md = `# CLAUDE.md - Contexto de Desarrollo del Proyecto\n\n`;
+    let md = `# CLAUDE.md - Resumen Ejecutivo del Proyecto\n\n`;
     md += `## 1. Información General del Proyecto\n`;
     md += `- **Nombre:** ${proyecto?.nombre || "No especificado"}\n`;
     md += `- **Descripción:** ${proyecto?.descripcion || "No especificado"}\n`;
+    md += `- **Idioma Principal:** Español (Latinoamérica) para variables, funciones, parámetros y comentarios.\n`;
 
     const stackList: string[] = [];
     if (proyecto?.stack) {
       Object.entries(proyecto.stack).forEach(([layer, techs]) => {
-        if (Array.isArray(techs) && techs.length > 0) {
-          stackList.push(`  - **${layer}:** ${techs.join(", ")}`);
+        if (layer !== "comandos" && Array.isArray(techs) && techs.length > 0) {
+          const catName =
+            layer === "baseDatos"
+              ? "Base de Datos"
+              : layer.charAt(0).toUpperCase() + layer.slice(1);
+          stackList.push(`  - **${catName}:** ${techs.join(", ")}`);
         }
       });
     }
@@ -695,8 +700,25 @@ Formato JSON esperado:
       md += `\n## 2. Stack Tecnológico Elegido\n${stackList.join("\n")}\n`;
     }
 
+    md += `\n## 3. Comandos Frecuentes\n`;
+    const cmds = (proyecto?.stack as any)?.comandos;
+    if (Array.isArray(cmds) && cmds.length > 0) {
+      cmds.forEach((cmd: string) => {
+        const parts = cmd.split(":");
+        if (parts.length > 1) {
+          md += `- \`${parts[0].trim()}\`: ${parts.slice(1).join(":").trim()}\n`;
+        } else {
+          md += `- \`${cmd.trim()}\`\n`;
+        }
+      });
+    } else {
+      md += `- \`npm run dev\`: Inicia el servidor de desarrollo.\n`;
+      md += `- \`npm run build\`: Construcción de producción.\n`;
+      md += `- \`npm run test\`: Ejecución de pruebas unitarias e integración.\n`;
+    }
+
     if (proyecto?.estandares && Object.keys(proyecto.estandares).length > 0) {
-      md += `\n## 3. Estándares y Reglas Estilísticas de Programación\n`;
+      md += `\n## 4. Reglas Críticas e Innegociables\n`;
       Object.entries(proyecto.estandares).forEach(([cat, rules]) => {
         if (Array.isArray(rules) && rules.length > 0) {
           md += `- **${cat}:**\n  * ${rules.join("\n  * ")}\n`;
@@ -704,35 +726,17 @@ Formato JSON esperado:
       });
     }
 
-    md += `\n## 4. Estructura de Rutas y Sitemap (SITEMAP.md)\n`;
-    if (sitemapSystemMarkdown) {
-      md += `${sitemapSystemMarkdown}\n`;
-    } else if (seccionesSitemap.length > 0) {
-      seccionesSitemap.forEach((sec) => {
-        md += `- **Sección {{${sec.nombre}}}:** ${sec.descripcion}\n`;
-      });
-    } else {
-      md += `${sitemap || "*No configurado*"}\n`;
-    }
-
-    md += `\n## 5. Modelo de Datos y Entidades 3FN (SCHEMA.md)\n`;
-    md += `\`\`\`sql\n${entidades || "-- No configurado."}\n\`\`\`\n`;
-
-    if (rolesMarkdown) {
-      md += `\n## 6. Roles y Políticas de Seguridad Multi-Tenant (ROLES.md)\n${rolesMarkdown}\n`;
-    }
-    if (seedMarkdown) {
-      md += `\n## 7. Plan de Datos Semilla para Pruebas (SEED.md)\n${seedMarkdown}\n`;
-    }
-    if (erroresMarkdown) {
-      md += `\n## 8. Diccionario Unificado de Excepciones (ERRORS.md)\n${erroresMarkdown}\n`;
-    }
-    if (setupMarkdown) {
-      md += `\n## 9. Comandos y Scripts de Inicialización Ejecutados (SETUP.md)\n${setupMarkdown}\n`;
-    }
+    md += `\n## 5. Índice de Documentación (Leer Bajo Demanda)\n`;
+    md += `Antes de planificar o ejecutar una tarea compleja, lee el documento correspondiente en la carpeta \`docs/\`:\n`;
+    md += `- **Base de Datos y Entidades:** Para crear tablas, modificar migraciones o consultar el modelo físico, lee \`docs/SCHEMA.md\`.\n`;
+    md += `- **Rutas, Navegación y Flujos:** Para agregar vistas, controladores o consultar el mapa de rutas del sitio, lee \`docs/SITEMAP.md\`.\n`;
+    md += `- **Roles, Accesos y RLS:** Para chequear permisos y políticas RLS de base de datos, lee \`docs/ROLES.md\`.\n`;
+    md += `- **Estrategia de Datos Semilla:** Para sembrar fixtures o mock de pruebas locales, lee \`docs/SEED.md\`.\n`;
+    md += `- **Diccionario de Excepciones:** Para verificar códigos de error estandarizados, lee \`docs/ERRORS.md\`.\n`;
+    md += `- **Inicialización y CI/CD:** Para revisar pipelines, tsconfig, docker y scripts DevOps de inicio, lee \`docs/SETUP.md\`.\n`;
 
     if (incluirGuia) {
-      md += `\n## 10. Guía de Comportamiento e Instrucciones de Handoff\n`;
+      md += `\n## 6. Guía de Comportamiento e Instrucciones de Handoff\n`;
       md += `1. **Cero Placeholders:** Todos los componentes generados deben incluir el código completo listo para producción.\n`;
       md += `2. **Estructura Modular:** Sigue rigurosamente la arquitectura limpia y convenciones descritas.\n`;
       md += `3. **Flujo de Handoff:** Al finalizar una tarea, responde con el resumen técnico y el checklist auto-tildado en el formato JSON requerido.\n`;

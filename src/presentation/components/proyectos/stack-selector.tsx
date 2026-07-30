@@ -18,6 +18,7 @@ interface StackSelectorProps {
     infraestructura?: string[];
     seguridad?: string[];
     integraciones?: string[];
+    comandos?: string[];
   };
   onSave: (stack: Record<string, string[]>) => void;
 }
@@ -89,6 +90,14 @@ const PRESETS = {
     "Resend",
     "SMTP",
   ],
+  comandos: [
+    "npm run dev: Inicia el servidor de desarrollo",
+    "npm run build: Construcción de producción",
+    "npm run test: Ejecución de pruebas unitarias e integración",
+    "npm run lint: Revisa estilos de código",
+    "docker build -t app .: Construye la imagen Docker",
+    "supabase start: Inicia Supabase en local",
+  ],
 };
 
 const DEFAULT_STACKS_TEMPLATES = {
@@ -101,6 +110,10 @@ const DEFAULT_STACKS_TEMPLATES = {
       infraestructura: ["Vercel", "Cloudflare"],
       seguridad: ["CORS"],
       integraciones: ["Resend", "Google Maps"],
+      comandos: [
+        "npm run dev: Inicia el servidor de maquetado",
+        "npm run build: Compila el sitio estático",
+      ],
     },
   },
   ecommerce: {
@@ -112,6 +125,11 @@ const DEFAULT_STACKS_TEMPLATES = {
       infraestructura: ["Vercel", "GitHub Actions"],
       seguridad: ["Supabase Auth", "CORS"],
       integraciones: ["Stripe", "Mercado Pago", "Resend"],
+      comandos: [
+        "npm run dev: Inicia el servidor de desarrollo de Next.js",
+        "npm run build: Construye el build de Next.js",
+        "npm run test: Ejecuta Jest",
+      ],
     },
   },
   saas: {
@@ -123,6 +141,11 @@ const DEFAULT_STACKS_TEMPLATES = {
       infraestructura: ["Docker", "Nginx", "GitHub Actions"],
       seguridad: ["JWT", "CORS", "Rate Limiting"],
       integraciones: ["SMTP", "OpenAI"],
+      comandos: [
+        "npm run dev: Levanta front y back en simultáneo",
+        "npm run build: Construye para producción",
+        "npm run test: Ejecuta suites de prueba",
+      ],
     },
   },
 };
@@ -133,7 +156,12 @@ const JSON_TEMPLATE = `{
   "baseDatos": ["PostgreSQL"],
   "infraestructura": ["Docker", "Nginx"],
   "seguridad": ["JWT", "CORS"],
-  "integraciones": ["Stripe", "OpenAI"]
+  "integraciones": ["Stripe", "OpenAI"],
+  "comandos": [
+    "npm run dev: Inicia el servidor de desarrollo",
+    "npm run build: Construcción de producción",
+    "npm run test: Ejecuta las pruebas"
+  ]
 }`;
 
 export const StackSelector: React.FC<StackSelectorProps> = ({
@@ -153,13 +181,18 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
 
   const safeInitial = initialStack || {};
 
-  const [stack, setStack] = useState({
+  const [stack, setStack] = useState<Record<string, string[]>>({
     frontend: safeInitial.frontend || [],
     backend: safeInitial.backend || [],
     baseDatos: safeInitial.baseDatos || [],
     infraestructura: safeInitial.infraestructura || [],
     seguridad: safeInitial.seguridad || [],
     integraciones: safeInitial.integraciones || [],
+    comandos: safeInitial.comandos || [
+      "npm run dev: Inicia el servidor de desarrollo",
+      "npm run build: Construcción de producción",
+      "npm run test: Ejecución de pruebas unitarias e integración",
+    ],
   });
 
   useEffect(() => {
@@ -171,6 +204,11 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
         infraestructura: initialStack.infraestructura || [],
         seguridad: initialStack.seguridad || [],
         integraciones: initialStack.integraciones || [],
+        comandos: initialStack.comandos || [
+          "npm run dev: Inicia el servidor de desarrollo",
+          "npm run build: Construcción de producción",
+          "npm run test: Ejecución de pruebas unitarias e integración",
+        ],
       });
     } else {
       setStack({
@@ -180,9 +218,14 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
         infraestructura: [],
         seguridad: [],
         integraciones: [],
+        comandos: [
+          "npm run dev: Inicia el servidor de desarrollo",
+          "npm run build: Construcción de producción",
+          "npm run test: Ejecución de pruebas unitarias e integración",
+        ],
       });
     }
-  }, [proyectoId]);
+  }, [proyectoId, initialStack]);
 
   const [inputVal, setInputVal] = useState<Record<string, string>>({
     frontend: "",
@@ -191,6 +234,7 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
     infraestructura: "",
     seguridad: "",
     integraciones: "",
+    comandos: "",
   });
 
   const [sugerenciasInteligentes, setSugerenciasInteligentes] = useState<
@@ -262,6 +306,9 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
       integraciones: [
         ...new Set([...stack.integraciones, ...template.integraciones]),
       ],
+      comandos: [
+        ...new Set([...(stack.comandos || []), ...(template.comandos || [])]),
+      ],
     };
     setStack(next);
     mostrarToast(
@@ -303,6 +350,7 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
         infraestructura: next.infraestructura || [],
         seguridad: next.seguridad || [],
         integraciones: next.integraciones || [],
+        comandos: next.comandos || [],
       });
       mostrarToast(`Preset de stack "${found.nombre}" cargado.`, "exito");
     }
@@ -327,6 +375,7 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
         integraciones: Array.isArray(parsed.integraciones)
           ? parsed.integraciones
           : [],
+        comandos: Array.isArray(parsed.comandos) ? parsed.comandos : [],
       };
       setStack(importedStack);
       setShowJsonArea(false);
@@ -461,7 +510,9 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
               <span className="border-b border-zinc-900 pb-1 font-mono text-[10px] font-bold text-zinc-400 uppercase">
                 {category === "baseDatos"
                   ? "Base de Datos"
-                  : category.toUpperCase()}
+                  : category === "comandos"
+                    ? "Comandos Frecuentes"
+                    : category.toUpperCase()}
               </span>
 
               {/* Added chips list */}
