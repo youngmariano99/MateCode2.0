@@ -1182,7 +1182,9 @@ Formato JSON esperado:
         const matched = projectTareas.find(
           (t: any) =>
             String(t.titulo).toLowerCase().trim() ===
-            String(item.actividad).toLowerCase().trim()
+            String(item.actividad || item.actividadTitulo || "")
+              .toLowerCase()
+              .trim()
         );
 
         if (matched) {
@@ -1266,7 +1268,9 @@ Formato JSON esperado:
         const matched = projectTareas.find(
           (t: any) =>
             String(t.titulo).toLowerCase().trim() ===
-            String(item.actividad).toLowerCase().trim()
+            String(item.actividad || item.actividadTitulo || "")
+              .toLowerCase()
+              .trim()
         );
 
         if (matched) {
