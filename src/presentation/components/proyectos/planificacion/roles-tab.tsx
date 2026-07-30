@@ -1,18 +1,16 @@
 "use client";
 
 import React from "react";
-import { PROMPT_ROLES } from "../constants/prompts";
-
 interface RolesTabProps {
   rolesMarkdown: string;
   setRolesMarkdown: (val: string) => void;
-  mostrarToast: (msg: string, tipo: "exito" | "error" | "info") => void;
+  copiarPromptRoles: () => void;
 }
 
 export const RolesTab: React.FC<RolesTabProps> = ({
   rolesMarkdown,
   setRolesMarkdown,
-  mostrarToast,
+  copiarPromptRoles,
 }) => {
   return (
     <div className="flex flex-col gap-4">
@@ -27,13 +25,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
           </p>
         </div>
         <button
-          onClick={() => {
-            navigator.clipboard.writeText(PROMPT_ROLES);
-            mostrarToast(
-              "Prompt de Roles y Seguridad copiado al portapapeles.",
-              "exito"
-            );
-          }}
+          onClick={copiarPromptRoles}
           className="shrink-0 rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
         >
           📋 Copiar Prompt IA Roles

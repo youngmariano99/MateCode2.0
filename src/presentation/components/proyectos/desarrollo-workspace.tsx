@@ -156,6 +156,85 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
     }
   }, [seccionesSitemap, seccionDescripcion]);
 
+  const generarClaudeMd = (): string => {
+    let md = `# CLAUDE.md - Contexto de Desarrollo del Proyecto\n\n`;
+    md += `## 1. Información General del Proyecto\n`;
+    md += `- **Nombre:** ${proyecto?.nombre || "No especificado"}\n`;
+    md += `- **Descripción:** ${proyecto?.descripcion || "No especificado"}\n`;
+
+    const stackList: string[] = [];
+    if (proyecto?.stack) {
+      Object.entries(proyecto.stack).forEach(([layer, techs]) => {
+        if (Array.isArray(techs) && techs.length > 0) {
+          stackList.push(`  - **${layer}:** ${techs.join(", ")}`);
+        }
+      });
+    }
+    if (stackList.length > 0) {
+      md += `\n## 2. Stack Tecnológico Elegido\n${stackList.join("\n")}\n`;
+    }
+
+    if (proyecto?.estandares && Object.keys(proyecto.estandares).length > 0) {
+      md += `\n## 3. Estándares y Reglas Estilísticas de Programación\n`;
+      Object.entries(proyecto.estandares).forEach(([cat, rules]) => {
+        if (Array.isArray(rules) && rules.length > 0) {
+          md += `- **${cat}:**\n  * ${rules.join("\n  * ")}\n`;
+        }
+      });
+    }
+
+    md += `\n## 4. Estructura de Rutas y Sitemap (SITEMAP.md)\n`;
+    if (contexto?.sitemapSystemMarkdown) {
+      md += `${contexto.sitemapSystemMarkdown}\n`;
+    } else if (
+      Array.isArray(contexto?.seccionesSitemap) &&
+      contexto.seccionesSitemap.length > 0
+    ) {
+      (contexto.seccionesSitemap as any[]).forEach((sec) => {
+        md += `- **Sección {{${sec.nombre}}}:** ${sec.descripcion}\n`;
+      });
+    } else {
+      md += `${contexto?.sitemap || "*No configurado*"}\n`;
+    }
+
+    md += `\n## 5. Modelo de Datos y Entidades 3FN (SCHEMA.md)\n`;
+    md += `\`\`\`sql\n${contexto?.entidades || "-- No configurado."}\n\`\`\`\n`;
+
+    if (contexto?.rolesMarkdown) {
+      md += `\n## 6. Roles y Políticas de Seguridad Multi-Tenant (ROLES.md)\n${contexto.rolesMarkdown}\n`;
+    }
+    if (contexto?.seedMarkdown) {
+      md += `\n## 7. Plan de Datos Semilla para Pruebas (SEED.md)\n${contexto.seedMarkdown}\n`;
+    }
+    if (contexto?.erroresMarkdown) {
+      md += `\n## 8. Diccionario Unificado de Excepciones (ERRORS.md)\n${contexto.erroresMarkdown}\n`;
+    }
+    if (contexto?.setupMarkdown) {
+      md += `\n## 9. Comandos y Scripts de Inicialización Ejecutados (SETUP.md)\n${contexto.setupMarkdown}\n`;
+    }
+
+    return md;
+  };
+
+  const copiarPromptDesvio = () => {
+    const activeSprint = sprints.find((s) => s.id === selectedSprintId);
+    const sprintText = activeSprint
+      ? `Sprint: ${activeSprint.nombre}\nObjetivo: ${activeSprint.objetivo}`
+      : "No seleccionado.";
+    const sitemapContent =
+      contexto?.sitemapSystemMarkdown ||
+      contexto?.sitemapMarkup ||
+      contexto?.sitemap ||
+      "No configurado.";
+
+    const prompt = PROMPT_DESVIO_SPRINT.replace("{{sprint_actual}}", sprintText)
+      .replace("{{sitemap}}", sitemapContent)
+      .replace("{{CLAUDE_MD}}", generarClaudeMd());
+
+    navigator.clipboard.writeText(prompt);
+    mostrarToast("Prompt de desvío copiado al portapapeles.", "exito");
+  };
+
   useEffect(() => {
     if (sprints.length > 0 && !selectedSprintId) {
       const active = sprints.find((s) => s.estado === "activo");
@@ -1143,7 +1222,7 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
         desvioJsonText={desvioJsonText}
         setDesvioJsonText={setDesvioJsonText}
         handleImportarDesvio={handleImportarDesvio}
-        mostrarToast={mostrarToast}
+        copiarPromptDesvio={copiarPromptDesvio}
       />
     </div>
   );

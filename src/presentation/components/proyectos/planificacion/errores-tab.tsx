@@ -1,18 +1,16 @@
 "use client";
 
 import React from "react";
-import { PROMPT_DICCIONARIO_ERRORES } from "../constants/prompts";
-
 interface ErroresTabProps {
   erroresMarkdown: string;
   setErroresMarkdown: (val: string) => void;
-  mostrarToast: (msg: string, tipo: "exito" | "error" | "info") => void;
+  copiarPromptErrores: () => void;
 }
 
 export const ErroresTab: React.FC<ErroresTabProps> = ({
   erroresMarkdown,
   setErroresMarkdown,
-  mostrarToast,
+  copiarPromptErrores,
 }) => {
   return (
     <div className="flex flex-col gap-4">
@@ -27,10 +25,7 @@ export const ErroresTab: React.FC<ErroresTabProps> = ({
           </p>
         </div>
         <button
-          onClick={() => {
-            navigator.clipboard.writeText(PROMPT_DICCIONARIO_ERRORES);
-            mostrarToast("Prompt de Diccionario de Errores copiado.", "exito");
-          }}
+          onClick={copiarPromptErrores}
           className="shrink-0 rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
         >
           📋 Copiar Prompt Errores

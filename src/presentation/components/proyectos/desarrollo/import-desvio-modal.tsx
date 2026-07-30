@@ -1,15 +1,13 @@
 "use client";
 
 import React from "react";
-import { PROMPT_DESVIO_SPRINT } from "../constants/prompts";
-
 interface ImportDesvioModalProps {
   isOpen: boolean;
   onClose: () => void;
   desvioJsonText: string;
   setDesvioJsonText: (text: string) => void;
   handleImportarDesvio: () => void;
-  mostrarToast: (msg: string, tipo: "exito" | "error" | "info") => void;
+  copiarPromptDesvio: () => void;
 }
 
 export const ImportDesvioModal: React.FC<ImportDesvioModalProps> = ({
@@ -18,7 +16,7 @@ export const ImportDesvioModal: React.FC<ImportDesvioModalProps> = ({
   desvioJsonText,
   setDesvioJsonText,
   handleImportarDesvio,
-  mostrarToast,
+  copiarPromptDesvio,
 }) => {
   if (!isOpen) return null;
 
@@ -43,13 +41,7 @@ export const ImportDesvioModal: React.FC<ImportDesvioModalProps> = ({
             chat para diseñar la historia de desvío y pega el JSON resultante.
           </p>
           <button
-            onClick={() => {
-              navigator.clipboard.writeText(PROMPT_DESVIO_SPRINT);
-              mostrarToast(
-                "Prompt de desvío copiado al portapapeles.",
-                "exito"
-              );
-            }}
+            onClick={copiarPromptDesvio}
             className="w-full rounded border border-emerald-500/20 bg-emerald-500/10 py-1.5 text-center text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
           >
             📋 Copiar Prompt de Inducción Desvío

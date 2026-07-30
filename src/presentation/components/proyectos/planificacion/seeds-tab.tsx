@@ -1,18 +1,16 @@
 "use client";
 
 import React from "react";
-import { PROMPT_SEED_DATA } from "../constants/prompts";
-
 interface SeedsTabProps {
   seedMarkdown: string;
   setSeedMarkdown: (val: string) => void;
-  mostrarToast: (msg: string, tipo: "exito" | "error" | "info") => void;
+  copiarPromptSeedData: () => void;
 }
 
 export const SeedsTab: React.FC<SeedsTabProps> = ({
   seedMarkdown,
   setSeedMarkdown,
-  mostrarToast,
+  copiarPromptSeedData,
 }) => {
   return (
     <div className="flex flex-col gap-4">
@@ -27,13 +25,7 @@ export const SeedsTab: React.FC<SeedsTabProps> = ({
           </p>
         </div>
         <button
-          onClick={() => {
-            navigator.clipboard.writeText(PROMPT_SEED_DATA);
-            mostrarToast(
-              "Prompt de Estrategia de Datos Semilla copiado.",
-              "exito"
-            );
-          }}
+          onClick={copiarPromptSeedData}
           className="shrink-0 rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
         >
           📋 Copiar Prompt Seeds

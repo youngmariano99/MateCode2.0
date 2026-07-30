@@ -27,6 +27,9 @@ import {
   PROMPT_MODULAR_HISTORIAS,
   PROMPT_MODULAR_ACTIVIDADES,
   PROMPT_CONFIG_ACTIVIDADES,
+  PROMPT_ROLES,
+  PROMPT_DICCIONARIO_ERRORES,
+  PROMPT_SEED_DATA,
 } from "./constants/prompts";
 
 import { descargarArchivo, descargarZipDocumentos } from "./utils/file-helpers";
@@ -282,10 +285,9 @@ export const PlanificacionIAWorkspace: React.FC<
 
   const copiarPromptBacklog = () => {
     const reqs = `Funcionales:\n${requisitosFuncionales}\n\nNo Funcionales:\n${requisitosNoFuncionales}`;
-    const prompt = PROMPT_BACKLOG.replace("{{requisitos}}", reqs).replace(
-      "{{entidades}}",
-      entidades || "No configurado."
-    );
+    const prompt = PROMPT_BACKLOG.replace("{{requisitos}}", reqs)
+      .replace("{{entidades}}", entidades || "No configurado.")
+      .replace("{{CLAUDE_MD}}", generarClaudeMd(true));
 
     navigator.clipboard.writeText(prompt);
     mostrarToast("Prompt de Backlog copiado al portapapeles.", "exito");
@@ -293,10 +295,9 @@ export const PlanificacionIAWorkspace: React.FC<
 
   const copiarPromptEpicasModulares = () => {
     const reqs = `Funcionales:\n${requisitosFuncionales}\n\nNo Funcionales:\n${requisitosNoFuncionales}`;
-    const prompt = PROMPT_MODULAR_EPICAS.replace(
-      "{{requisitos}}",
-      reqs
-    ).replace("{{entidades}}", entidades || "No configurado.");
+    const prompt = PROMPT_MODULAR_EPICAS.replace("{{requisitos}}", reqs)
+      .replace("{{entidades}}", entidades || "No configurado.")
+      .replace("{{CLAUDE_MD}}", generarClaudeMd(true));
 
     navigator.clipboard.writeText(prompt);
     mostrarToast("Prompt de Épicas Modulares copiado.", "exito");
@@ -315,10 +316,9 @@ export const PlanificacionIAWorkspace: React.FC<
       .map((e) => `- ${e.nombre}: ${e.descripcion}`)
       .join("\n");
     const reqs = `Funcionales:\n${requisitosFuncionales}\n\nNo Funcionales:\n${requisitosNoFuncionales}`;
-    const prompt = PROMPT_MODULAR_HISTORIAS.replace(
-      "{{requisitos}}",
-      reqs
-    ).replace("{{epicas_list}}", epicasListText);
+    const prompt = PROMPT_MODULAR_HISTORIAS.replace("{{requisitos}}", reqs)
+      .replace("{{epicas_list}}", epicasListText)
+      .replace("{{CLAUDE_MD}}", generarClaudeMd(true));
 
     navigator.clipboard.writeText(prompt);
     mostrarToast("Prompt de Historias Modulares copiado.", "exito");
@@ -339,7 +339,7 @@ export const PlanificacionIAWorkspace: React.FC<
     const prompt = PROMPT_MODULAR_ACTIVIDADES.replace(
       "{{historias_list}}",
       storiesText
-    );
+    ).replace("{{CLAUDE_MD}}", generarClaudeMd(true));
 
     navigator.clipboard.writeText(prompt);
     mostrarToast("Prompt de Actividades Modulares copiado.", "exito");
@@ -361,7 +361,10 @@ export const PlanificacionIAWorkspace: React.FC<
       )
       .join("\n");
 
-    const prompt = PROMPT_SPRINTS.replace("{{backlog_stories}}", storiesText);
+    const prompt = PROMPT_SPRINTS.replace(
+      "{{backlog_stories}}",
+      storiesText
+    ).replace("{{CLAUDE_MD}}", generarClaudeMd(true));
     navigator.clipboard.writeText(prompt);
     mostrarToast("Prompt para generación de Sprints copiado.", "exito");
   };
@@ -421,10 +424,15 @@ Formato JSON esperado:
       return;
     }
     const listado = projectTareas.map((t) => `- ${t.titulo}`).join("\n");
+    const sitemapContent =
+      sitemapSystemMarkdown || sitemapMarkup || sitemap || "No configurado.";
     const prompt = PROMPT_CONFIG_ACTIVIDADES.replace(
       "{{actividades_list}}",
       listado
-    );
+    )
+      .replace("{{sitemap}}", sitemapContent)
+      .replace("{{design_system}}", compileDSSummary())
+      .replace("{{CLAUDE_MD}}", generarClaudeMd(true));
 
     navigator.clipboard.writeText(prompt);
     mostrarToast(
@@ -441,6 +449,47 @@ Formato JSON esperado:
     );
     navigator.clipboard.writeText(prompt);
     mostrarToast("Prompt Inicializador de Proyecto (DevOps) copiado.", "exito");
+  };
+
+  const copiarPromptRoles = () => {
+    const relevamiento = contexto?.relevamientoMarkdown || "";
+    const prompt = PROMPT_ROLES.replace(
+      "{{relevamiento_markdown}}",
+      relevamiento
+    ).replace("{{entidades}}", entidades || "No configurado.");
+
+    navigator.clipboard.writeText(prompt);
+    mostrarToast(
+      "Prompt de Roles y Permisos copiado al portapapeles.",
+      "exito"
+    );
+  };
+
+  const copiarPromptSeedData = () => {
+    const sitemapContent =
+      sitemapSystemMarkdown || sitemapMarkup || sitemap || "No configurado.";
+    const prompt = PROMPT_SEED_DATA.replace(
+      "{{entidades}}",
+      entidades || "No configurado."
+    )
+      .replace("{{sitemap}}", sitemapContent)
+      .replace("{{CLAUDE_MD}}", generarClaudeMd(true));
+
+    navigator.clipboard.writeText(prompt);
+    mostrarToast("Prompt de Datos Semilla (Seeds) copiado.", "exito");
+  };
+
+  const copiarPromptErrores = () => {
+    const relevamiento = contexto?.relevamientoMarkdown || "";
+    const prompt = PROMPT_DICCIONARIO_ERRORES.replace(
+      "{{relevamiento_markdown}}",
+      relevamiento
+    )
+      .replace("{{design_system}}", compileDSSummary())
+      .replace("{{CLAUDE_MD}}", generarClaudeMd(true));
+
+    navigator.clipboard.writeText(prompt);
+    mostrarToast("Prompt de Diccionario de Errores copiado.", "exito");
   };
 
   const handleProcesarMarkup = () => {
@@ -1244,7 +1293,7 @@ Formato JSON esperado:
         <RolesTab
           rolesMarkdown={rolesMarkdown}
           setRolesMarkdown={setRolesMarkdown}
-          mostrarToast={mostrarToast}
+          copiarPromptRoles={copiarPromptRoles}
         />
       )}
 
@@ -1252,7 +1301,7 @@ Formato JSON esperado:
         <ErroresTab
           erroresMarkdown={erroresMarkdown}
           setErroresMarkdown={setErroresMarkdown}
-          mostrarToast={mostrarToast}
+          copiarPromptErrores={copiarPromptErrores}
         />
       )}
 
@@ -1260,7 +1309,7 @@ Formato JSON esperado:
         <SeedsTab
           seedMarkdown={seedMarkdown}
           setSeedMarkdown={setSeedMarkdown}
-          mostrarToast={mostrarToast}
+          copiarPromptSeedData={copiarPromptSeedData}
         />
       )}
 

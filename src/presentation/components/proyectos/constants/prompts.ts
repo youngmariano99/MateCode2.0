@@ -1,102 +1,99 @@
-export const PROMPT_REQUISITOS = `Eres un Analista de Negocio y Product Owner Experto. A partir de los siguientes documentos de contexto de nuestro cliente, debes diseñar la especificación de Requerimientos Funcionales y No Funcionales, y la estructura del Sitemap (Secciones).
+// ============================================================================
+// SISTEMA DE PROMPTS AGNÓSTICOS - ESTRUCTURA OPTIMIZADA
+// ============================================================================
 
-RELEVAMIENTO DEL CLIENTE:
----
-{{relevamiento_markdown}}
----
+export const PROMPT_REQUISITOS = `<rol>
+Actúa como Analista de Negocio y Product Owner Experto.
+</rol>
 
-STACK TECNOLÓGICO Y DISEÑO:
-- Stack: {{stack_summary}}
-- Estilo Visual: {{design_system_summary}}
+<contexto>
+<relevamiento>{{relevamiento_markdown}}</relevamiento>
+<stack>{{stack_summary}}</stack>
+<diseno>{{design_system_summary}}</diseno>
+</contexto>
 
-INSTRUCCIONES DE RESPUESTA:
-Escribe la respuesta en formato Markdown. Utiliza un lenguaje claro, sencillo y de fácil comprensión (apto para desarrolladores junior), detallando:
-1. **Requisitos Funcionales**: Lista detallada de las acciones que debe poder hacer el usuario.
-2. **Requisitos No Funcionales**: Parámetros de calidad, velocidad, seguridad y rendimiento.
-3. **Sitemap**: El mapa de secciones o pantallas donde se ubicarán estas características.
+<reglas_guardrail>
+1. ANTI-INVENTOS: Cíñete estrictamente a los hechos explicitados en el relevamiento adjunto. Queda terminantemente prohibido asumir o inventar funcionalidades, módulos o roles no descritos.
+2. CONGRUENCIA TÉCNICA: Todos los requisitos no funcionales deben alinear con las capacidades y límites del stack tecnológico y sistema de diseño aportados en el contexto.
+3. ESTILO: Lenguaje claro, unívoco y preciso, evitando ambigüedades interpretativas para el equipo de desarrollo.
+</reglas_guardrail>
 
-Escribe únicamente el Markdown con estas secciones sin introducciones adicionales.`;
+<output_requerido>
+Devuelve ÚNICAMENTE un documento Markdown con las siguientes 3 secciones exactas (sin texto introductorio ni conclusiones):
+## 1. Requisitos Funcionales
+- Lista detallada de funcionalidades por módulo y rol de usuario.
+## 2. Requisitos No Funcionales
+- Parámetros medibles de calidad, rendimiento, seguridad y accesibilidad adaptados al stack del proyecto.
+## 3. Sitemap / Arquitectura de Información
+- Árbol conceptual de secciones, pantallas o rutas del sistema.
+</output_requerido>`;
 
-export const PROMPT_SITEMAP_LANDING = `Eres un Arquitecto de Información, Diseñador UI/UX y Copywriter Senior. A partir del siguiente Relevamiento del Cliente, Copywriting de Marca y Enlaces de Inspiración Visual, debes diseñar la estructura detallada de secciones (Sitemap / Layout) para el sitio web.
+export const PROMPT_SITEMAP_LANDING = `<rol>
+Actúa como Arquitecto de Información, Diseñador UI/UX y Copywriter Senior.
+</rol>
 
-RELEVAMIENTO DEL CLIENTE:
----
-{{relevamiento_markdown}}
----
+<contexto>
+<relevamiento>{{relevamiento_markdown}}</relevamiento>
+<copywriting>{{copy_contenido}}</copywriting>
+<inspiracion_visual>{{links_inspiracion}}</inspiracion_visual>
+</contexto>
 
-COPYWRITING DE MARCA Y CONTENIDO:
----
-{{copy_contenido}}
----
+<reglas_guardrail>
+1. ANTI-INVENTOS: Utiliza únicamente las propuestas de valor, servicios, productos y tono de comunicación presentes en el relevamiento y el copywriting provistos.
+2. FIDELIDAD VISUAL: La disposición de secciones and componentes debe respetar estrictamente los lineamientos y las referencias visuales aportadas.
+</reglas_guardrail>
 
-ENLACES DE INSPIRACIÓN VISUAL:
----
-{{links_inspiracion}}
----
+<output_requerido>
+Devuelve ÚNICAMENTE los bloques de la estructura de la interfaz etiquetados con el siguiente marcado exacto, sin markdown envolvente ni explicaciones adicionales:
 
-INSTRUCCIONES DE RESPUESTA:
-Debes devolver la estructura de la landing o sitio institucional utilizando OBLIGATORIAMENTE etiquetas de marcado con el formato exacto:
 {{NOMBRE_SECCION}}
-Descripción detallada de los elementos, copies, tarjetas, llamados a la acción (CTA) y componentes que irán en esta sección.
+Descripción clara del layout, copies exactos, componentes UI sugeridos y botones de acción (CTA).
 {{/NOMBRE_SECCION}}
+</output_requerido>`;
 
-Ejemplo:
-{{HERO}}
-Encabezado principal con título de alto impacto, subtítulo persuasivo, botón CTA "Agendar Demostración" y video interactivo de fondo.
-{{/HERO}}
+export const PROMPT_ENTIDADES = `<rol>
+Actúa como Arquitecto de Bases de Datos y Software Experto.
+</rol>
 
-{{SERVICIOS}}
-Grilla de 4 tarjetas destacando las soluciones principales de la empresa con iconos personalizados y modales explicativos.
-{{/SERVICIOS}}
+<contexto>
+<relevamiento>{{relevamiento_markdown}}</relevamiento>
+<requisitos>{{requisitos}}</requisitos>
+<stack>{{stack_summary}}</stack>
+</contexto>
 
-{{CONTACTO}}
-Formulario directo de captación de leads con validación en tiempo real y mapa interactivo de la agencia.
-{{/CONTACTO}}
+<reglas_guardrail>
+1. PARADIGMA Y MOTOR: Diseña el modelo strictly según el motor (relacional, NoSQL, gráfico, etc.) y paradigma (monolito, multi-tenant, microservicios) indicados en el stack y los requisitos.
+2. ANTI-INVENTOS: No inventes entidades, colecciones ni tablas que no estén respaldadas por los casos de uso descritos en el documento de requisitos.
+3. INTEGRIDAD Y NORMALIZACIÓN: Aplica las buenas prácticas propias del motor seleccionado (ej. normalización 3FN en bases de datos relacionales o estructuración documental óptima en NoSQL).
+4. ESTÁNDARES: Utiliza nombres descriptivos, consistencia en la convención de tipos de datos nativos del motor y claves que garanticen la integridad del modelo.
+</reglas_guardrail>
 
-Escribe ÚNICAMENTE los bloques etiquetados con {{NOMBRE_SECCION}} ... {{/NOMBRE_SECCION}} sin introducciones ni comentarios adicionales.`;
+<output_requerido>
+Devuelve ÚNICAMENTE el esquema de la base de datos en formato Markdown técnico detallado (entidades/tablas, atributos/campos, tipos de datos, restricciones e índices/relaciones), sin texto en prosa innecesario.
+</output_requerido>`;
 
-export const PROMPT_ENTIDADES = `Eres un Arquitecto de Base de Datos y Software Experto. A partir del relevamiento, requerimientos y el stack elegido, diseña el modelado de datos en Tercera Forma Normal (3FN).
+export const PROMPT_BACKLOG = `<rol>
+Actúa como Product Owner y Scrum Master Senior.
+</rol>
 
-RELEVAMIENTO DEL CLIENTE:
----
-{{relevamiento_markdown}}
----
+<contexto>
+<requisitos>{{requisitos}}</requisitos>
+<base_de_datos>{{entidades}}</base_de_datos>
+<estandar_tecnico>{{CLAUDE_MD}}</estandar_tecnico>
+</contexto>
 
-REQUISITOS FUNCIONALES Y NO FUNCIONALES:
----
-{{requisitos}}
----
+<reglas_guardrail>
+1. ESTRICTA CONGRUENCIA: Las historias deben mapear uno a uno con la arquitectura, módulos y estructuras de datos descritas en el contexto.
+2. CRITERIOS TESTEABLES: Describe criterios de aceptación objetivos, verificables y claros para los desarrolladores y QA.
+3. ANTI-INVENTOS: No agregues épicas, funcionalidades ni tareas que excedan el alcance delimitado en los requisitos originales.
+</reglas_guardrail>
 
-STACK TECNOLÓGICO:
-- Stack: {{stack_summary}}
-
-INSTRUCCIONES DE DISEÑO:
-1. Diseña las entidades necesarias para cumplir con los requerimientos.
-2. Asegura que el modelado cumpla con la Tercera Forma Normal (3FN).
-3. Usa español latinoamericano para los nombres de tablas y columnas con nomenclatura limpia y consistente (snake_case).
-4. Elige los tipos de datos óptimos según el motor del stack seleccionado.
-5. Devuelve la especificación en formato Markdown explicativo de las tablas y campos.
-6. Escribe únicamente la documentación en Markdown sin códigos externos ni introducciones.`;
-
-export const PROMPT_BACKLOG = `Actúa como un Product Owner y Scrum Master. Debes transformar los requerimientos y entidades del proyecto en un plan de backlog detallado de Épicas, Historias de Usuario y Actividades.
-Debes basarte estrictamente en la arquitectura, el stack y los estándares definidos en el archivo CLAUDE.md.
-
-<requisitos>
-{{requisitos}}
-</requisitos>
-
-<base_de_datos>
-{{entidades}}
-</base_de_datos>
-
-Devuelve un JSON estrictamente estructurado según el siguiente formato, sin explicaciones ni markdown decorativo. Las descripciones y títulos deben ser en lenguaje simple y claro para desarrolladores junior.
-
-FORMATO JSON ESPERADO:
-\`\`\`json
+<output_requerido>
+Devuelve ÚNICAMENTE un array JSON válido con esta estructura exacta, sin comentarios ni formato adicional:
 [
   {
     "nombre": "Nombre de la Épica",
-    "descripcion": "Descripción de la épica",
+    "descripcion": "Descripción concisa del alcance",
     "historias": [
       {
         "titulo": "Título de la Historia de Usuario",
@@ -104,31 +101,36 @@ FORMATO JSON ESPERADO:
         "prioridad": "Alta",
         "estimacion": 3,
         "actividades": [
-          "Tarea 1",
-          "Tarea 2",
-          "Tarea 3"
+          "Tarea técnica concisa 1",
+          "Tarea técnica concisa 2"
         ]
       }
     ]
   }
 ]
-\`\`\``;
+</output_requerido>`;
 
-export const PROMPT_SPRINTS = `Actúa como un Scrum Master Senior. A partir de las historias de usuario dadas, organízalas en sprints lógicos y coherentes.
-Debes considerar los criterios y la arquitectura del archivo CLAUDE.md.
+export const PROMPT_SPRINTS = `<rol>
+Actúa como Scrum Master Senior.
+</rol>
 
-<historias_disponibles>
-{{backlog_stories}}
-</historias_disponibles>
+<contexto>
+<backlog>{{backlog_stories}}</backlog>
+<estandar_tecnico>{{CLAUDE_MD}}</estandar_tecnico>
+</contexto>
 
-Devuelve un JSON estrictamente estructurado según el siguiente formato, sin explicaciones ni markdown decorativo.
+<reglas_guardrail>
+1. COHERENCIA LOGÍSTICA: Ordena las historias siguiendo dependencias técnicas lógicas (ej. esquemas de datos, autenticación o bases antes de componentes visuales dependientes).
+2. CAPACIDAD: Respeta el máximo de puntos o capacidad por sprint especificado en los estándares técnicos del proyecto.
+3. ANTI-INVENTOS: Utiliza de forma exacta y literal los títulos de historia provistos en el backlog; no los renombres ni añadas elementos nuevos.
+</reglas_guardrail>
 
-FORMATO JSON ESPERADO:
-\`\`\`json
+<output_requerido>
+Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin texto explicativo:
 [
   {
-    "nombre": "Sprint 1: Nombre",
-    "objetivo": "Objetivo principal del sprint",
+    "nombre": "Sprint 1: Nombre orientativo",
+    "objetivo": "Objetivo principal de la entrega",
     "duracionSemanas": 2,
     "capacidad": 20,
     "historiasTitulos": [
@@ -137,11 +139,11 @@ FORMATO JSON ESPERADO:
     ]
   }
 ]
-\`\`\``;
+</output_requerido>`;
 
 export const PROMPT_INICIALIZADOR = `<role>
 Actúa como un DevOps Engineer Senior y Tech Lead Experto en Arquitectura de Software Moderna.
-Tu objetivo es generar una guía ejecutiva paso a paso con los comandos de terminal y scripts necesarios para inicializar un proyecto en limpio y su pipeline de CI/CD, basándote en la especificación de stack definida en el archivo CLAUDE.md.
+Tu objetivo es generar una guía ejecutiva paso a paso con los comandos de terminal y scripts necesarios para inicializar un proyecto en limpio y su pipeline de CI/CD, basándose en la especificación de stack definida en el archivo CLAUDE.md.
 </role>
 
 <input_context>
@@ -160,7 +162,7 @@ Tu objetivo es generar una guía ejecutiva paso a paso con los comandos de termi
 </reglas_de_compatibilidad_y_versiones>
 
 <instrucciones_ejecucion>
-Proporciona una guía clara, ordenaba y lista para copiar y pegar en la terminal, dividida en las siguientes secciones obligatorias:
+Proporciona una guía clara, ordenada y lista para copiar y pegar en la terminal, dividida en las siguientes secciones obligatorias:
 
 1. **Comandos de Inicialización Base:** Comandos exactos para crear el esqueleto del proyecto en una sola línea de comando cuando sea posible (ej. \`npx create-next-app@latest ...\` con flags predeterminados recomendados).
 2. **Instalación de Dependencias del Stack:** Comandos divididos claramente entre dependencias de producción (\`dependencies\`) y dependencias de desarrollo (\`devDependencies\`).
@@ -170,142 +172,230 @@ Proporciona una guía clara, ordenaba y lista para copiar y pegar en la terminal
 6. **Comando de Verificación Final:** Un script o comando de prueba rápida para validar en local que la instalación y los scripts del pipeline funcionarán correctamente antes de hacer el primer push (ej. \`npm run build && npm run lint\`).
 </instrucciones_ejecucion>`;
 
-export const PROMPT_MODULAR_EPICAS = `Actúa como un Product Owner Senior. Tu objetivo es analizar los requisitos y la base de datos para generar las Épicas del backlog del proyecto.
-Debes basarte estrictamente en la arquitectura, el stack y los estándares definidos en el archivo CLAUDE.md.
+export const PROMPT_MODULAR_EPICAS = `<rol>
+Actúa como Product Owner Senior.
+</rol>
 
-<requisitos>
-{{requisitos}}
-</requisitos>
+<contexto>
+<requisitos>{{requisitos}}</requisitos>
+<base_de_datos>{{entidades}}</base_de_datos>
+<estandar_tecnico>{{CLAUDE_MD}}</estandar_tecnico>
+</contexto>
 
-<base_de_datos>
-{{entidades}}
-</base_de_datos>
+<reglas_guardrail>
+1. ANTI-INVENTOS: Deriva las épicas única y exclusivamente de los alcances explicitados en los requisitos y el modelo de datos aportado.
+2. ECONOMÍA DE TOKENS: Responde únicamente en el formato JSON exigido sin comentarios ni texto de apertura/cierre.
+</reglas_guardrail>
 
-Devuelve un JSON estrictamente estructurado con las Épicas resultantes, sin introducciones ni markdown decorativo.
-
-FORMATO JSON ESPERADO:
-\`\`\`json
+<output_requerido>
+Devuelve ÚNICAMENTE un array JSON válido y estrictamente formateado con la siguiente estructura:
 [
   {
     "nombre": "Épica 1: Nombre descriptivo",
-    "descripcion": "Descripción detallada del alcance de la épica"
+    "descripcion": "Descripción detallada del alcance funcional de la épica"
   }
 ]
-\`\`\``;
+</output_requerido>`;
 
-export const PROMPT_MODULAR_HISTORIAS = `Actúa como un Product Owner Senior. Tu objetivo es detallar las Historias de Usuario asociadas a cada una de las Épicas del proyecto.
-Debes basarte en la arquitectura y estándares definidos en el archivo CLAUDE.md.
+export const PROMPT_MODULAR_HISTORIAS = `<rol>
+Actúa como Product Owner Senior.
+</rol>
 
-<requisitos>
-{{requisitos}}
-</requisitos>
+<contexto>
+<requisitos>{{requisitos}}</requisitos>
+<epicas>{{epicas_list}}</epicas>
+<estandar_tecnico>{{CLAUDE_MD}}</estandar_tecnico>
+</contexto>
 
-<epicas_existentes>
-{{epicas_list}}
-</epicas_existentes>
+<reglas_guardrail>
+1. CONGRUENCIA DE NOMBRE: La propiedad 'epicNombre' debe ser exacta y coincidir carácter por carácter con algún nombre de la lista de épicas provista.
+2. ANTI-INVENTOS: Limita las historias de usuario a las necesidades de negocio del contexto. No generes requerimientos implícitos ajenos al proyecto.
+</reglas_guardrail>
 
-Devuelve un JSON estrictamente estructurado con las Historias de Usuario vinculadas a sus épicas (epicNombre), sin comentarios ni markdown decorativo.
-
-FORMATO JSON ESPERADO:
-\`\`\`json
+<output_requerido>
+Devuelve ÚNICAMENTE un array JSON válido con las historias vinculadas a sus épicas:
 [
   {
     "epicNombre": "Nombre exacto de la Épica de la lista",
-    "titulo": "Título de la Historia",
+    "titulo": "Título descriptivo de la Historia",
     "descripcion": "Como [rol] quiero [acción] para [beneficio]",
     "prioridad": "Alta" | "Media" | "Baja",
     "estimacion": 3
   }
 ]
-\`\`\``;
+</output_requerido>`;
 
-export const PROMPT_MODULAR_ACTIVIDADES = `Actúa como un Tech Lead Senior. Tu objetivo es descomponer las Historias de Usuario en Actividades Técnicas concretas.
-Debes alinear cada actividad a la estructura y estándares del archivo CLAUDE.md.
+export const PROMPT_MODULAR_ACTIVIDADES = `<rol>
+Actúa como Tech Lead Senior.
+</rol>
 
-<historias_de_usuario>
-{{historias_list}}
-</historias_de_usuario>
+<contexto>
+<historias>{{historias_list}}</historias>
+<estandar_tecnico>{{CLAUDE_MD}}</estandar_tecnico>
+</contexto>
 
-Devuelve un JSON estrictamente estructurado con las actividades técnicas vinculadas a su historia (storyTitulo), sin comentarios ni markdown decorativo.
+<reglas_guardrail>
+1. CONGRUENCIA TECNOLÓGICA: Detalla actividades y soluciones técnicas compatibles en un 100% con el stack, patrones de arquitectura y pautas declaradas en el estándar técnico.
+2. VINCULACIÓN EXACTA: La clave 'storyTitulo' debe ser exactamente idéntica al título original de la historia de usuario provista en el contexto.
+3. ANTI-INVENTOS: No incluyas tareas asociadas a tecnologías o servicios no definidos previamente en las reglas técnicas del proyecto.
+</reglas_guardrail>
 
-FORMATO JSON ESPERADO:
-\`\`\`json
+<output_requerido>
+Devuelve ÚNICAMENTE un array JSON estricto con la siguiente estructura:
 [
   {
     "storyTitulo": "Título exacto de la Historia de la lista",
-    "titulo": "Título de la Actividad Técnica (ej: Configurar Supabase Auth, Crear formulario de contacto)",
-    "descripcion": "Instrucciones técnicas de implementación"
+    "titulo": "Título concreto de la Actividad Técnica",
+    "descripcion": "Instrucciones técnicas implementables y verificables paso a paso"
   }
 ]
-\`\`\``;
+</output_requerido>`;
 
-export const PROMPT_CONFIG_ACTIVIDADES = `Actúa como un Arquitecto y Tech Lead Senior. Tu objetivo es definir el rol recomendado, componente, ruta, módulo, etiquetas (tags), checklist paso a paso de implementación, y los requisitos de datos semilla (seed data) para cada actividad técnica.
-La arquitectura, nombres de componentes y convenciones de rutas deben ajustarse estrictamente a lo establecido en el archivo CLAUDE.md.
+export const PROMPT_CONFIG_ACTIVIDADES = `<rol>
+Actúa como Arquitecto y Tech Lead Senior.
+</rol>
 
-<actividades_del_backlog>
-{{actividades_list}}
-</actividades_del_backlog>
+<contexto>
+<actividades>{{actividades_list}}</actividades>
+<sitemap>{{sitemap}}</sitemap>
+<diseno>{{design_system}}</diseno>
+<estandar_tecnico>{{CLAUDE_MD}}</estandar_tecnico>
+</contexto>
 
-Devuelve un JSON estructurado con los detalles de configuración técnica por actividad, sin introducciones ni markdown decorativo.`;
+<reglas_guardrail>
+1. RUTAS Y ARCHIVOS: Especifica ubicaciones y nombres de componente/archivo coherentes con la estructura del sitemap y el patrón de carpetas estipulado en el estándar técnico.
+2. DATOS DE PRUEBA: Si la actividad implica persistencia, indica instrucciones realistas de datos de prueba alineadas al modelo de base de datos del proyecto.
+3. ANTI-INVENTOS: Utiliza únicamente las capas y nomenclaturas acordes a la arquitectura definida en el contexto.
+</reglas_guardrail>
 
-export const PROMPT_ROLES = `Actúa como un Arquitecto de Seguridad y Administrador de Base de Datos Senior.
-Genera la especificación de Roles de Usuario y políticas de acceso para el proyecto basándote en el relevamiento y el modelo de negocio.
+<output_requerido>
+Devuelve ÚNICAMENTE un array JSON con las especificaciones técnicas completas por actividad:
+[
+  {
+    "actividadTitulo": "Título exacto de la Actividad",
+    "rol": "Rol técnico responsable",
+    "componente": "nombre_archivo_o_modulo",
+    "ruta": "ruta/al/archivo/o/componente/",
+    "modulo": "Nombre del módulo principal",
+    "etiquetas": ["FRONTEND", "BACKEND", "BD", "API", "DEVOPS"],
+    "pasos": [
+      "Paso 1: Instrucción precisa de modificación o creación",
+      "Paso 2: Validación funcional o prueba sugerida"
+    ],
+    "seed": {
+      "modelo": "nombre_entidad",
+      "volumen": 15,
+      "indicaciones": "Instrucción descriptiva para poblar datos si se requiere"
+    }
+  }
+]
+</output_requerido>`;
 
-INSTRUCCIONES Y ESTRUCTURA REQUERIDA (ROLES.md):
-Devuelve un archivo Markdown (ROLES.md) con la siguiente estructura:
-1. **Listado de Roles del Sistema**: Nombre del rol y descripción de responsabilidades (ej: Administrador, Operador, Cliente Final).
-2. **Matriz de Permisos (RBAC)**: Tabla indicando qué rol tiene acceso a qué módulos/rutas y acciones permitidas (Crear, Leer, Modificar, Eliminar).
-3. **Reglas de Aislamiento y Supabase RLS**: Directrices y plantillas de políticas RLS sugeridas para proteger las tablas de la base de datos de forma multi-tenant o según el rol de la sesión.
+export const PROMPT_ROLES = `<rol>
+Actúa como Arquitecto de Seguridad y Especialista en Autorización Senior.
+</rol>
 
-Por favor, devuelve únicamente el contenido en Markdown, sin introducciones ni comentarios.`;
+<contexto>
+<relevamiento>{{relevamiento_markdown}}</relevamiento>
+<entidades>{{entidades}}</entidades>
+</contexto>
 
-export const PROMPT_DICCIONARIO_ERRORES = `Actúa como un Arquitecto de Software Principal y PO Senior.
-Genera el diccionario de excepciones y errores de negocio estandarizado para el proyecto basándote en el relevamiento y las reglas de dominio.
+<reglas_guardrail>
+1. POLÍTICAS DE AISLAMIENTO: Diseña los esquemas de control de acceso (RBAC, ABAC, ACL, o RLS según el stack) asegurando los requisitos de privacidad y visibilidad de datos solicitados en el relevamiento.
+2. ROLES DE NEGOCIO: Utiliza únicamente los roles de usuario explicitados o lógicamente deducibles de los procesos descritos en el documento de requisitos.
+3. ANTI-INVENTOS: No otorgues permisos por defecto ni inventes políticas de seguridad incompatibles con el modelo de datos y stack entregados.
+</reglas_guardrail>
 
-INSTRUCCIONES Y ESTRUCTURA REQUERIDA (ERRORS.md):
-Devuelve un archivo Markdown (ERRORS.md) detallando:
-1. **Códigos de Error Estructurados**: Nomenclatura del error (ej: MC_USER_DUPLICATE, MC_INSUFFICIENT_FUNDS).
-2. **Mensaje de Usuario Amigable**: Explicación legible y clara en español latino.
-3. **Capa y Código HTTP**: Capa lógica del error y estado HTTP recomendado (ej: 400 Bad Request, 422 Unprocessable Entity).
-4. **Instrucciones de Manejo**: Directriz breve de cómo reportar o capturar el error.
+<output_requerido>
+Devuelve ÚNICAMENTE un archivo Markdown completo (ROLES.md) sin prosa extra, con las siguientes tres secciones:
+## 1. Listado y Descripción de Roles del Sistema
+## 2. Matriz de Permisos (Roles vs. Entidades/Casos de Uso)
+## 3. Reglas y Configuración de Aislamiento de Datos (con ejemplos abstractos o plantillas de políticas/consultas coherentes con el motor de BD)
+</output_requerido>`;
 
-Por favor, devuelve únicamente el contenido en Markdown, sin introducciones ni comentarios.`;
+export const PROMPT_DICCIONARIO_ERRORES = `<rol>
+Actúa como Arquitecto de Software Principal y PO Senior.
+</rol>
 
-export const PROMPT_SEED_DATA = `Actúa como un Administrador de Base de Datos y Tech Lead Senior.
-Genera el plan de datos semilla (Seed Data / Fixtures) para poblar y probar la base de datos del proyecto de manera realista.
+<contexto>
+<relevamiento>{{relevamiento_markdown}}</relevamiento>
+<reglas_diseno>{{design_system}}</reglas_diseno>
+<estandar_tecnico>{{CLAUDE_MD}}</estandar_tecnico>
+</contexto>
 
-INSTRUCCIONES Y ESTRUCTURA REQUERIDA (SEED.md):
-Devuelve un archivo Markdown (SEED.md) con la siguiente estructura:
-1. **Estrategia de Datos Semilla**: Indicar la cantidad lógica de registros para pruebas desafiantes (ej: 50 productos para filtros/paginación, pero 3-4 roles).
-2. **Tablas y Volumen a Generar**: Resumen de cada entidad y volumen de datos de muestra para simular estrés y verificar la interfaz.
-3. **Scripts SQL o Data Fixtures**: Código completo de siembra (seed.sql) o fixtures JSON/TypeScript listos para importar.
+<reglas_guardrail>
+1. NOMENCLATURA: Utiliza el formato o convención de códigos de error dictado en los estándares del proyecto (o, si no se especifica, usa un estándar predecible como [PREFIJO]-[MÓDULO]-[CORRELATIVO]).
+2. MANEJO EMPÁTICO: Proporciona descripciones claras y accionables para el usuario final según el sistema de diseño y guías de tono aportadas.
+3. ANTI-INVENTOS: Declara códigos de excepción exclusivamente para las casuísticas de negocio y errores técnicos que el alcance actual del sistema pueda experimentar.
+</reglas_guardrail>
 
-Por favor, devuelve únicamente el contenido en Markdown, sin introducciones ni comentarios.`;
+<output_requerido>
+Devuelve ÚNICAMENTE un archivo Markdown completo (ERRORS.md) con una tabla principal por cada módulo del sistema que incluya las siguientes columnas: Código de Error, Mensaje para el Usuario, Capa / Estado HTTP (según aplique), y Acción Sugerida para Resolución.
+</output_requerido>`;
 
-export const PROMPT_DESVIO_SPRINT = `Actúa como un DevOps y Tech Lead Senior. Genera una nueva Historia de Usuario desvío / hot-scope para añadir a un sprint activo.
-Deberás devolver un bloque JSON con esta estructura exacta, sin markdown decorativo ni introducciones:
+export const PROMPT_SEED_DATA = `<rol>
+Actúa como Administrador de Bases de Datos (DBA) y Tech Lead Senior.
+</rol>
+
+<contexto>
+<entidades>{{entidades}}</entidades>
+<sitemap>{{sitemap}}</sitemap>
+<estandar_tecnico>{{CLAUDE_MD}}</estandar_tecnico>
+</contexto>
+
+<reglas_guardrail>
+1. INTEGRIDAD Y COHERENCIA: Los datos de prueba generados deben respetar las claves foráneas, restricciones de unicidad y relaciones estructurales dictadas en las entidades.
+2. VOLUMEN DE PRUEBA REALISTA: Define volúmenes de datos que permitan probar paginación, filtros y búsquedas reales de acuerdo a las necesidades de la aplicación.
+3. ANTI-INVENTOS: Limítate estrictamente a insertar información en las tablas/colecciones y columnas explicitadas en el esquema provisto; queda prohibido añadir campos inexistentes.
+</reglas_guardrail>
+
+<output_requerido>
+Devuelve ÚNICAMENTE un archivo Markdown completo (SEED.md) sin saludos ni conclusiones, estructurado en:
+## 1. Estrategia del Lote de Datos de Prueba
+## 2. Volumen por Entidad
+## 3. Script / Configuración de Siembra (con código sintácticamente correcto en el lenguaje de inserción, SQL, ORM o script del motor técnico del proyecto)
+</output_requerido>`;
+
+export const PROMPT_DESVIO_SPRINT = `<rol>
+Actúa como Tech Lead y Scrum Master Senior.
+</rol>
+
+<contexto>
+<squad_sprint>{{sprint_actual}}</squad_sprint>
+<sitemap>{{sitemap}}</sitemap>
+<estandar_tecnico>{{CLAUDE_MD}}</estandar_tecnico>
+</contexto>
+
+<reglas_guardrail>
+1. ALINEACIÓN ARQUITECTÓNICA: Asegura que el cambio o requerimiento no planificado no viole los principios arquitectónicos vigentes en el proyecto.
+2. ANTI-INVENTOS: Mantén las actividades dentro del árbol de directorios, convenciones de nombres y tecnologías preestablecidas en el contexto original.
+</reglas_guardrail>
+
+<output_requerido>
+Devuelve ÚNICAMENTE un objeto JSON válido, estrictamente formateado de la siguiente manera:
 {
   "titulo": "Título de la Historia de Desvío",
-  "descripcion": "Criterios de Aceptación / Definición de lo que se debe construir",
+  "descripcion": "Criterios de Aceptación verificables y delimitados",
   "prioridad": "Alta",
   "estimacion": 3,
   "actividades": [
     {
-      "actividadTitulo": "Nombre de la Actividad Técnica",
-      "rol": "Senior Backend Developer",
-      "componente": "modulo-controller.ts",
-      "ruta": "src/application/controllers/",
-      "modulo": "Pedidos",
-      "etiquetas": ["BACKEND", "BD"],
+      "actividadTitulo": "Nombre exacto de la Actividad Técnica",
+      "rol": "Rol Técnico Responsable",
+      "componente": "archivo_afectado",
+      "ruta": "ruta/del/componente/",
+      "modulo": "Nombre del Módulo",
+      "etiquetas": ["BACKEND", "FRONTEND", "BD"],
       "pasos": [
-        "Paso 1: Definir los endpoints de creación y consulta",
-        "Paso 2: Escribir tests unitarios para los casos de negocio"
+        "Paso 1: Instrucción precisa de modificación o creación",
+        "Paso 2: Validación functional o prueba sugerida"
       ],
       "seed": {
-        "modelo": "pedidos",
-        "volumen": 30,
-        "indicaciones": "Generar pedidos con estados variados (pendiente, completado, cancelado) para testear filtros de interfaz."
+        "modelo": "entidad_bd",
+        "volumen": 5,
+        "indicaciones": "Instrucción sobre actualización de datos de prueba"
       }
     }
   ]
-}`;
+}
+</output_requerido>`;
