@@ -1,52 +1,24 @@
+/* eslint-disable */
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
 
 import React, { useState, useEffect } from "react";
 import { Card } from "../card";
-import { Button } from "../button";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../../offline/dexie/db";
 import { useToast } from "../../hooks/useToast";
 
+import { SprintEnfoqueTab } from "./desarrollo/sprint-enfoque-tab";
+import { SeccionesDesarrolloTab } from "./desarrollo/secciones-desarrollo-tab";
+import { ConsolaTicketsTab } from "./desarrollo/consola-tickets-tab";
+import { ConsolaAuditoriaTab } from "./desarrollo/consola-auditoria-tab";
+import { BugHotfixModal } from "./desarrollo/bug-hotfix-modal";
+import { ImportDesvioModal } from "./desarrollo/import-desvio-modal";
+import { ConveyorBeltFocusView } from "./desarrollo/conveyor-belt-focus-view";
+import { PROMPT_DESVIO_SPRINT } from "./constants/prompts";
+
 interface DesarrolloWorkspaceProps {
   proyectoId: string;
 }
-
-const PROMPT_DESVIO_SPRINT = `Actúa como un DevOps y Tech Lead Senior. Genera una nueva Historia de Usuario desvío / hot-scope para añadir a un sprint activo.
-Deberás devolver un bloque JSON con esta estructura exacta, sin markdown decorativo ni introducciones:
-{
-  "titulo": "Título de la Historia de Desvío",
-  "descripcion": "Criterios de Aceptación / Definición de lo que se debe construir",
-  "prioridad": "Alta",
-  "estimacion": 3,
-  "actividades": [
-    {
-      "actividadTitulo": "Nombre de la Actividad Técnica",
-      "rol": "Senior Backend Developer",
-      "componente": "modulo-controller.ts",
-      "ruta": "src/application/controllers/",
-      "modulo": "Pedidos",
-      "etiquetas": ["BACKEND", "BD"],
-      "pasos": [
-        "Paso 1: Definir los endpoints de creación y consulta",
-        "Paso 2: Escribir tests unitarios para los casos de negocio"
-      ],
-      "seed": {
-        "modelo": "pedidos",
-        "volumen": 30,
-        "indicaciones": "Generar pedidos con estados variados (pendiente, completado, cancelado) para testear filtros de interfaz."
-      }
-    }
-  ]
-}`;
-
-const ROLES = [
-  { key: "desarrollador", label: "Desarrollador Fullstack" },
-  { key: "arquitecto", label: "Arquitecto de Software" },
-  { key: "ciberseguridad", label: "Ingeniero de Ciberseguridad" },
-  { key: "disenador_ui", label: "Diseñador UI/UX & Frontend" },
-  { key: "custom", label: "Rol Personalizado" },
-];
 
 const SECCIONES_LANDING_DEFAULT = [
   "Hero Section (Portada & CTA)",
@@ -57,15 +29,6 @@ const SECCIONES_LANDING_DEFAULT = [
   "Preguntas Frecuentes (FAQ)",
   "Footer & Formulario de Contacto (CTA)",
   "Sección Personalizada",
-];
-
-const COMPONENTES_PUNTOS = [
-  { key: "todo", label: "Por Hacer" },
-  { key: "doing", label: "En Desarrollo" },
-  { key: "review", label: "En Revisión" },
-  { key: "testing", label: "Testing" },
-  { key: "blocked", label: "Bloqueado" },
-  { key: "done", label: "Finalizado" },
 ];
 
 export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
@@ -150,12 +113,9 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
 
   // Form states for Feature ticket
   const [selectedActividadId, setSelectedActividadId] = useState("");
-  const [featureExtraContext, setFeatureExtraContext] = useState("");
   const [selectedRole, setSelectedRole] = useState(
     isLandingType ? "disenador_ui" : "desarrollador"
   );
-  const [customRoleText, setCustomRoleText] = useState("");
-  const [criterioAceptacion, setCriterioAceptacion] = useState("");
   const [ticketMiembro, setTicketMiembro] = useState("Mariano");
 
   // Form states for Landing Section Tickets
@@ -197,31 +157,44 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
   }, [seccionesSitemap, seccionDescripcion]);
 
   useEffect(() => {
-    if (selectedActividadId) {
-      const act = tareas.find((t) => t.id === selectedActividadId);
-      if (act) {
-        if (Array.isArray(act.criteriosAceptacion)) {
-          setCriterioAceptacion(act.criteriosAceptacion.join("\n"));
-        } else if (typeof act.criteriosAceptacion === "string") {
-          setCriterioAceptacion(act.criteriosAceptacion);
-        } else {
-          setCriterioAceptacion("");
-        }
-
-        if (act.rol) {
-          const exists = ROLES.some((r) => r.key === act.rol);
-          if (exists) {
-            setSelectedRole(act.rol);
-          } else {
-            setSelectedRole("custom");
-            setCustomRoleText(act.rol);
-          }
-        }
+    if (sprints.length > 0 && !selectedSprintId) {
+      const active = sprints.find((s) => s.estado === "activo");
+      if (active) {
+        setSelectedSprintId(active.id);
+      } else {
+        setSelectedSprintId(sprints[0].id);
       }
-    } else {
-      setCriterioAceptacion("");
     }
-  }, [selectedActividadId, tareas]);
+  }, [sprints, selectedSprintId]);
+
+  useEffect(() => {
+    if (!cintaHandoffInput.trim()) {
+      setDetectedDocUpdates(null);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(cintaHandoffInput);
+      if (
+        parsed &&
+        parsed.update_docs &&
+        Object.keys(parsed.update_docs).length > 0
+      ) {
+        setDetectedDocUpdates(parsed.update_docs);
+      } else {
+        setDetectedDocUpdates(null);
+      }
+    } catch (e) {
+      setDetectedDocUpdates(null);
+    }
+  }, [cintaHandoffInput]);
+
+  const focusedSprint = sprints.find((s) => s.id === selectedSprintId);
+  const historiasSprint = historias.filter(
+    (h) => h.sprintId === selectedSprintId
+  );
+  const actividadesSprint = tareas.filter((t) =>
+    historiasSprint.some((h) => h.id === t.historiaId)
+  );
 
   const generarPromptEstacion = (
     historia: any,
@@ -372,31 +345,41 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
   };
 
   const iniciarCintaProduccion = async (historia: any) => {
-    if (!historia) return;
     const ticketId = `cinta_hu_${historia.id}`;
-
     try {
-      const existing = await db.task_executions.get(ticketId);
-      if (!existing) {
-        await db.task_executions.put({
-          id: ticketId,
-          proyectoId,
-          templateId: "cinta_produccion_hu",
-          titulo: `HU: ${historia.titulo}`,
-          estado: "IN_PROGRESS",
-          usuarioAsignadoId: ticketMiembro,
-          fechaInicio: Date.now(),
-          metadata: {
-            historiaId: historia.id,
-            sprintId: selectedSprintId,
-            pipeline: cintaPipelineConfig,
-            activeStationIndex: 0,
-            handoffs: {},
-            iterations: {},
-            bugs: {},
-          },
-        });
-      }
+      await db.transaction(
+        "rw",
+        [db.task_executions, db.task_step_states],
+        async () => {
+          await db.task_executions.put({
+            id: ticketId,
+            proyectoId,
+            templateId: "cinta_produccion_hu",
+            titulo: `Cinta HU: ${historia.titulo}`,
+            estado: "IN_PROGRESS",
+            usuarioAsignadoId: ticketMiembro,
+            fechaInicio: Date.now(),
+            metadata: {
+              pipeline: cintaPipelineConfig,
+              activeStationIndex: 0,
+              handoffs: {},
+              iterations: {},
+              bugs: {},
+            },
+          });
+
+          for (let i = 0; i < cintaPipelineConfig.length; i++) {
+            await db.task_step_states.put({
+              id: `state_${ticketId}_step_${i + 1}`,
+              executionId: ticketId,
+              stepId: `step_${i + 1}`,
+              titulo: `Estación: ${cintaPipelineConfig[i]}`,
+              completado: false,
+            });
+          }
+        }
+      );
+
       setSelectedHistoriaCinta(historia);
       setIsFocusMode(true);
       mostrarToast(
@@ -411,74 +394,55 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
   const handleTogglePipelineStation = (station: string) => {
     setCintaPipelineConfig((prev) => {
       if (prev.includes(station)) {
-        if (station === "QA") return prev;
+        if (prev.length <= 1) return prev;
         return prev.filter((s) => s !== station);
       } else {
-        const order = ["BD", "Backend", "Frontend", "QA"];
-        const next = [...prev, station];
-        return order.filter((s) => next.includes(s));
+        return [...prev, station];
       }
     });
   };
 
   const avanzarEstacionCinta = async (
     estacion: string,
-    handoffJson: string
+    handoffJsonStr: string
   ) => {
     if (!activeCintaExecution || !selectedHistoriaCinta) return;
 
     try {
-      let handoffParsed = {};
+      let handoffData = {};
       try {
-        let cleanJson = handoffJson.trim();
-        if (cleanJson.includes("```")) {
-          const match = cleanJson.match(/```(?:json)?([\s\S]*?)```/);
-          if (match && match[1]) {
-            cleanJson = match[1].trim();
-          }
-        }
-        const parsed = JSON.parse(cleanJson);
-        handoffParsed = parsed.handoff || parsed;
-      } catch (e: any) {
-        mostrarToast(
-          `JSON de Handoff inválido: ${e.message}. Asegúrate de pegar la estructura requerida.`,
-          "error"
+        const parsed = JSON.parse(handoffJsonStr);
+        handoffData = parsed.handoff || parsed;
+      } catch (err) {
+        throw new Error(
+          "El contenido ingresado no es un JSON válido. Asegúrate de copiarlo completo."
         );
-        return;
       }
 
       const meta = activeCintaExecution.metadata || {};
+      const pipeline = meta.pipeline || [];
+      const activeIdx = meta.activeStationIndex || 0;
+
       const updatedHandoffs = {
         ...(meta.handoffs || {}),
         [estacion]: {
-          ...handoffParsed,
+          ...handoffData,
           fecha: new Date().toLocaleTimeString(),
         },
       };
 
-      const pipeline = meta.pipeline || [];
-      const currentIdx = pipeline.indexOf(estacion);
-      const isLast = currentIdx === pipeline.length - 1;
-
-      if (isLast) {
-        await db.transaction(
-          "rw",
-          [db.task_executions, db.historias],
-          async () => {
-            await db.task_executions.update(activeCintaExecution.id, {
-              estado: "COMPLETED",
-              fechaFin: Date.now(),
-              metadata: {
-                ...meta,
-                handoffs: updatedHandoffs,
-              },
-            });
-            await db.historias.update(selectedHistoriaCinta.id, {
-              estado: "done",
-            });
-          }
-        );
-
+      if (activeIdx >= pipeline.length - 1) {
+        await db.task_executions.update(activeCintaExecution.id, {
+          estado: "COMPLETED",
+          fechaFin: Date.now(),
+          metadata: {
+            ...meta,
+            handoffs: updatedHandoffs,
+          },
+        });
+        await db.historias.update(selectedHistoriaCinta.id, {
+          estado: "done",
+        });
         setIsFocusMode(false);
         setSelectedHistoriaCinta(null);
         mostrarToast(
@@ -486,21 +450,17 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
           "exito"
         );
       } else {
-        const nextIdx = currentIdx + 1;
         await db.task_executions.update(activeCintaExecution.id, {
           metadata: {
             ...meta,
+            activeStationIndex: activeIdx + 1,
             handoffs: updatedHandoffs,
-            activeStationIndex: nextIdx,
           },
         });
-        mostrarToast(
-          `Handoff registrado. Avanzando a la estación: ${pipeline[nextIdx]}`,
-          "exito"
-        );
+        mostrarToast(`Estación ${estacion} completada. Avanzando...`, "exito");
       }
     } catch (err: any) {
-      mostrarToast(`Error al avanzar estación: ${err.message}`, "error");
+      mostrarToast(`Error al avanzar: ${err.message}`, "error");
     }
   };
 
@@ -513,35 +473,27 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
 
     try {
       const meta = activeCintaExecution.metadata || {};
-      const stationIterations = meta.iterations?.[estacion] || [];
-      const versionNumber = `v${stationIterations.length + 1}`;
+      const currentIterations = meta.iterations || {};
+      const stationIterations = currentIterations[estacion] || [];
 
-      const newIteration = {
-        fecha: new Date().toLocaleTimeString(),
-        version: versionNumber,
+      const newIt = {
+        version: `v1.${stationIterations.length + 1}`,
         feedback: feedback.trim(),
-        promptGenerado: generarPromptEstacion(
-          selectedHistoriaCinta,
-          estacion,
-          activeCintaExecution
-        ),
-      };
-
-      const updatedIterations = {
-        ...(meta.iterations || {}),
-        [estacion]: [...stationIterations, newIteration],
+        fecha: new Date().toLocaleTimeString(),
       };
 
       await db.task_executions.update(activeCintaExecution.id, {
         metadata: {
           ...meta,
-          iterations: updatedIterations,
+          iterations: {
+            ...currentIterations,
+            [estacion]: [...stationIterations, newIt],
+          },
         },
       });
-
-      mostrarToast(`Iteración ${versionNumber} registrada con éxito.`, "exito");
+      mostrarToast("Iteración registrada con éxito.", "exito");
     } catch (err: any) {
-      mostrarToast(`Error al guardar iteración: ${err.message}`, "error");
+      mostrarToast(`Error al registrar iteración: ${err.message}`, "error");
     }
   };
 
@@ -555,45 +507,44 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
 
     try {
       const meta = activeCintaExecution.metadata || {};
-      const stationBugs = meta.bugs?.[estacion] || [];
+      const currentBugs = meta.bugs || {};
+      const stationBugs = currentBugs[estacion] || [];
 
       const newBug = {
-        fecha: new Date().toLocaleTimeString(),
+        id: `bug_${Date.now()}`,
         logs: logs.trim(),
         comportamientoEsperado: expected.trim(),
         comportamientoReal: real.trim(),
         resuelto: false,
-        solucionPrompt: "",
-      };
-
-      const updatedBugs = {
-        ...(meta.bugs || {}),
-        [estacion]: [...stationBugs, newBug],
+        fecha: new Date().toLocaleTimeString(),
       };
 
       await db.task_executions.update(activeCintaExecution.id, {
         metadata: {
           ...meta,
-          bugs: updatedBugs,
+          bugs: {
+            ...currentBugs,
+            [estacion]: [...stationBugs, newBug],
+          },
         },
       });
-
       mostrarToast(
-        "Bug registrado en la estación actual. Usa el prompt de depuración.",
-        "exito"
+        "Bug reportado en la estación. Revisa el prompt de depuración.",
+        "info"
       );
     } catch (err: any) {
-      mostrarToast(`Error al registrar bug: ${err.message}`, "error");
+      mostrarToast(`Error al reportar bug: ${err.message}`, "error");
     }
   };
 
   const resolverBugEstacion = async (estacion: string) => {
     if (!activeCintaExecution) return;
-
     try {
       const meta = activeCintaExecution.metadata || {};
-      const stationBugs = meta.bugs?.[estacion] || [];
-      const updatedBugs = stationBugs.map((b: any) => {
+      const currentBugs = meta.bugs || {};
+      const stationBugs = currentBugs[estacion] || [];
+
+      const updated = stationBugs.map((b: any) => {
         if (!b.resuelto) {
           return { ...b, resuelto: true };
         }
@@ -604,13 +555,12 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
         metadata: {
           ...meta,
           bugs: {
-            ...(meta.bugs || {}),
-            [estacion]: updatedBugs,
+            ...currentBugs,
+            [estacion]: updated,
           },
         },
       });
-
-      mostrarToast("Bug marcado como resuelto.", "exito");
+      mostrarToast("¡Bug marcado como resuelto!", "exito");
     } catch (err: any) {
       mostrarToast(`Error al resolver bug: ${err.message}`, "error");
     }
@@ -661,50 +611,8 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
   }, [ticketExecutions]);
 
   const toggleExpandTicket = (id: string) => {
-    setExpandedTicketIds((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
+    setExpandedTicketIds((prev) => ({ ...prev, [id]: !prev[id] }));
   };
-
-  // Automatically select active sprint or first sprint
-  useEffect(() => {
-    const active = sprints.find((s) => s.estado === "activo");
-    if (active) {
-      setSelectedSprintId(active.id);
-    } else if (sprints.length > 0 && !selectedSprintId) {
-      setSelectedSprintId(sprints[0].id);
-    }
-  }, [sprints, selectedSprintId]);
-
-  useEffect(() => {
-    if (!cintaHandoffInput.trim()) {
-      setDetectedDocUpdates(null);
-      return;
-    }
-    try {
-      const parsed = JSON.parse(cintaHandoffInput);
-      if (
-        parsed &&
-        parsed.update_docs &&
-        Object.keys(parsed.update_docs).length > 0
-      ) {
-        setDetectedDocUpdates(parsed.update_docs);
-      } else {
-        setDetectedDocUpdates(null);
-      }
-    } catch (e) {
-      setDetectedDocUpdates(null);
-    }
-  }, [cintaHandoffInput]);
-
-  const focusedSprint = sprints.find((s) => s.id === selectedSprintId);
-  const historiasSprint = historias.filter(
-    (h) => h.sprintId === selectedSprintId
-  );
-  const actividadesSprint = tareas.filter((t) =>
-    historiasSprint.some((h) => h.id === t.historiaId)
-  );
 
   const iniciarSprint = async () => {
     if (!selectedSprintId) return;
@@ -721,142 +629,62 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
       await db.tareas.update(id, { estado });
       mostrarToast("Estado de actividad actualizado.", "exito");
     } catch (err: any) {
-      mostrarToast(`Error al actualizar actividad: ${err.message}`, "error");
-    }
-  };
-
-  // Create Feature Ticket
-  const iniciarFeatureTicket = async () => {
-    if (!selectedActividadId) {
-      mostrarToast("Selecciona una actividad para iniciar el ticket.", "error");
-      return;
-    }
-
-    const actividad = tareas.find((t) => t.id === selectedActividadId);
-    const historia = historias.find((h) => h.id === actividad?.historiaId);
-    const epica = epicas.find((e) => e.id === historia?.epicaId);
-
-    const ticketId = `tick_feat_${Date.now()}`;
-    try {
-      await db.transaction(
-        "rw",
-        [db.task_executions, db.task_step_states, db.tareas],
-        async () => {
-          await db.task_executions.put({
-            id: ticketId,
-            proyectoId,
-            templateId: "workflow_feature_code",
-            titulo: `${epica?.nombre || "General"} > ${historia?.titulo || ""} > ${
-              actividad?.titulo || ""
-            }`,
-            estado: "IN_PROGRESS",
-            usuarioAsignadoId: ticketMiembro,
-            fechaInicio: Date.now(),
-            metadata: {
-              actividadId: selectedActividadId,
-              historiaId: historia?.id,
-              epicaId: epica?.id,
-              extraContext: featureExtraContext,
-              criterioAceptacion,
-              rol: selectedRole === "custom" ? customRoleText : selectedRole,
-              iterations: [],
-            },
-          });
-
-          await db.tareas.update(selectedActividadId, { estado: "doing" });
-
-          const steps = [
-            "Análisis de Requisitos e Integración de Dominio",
-            "Diseño de Arquitectura y Contratos TDD",
-            "Implementación de Código y Componente UI",
-            "Pruebas Unitarias e Integración Continuous Integration",
-            "Code Review, Refactorización y Cierre de Ticket",
-          ];
-
-          for (let i = 0; i < steps.length; i++) {
-            await db.task_step_states.put({
-              id: `state_${ticketId}_step_${i + 1}`,
-              executionId: ticketId,
-              stepId: `step_${i + 1}`,
-              titulo: steps[i],
-              completado: false,
-            });
-          }
-        }
-      );
-
-      setExpandedTicketIds((prev) => ({ ...prev, [ticketId]: true }));
-      setFeatureExtraContext("");
-      setCriterioAceptacion("");
-      setSelectedActividadId("");
-      mostrarToast("Ticket de Feature iniciado con éxito.", "exito");
-    } catch (err: any) {
-      mostrarToast(`Error al iniciar ticket: ${err.message}`, "error");
+      mostrarToast(`Error al actualizar estado: ${err.message}`, "error");
     }
   };
 
   const handleImportarDesvio = async () => {
     if (!desvioJsonText.trim()) {
-      mostrarToast("Pega el JSON de desvío primero.", "error");
+      mostrarToast("Ingresa el JSON primero.", "error");
       return;
     }
-    if (!selectedSprintId) {
-      mostrarToast("No hay un sprint activo seleccionado.", "error");
-      return;
-    }
-
     try {
       const parsed = JSON.parse(desvioJsonText);
-      if (!parsed.titulo || !parsed.descripcion) {
-        throw new Error("El JSON debe contener 'titulo' y 'descripcion'.");
+      if (!parsed.titulo) {
+        throw new Error("El JSON debe contener la propiedad 'titulo'.");
       }
 
-      const historiaId = `historia_${Date.now()}`;
       await db.transaction("rw", [db.historias, db.tareas], async () => {
-        // Create user story
+        const historiaId = `historia_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
         await db.historias.put({
           id: historiaId,
           proyectoId,
-          sprintId: selectedSprintId,
+          sprintId: selectedSprintId || null,
           titulo: `[DESVÍO] ${parsed.titulo}`,
-          descripcion: parsed.descripcion,
+          descripcion: parsed.descripcion || "",
           prioridad: parsed.prioridad || "Alta",
-          estimacion: parsed.estimacion || 3,
+          estimacion: parsed.estimacion || 2,
           estado: "todo",
         });
 
-        // Insert activities
         if (Array.isArray(parsed.actividades)) {
           for (const act of parsed.actividades) {
-            const tareaId = `tarea_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+            const actId = `act_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
             await db.tareas.put({
-              id: tareaId,
+              id: actId,
               proyectoId,
               historiaId,
-              titulo:
-                act.actividadTitulo ||
-                act.titulo ||
-                act.actividadTitulo ||
-                "Actividad de Desvío",
+              titulo: act.actividadTitulo,
+              descripcion: act.descripcion || "",
+              rol: act.rol,
+              componente: act.componente,
+              ruta: act.ruta,
+              modulo: act.modulo,
+              etiquetas: act.etiquetas,
+              pasos: act.pasos,
+              seed: act.seed,
               estado: "todo",
-              rol: act.rol || "Senior Fullstack Developer",
-              componente: act.componente || "",
-              ruta: act.ruta || "",
-              modulo: act.modulo || "General",
-              etiquetas: act.etiquetas || ["DESVÍO"],
-              pasos: act.pasos || [],
-              seed: act.seed || null,
             });
           }
         }
       });
 
-      mostrarToast(
-        "¡Desvío e historias de usuario importados correctamente!",
-        "exito"
-      );
       setDesvioJsonText("");
       setIsImportDesvioOpen(false);
+      mostrarToast(
+        "Historia de Desvío importada y cargada con éxito.",
+        "exito"
+      );
     } catch (err: any) {
       mostrarToast(`Error al procesar JSON de desvío: ${err.message}`, "error");
     }
@@ -918,141 +746,80 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
           .toUpperCase()
           .replace(/[^A-Z0-9]+/g, "_") || "PROYECTO"
       }.md\n\n`;
-      md += `Generado el: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}\n\n`;
-      md += `Este archivo resume el estado exacto de desarrollo y ejecución de la Cinta de Producción. Úsalo para alimentar y dar contexto a una nueva sesión de IA.\n\n`;
 
-      md += `## 1. Sprints e Historias de Usuario\n\n`;
-      for (const sprint of sprints) {
-        md += `### Sprint: ${sprint.nombre} (${sprint.estado})\n`;
-        md += `- Objetivo: ${sprint.objetivo || "Sin objetivo definido"}\n\n`;
-
-        const sprintHistorias = historias.filter(
-          (h) => h.sprintId === sprint.id
-        );
-        if (sprintHistorias.length === 0) {
-          md += `*No hay historias en este sprint.*\n\n`;
-        } else {
-          for (const hist of sprintHistorias) {
-            md += `#### Historia: ${hist.titulo} (Estimación: ${hist.estimacion}h, Prioridad: ${hist.prioridad})\n`;
-            md += `- Descripción: ${hist.descripcion || "Sin descripción"}\n`;
-            md += `- Estado: ${hist.estado || "Por Hacer"}\n\n`;
-
-            const histTareas = tareas.filter((t) => t.historiaId === hist.id);
-            if (histTareas.length > 0) {
-              md += `##### Actividades Técnicas:\n`;
-              for (const t of histTareas) {
-                md += `  - [${t.estado === "done" ? "x" : " "}] ${t.titulo} (Rol: ${t.rol || "N/D"}, Módulo: ${t.modulo || "N/D"})\n`;
-                if (t.seed) {
-                  md += `    * Requerimiento de Datos Semilla: Modelo "${t.seed.modelo}" (${t.seed.volumen} registros)\n`;
-                }
-              }
-              md += `\n`;
-            }
+      md += `Este archivo resume el estado exacto de desarrollo y ejecución de la Cinta de Producción. Úsalo como instrucción de inicio para Claude.\n\n`;
+      md += `## 1. Stack Tecnológico\n`;
+      if (proyecto?.stack) {
+        Object.entries(proyecto.stack).forEach(([layer, techs]) => {
+          if (Array.isArray(techs) && techs.length > 0) {
+            md += `- **${layer}:** ${techs.join(", ")}\n`;
           }
-        }
+        });
       }
 
-      md += `## 2. Historial de Ejecuciones de Tickets (Cinta de Producción)\n\n`;
-      if (ticketExecutions.length === 0) {
-        md += `*No hay ejecuciones de tickets registradas aún.*\n\n`;
-      } else {
-        for (const exec of ticketExecutions) {
-          md += `### Ticket: ${exec.titulo} [${exec.estado}]\n`;
-          md += `- ID: ${exec.id}\n`;
-          md += `- Fecha de Inicio: ${exec.fechaInicio ? new Date(exec.fechaInicio).toLocaleString() : "N/D"}\n`;
-          if (exec.metadata?.criterioAceptacion) {
-            md += `- Criterio de Aceptación: ${exec.metadata.criterioAceptacion}\n`;
-          }
-          if (exec.metadata?.aiSummary) {
-            md += `- Resumen Técnico (Post-Mortem): ${exec.metadata.aiSummary}\n`;
-          }
+      md += `\n## 2. Historial de Ejecuciones de Tickets (Cinta de Producción)\n\n`;
+      for (const t of ticketExecutions) {
+        md += `### TICKET: ${t.titulo} (${t.estado})\n`;
+        md += `- **Template/Tipo:** ${t.templateId}\n`;
+        md += `- **Asignado a:** ${t.usuarioAsignadoId || "Sin asignar"}\n`;
+        md += `- **Fecha Inicio:** ${new Date(t.fechaInicio).toLocaleDateString()}\n`;
 
-          if (
-            exec.metadata?.handoffs &&
-            Object.keys(exec.metadata.handoffs).length > 0
-          ) {
-            md += `\n**Handoffs por Estación:**\n`;
-            Object.entries(exec.metadata.handoffs).forEach(
-              ([station, handoff]: [string, any]) => {
-                md += `- **${station}**:\n`;
-                md += `  * Resumen: ${handoff.resumen_tecnico || "N/D"}\n`;
-                if (Array.isArray(handoff.archivos_creados_o_modificados)) {
-                  md += `  * Archivos: ${handoff.archivos_creados_o_modificados.join(", ")}\n`;
-                }
-              }
-            );
-          }
-
-          const bugsList = exec.metadata?.bugs || [];
-          if (bugsList.length > 0) {
-            md += `\n**Bugs Reportados:**\n`;
-            for (const b of bugsList) {
-              md += `  - [${b.resuelto ? "RESUELTO" : "ACTIVO"}] Logs: ${b.logs?.substr(0, 150)}... | Esperado: ${b.comportamientoEsperado}\n`;
-            }
-          }
-
-          const iterationsList = exec.metadata?.iterations || [];
-          if (iterationsList.length > 0) {
-            md += `\n**Iteraciones de Refinamiento:**\n`;
-            for (const it of iterationsList) {
-              md += `  - [v${it.version}] Fecha: ${it.fecha} | Feedback: ${it.feedback}\n`;
-            }
-          }
-          md += `\n---\n\n`;
+        const steps = await db.task_step_states
+          .where("executionId")
+          .equals(t.id)
+          .toArray();
+        if (steps.length > 0) {
+          md += `- **Estaciones/Pasos:**\n`;
+          steps.forEach((st) => {
+            md += `  * [${st.completado ? "x" : " "}] ${st.titulo}\n`;
+          });
         }
+
+        const metadata = t.metadata || {};
+        if (metadata.handoffs && Object.keys(metadata.handoffs).length > 0) {
+          md += `- **Handoffs Registrados:**\n`;
+          Object.entries(metadata.handoffs).forEach(
+            ([stName, data]: [string, any]) => {
+              md += `  * **Estación: ${stName}**\n`;
+              if (data.archivos_creados_o_modificados) {
+                md += `    - Archivos: ${data.archivos_creados_o_modificados.join(", ")}\n`;
+              }
+              if (data.resumen_tecnico) {
+                md += `    - Resumen: ${data.resumen_tecnico}\n`;
+              }
+            }
+          );
+        }
+        md += `\n---\n\n`;
       }
 
       const blob = new Blob([md], { type: "text/markdown;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute(
-        "download",
-        `CONTEXTO_EJECUCION_${proyecto?.nombre || "proyecto"}.md`
-      );
+      link.setAttribute("download", `CONTEXTO_EJECUCION.md`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-
-      mostrarToast(
-        "¡Archivo de contexto de ejecución descargado con éxito!",
-        "exito"
-      );
+      mostrarToast("Descargando contexto de ejecución...", "info");
     } catch (err: any) {
-      mostrarToast(`Error al compilar contexto: ${err.message}`, "error");
+      mostrarToast(`Error al descargar contexto: ${err.message}`, "error");
     }
   };
 
-  // Create Landing Section Ticket (With unique section ticket check)
   const iniciarSeccionLandingTicket = async () => {
-    const targetSeccion =
-      seccionNombre === "Sección Personalizada"
-        ? seccionNombreCustom
-        : seccionNombre;
-    if (!targetSeccion.trim()) {
-      mostrarToast("Escribe o selecciona el nombre de la sección.", "error");
+    if (isLandingType && !seccionNombre.trim()) {
+      mostrarToast("Escribe o selecciona una sección.", "error");
       return;
     }
 
-    const targetUpper = targetSeccion.trim().toUpperCase();
+    const finalNombre =
+      seccionNombre === "Sección Personalizada"
+        ? seccionNombreCustom
+        : seccionNombre;
 
-    // Unique Section Ticket Validation: check if an active ticket exists for this section
-    const existingOpenTicket = ticketExecutions.find(
-      (t: any) =>
-        t.estado !== "COMPLETED" &&
-        (t.metadata?.seccionNombre?.trim().toUpperCase() === targetUpper ||
-          t.titulo?.trim().toUpperCase().includes(`SECCIÓN: ${targetUpper}`))
-    );
-
-    if (existingOpenTicket) {
-      mostrarToast(
-        `Ya existe un ticket activo para la sección "${targetSeccion}".`,
-        "info"
-      );
-      setExpandedTicketIds((prev) => ({
-        ...prev,
-        [existingOpenTicket.id]: true,
-      }));
+    if (!finalNombre.trim()) {
+      mostrarToast("El nombre de la sección no puede estar vacío.", "error");
       return;
     }
 
@@ -1065,25 +832,23 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
           await db.task_executions.put({
             id: ticketId,
             proyectoId,
-            templateId: "workflow_section_landing",
-            titulo: `SECCIÓN: ${targetSeccion}`,
+            templateId: "workflow_seccion_landing",
+            titulo: `Landing: ${finalNombre}`,
             estado: "IN_PROGRESS",
             usuarioAsignadoId: ticketMiembro,
             fechaInicio: Date.now(),
             metadata: {
-              seccionNombre: targetSeccion,
+              seccionNombre: finalNombre,
               seccionDescripcion,
-              rol: selectedRole === "custom" ? customRoleText : selectedRole,
-              iterations: [],
             },
           });
 
           const steps = [
-            "Análisis de Copy & Referencias Visuales",
-            "Generación de Maquetado e IA Prompt Base",
-            "Refinamiento e Iteraciones Visuales",
-            "Pruebas Responsive y Aprobación",
-            "Cierre y Guardado de Sección",
+            "Maquetado HTML y Estructura Semántica",
+            "Estilos CSS (Flexbox/Grid & Responsive)",
+            "Copywriting & Textos Persuasivos",
+            "Interactividad JavaScript (Eventos & Animaciones)",
+            "Revisión QA y Optimización SEO",
           ];
 
           for (let i = 0; i < steps.length; i++) {
@@ -1099,18 +864,16 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
       );
 
       setExpandedTicketIds((prev) => ({ ...prev, [ticketId]: true }));
-      setSeccionDescripcion("");
       setSeccionNombreCustom("");
-      mostrarToast(`Ticket de Sección '${targetSeccion}' iniciado.`, "exito");
-    } catch (err: any) {
       mostrarToast(
-        `Error al iniciar ticket de sección: ${err.message}`,
-        "error"
+        `Ticket de desarrollo para "${finalNombre}" iniciado con éxito.`,
+        "exito"
       );
+    } catch (err: any) {
+      mostrarToast(`Error al iniciar ticket: ${err.message}`, "error");
     }
   };
 
-  // Create Bug Ticket
   const iniciarBugTicket = async () => {
     if (!bugNombre.trim()) {
       mostrarToast("Escribe un nombre para el bug.", "error");
@@ -1169,582 +932,72 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
     }
   };
 
-  const handleEliminarTicket = async (ticketId: string, titulo: string) => {
-    const seguro = confirm(
-      `¿Deseas eliminar permanentemente el ticket "${titulo}"?`
-    );
-    if (!seguro) return;
-
-    try {
-      await db.task_executions.delete(ticketId);
-      const stepStates = await db.task_step_states
-        .where("executionId")
-        .equals(ticketId)
-        .toArray();
-      for (const s of stepStates) {
-        await db.task_step_states.delete(s.id as any);
+  const handleEliminarTicket = async (id: string, titulo: string) => {
+    if (confirm(`¿Estás seguro de eliminar el ticket "${titulo}"?`)) {
+      try {
+        await db.transaction(
+          "rw",
+          [db.task_executions, db.task_step_states],
+          async () => {
+            await db.task_executions.delete(id);
+            await db.task_step_states.where("executionId").equals(id).delete();
+          }
+        );
+        mostrarToast("Ticket eliminado correctamente.", "exito");
+      } catch (err: any) {
+        mostrarToast(`Error al eliminar ticket: ${err.message}`, "error");
       }
-      mostrarToast(`Ticket "${titulo}" eliminado.`, "exito");
-    } catch (err: any) {
-      mostrarToast(`Error al eliminar ticket: ${err.message}`, "error");
     }
   };
 
-  // Sort tickets chronologically (oldest at top, newly opened at bottom)
   const ticketsOrdenados = [...ticketExecutions].sort(
     (a, b) => (a.fechaInicio || 0) - (b.fechaInicio || 0)
   );
 
+  const promptMagro =
+    selectedHistoriaCinta && activeCintaExecution
+      ? generarPromptEstacion(
+          selectedHistoriaCinta,
+          (activeCintaExecution.metadata?.pipeline || [])[
+            activeCintaExecution.metadata?.activeStationIndex || 0
+          ] || "QA",
+          activeCintaExecution
+        )
+      : "";
+
   return (
     <div className="flex flex-col gap-5">
       {/* Focus Mode Fullscreen Conveyor Belt Viewport */}
-      {isFocusMode &&
-        selectedHistoriaCinta &&
-        activeCintaExecution &&
-        (() => {
-          const meta = activeCintaExecution.metadata || {};
-          const pipeline = meta.pipeline || [];
-          const activeIdx = meta.activeStationIndex || 0;
-          const activeStation = pipeline[activeIdx] || "QA";
-          const shortId = `hu-${selectedHistoriaCinta.id.split("_").pop() || "hu"}`;
-          const cleanTitle = selectedHistoriaCinta.titulo
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-");
-          const branchName = `feature/mc-${shortId}-${cleanTitle}`;
-          const promptMagro = generarPromptEstacion(
-            selectedHistoriaCinta,
-            activeStation,
-            activeCintaExecution
-          );
-
-          // Previous station handoffs list for audit
-          const allHandoffs = Object.entries(meta.handoffs || {}) as Array<
-            [string, any]
-          >;
-          const stationIterations = meta.iterations?.[activeStation] || [];
-          const stationBugs = meta.bugs?.[activeStation] || [];
-          const activeBug = stationBugs.find((b: any) => !b.resuelto);
-
-          return (
-            <div className="animate-in fade-in fixed inset-0 z-50 flex flex-col overflow-y-auto bg-[#0B0F19] p-6 font-mono text-zinc-100 duration-200 select-none">
-              {/* Header Bar */}
-              <div className="mb-5 flex items-center justify-between border-b border-zinc-800 pb-4">
-                <div className="flex items-center gap-3">
-                  <span className="animate-pulse rounded border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold text-emerald-400 uppercase">
-                    CINTA ACTIVA
-                  </span>
-                  <div>
-                    <h2 className="text-sm font-bold text-zinc-200 uppercase">
-                      Cinta: mc-{shortId} — {selectedHistoriaCinta.titulo}
-                    </h2>
-                    <p className="mt-0.5 text-[9px] text-zinc-500">
-                      Rama: {branchName} | Sprint Asignado:{" "}
-                      {focusedSprint?.nombre || "General"}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setIsFocusMode(false)}
-                  className="rounded border border-red-500/20 bg-red-500/10 px-3.5 py-1.5 text-[9px] font-bold text-red-400 uppercase transition-all hover:bg-red-500/20"
-                >
-                  ❌ Salir del Modo Enfoque
-                </button>
-              </div>
-
-              {/* Conveyor Belt Ribbon */}
-              <div className="mb-6 flex items-center justify-center gap-2 rounded-xl border border-zinc-900 bg-zinc-950/40 p-4">
-                {pipeline.map((st: string, idx: number) => {
-                  const isCompleted = idx < activeIdx;
-                  const isActive = idx === activeIdx;
-
-                  let stateClass = "border-zinc-800 bg-zinc-900 text-zinc-500";
-                  if (isActive)
-                    stateClass =
-                      "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 ring-2 ring-emerald-500/10 animate-pulse";
-                  if (isCompleted)
-                    stateClass = "border-sky-500/30 bg-sky-500/10 text-sky-400";
-
-                  return (
-                    <React.Fragment key={st}>
-                      <div
-                        className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-[10px] font-bold uppercase transition-all ${stateClass}`}
-                      >
-                        {isCompleted ? "✓ " : ""}
-                        {st}
-                      </div>
-                      {idx < pipeline.length - 1 && (
-                        <span className="text-zinc-750 text-xs">➔</span>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-
-              {/* Workstation Workspace split */}
-              <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-12">
-                {/* Left Column - Prompt & Handoff workspace */}
-                <div className="flex flex-col gap-4 xl:col-span-7">
-                  {/* Prompt Magro Container */}
-                  <div className="rounded-xl border border-zinc-900 bg-zinc-950/60 p-4">
-                    <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
-                      <div>
-                        <span className="text-[10px] font-bold text-zinc-200 uppercase">
-                          📋 Prompt de la Estación: {activeStation}
-                        </span>
-                        <p className="mt-0.5 text-[8px] text-zinc-500">
-                          XML limpio de handoffs anteriores para alimentar a la
-                          IA
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(promptMagro);
-                          mostrarToast(
-                            `Prompt de la estación ${activeStation} copiado.`,
-                            "exito"
-                          );
-                        }}
-                        className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
-                      >
-                        📋 Copiar Prompt
-                      </button>
-                    </div>
-
-                    <textarea
-                      readOnly
-                      value={promptMagro}
-                      rows={12}
-                      className="w-full rounded border border-zinc-900 bg-zinc-900/30 p-3 font-mono text-[10px] text-zinc-400 outline-none"
-                    />
-                  </div>
-
-                  {/* Handoff Submission Box */}
-                  <div className="flex flex-col gap-3 rounded-xl border border-zinc-900 bg-zinc-950/60 p-4">
-                    <div>
-                      <span className="text-[10px] font-bold text-zinc-200 uppercase">
-                        📥 Registrar Handoff & Avanzar
-                      </span>
-                      <p className="mt-0.5 text-[8px] text-zinc-500">
-                        Pega la salida JSON entregada por la IA para pasar el
-                        contexto a la siguiente estación.
-                      </p>
-                    </div>
-
-                    <textarea
-                      value={cintaHandoffInput}
-                      onChange={(e) => setCintaHandoffInput(e.target.value)}
-                      placeholder='Ej: {"handoff": {"archivos_creados_o_modificados": [...], "firmas_o_contratos_exportados": [...], "resumen_tecnico": "..."}}'
-                      rows={4}
-                      className="w-full rounded border border-zinc-900 bg-zinc-900 p-2 font-mono text-[10px] text-zinc-300 outline-none focus:border-emerald-500/40"
-                    />
-
-                    {detectedDocUpdates && (
-                      <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3 font-mono">
-                        <div className="min-w-0 flex-1">
-                          <span className="block text-[9px] font-bold text-emerald-400 uppercase">
-                            🔄 Actualizaciones de Documentación Detectadas
-                          </span>
-                          <span className="mt-1 block text-[8px] leading-normal text-zinc-400">
-                            La IA sugiere cambios para:{" "}
-                            {Object.keys(detectedDocUpdates)
-                              .map((k) => `${k.toUpperCase()}.md`)
-                              .join(", ")}
-                            .
-                          </span>
-                        </div>
-                        <button
-                          onClick={handleAplicarActualizacionesDocs}
-                          className="hover:bg-emerald-450 shrink-0 rounded bg-emerald-500 px-2.5 py-1.5 text-[8px] font-bold text-zinc-950 uppercase transition-all"
-                        >
-                          Aplicar y Sincronizar
-                        </button>
-                      </div>
-                    )}
-
-                    <div className="mt-1 flex items-center justify-between">
-                      <span className="text-[8px] text-zinc-500">
-                        * El JSON guardado se usará para alimentar
-                        automáticamente el prompt de la próxima estación.
-                      </span>
-                      <button
-                        onClick={() => {
-                          avanzarEstacionCinta(
-                            activeStation,
-                            cintaHandoffInput
-                          );
-                          setCintaHandoffInput("");
-                        }}
-                        disabled={!cintaHandoffInput.trim()}
-                        className="rounded bg-emerald-500 px-4 py-2 text-[10px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400 disabled:opacity-40"
-                      >
-                        Sincronizar y Avanzar ➔
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Git Mezcla & Workflow final section rendered in QA */}
-                  {activeStation === "QA" && (
-                    <div className="flex flex-col gap-3 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
-                      <div>
-                        <span className="text-[10px] font-bold text-sky-400 uppercase">
-                          🚀 Git Flow de Cierre & CI/CD
-                        </span>
-                        <p className="text-zinc-550 mt-0.5 text-[8px]">
-                          Comandos sugeridos para mezclar los cambios de
-                          feature/mc-{shortId} en main
-                        </p>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-3 rounded border border-zinc-900 bg-zinc-950 p-2.5">
-                        <code className="text-zinc-350 text-[9px] break-all select-all">
-                          {`git add . && git commit -m "feat(mc-${shortId}): implementa ${selectedHistoriaCinta.titulo.toLowerCase().replace(/"/g, "")}" && git checkout main && git merge ${branchName} && git push origin main`}
-                        </code>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(
-                              `git add .\ngit commit -m "feat(mc-${shortId}): implementa ${selectedHistoriaCinta.titulo}"\ngit checkout main\ngit merge ${branchName}\ngit push origin main`
-                            );
-                            mostrarToast(
-                              "Comandos Git copiados al portapapeles.",
-                              "exito"
-                            );
-                          }}
-                          className="shrink-0 rounded border border-sky-500/20 bg-sky-500/10 px-2.5 py-1.5 text-[8px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
-                        >
-                          📋 Copiar Git
-                        </button>
-                      </div>
-
-                      <button
-                        onClick={() => setIsCicdModalOpen(true)}
-                        className="w-full rounded border border-sky-500/20 bg-sky-500/10 py-1.5 text-center font-mono text-[9px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
-                      >
-                        🛠️ Configurar GitHub Actions Workflow (CI/CD)
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Right Column - Audit, Iterations & Bugs */}
-                <div className="flex flex-col gap-4 xl:col-span-5">
-                  {/* Acceptance Criteria */}
-                  <div className="rounded-xl border border-zinc-900 bg-zinc-950/60 p-4">
-                    <span className="text-[9px] font-bold text-zinc-400 uppercase">
-                      🎯 Criterios de Aceptación HU
-                    </span>
-                    <div className="mt-2 max-h-[80px] overflow-y-auto pr-1 text-[10px] leading-relaxed text-zinc-300">
-                      {selectedHistoriaCinta.descripcion ||
-                        "No hay criterios de aceptación detallados cargados."}
-                    </div>
-                  </div>
-
-                  {/* Refinement Iterations Card */}
-                  <div className="flex flex-col gap-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
-                    <span className="text-[10px] font-bold text-sky-400 uppercase">
-                      🔄 Carril de Iteraciones ({stationIterations.length})
-                    </span>
-                    <p className="text-[8px] text-zinc-500">
-                      Registra feedback para que la IA refine o ajuste la
-                      nomenclatura/diseño.
-                    </p>
-
-                    <textarea
-                      value={cintaIterationFeedback}
-                      onChange={(e) =>
-                        setCintaIterationFeedback(e.target.value)
-                      }
-                      placeholder="Describe los ajustes requeridos sobre el código generado..."
-                      rows={2}
-                      className="text-zinc-250 w-full rounded border border-zinc-900 bg-zinc-950 p-2 text-[10px] outline-none focus:border-sky-500/40"
-                    />
-
-                    <div className="mt-1 flex justify-end gap-2">
-                      <button
-                        onClick={() => {
-                          registrarIteracionEstacion(
-                            activeStation,
-                            cintaIterationFeedback
-                          );
-                          setCintaIterationFeedback("");
-                        }}
-                        disabled={!cintaIterationFeedback.trim()}
-                        className="rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-[9px] font-bold text-zinc-300 uppercase transition-all hover:bg-zinc-800 disabled:opacity-40"
-                      >
-                        + Guardar Iteración
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (!cintaIterationFeedback.trim()) {
-                            mostrarToast(
-                              "Escribe tus ajustes primero.",
-                              "error"
-                            );
-                            return;
-                          }
-                          const p = `ROL: Desarrollador Senior\n\nTICKET: mc-${shortId} (${activeStation})\n\nAJUSTES:\n${cintaIterationFeedback.trim()}\n\nAplica los ajustes indicados manteniendo consistencia con el código actual.\nDevuelve el código completo y el bloque JSON de handoff.`;
-                          navigator.clipboard.writeText(p);
-                          mostrarToast(
-                            "Prompt de refinamiento copiado.",
-                            "exito"
-                          );
-                        }}
-                        className="animate-pulse rounded bg-sky-500 px-3 py-1.5 text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-sky-400"
-                      >
-                        Copiar Prompt Refinamiento
-                      </button>
-                    </div>
-
-                    {stationIterations.length > 0 && (
-                      <div className="mt-2 flex max-h-[120px] flex-col gap-1.5 overflow-y-auto border-t border-sky-500/20 pt-2 pr-1">
-                        {stationIterations.map((it: any, idx: number) => (
-                          <div
-                            key={idx}
-                            className="text-zinc-350 rounded border border-zinc-900 bg-zinc-950 p-2 text-[9px]"
-                          >
-                            <span className="font-mono font-bold text-sky-400">
-                              [{it.fecha} - {it.version}]:
-                            </span>{" "}
-                            {it.feedback}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Bug Tracking Card */}
-                  <div className="flex flex-col gap-2 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
-                    <span className="text-[10px] font-bold text-red-400 uppercase">
-                      🐛 Carril de Errores & Bugs ({stationBugs.length})
-                    </span>
-
-                    {activeBug ? (
-                      <div className="flex flex-col gap-2">
-                        <div className="rounded border border-red-500/10 bg-zinc-950 p-2.5 text-[9px]">
-                          <span className="mb-1 block font-bold text-red-400">
-                            LOGS DEL ERROR:
-                          </span>
-                          <pre className="max-h-[80px] overflow-y-auto font-mono break-all whitespace-pre-wrap text-zinc-400 select-text">
-                            {activeBug.logs}
-                          </pre>
-                          {activeBug.comportamientoEsperado && (
-                            <div className="mt-2 text-zinc-300">
-                              <span className="font-bold text-zinc-500">
-                                Esperado:
-                              </span>{" "}
-                              {activeBug.comportamientoEsperado}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => {
-                              const p = `ROL: Senior Debugger\n\nERROR EN ESTACIÓN: ${activeStation}\n\nLOGS:\n${activeBug.logs}\n\nAnaliza y soluciona el crash de arriba en feature/mc-${shortId}. Asegura no romper contratos previos.\nDevuelve el código completo y el bloque JSON de handoff.`;
-                              navigator.clipboard.writeText(p);
-                              mostrarToast(
-                                "Prompt de depuración de bug copiado.",
-                                "exito"
-                              );
-                            }}
-                            className="animate-pulse rounded bg-red-500 px-3.5 py-1.5 text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-red-400"
-                          >
-                            Copiar Prompt Bug
-                          </button>
-                          <button
-                            onClick={() => resolverBugEstacion(activeStation)}
-                            className="rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-[9px] font-bold text-zinc-300 uppercase transition-all hover:bg-zinc-800"
-                          >
-                            Resolver Bug
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        <p className="text-[8px] text-zinc-500">
-                          Si el código generado produce algún crash o error en
-                          terminal, repórtalo aquí.
-                        </p>
-                        <textarea
-                          value={cintaBugLogs}
-                          onChange={(e) => setCintaBugLogs(e.target.value)}
-                          placeholder="Pega aquí el crash stacktrace o logs del error..."
-                          rows={2}
-                          className="w-full rounded border border-zinc-900 bg-zinc-950 p-2 font-mono text-[10px] text-zinc-200 outline-none focus:border-red-500/40"
-                        />
-                        <div className="grid grid-cols-2 gap-2">
-                          <input
-                            type="text"
-                            value={cintaBugExpected}
-                            onChange={(e) =>
-                              setCintaBugExpected(e.target.value)
-                            }
-                            placeholder="Esperado..."
-                            className="rounded border border-zinc-900 bg-zinc-950 p-1.5 text-[9px] text-zinc-200 outline-none"
-                          />
-                          <input
-                            type="text"
-                            value={cintaBugReal}
-                            onChange={(e) => setCintaBugReal(e.target.value)}
-                            placeholder="Obtenido..."
-                            className="rounded border border-zinc-900 bg-zinc-950 p-1.5 text-[9px] text-zinc-200 outline-none"
-                          />
-                        </div>
-                        <button
-                          onClick={() => {
-                            registrarBugEstacion(
-                              activeStation,
-                              cintaBugLogs,
-                              cintaBugExpected,
-                              cintaBugReal
-                            );
-                            setCintaBugLogs("");
-                            setCintaBugExpected("");
-                            setCintaBugReal("");
-                          }}
-                          disabled={!cintaBugLogs.trim()}
-                          className="self-end rounded border border-red-500/20 bg-red-500/10 px-3.5 py-1.5 text-[9px] font-bold text-red-400 uppercase transition-all hover:bg-red-500/20 disabled:opacity-40"
-                        >
-                          Reportar Bug
-                        </button>
-                      </div>
-                    )}
-
-                    {stationBugs.length > 0 && (
-                      <div className="mt-1.5 flex max-h-[100px] flex-col gap-1 overflow-y-auto border-t border-red-500/10 pt-2 pr-1">
-                        {stationBugs.map((b: any, idx: number) => (
-                          <div
-                            key={idx}
-                            className="flex items-center justify-between rounded border border-zinc-900 bg-zinc-950 p-1.5 text-[8px] text-zinc-400"
-                          >
-                            <span className="max-w-[280px] truncate">
-                              [{b.fecha}] {b.logs}
-                            </span>
-                            <span
-                              className={`rounded px-1 text-[7px] font-bold ${b.resuelto ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-400" : "border border-red-500/20 bg-red-500/10 text-red-400"}`}
-                            >
-                              {b.resuelto ? "Resuelto" : "Activo"}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Handoffs Audit Logs */}
-                  <div className="rounded-xl border border-zinc-900 bg-zinc-950/60 p-4">
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase">
-                      📂 Historial de Handoffs ({allHandoffs.length})
-                    </span>
-
-                    {allHandoffs.length === 0 ? (
-                      <p className="text-zinc-550 mt-2 text-[8px]">
-                        Aún no se han completado estaciones en esta cinta.
-                      </p>
-                    ) : (
-                      <div className="mt-2.5 flex max-h-[180px] flex-col gap-2 overflow-y-auto pr-1">
-                        {allHandoffs.map(
-                          ([stationName, data]: [string, any]) => (
-                            <div
-                              key={stationName}
-                              className="flex flex-col gap-1 rounded border border-zinc-900 bg-zinc-900/40 p-2.5 text-[9px]"
-                            >
-                              <div className="flex items-center justify-between text-[8px]">
-                                <span className="font-bold text-sky-400 uppercase">
-                                  Estación: {stationName}
-                                </span>
-                                <span className="text-zinc-500">
-                                  [{data.fecha || "Completada"}]
-                                </span>
-                              </div>
-                              {data.archivos_creados_o_modificados && (
-                                <div className="mt-1 text-[8px] text-zinc-400">
-                                  📁 <b>Archivos:</b>{" "}
-                                  {data.archivos_creados_o_modificados.join(
-                                    ", "
-                                  )}
-                                </div>
-                              )}
-                              {data.resumen_tecnico && (
-                                <div className="mt-0.5 text-[8px] text-zinc-300 italic">
-                                  📝 <b>Notas:</b> {data.resumen_tecnico}
-                                </div>
-                              )}
-                            </div>
-                          )
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* GitHub Actions CI/CD Assistant Modal */}
-              {isCicdModalOpen && (
-                <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm duration-200">
-                  <div className="w-[550px] rounded-xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
-                    <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-3">
-                      <span className="font-mono text-xs font-bold text-sky-400 uppercase">
-                        🛠️ Configurar GitHub Actions Workflow
-                      </span>
-                      <button
-                        onClick={() => setIsCicdModalOpen(false)}
-                        className="text-zinc-550 hover:text-zinc-350 font-mono text-[9px] uppercase"
-                      >
-                        Cerrar
-                      </button>
-                    </div>
-
-                    <div className="flex flex-col gap-3">
-                      <p className="text-[9px] leading-relaxed text-zinc-400">
-                        Copia el prompt estructurado de abajo y pásaselo a
-                        Claude para generar el archivo de integración continua
-                        `.github/workflows/ci.yml`.
-                      </p>
-
-                      <textarea
-                        readOnly
-                        value={`Actúa como un DevOps Engineer Senior. Necesito configurar un workflow de GitHub Actions para el proyecto Next.js en la ruta de trabajo.
-Crea el archivo \`.github/workflows/ci.yml\` con las siguientes especificaciones:
-- Se debe disparar en cada push o pull_request hacia la rama 'main'.
-- Debe instalar dependencias de forma eficiente usando caché.
-- Debe ejecutar estrictamente las tareas de verificación:
-  1. Linter (\`npm run lint\` o \`npx eslint .\`)
-  2. Type checking (\`npx tsc --noEmit\`)
-  3. Pruebas (\`npm run test\` si existen)
-
-Devuelve el YAML completo optimizado y limpio sin explicaciones introductorias.`}
-                        rows={8}
-                        className="w-full rounded border border-zinc-900 bg-zinc-900/50 p-2.5 font-mono text-[9px] text-zinc-400 outline-none"
-                      />
-
-                      <button
-                        onClick={() => {
-                          const p = `Actúa como un DevOps Engineer Senior. Necesito configurar un workflow de GitHub Actions para el proyecto Next.js en la ruta de trabajo.
-Crea el archivo \`.github/workflows/ci.yml\` con las siguientes especificaciones:
-- Se debe disparar en cada push o pull_request hacia la rama 'main'.
-- Debe instalar dependencias de forma eficiente usando caché.
-- Debe ejecutar estrictamente las tareas de verificación:
-  1. Linter (\`npm run lint\` o \`npx eslint .\`)
-  2. Type checking (\`npx tsc --noEmit\`)
-  3. Pruebas (\`npm run test\` si existen)
-
-Devuelve el YAML completo optimizado y limpio sin explicaciones introductorias.`;
-                          navigator.clipboard.writeText(p);
-                          mostrarToast(
-                            "Prompt de CI/CD copiado al portapapeles.",
-                            "exito"
-                          );
-                        }}
-                        className="w-full rounded bg-sky-500 py-2 text-center text-[10px] font-bold text-zinc-950 uppercase hover:bg-sky-400"
-                      >
-                        📋 Copiar Prompt de CI/CD
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
+      <ConveyorBeltFocusView
+        isOpen={isFocusMode}
+        onClose={() => {
+          setIsFocusMode(false);
+          setSelectedHistoriaCinta(null);
+        }}
+        selectedHistoriaCinta={selectedHistoriaCinta}
+        activeCintaExecution={activeCintaExecution}
+        focusedSprint={focusedSprint}
+        cintaHandoffInput={cintaHandoffInput}
+        setCintaHandoffInput={setCintaHandoffInput}
+        detectedDocUpdates={detectedDocUpdates}
+        handleAplicarActualizacionesDocs={handleAplicarActualizacionesDocs}
+        cintaIterationFeedback={cintaIterationFeedback}
+        setCintaIterationFeedback={setCintaIterationFeedback}
+        cintaBugLogs={cintaBugLogs}
+        setCintaBugLogs={setCintaBugLogs}
+        cintaBugExpected={cintaBugExpected}
+        setCintaBugExpected={setCintaBugExpected}
+        cintaBugReal={cintaBugReal}
+        setCintaBugReal={setCintaBugReal}
+        avanzarEstacionCinta={avanzarEstacionCinta}
+        registrarIteracionEstacion={registrarIteracionEstacion}
+        registrarBugEstacion={registrarBugEstacion}
+        resolverBugEstacion={resolverBugEstacion}
+        promptMagro={promptMagro}
+        mostrarToast={mostrarToast}
+        isCicdModalOpen={isCicdModalOpen}
+        setIsCicdModalOpen={setIsCicdModalOpen}
+      />
 
       {/* Header bar with controls */}
       <div className="flex items-center justify-between border-b border-[#2A2A2E] pb-3">
@@ -1752,7 +1005,7 @@ Devuelve el YAML completo optimizado y limpio sin explicaciones introductorias.`
           <h2 className="font-mono text-sm font-bold tracking-wider text-zinc-100 uppercase">
             Taller de Ejecución & Desarrollo Seccional
           </h2>
-          <p className="text-zinc-550 font-mono text-[10px]">
+          <p className="text-zinc-555 font-mono text-[10px]">
             Inicia tickets por sección o por sprints, abre múltiples tarjetas
             desplegables y genera prompts limpios para la IA.
           </p>
@@ -1803,1526 +1056,95 @@ Devuelve el YAML completo optimizado y limpio sin explicaciones introductorias.`
 
       {/* Main Grid Layout */}
       {activeTabMode === "auditoria" ? (
-        <Card className="col-span-12 font-mono">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-900 pb-3">
-            <div>
-              <h3 className="text-xs font-bold text-zinc-100 uppercase">
-                Consola de Auditoría y Contexto del Proyecto
-              </h3>
-              <p className="text-zinc-550 mt-0.5 text-[9px]">
-                Busca, filtra e inspecciona el historial de handoffs,
-                refinamientos de iteración y logs de bugs del proyecto.
-              </p>
-            </div>
-            <button
-              onClick={descargarContextoCompleto}
-              className="rounded bg-emerald-500 px-3.5 py-1.5 text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
-            >
-              📥 Exportar Contexto de Sesión (.md)
-            </button>
-          </div>
-
-          {/* Filters Row */}
-          <div className="mb-4 flex flex-wrap gap-2">
-            <input
-              type="text"
-              value={auditSearchQuery}
-              onChange={(e) => setAuditSearchQuery(e.target.value)}
-              placeholder="Buscar por título, módulo o resumen técnico..."
-              className="min-w-[200px] flex-1 rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-[10px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500/30"
-            />
-            <select
-              value={auditFilterType}
-              onChange={(e) => setAuditFilterType(e.target.value)}
-              className="rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-[10px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500/30"
-            >
-              <option value="all">Todas las Ejecuciones</option>
-              <option value="IN_PROGRESS">En Progreso</option>
-              <option value="COMPLETED">Finalizadas</option>
-              <option value="bugs">Con Bugs Activos/Resueltos</option>
-              <option value="iterations">Con Iteraciones</option>
-            </select>
-          </div>
-
-          {/* Ticket Executions list */}
-          {(() => {
-            const filtered = ticketExecutions.filter((t: any) => {
-              const matchesSearch =
-                (t.titulo || "")
-                  .toLowerCase()
-                  .includes(auditSearchQuery.toLowerCase()) ||
-                (t.metadata?.aiSummary || "")
-                  .toLowerCase()
-                  .includes(auditSearchQuery.toLowerCase()) ||
-                (t.metadata?.handoffs &&
-                  JSON.stringify(t.metadata.handoffs)
-                    .toLowerCase()
-                    .includes(auditSearchQuery.toLowerCase()));
-
-              let matchesFilter = true;
-              if (auditFilterType === "IN_PROGRESS") {
-                matchesFilter = t.estado === "IN_PROGRESS";
-              } else if (auditFilterType === "COMPLETED") {
-                matchesFilter = t.estado === "COMPLETED";
-              } else if (auditFilterType === "bugs") {
-                matchesFilter =
-                  Array.isArray(t.metadata?.bugs) && t.metadata.bugs.length > 0;
-              } else if (auditFilterType === "iterations") {
-                matchesFilter =
-                  Array.isArray(t.metadata?.iterations) &&
-                  t.metadata.iterations.length > 0;
-              }
-
-              return matchesSearch && matchesFilter;
-            });
-
-            if (filtered.length === 0) {
-              return (
-                <div className="text-zinc-550 rounded-xl border border-zinc-900 bg-zinc-950/20 py-8 text-center text-[10px]">
-                  Ninguna ejecución de ticket coincide con los criterios de
-                  búsqueda.
-                </div>
-              );
-            }
-
-            return (
-              <div className="flex max-h-[60vh] flex-col gap-4 overflow-y-auto pr-1">
-                {filtered.map((t: any) => {
-                  const bugsCount = t.metadata?.bugs?.length || 0;
-                  const activeBugsCount =
-                    t.metadata?.bugs?.filter((b: any) => !b.resuelto).length ||
-                    0;
-                  const iterationsCount = t.metadata?.iterations?.length || 0;
-                  const hasHandoffs =
-                    t.metadata?.handoffs &&
-                    Object.keys(t.metadata.handoffs).length > 0;
-
-                  return (
-                    <div
-                      key={t.id}
-                      className="flex flex-col gap-3 rounded-xl border border-zinc-900 bg-zinc-950/40 p-4"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-900 pb-2">
-                        <div>
-                          <span
-                            className={`mr-2 rounded border px-1.5 py-0.5 text-[8px] font-bold ${
-                              t.estado === "COMPLETED"
-                                ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
-                                : "border-sky-500/20 bg-sky-500/10 text-sky-400"
-                            }`}
-                          >
-                            {t.estado}
-                          </span>
-                          <span className="text-[10px] font-bold text-zinc-200">
-                            {t.titulo}
-                          </span>
-                          <span className="mt-1 block text-[8px] text-zinc-500">
-                            ID: {t.id}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {bugsCount > 0 && (
-                            <span
-                              className={`rounded border px-1.5 py-0.5 text-[8px] font-bold ${
-                                activeBugsCount > 0
-                                  ? "animate-pulse border-red-500/20 bg-red-500/10 text-red-400"
-                                  : "border-zinc-700 bg-zinc-800 text-zinc-400"
-                              }`}
-                            >
-                              🐛 {bugsCount} {bugsCount === 1 ? "Bug" : "Bugs"}{" "}
-                              {activeBugsCount > 0 ? "Activo" : ""}
-                            </span>
-                          )}
-                          {iterationsCount > 0 && (
-                            <span className="rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-bold text-amber-400">
-                              🔄 {iterationsCount}{" "}
-                              {iterationsCount === 1
-                                ? "Iteración"
-                                : "Iteraciones"}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {t.metadata?.aiSummary && (
-                        <div className="rounded border border-zinc-900 bg-zinc-950 p-2.5">
-                          <span className="mb-1 block text-[8px] font-bold text-zinc-500 uppercase">
-                            💾 Resumen Técnico Guardado:
-                          </span>
-                          <p className="text-zinc-350 text-[10px] leading-relaxed">
-                            {t.metadata.aiSummary}
-                          </p>
-                        </div>
-                      )}
-
-                      {hasHandoffs && (
-                        <div className="flex flex-col gap-1.5">
-                          <span className="text-[8px] font-bold text-zinc-500 uppercase">
-                            Handoffs Registrados por Estación:
-                          </span>
-                          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-4">
-                            {Object.entries(t.metadata.handoffs).map(
-                              ([station, handoff]: [string, any]) => (
-                                <div
-                                  key={station}
-                                  className="rounded border border-zinc-900 bg-zinc-950/60 p-2 text-[9px]"
-                                >
-                                  <span className="mb-1 block border-b border-zinc-900 pb-1 font-bold text-sky-400">
-                                    {station}
-                                  </span>
-                                  <p className="line-clamp-3 font-mono leading-snug text-zinc-400">
-                                    {handoff.resumen_tecnico || "Sin notas."}
-                                  </p>
-                                </div>
-                              )
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-        </Card>
+        <ConsolaAuditoriaTab
+          ticketExecutions={ticketExecutions}
+          descargarContextoCompleto={descargarContextoCompleto}
+          auditSearchQuery={auditSearchQuery}
+          setAuditSearchQuery={setAuditSearchQuery}
+          auditFilterType={auditFilterType}
+          setAuditFilterType={setAuditFilterType}
+        />
       ) : (
         <div className="flex w-full flex-col gap-6">
-          {/* Left panel: Sprint / Section Ticket Form */}
-          <div className="flex w-full flex-col gap-4">
-            {activeTabMode === "secciones" ? (
-              <Card>
-                <div className="mb-4 border-b border-zinc-900 pb-3">
-                  <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
-                    Desarrollo Seccional del Sitio
-                  </h3>
-                  <p className="text-zinc-550 mt-0.5 font-mono text-[9px]">
-                    Selecciona la sección a maquetar o refinar para generar el
-                    ticket y prompt visual
-                  </p>
-                </div>
+          {activeTabMode === "secciones" ? (
+            <SeccionesDesarrolloTab
+              seccionesDisponibles={seccionesDisponibles}
+              seccionNombre={seccionNombre}
+              handleSeleccionarSeccion={handleSeleccionarSeccion}
+              seccionNombreCustom={seccionNombreCustom}
+              setSeccionNombreCustom={setSeccionNombreCustom}
+              seccionDescripcion={seccionDescripcion}
+              setSeccionDescripcion={setSeccionDescripcion}
+              ticketMiembro={ticketMiembro}
+              setTicketMiembro={setTicketMiembro}
+              selectedRole={selectedRole}
+              setSelectedRole={setSelectedRole}
+              iniciarSeccionLandingTicket={iniciarSeccionLandingTicket}
+            />
+          ) : (
+            <SprintEnfoqueTab
+              sprints={sprints}
+              historiasSprint={historiasSprint}
+              epicas={epicas}
+              tareas={tareas}
+              actividadesSprint={actividadesSprint}
+              focusedSprint={focusedSprint}
+              selectedSprintId={selectedSprintId}
+              setSelectedSprintId={setSelectedSprintId}
+              storiesPage={storiesPage}
+              setStoriesPage={setStoriesPage}
+              expandedStoryIds={expandedStoryIds}
+              setExpandedStoryIds={setExpandedStoryIds}
+              iniciarSprint={iniciarSprint}
+              setIsImportDesvioOpen={setIsImportDesvioOpen}
+              selectedActividadId={selectedActividadId}
+              setSelectedActividadId={setSelectedActividadId}
+              handleUpdateActividadEstado={handleUpdateActividadEstado}
+              iniciarCintaProduccion={iniciarCintaProduccion}
+              cintaPipelineConfig={cintaPipelineConfig}
+              handleTogglePipelineStation={handleTogglePipelineStation}
+              mostrarToast={mostrarToast}
+            />
+          )}
 
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                      Sección a Trabajar
-                    </label>
-                    <select
-                      value={seccionNombre}
-                      onChange={(e) => handleSeleccionarSeccion(e.target.value)}
-                      className="border-zinc-850 rounded border bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none"
-                    >
-                      {seccionesDisponibles.map((sec) => (
-                        <option key={sec} value={sec}>
-                          {sec}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {seccionNombre === "Sección Personalizada" && (
-                    <div className="flex flex-col gap-1">
-                      <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                        Nombre de Sección Personalizada
-                      </label>
-                      <input
-                        type="text"
-                        value={seccionNombreCustom}
-                        onChange={(e) => setSeccionNombreCustom(e.target.value)}
-                        placeholder="Ej: Calculadora de Tarifas..."
-                        className="border-zinc-850 rounded border bg-zinc-900 p-2 text-[10px] text-zinc-200 outline-none"
-                      />
-                    </div>
-                  )}
-
-                  <div className="flex flex-col gap-1">
-                    <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                      Descripción & Indicaciones Específicas
-                    </label>
-                    <textarea
-                      value={seccionDescripcion}
-                      onChange={(e) => setSeccionDescripcion(e.target.value)}
-                      placeholder="Escribe cómo deseas que sea esta sección (ej: fondo oscuro con degradado, botón verde esmeralda centrado)..."
-                      rows={3}
-                      className="border-zinc-850 rounded border bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="flex flex-col gap-1">
-                      <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                        Encargado
-                      </label>
-                      <input
-                        type="text"
-                        value={ticketMiembro}
-                        onChange={(e) => setTicketMiembro(e.target.value)}
-                        className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                        Rol IA
-                      </label>
-                      <select
-                        value={selectedRole}
-                        onChange={(e) => setSelectedRole(e.target.value)}
-                        className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
-                      >
-                        {ROLES.map((r) => (
-                          <option key={r.key} value={r.key}>
-                            {r.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={iniciarSeccionLandingTicket}
-                    className="mt-2 w-full rounded-lg bg-emerald-500 py-2.5 text-[10px] font-bold text-zinc-950 uppercase shadow transition-all hover:bg-emerald-600"
-                  >
-                    🚀 Iniciar Ticket de Sección
-                  </button>
-                </div>
-              </Card>
-            ) : (
-              <Card>
-                <div className="mb-4 flex flex-col justify-between gap-3 border-b border-zinc-900 pb-3 sm:flex-row sm:items-center">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
-                      Sprint de Enfoque Activo
-                    </h3>
-                    <p className="text-zinc-550 mt-0.5 font-mono text-[9px]">
-                      Visualiza y enfoca el desarrollo en un sprint de trabajo
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    <select
-                      value={selectedSprintId}
-                      onChange={(e) => setSelectedSprintId(e.target.value)}
-                      className="max-w-[320px] rounded border-zinc-800 bg-zinc-900 px-2.5 py-1.5 font-mono text-[10px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500"
-                    >
-                      <option value="">Selecciona sprint...</option>
-                      {sprints.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.nombre} ({s.estado})
-                        </option>
-                      ))}
-                    </select>
-                    {focusedSprint &&
-                      focusedSprint.estado === "planificacion" && (
-                        <button
-                          onClick={iniciarSprint}
-                          className="rounded bg-emerald-500 px-2 py-1 font-mono text-[9px] font-bold text-zinc-950 uppercase"
-                        >
-                          Iniciar
-                        </button>
-                      )}
-                    <button
-                      onClick={() => setIsImportDesvioOpen(true)}
-                      className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
-                    >
-                      ➕ Importar Desvío
-                    </button>
-                  </div>
-                </div>
-
-                {focusedSprint ? (
-                  <div className="flex flex-col gap-2">
-                    <div className="mb-2 grid grid-cols-3 gap-2 rounded-lg border border-zinc-900 bg-zinc-950/40 p-2.5">
-                      <div className="border-r border-zinc-900 text-center">
-                        <span className="text-zinc-550 block font-mono text-[8px] uppercase">
-                          Objetivo
-                        </span>
-                        <span className="block truncate font-mono text-[10px] font-bold text-zinc-300">
-                          {focusedSprint.objetivo || "Sin objetivo"}
-                        </span>
-                      </div>
-                      <div className="border-r border-zinc-900 text-center">
-                        <span className="text-zinc-550 block font-mono text-[8px] uppercase">
-                          Capacidad
-                        </span>
-                        <span className="block font-mono text-[10px] font-bold text-zinc-300">
-                          {focusedSprint.capacidad || 0} Ptos
-                        </span>
-                      </div>
-                      <div className="text-center">
-                        <span className="text-zinc-550 block font-mono text-[8px] uppercase">
-                          Semanas
-                        </span>
-                        <span className="block font-mono text-[10px] font-bold text-zinc-300">
-                          {focusedSprint.duracionSemanas || 2} Sem
-                        </span>
-                      </div>
-                    </div>
-                    {/* Spacious Table list of User Stories */}
-                    {(() => {
-                      if (historiasSprint.length === 0) {
-                        return (
-                          <p className="text-zinc-550 rounded-xl border border-zinc-900 bg-zinc-950/20 py-8 text-center font-mono text-[10px]">
-                            No hay historias asociadas a este sprint de enfoque.
-                          </p>
-                        );
-                      }
-
-                      const storiesList = historiasSprint;
-                      const totalStories = storiesList.length;
-                      const itemsPerPage = 4;
-                      const totalPages = Math.ceil(totalStories / itemsPerPage);
-                      const activePage = Math.max(
-                        1,
-                        Math.min(storiesPage, totalPages)
-                      );
-                      const startIndex = (activePage - 1) * itemsPerPage;
-                      const paginatedStories = storiesList.slice(
-                        startIndex,
-                        startIndex + itemsPerPage
-                      );
-
-                      return (
-                        <div className="flex flex-col gap-4">
-                          <div className="overflow-x-auto rounded-xl border border-zinc-900 bg-zinc-950/20">
-                            <table className="w-full border-collapse text-left font-mono">
-                              <thead>
-                                <tr className="border-b border-zinc-900 bg-zinc-950/60 text-[9px] font-bold text-zinc-400 uppercase">
-                                  <th className="w-[180px] p-3">
-                                    Épica / Módulo
-                                  </th>
-                                  <th className="p-3">Historia de Usuario</th>
-                                  <th className="w-[120px] p-3 text-center">
-                                    Estimación / Prioridad
-                                  </th>
-                                  <th className="w-[100px] p-3 text-center">
-                                    Estado
-                                  </th>
-                                  <th className="w-[230px] p-3">
-                                    Mover Sprint
-                                  </th>
-                                  <th className="w-[130px] p-3 text-center">
-                                    Acciones
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-zinc-900/60 text-[10px]">
-                                {paginatedStories.map((hist) => {
-                                  const matchedEpic = epicas.find(
-                                    (e) => e.id === hist.epicaId
-                                  );
-                                  const subTareas = actividadesSprint.filter(
-                                    (t) => t.historiaId === hist.id
-                                  );
-                                  const isExpanded =
-                                    !!expandedStoryIds[hist.id];
-
-                                  let priorityColor =
-                                    "bg-zinc-900 text-zinc-400 border-zinc-800";
-                                  if (
-                                    hist.prioridad === "Alta" ||
-                                    hist.prioridad === "Crítica"
-                                  ) {
-                                    priorityColor =
-                                      "bg-red-500/10 text-red-400 border-red-500/20";
-                                  } else if (hist.prioridad === "Media") {
-                                    priorityColor =
-                                      "bg-amber-500/10 text-amber-400 border-amber-500/20";
-                                  } else {
-                                    priorityColor =
-                                      "bg-sky-500/10 text-sky-400 border-sky-500/20";
-                                  }
-
-                                  let statusColor =
-                                    "bg-zinc-900 text-zinc-400 border-zinc-850";
-                                  if (hist.estado === "done") {
-                                    statusColor =
-                                      "bg-emerald-500/10 text-emerald-400 border-emerald-500/25";
-                                  } else if (hist.estado === "doing") {
-                                    statusColor =
-                                      "bg-sky-500/10 text-sky-400 border-sky-500/25";
-                                  }
-
-                                  return (
-                                    <React.Fragment key={hist.id}>
-                                      <tr
-                                        className={`transition-all hover:bg-zinc-900/20 ${isExpanded ? "bg-zinc-900/10" : ""}`}
-                                      >
-                                        <td className="p-3 align-middle">
-                                          <span className="inline-block max-w-[170px] truncate rounded border border-sky-500/20 bg-sky-500/5 px-2 py-0.5 text-[8px] font-bold text-sky-400 uppercase">
-                                            {matchedEpic
-                                              ? matchedEpic.nombre
-                                              : "Épica General"}
-                                          </span>
-                                        </td>
-                                        <td className="p-3 align-middle font-bold text-zinc-200">
-                                          {hist.titulo}
-                                        </td>
-                                        <td className="p-3 text-center align-middle">
-                                          <div className="flex flex-col items-center gap-1">
-                                            <span className="text-[9px] font-bold text-zinc-400">
-                                              {hist.estimacion}h
-                                            </span>
-                                            <span
-                                              className={`py-0.2 rounded border px-1.5 text-[7px] font-bold uppercase ${priorityColor}`}
-                                            >
-                                              {hist.prioridad}
-                                            </span>
-                                          </div>
-                                        </td>
-                                        <td className="p-3 text-center align-middle">
-                                          <span
-                                            className={`rounded border px-1.5 py-0.5 text-[8px] font-bold uppercase ${statusColor}`}
-                                          >
-                                            {hist.estado || "todo"}
-                                          </span>
-                                        </td>
-                                        <td className="p-3 align-middle">
-                                          <select
-                                            value={hist.sprintId || ""}
-                                            onChange={async (e) => {
-                                              const newSprintId =
-                                                e.target.value;
-                                              try {
-                                                await db.historias.update(
-                                                  hist.id,
-                                                  { sprintId: newSprintId }
-                                                );
-                                                mostrarToast(
-                                                  "Historia reasignada de sprint correctamente.",
-                                                  "exito"
-                                                );
-                                              } catch (err: any) {
-                                                mostrarToast(
-                                                  `Error al mover historia: ${err.message}`,
-                                                  "error"
-                                                );
-                                              }
-                                            }}
-                                            className="w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-[9px] text-zinc-400 outline-none focus:ring-1 focus:ring-emerald-500/25"
-                                          >
-                                            <option value="">
-                                              (Sin Sprint / Backlog)
-                                            </option>
-                                            {sprints.map((s) => (
-                                              <option key={s.id} value={s.id}>
-                                                Mover a: {s.nombre}
-                                              </option>
-                                            ))}
-                                          </select>
-                                        </td>
-                                        <td className="p-3 text-center align-middle">
-                                          <div className="flex items-center justify-center gap-1.5">
-                                            <button
-                                              onClick={() =>
-                                                setExpandedStoryIds((prev) => ({
-                                                  ...prev,
-                                                  [hist.id]: !prev[hist.id],
-                                                }))
-                                              }
-                                              className={`rounded border px-2.5 py-1.5 text-[8px] font-bold uppercase transition-all ${
-                                                isExpanded
-                                                  ? "border-sky-500/30 bg-sky-500/10 text-sky-400"
-                                                  : "text-zinc-450 border-zinc-800 bg-zinc-900 hover:text-zinc-200"
-                                              }`}
-                                            >
-                                              {isExpanded
-                                                ? "Ocultar"
-                                                : `Ver Tareas (${subTareas.length})`}
-                                            </button>
-                                          </div>
-                                        </td>
-                                      </tr>
-
-                                      {isExpanded && (
-                                        <tr>
-                                          <td
-                                            colSpan={6}
-                                            className="border-t border-zinc-900/40 bg-zinc-950/60 p-4"
-                                          >
-                                            <div className="flex flex-col gap-3 font-mono">
-                                              <div className="flex items-center justify-between border-b border-zinc-900 pb-1.5">
-                                                <span className="text-zinc-550 text-[8px] font-bold uppercase">
-                                                  Actividades Técnicas
-                                                  Relacionadas
-                                                </span>
-                                                <button
-                                                  onClick={() =>
-                                                    iniciarCintaProduccion(hist)
-                                                  }
-                                                  className="flex items-center gap-1 rounded border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[8px] font-bold text-emerald-400 uppercase shadow-sm transition-all hover:border-emerald-500/45 hover:bg-emerald-500/20"
-                                                >
-                                                  ⚙️ Iniciar Cinta de Producción
-                                                </button>
-                                              </div>
-
-                                              {subTareas.length === 0 ? (
-                                                <div className="text-zinc-550 py-4 text-center text-[9px]">
-                                                  Esta historia no contiene
-                                                  actividades técnicas.
-                                                </div>
-                                              ) : (
-                                                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                                  {subTareas.map((t) => {
-                                                    const isTarget =
-                                                      selectedActividadId ===
-                                                      t.id;
-                                                    return (
-                                                      <div
-                                                        key={t.id}
-                                                        className={`flex flex-col gap-2 rounded-lg border p-3 transition-all ${
-                                                          isTarget
-                                                            ? "border-emerald-500/30 bg-emerald-500/5 shadow-md shadow-emerald-500/5"
-                                                            : "border-zinc-900 bg-zinc-950/20 hover:border-zinc-800"
-                                                        }`}
-                                                      >
-                                                        <div className="flex items-start justify-between gap-3">
-                                                          <div className="min-w-0 flex-1">
-                                                            <span className="block truncate text-[9px] font-bold text-zinc-200">
-                                                              {t.titulo}
-                                                            </span>
-                                                            <div className="mt-1 flex flex-wrap gap-2 text-[7px] text-zinc-500">
-                                                              {t.modulo && (
-                                                                <span>
-                                                                  📦 {t.modulo}
-                                                                </span>
-                                                              )}
-                                                              {t.rol && (
-                                                                <span>
-                                                                  👤 {t.rol}
-                                                                </span>
-                                                              )}
-                                                              {t.componente && (
-                                                                <span>
-                                                                  📄{" "}
-                                                                  {t.componente}
-                                                                </span>
-                                                              )}
-                                                            </div>
-                                                          </div>
-                                                          <span className="text-zinc-450 shrink-0 rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[7px] font-bold uppercase">
-                                                            {(
-                                                              t.etiquetas || []
-                                                            ).join(", ") ||
-                                                              "GENERAL"}
-                                                          </span>
-                                                        </div>
-
-                                                        {t.pasos &&
-                                                          t.pasos.length >
-                                                            0 && (
-                                                            <div className="border-t border-zinc-900/60 pt-1.5">
-                                                              <span className="mb-1 block text-[7px] font-bold text-zinc-500 uppercase">
-                                                                Pasos Técnicos (
-                                                                {t.pasos.length}
-                                                                ):
-                                                              </span>
-                                                              <div className="max-h-[60px] overflow-y-auto pr-1 text-[8px] leading-normal text-zinc-400">
-                                                                {t.pasos.map(
-                                                                  (
-                                                                    p: string,
-                                                                    pidx: number
-                                                                  ) => (
-                                                                    <div
-                                                                      key={pidx}
-                                                                      className="truncate"
-                                                                    >
-                                                                      • {p}
-                                                                    </div>
-                                                                  )
-                                                                )}
-                                                              </div>
-                                                            </div>
-                                                          )}
-
-                                                        <div className="mt-auto flex items-center justify-between gap-2 border-t border-zinc-900/60 pt-2">
-                                                          <select
-                                                            value={
-                                                              t.estado || "todo"
-                                                            }
-                                                            onChange={(e) =>
-                                                              handleUpdateActividadEstado(
-                                                                t.id,
-                                                                e.target.value
-                                                              )
-                                                            }
-                                                            className="rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[8px] text-zinc-300 outline-none focus:ring-1 focus:ring-emerald-500/25"
-                                                          >
-                                                            {COMPONENTES_PUNTOS.map(
-                                                              (cp) => (
-                                                                <option
-                                                                  key={cp.key}
-                                                                  value={cp.key}
-                                                                >
-                                                                  {cp.label}
-                                                                </option>
-                                                              )
-                                                            )}
-                                                          </select>
-
-                                                          <button
-                                                            onClick={() =>
-                                                              setSelectedActividadId(
-                                                                t.id
-                                                              )
-                                                            }
-                                                            className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[8px] font-bold text-emerald-400 uppercase transition-all hover:bg-emerald-500/20"
-                                                          >
-                                                            🚀 Implementar
-                                                          </button>
-                                                        </div>
-                                                      </div>
-                                                    );
-                                                  })}
-                                                </div>
-                                              )}
-                                            </div>
-                                          </td>
-                                        </tr>
-                                      )}
-                                    </React.Fragment>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-
-                          {/* Pagination Controls */}
-                          {totalPages > 1 && (
-                            <div className="flex items-center justify-between border-t border-zinc-900 pt-3">
-                              <span className="font-mono text-[8px] text-zinc-500">
-                                Mostrando historias {startIndex + 1}-
-                                {Math.min(
-                                  startIndex + itemsPerPage,
-                                  totalStories
-                                )}{" "}
-                                de {totalStories}
-                              </span>
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  disabled={activePage === 1}
-                                  onClick={() => setStoriesPage(activePage - 1)}
-                                  className="text-zinc-350 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-[8px] font-bold hover:text-zinc-100 disabled:opacity-40"
-                                >
-                                  ◀ Anterior
-                                </button>
-                                <span className="font-mono text-[9px] font-bold text-zinc-400">
-                                  Pág {activePage} de {totalPages}
-                                </span>
-                                <button
-                                  disabled={activePage === totalPages}
-                                  onClick={() => setStoriesPage(activePage + 1)}
-                                  className="text-zinc-350 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-[8px] font-bold hover:text-zinc-100 disabled:opacity-40"
-                                >
-                                  Siguiente ▶
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}{" "}
-                  </div>
-                ) : (
-                  <p className="text-zinc-550 py-5 text-center font-mono text-[10px]">
-                    Selecciona o crea un sprint para enfocar el desarrollo.
-                  </p>
-                )}
-              </Card>
-            )}
-
-            {/* Start implementing widget inline for Sprint Activities */}
-            {selectedActividadId &&
-              activeTabMode === "tickets" &&
-              (() => {
-                const act = tareas.find((t) => t.id === selectedActividadId);
-                return (
-                  <Card className="animate-in fade-in zoom-in-95 border border-emerald-500/20 bg-emerald-500/5">
-                    <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
-                      <div className="flex flex-col">
-                        <span className="font-mono text-[10px] font-bold text-emerald-400 uppercase">
-                          🚀 Inicializar Feature Ticket
-                        </span>
-                        {act && (
-                          <span className="mt-1 font-mono text-[11px] font-bold text-zinc-200">
-                            Actividad: {act.titulo}
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => setSelectedActividadId("")}
-                        className="font-mono text-[9px] text-zinc-500 uppercase hover:text-zinc-300"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-
-                    <div className="flex flex-col gap-3">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="flex flex-col gap-1">
-                          <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                            Encargado
-                          </label>
-                          <input
-                            type="text"
-                            value={ticketMiembro}
-                            onChange={(e) => setTicketMiembro(e.target.value)}
-                            className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                            Rol IA
-                          </label>
-                          <select
-                            value={selectedRole}
-                            onChange={(e) => setSelectedRole(e.target.value)}
-                            className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
-                          >
-                            {ROLES.map((r) => (
-                              <option key={r.key} value={r.key}>
-                                {r.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      {selectedRole === "custom" && (
-                        <div className="flex flex-col gap-1">
-                          <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                            Especificar Rol
-                          </label>
-                          <input
-                            type="text"
-                            value={customRoleText}
-                            onChange={(e) => setCustomRoleText(e.target.value)}
-                            placeholder="Ej: React Native Specialist..."
-                            className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
-                          />
-                        </div>
-                      )}
-
-                      <div className="flex flex-col gap-1">
-                        <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                          Criterios de Aceptación
-                        </label>
-                        <textarea
-                          value={criterioAceptacion}
-                          onChange={(e) =>
-                            setCriterioAceptacion(e.target.value)
-                          }
-                          placeholder="Detalla cómo sabremos que esta actividad está terminada..."
-                          rows={2}
-                          className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
-                        />
-                      </div>
-
-                      <button
-                        onClick={iniciarFeatureTicket}
-                        className="w-full rounded bg-emerald-500 py-2 text-[10px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-600"
-                      >
-                        Comenzar Feature
-                      </button>
-                    </div>
-                  </Card>
-                );
-              })()}
-          </div>
-
-          {/* Right panel: Stack of Collapsible Ticket Cards */}
-          <div className="flex w-full flex-col gap-4">
-            <Card>
-              <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-3">
-                <div>
-                  <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
-                    Consola de Tickets Abiertos ({ticketsOrdenados.length})
-                  </h3>
-                  <p className="text-zinc-550 mt-0.5 font-mono text-[9px]">
-                    Apilados en orden de creación. Despliega cada tarjeta para
-                    consultar prompts e iterar con la IA.
-                  </p>
-                </div>
-              </div>
-
-              {ticketsOrdenados.length === 0 ? (
-                <p className="text-zinc-550 py-10 text-center font-mono text-[10px]">
-                  Ningún ticket en curso en este momento. Selecciona una sección
-                  o actividad para comenzar.
-                </p>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {ticketsOrdenados.map((ticket) => (
-                    <TicketCardItem
-                      key={ticket.id}
-                      ticket={ticket}
-                      proyecto={proyecto}
-                      contexto={contexto}
-                      ds={ds}
-                      isExpanded={!!expandedTicketIds[ticket.id]}
-                      onToggleExpand={() => toggleExpandTicket(ticket.id)}
-                      onDeleteTicket={() =>
-                        handleEliminarTicket(ticket.id, ticket.titulo)
-                      }
-                      mostrarToast={mostrarToast}
-                    />
-                  ))}
-                </div>
-              )}
-            </Card>
-          </div>
+          <ConsolaTicketsTab
+            ticketsOrdenados={ticketsOrdenados}
+            proyecto={proyecto}
+            contexto={contexto}
+            ds={ds}
+            expandedTicketIds={expandedTicketIds}
+            toggleExpandTicket={toggleExpandTicket}
+            handleEliminarTicket={handleEliminarTicket}
+            mostrarToast={mostrarToast}
+          />
         </div>
       )}
 
       {/* Modal / Panel for Bug Tickets */}
-      {isBugModalOpen && (
-        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="border-zinc-850 w-[500px] rounded-xl border bg-zinc-950 p-5 shadow-2xl">
-            <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-3">
-              <span className="font-mono text-xs font-bold text-red-400 uppercase">
-                🐛 Registrar Bug / Hotfix
-              </span>
-              <button
-                onClick={() => setIsBugModalOpen(false)}
-                className="font-mono text-[10px] text-zinc-500 uppercase hover:text-zinc-300"
-              >
-                Cerrar
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                  Nombre / Título del Bug
-                </label>
-                <input
-                  type="text"
-                  value={bugNombre}
-                  onChange={(e) => setBugNombre(e.target.value)}
-                  placeholder="Ej: CRM-404 error filtro de clientes..."
-                  className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex flex-col gap-1">
-                  <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                    Tipo de Bug
-                  </label>
-                  <select
-                    value={bugType}
-                    onChange={(e) => setBugType(e.target.value as any)}
-                    className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
-                  >
-                    <option value="bugfix">Bugfix (Normal - Staging)</option>
-                    <option value="hotfix">
-                      Hotfix (Urgente - Producción)
-                    </option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                    Vincular a Ticket (Opcional)
-                  </label>
-                  <select
-                    value={linkedTicketId}
-                    onChange={(e) => setLinkedTicketId(e.target.value)}
-                    className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
-                  >
-                    <option value="">Ninguno...</option>
-                    {ticketExecutions.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.titulo}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                  Logs / Detalles Técnicos
-                </label>
-                <textarea
-                  value={bugLogs}
-                  onChange={(e) => setBugLogs(e.target.value)}
-                  placeholder="Pega aquí los logs de consola o errores detectados..."
-                  rows={4}
-                  className="border-zinc-850 rounded border bg-zinc-900 p-1.5 font-mono text-[10px] text-zinc-200 outline-none"
-                />
-              </div>
-
-              <button
-                onClick={iniciarBugTicket}
-                className="mt-2 w-full rounded bg-red-500 py-2 text-[10px] font-bold text-zinc-950 uppercase transition-all hover:bg-red-600"
-              >
-                Comenzar Solución
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <BugHotfixModal
+        isOpen={isBugModalOpen}
+        onClose={() => setIsBugModalOpen(false)}
+        bugNombre={bugNombre}
+        setBugNombre={setBugNombre}
+        bugType={bugType}
+        setBugType={setBugType}
+        linkedTicketId={linkedTicketId}
+        setLinkedTicketId={setLinkedTicketId}
+        ticketExecutions={ticketExecutions}
+        bugLogs={bugLogs}
+        setBugLogs={setBugLogs}
+        iniciarBugTicket={iniciarBugTicket}
+      />
 
       {/* Modal: Importar Desvío JSON */}
-      {isImportDesvioOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/80 p-4 backdrop-blur-sm">
-          <div className="border-zinc-850 flex w-full max-w-lg flex-col gap-4 rounded-xl border bg-zinc-950 p-5 font-mono shadow-2xl">
-            <div className="flex items-center justify-between border-b border-zinc-900 pb-2">
-              <span className="text-[10px] font-bold text-zinc-100 uppercase">
-                ➕ Importar Historia de Desvío (JSON)
-              </span>
-              <button
-                onClick={() => setIsImportDesvioOpen(false)}
-                className="text-zinc-400 hover:text-zinc-200"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <p className="text-[9px] leading-relaxed text-zinc-500">
-                Copia el prompt de inducción a continuación, pásalo a la IA en
-                tu chat para diseñar la historia de desvío y pega el JSON
-                resultante.
-              </p>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(PROMPT_DESVIO_SPRINT);
-                  mostrarToast(
-                    "Prompt de desvío copiado al portapapeles.",
-                    "exito"
-                  );
-                }}
-                className="w-full rounded border border-emerald-500/20 bg-emerald-500/10 py-1.5 text-center text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
-              >
-                📋 Copiar Prompt de Inducción Desvío
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-[8px] font-bold text-zinc-400 uppercase">
-                Resultado JSON devuelto por la IA
-              </label>
-              <textarea
-                value={desvioJsonText}
-                onChange={(e) => setDesvioJsonText(e.target.value)}
-                placeholder="Pega aquí el JSON devuelto..."
-                rows={8}
-                className="border-zinc-850 w-full rounded border bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500/20"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 border-t border-zinc-900 pt-3">
-              <button
-                onClick={() => setIsImportDesvioOpen(false)}
-                className="rounded border border-zinc-800 bg-zinc-900/60 px-3 py-1.5 text-[9px] font-bold text-zinc-300 uppercase hover:bg-zinc-900"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleImportarDesvio}
-                className="rounded bg-emerald-500 px-4 py-1.5 text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
-              >
-                Procesar e Importar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Reusable Collapsible Ticket Card Component
-interface TicketCardItemProps {
-  ticket: any;
-  proyecto: any;
-  contexto: any;
-  ds: any;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
-  onDeleteTicket: () => void;
-  mostrarToast: (msg: string, tipo: "exito" | "error" | "info") => void;
-}
-
-const TicketCardItem: React.FC<TicketCardItemProps> = ({
-  ticket,
-  proyecto,
-  contexto,
-  ds,
-  isExpanded,
-  onToggleExpand,
-  onDeleteTicket,
-  mostrarToast,
-}) => {
-  // Load steps for this specific ticket
-  const stepStates = (useLiveQuery(
-    () => db.task_step_states.where("executionId").equals(ticket.id).toArray(),
-    [ticket.id]
-  ) || []) as any[];
-
-  // Local form states
-  const [refinamientoInput, setRefinamientoInput] = useState("");
-  const [checklistJsonInput, setChecklistJsonInput] = useState("");
-  const [aiSummaryInput, setAiSummaryInput] = useState(
-    ticket.metadata?.aiSummary || ""
-  );
-
-  const toggleStepCompleted = async (stepStateId: string, current: boolean) => {
-    try {
-      await db.task_step_states.update(stepStateId, { completado: !current });
-    } catch (err: any) {
-      mostrarToast(`Error al actualizar paso: ${err.message}`, "error");
-    }
-  };
-
-  // Compile ultra-structured clean prompt matching requested template format
-  const compileTicketPrompt = () => {
-    const stackList: string[] = [];
-    if (proyecto?.stack) {
-      Object.entries(proyecto.stack).forEach(([layer, techs]) => {
-        if (Array.isArray(techs) && techs.length > 0) {
-          stackList.push(`${layer}: ${(techs as string[]).join(", ")}`);
-        }
-      });
-    }
-    const stackText =
-      stackList.length > 0
-        ? stackList.join(", ")
-        : "Next.js (App Router), Tailwind CSS, React, TypeScript";
-
-    let estBlocks = "";
-    if (proyecto?.estandares && Object.keys(proyecto.estandares).length > 0) {
-      Object.entries(proyecto.estandares).forEach(([cat, techs]) => {
-        if (Array.isArray(techs) && techs.length > 0) {
-          estBlocks += `- ${cat}:\n  * ${techs.join("\n  * ")}\n`;
-        } else if (typeof techs === "string" && techs.trim()) {
-          estBlocks += `- ${cat}:\n  * ${techs.trim()}\n`;
-        }
-      });
-    }
-    if (!estBlocks) {
-      estBlocks =
-        "- General:\n  * NO neones, NO degradados, NO sombras pesadas, NO íconos 3D, NO rounded-full en botones (máximo rounded-md).\n";
-    }
-
-    const arquetipo =
-      ds?.arquetipo ||
-      "Enterprise B2B, Swiss Design, ultra-minimalist, brutalist clean";
-    const paleta =
-      ds?.reglaColor ||
-      "Background (#FFFFFF), Text (#1F2937), Sapphire Blue (#0A192F), Emerald Green (#10B981)";
-
-    const rawSecName =
-      ticket.metadata?.seccionNombre || ticket.titulo || "Componente";
-    const cleanName = rawSecName
-      .replace(/^SECCIÓN:\s*/i, "")
-      .replace(/[^a-zA-Z0-9]/g, "");
-    const componentFileName =
-      cleanName.endsWith(".tsx") || cleanName.endsWith(".jsx")
-        ? cleanName
-        : `${cleanName || "Componente"}.tsx`;
-
-    let prompt = `ROL: ${
-      ticket.metadata?.rol ||
-      "Senior Frontend Developer (Next.js + Tailwind CSS + TypeScript)"
-    }.\n\n`;
-
-    prompt += `DS / UI DESIGN SYSTEM:\n`;
-    prompt += `- Estilo: ${arquetipo}\n`;
-    prompt += `- Paleta: ${paleta}\n\n`;
-
-    prompt += `RESTRICCIONES/CONSIDERACIONES:\n`;
-    prompt += `${estBlocks}\n`;
-
-    prompt += `STACK DE ESTE COMPONENTE:\n`;
-    prompt += `- ${stackText}\n\n`;
-
-    prompt += `TAREA / TICKET:\n`;
-    prompt += `- Componente: ${componentFileName}\n`;
-    prompt += `- Tipo: ${ticket.titulo}\n\n`;
-
-    prompt += `REQUISITOS Y COPY DEL COMPONENTE:\n`;
-    if (ticket.metadata?.seccionDescripcion) {
-      prompt += `${ticket.metadata.seccionDescripcion}\n`;
-    }
-    if (
-      Array.isArray(contexto?.linksInspiracion) &&
-      contexto.linksInspiracion.length > 0
-    ) {
-      prompt += `\nReferencias de Inspiración Visual:\n${contexto.linksInspiracion.join(
-        "\n"
-      )}\n`;
-    }
-    if (ticket.metadata?.extraContext) {
-      prompt += `\nInstrucciones Extra:\n${ticket.metadata.extraContext}\n`;
-    }
-    if (ticket.metadata?.criterioAceptacion) {
-      prompt += `\nCriterios de Aceptación:\n${ticket.metadata.criterioAceptacion}\n`;
-    }
-    if (ticket.metadata?.logs) {
-      prompt += `\nLogs del Error:\n${ticket.metadata.logs}\n`;
-    }
-
-    prompt += `\nINSTRUCCIONES DE RESPUESTA:\n`;
-    prompt += `1. Analiza los requisitos y el sistema de diseño.\n`;
-    prompt += `2. Escribe el código completo del componente con alta calidad y rendimiento según el stack y estándares especificados.\n`;
-    prompt += `3. Al finalizar tu respuesta, incluye obligatoriamente este JSON para sincronizar el checklist:\n`;
-    prompt += `{\n  "resumen_ia": "Breve descripción técnica de lo implementado",\n  "checklist": [\n    { "paso": 1, "completado": true },\n    { "paso": 2, "completado": true }\n  ]\n}`;
-
-    return prompt;
-  };
-
-  const copiarPromptTicket = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const prompt = compileTicketPrompt();
-    navigator.clipboard.writeText(prompt);
-    mostrarToast(
-      `Prompt de '${ticket.titulo}' copiado al portapapeles.`,
-      "exito"
-    );
-  };
-
-  const registrarIteracionRefinamiento = async () => {
-    if (!refinamientoInput.trim()) {
-      mostrarToast(
-        "Escribe las consideraciones de refinamiento primero.",
-        "error"
-      );
-      return;
-    }
-
-    try {
-      const currentMeta = ticket.metadata || {};
-      const prevIterations = Array.isArray(currentMeta.iterations)
-        ? currentMeta.iterations
-        : [];
-      const newIteration = {
-        fecha: new Date().toLocaleTimeString(),
-        consideraciones: refinamientoInput.trim(),
-      };
-
-      await db.task_executions.update(ticket.id, {
-        metadata: {
-          ...currentMeta,
-          iterations: [...prevIterations, newIteration],
-        },
-      });
-
-      setRefinamientoInput("");
-      mostrarToast("Iteración registrada en el historial del ticket.", "exito");
-    } catch (err: any) {
-      mostrarToast(`Error al registrar iteración: ${err.message}`, "error");
-    }
-  };
-
-  const copiarPromptRefinamiento = () => {
-    if (!refinamientoInput.trim()) {
-      mostrarToast("Escribe tus ajustes primero.", "error");
-      return;
-    }
-
-    let prompt = `ROL: ${
-      ticket.metadata?.rol || "Senior Frontend Developer"
-    }.\n\n`;
-    prompt += `TICKET BASE: ${ticket.titulo}\n`;
-    prompt += `AJUSTES Y REFINAMIENTO SOLICITADO:\n${refinamientoInput.trim()}\n\n`;
-    prompt += `Instrucción: Aplica los ajustes indicados arriba manteniendo la consistencia con el componente actual.\n`;
-    prompt += `Al finalizar, incluye el JSON obligatorio de respuesta:\n`;
-    prompt += `{\n  "resumen_ia": "Descripción de los ajustes",\n  "checklist": [{ "paso": 1, "completado": true }]\n}`;
-
-    navigator.clipboard.writeText(prompt);
-    mostrarToast("Prompt de refinamiento copiado al portapapeles.", "exito");
-  };
-
-  const importarChecklistIA = async () => {
-    if (!checklistJsonInput.trim()) {
-      mostrarToast("Pega el JSON devuelto por la IA primero.", "error");
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(checklistJsonInput);
-      if (Array.isArray(parsed.checklist)) {
-        for (const item of parsed.checklist) {
-          const stepObj = stepStates[item.paso - 1];
-          if (stepObj) {
-            await db.task_step_states.update(stepObj.id, {
-              completado: !!item.completado,
-            });
-          }
-        }
-      }
-
-      if (parsed.resumen_ia) {
-        setAiSummaryInput(parsed.resumen_ia);
-        const currentMeta = ticket.metadata || {};
-        await db.task_executions.update(ticket.id, {
-          metadata: {
-            ...currentMeta,
-            aiSummary: parsed.resumen_ia,
-          },
-        });
-      }
-
-      setChecklistJsonInput("");
-      mostrarToast("Checklist e historial sincronizados desde la IA.", "exito");
-    } catch (err: any) {
-      mostrarToast(
-        `JSON no válido: ${err.message}. Asegúrate de pegar el objeto JSON devuelto por la IA.`,
-        "error"
-      );
-    }
-  };
-
-  const finalizarTicket = async () => {
-    try {
-      await db.transaction("rw", [db.task_executions, db.tareas], async () => {
-        const metadata = ticket.metadata || {};
-        await db.task_executions.update(ticket.id, {
-          estado: "COMPLETED",
-          fechaFin: Date.now(),
-          metadata: {
-            ...metadata,
-            aiSummary: aiSummaryInput,
-          },
-        });
-
-        if (metadata.actividadId) {
-          await db.tareas.update(metadata.actividadId, { estado: "done" });
-        }
-      });
-
-      mostrarToast(
-        "Ticket cerrado con éxito. Registro de auditoría completado.",
-        "exito"
-      );
-    } catch (err: any) {
-      mostrarToast(`Error al cerrar ticket: ${err.message}`, "error");
-    }
-  };
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-[#2A2A2E] bg-zinc-950/80 shadow-md transition-all">
-      {/* Header Bar */}
-      <div
-        onClick={onToggleExpand}
-        className="flex cursor-pointer items-center justify-between border-b border-zinc-900 bg-zinc-900/60 p-3 hover:bg-zinc-900"
-      >
-        <div className="flex items-center gap-3">
-          <span className="font-mono text-[10px] font-bold text-zinc-400">
-            {isExpanded ? "▲" : "▼"}
-          </span>
-          <span
-            className={`rounded px-2 py-0.5 font-mono text-[8px] font-bold ${
-              ticket.estado === "COMPLETED"
-                ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
-                : ticket.titulo.startsWith("BUG") ||
-                    ticket.titulo.startsWith("HOTFIX")
-                  ? "border border-red-500/20 bg-red-500/10 text-red-400"
-                  : "border border-amber-500/20 bg-amber-500/10 text-amber-400"
-            }`}
-          >
-            {ticket.estado}
-          </span>
-          <h4 className="font-mono text-[11px] font-bold text-zinc-200 uppercase">
-            {ticket.titulo}
-          </h4>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="hidden font-mono text-[8px] text-zinc-500 sm:inline">
-            Encargado: {ticket.usuarioAsignadoId}
-          </span>
-          <button
-            type="button"
-            onClick={copiarPromptTicket}
-            className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 font-mono text-[8px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
-          >
-            📋 Prompt Base
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDeleteTicket();
-            }}
-            className="px-1 font-mono text-[10px] text-red-400 hover:text-red-300"
-          >
-            ×
-          </button>
-        </div>
-      </div>
-
-      {/* Expanded Content Body */}
-      {isExpanded && (
-        <div className="flex flex-col gap-3 p-3">
-          {/* Steps Checklist */}
-          <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
-            <span className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
-              📋 Pasos de Implementación
-            </span>
-            <div className="mt-1 flex flex-col gap-2">
-              {stepStates.map((st, idx) => (
-                <div
-                  key={st.id}
-                  className="flex items-center justify-between border-b border-zinc-900/60 pb-1.5 last:border-none"
-                >
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={st.completado}
-                      disabled={ticket.estado === "COMPLETED"}
-                      onChange={() => toggleStepCompleted(st.id, st.completado)}
-                      className="h-3.5 w-3.5 rounded border-zinc-800 bg-zinc-900 text-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:ring-offset-0 focus:outline-none"
-                    />
-                    <span
-                      className={`font-mono text-[10px] ${
-                        st.completado
-                          ? "text-zinc-550 line-through"
-                          : "text-zinc-300"
-                      }`}
-                    >
-                      Paso {idx + 1}: {st.titulo}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {ticket.estado === "IN_PROGRESS" && (
-            <>
-              {/* Prompt Compiler box */}
-              <div className="flex items-center justify-between rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
-                <div>
-                  <span className="block font-mono text-[9px] font-bold text-zinc-400 uppercase">
-                    🚀 1. Prompt Base para la IA
-                  </span>
-                  <span className="text-zinc-650 mt-0.5 block text-[8px]">
-                    Plantilla limpia estructurada con DS, Estándares y
-                    Requisitos de esta sección
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={copiarPromptTicket}
-                  className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
-                >
-                  Copiar Prompt Base
-                </button>
-              </div>
-
-              {/* Refinement Console */}
-              <div className="flex flex-col gap-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3">
-                <span className="font-mono text-[9px] font-bold text-sky-400 uppercase">
-                  🔄 2. Refinamiento & Ajustes Iterativos
-                </span>
-                <textarea
-                  value={refinamientoInput}
-                  onChange={(e) => setRefinamientoInput(e.target.value)}
-                  placeholder="Escribe las correcciones sobre lo que hizo la IA (ej: 'Cambia el botón a verde y ajusta el padding')..."
-                  rows={2}
-                  className="border-zinc-850 w-full rounded border bg-zinc-950 p-2 font-mono text-[9px] text-zinc-200 outline-none"
-                />
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={registrarIteracionRefinamiento}
-                    className="rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1 font-mono text-[9px] font-bold text-zinc-300 uppercase transition-all hover:bg-zinc-800"
-                  >
-                    + Guardar Iteración
-                  </button>
-                  <button
-                    type="button"
-                    onClick={copiarPromptRefinamiento}
-                    className="rounded bg-sky-500 px-3 py-1 font-mono text-[9px] font-bold text-zinc-950 uppercase shadow transition-all hover:bg-sky-400"
-                  >
-                    Copiar Prompt Refinamiento
-                  </button>
-                </div>
-
-                {/* Iterations History */}
-                {Array.isArray(ticket.metadata?.iterations) &&
-                  ticket.metadata.iterations.length > 0 && (
-                    <div className="mt-2 flex flex-col gap-1 border-t border-sky-500/20 pt-2">
-                      <span className="font-mono text-[8px] font-bold text-zinc-400 uppercase">
-                        Historial de Ajustes (
-                        {ticket.metadata.iterations.length}):
-                      </span>
-                      <div className="flex max-h-[90px] flex-col gap-1 overflow-y-auto">
-                        {ticket.metadata.iterations.map(
-                          (it: any, idx: number) => (
-                            <div
-                              key={idx}
-                              className="border-zinc-850 rounded border bg-zinc-950/60 p-1.5 font-mono text-[8px] text-zinc-300"
-                            >
-                              <span className="font-bold text-sky-400">
-                                [{it.fecha}]
-                              </span>{" "}
-                              {it.consideraciones}
-                            </div>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  )}
-              </div>
-
-              {/* JSON Checklist Auto Sync */}
-              <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950/20 p-3">
-                <span className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
-                  📥 Sincronizar Checklist desde la IA (JSON)
-                </span>
-                <textarea
-                  value={checklistJsonInput}
-                  onChange={(e) => setChecklistJsonInput(e.target.value)}
-                  placeholder='Pega el JSON devuelto por la IA para auto-tildar los pasos... (ej: {"checklist": [{"paso": 1, "completado": true}], "resumen_ia": "..."})'
-                  rows={2}
-                  className="border-zinc-850 w-full rounded border bg-zinc-950 p-2 font-mono text-[9px] text-zinc-300 outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={importarChecklistIA}
-                  className="self-end rounded border border-zinc-800 bg-zinc-900 px-3 py-1 font-mono text-[9px] font-bold text-zinc-300 uppercase transition-all hover:bg-zinc-800"
-                >
-                  Sincronizar
-                </button>
-              </div>
-
-              {/* Post-Mortem and Finalize */}
-              <div className="flex flex-col gap-2 border-t border-zinc-900 pt-3">
-                <label className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
-                  Post-Mortem / Resumen Técnico (Para auditoría futura)
-                </label>
-                <textarea
-                  value={aiSummaryInput}
-                  onChange={(e) => setAiSummaryInput(e.target.value)}
-                  placeholder="Resume qué archivos cambiaste y qué lógica agregaste..."
-                  rows={2}
-                  className="border-zinc-850 w-full rounded border bg-zinc-950 p-2 font-mono text-[10px] text-zinc-300 outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={finalizarTicket}
-                  className="w-full rounded bg-emerald-500 py-2 text-[10px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-600"
-                >
-                  Finalizar Ticket y Registrar
-                </button>
-              </div>
-            </>
-          )}
-
-          {ticket.metadata?.aiSummary && (
-            <div className="mt-1 rounded-xl border border-zinc-900 bg-zinc-950 p-3">
-              <span className="mb-1 block font-mono text-[9px] font-bold text-zinc-500 uppercase">
-                💾 Resumen Técnico Guardado:
-              </span>
-              <p className="text-zinc-350 font-mono text-[10px] leading-relaxed">
-                {ticket.metadata.aiSummary}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+      <ImportDesvioModal
+        isOpen={isImportDesvioOpen}
+        onClose={() => setIsImportDesvioOpen(false)}
+        desvioJsonText={desvioJsonText}
+        setDesvioJsonText={setDesvioJsonText}
+        handleImportarDesvio={handleImportarDesvio}
+        mostrarToast={mostrarToast}
+      />
     </div>
   );
 };
