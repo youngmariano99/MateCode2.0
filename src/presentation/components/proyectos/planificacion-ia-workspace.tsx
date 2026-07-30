@@ -887,6 +887,116 @@ Formato JSON esperado:
     mostrarToast("Descargando planificación completa .md...", "info");
   };
 
+  const copiarAuditoriaCompletaParaIA = async () => {
+    try {
+      const epicas = (await db.epicas
+        .where("proyectoId")
+        .equals(proyectoId)
+        .toArray()) as any[];
+      const historias = (await db.historias
+        .where("proyectoId")
+        .equals(proyectoId)
+        .toArray()) as any[];
+      const tareas = (await db.tareas
+        .where("proyectoId")
+        .equals(proyectoId)
+        .toArray()) as any[];
+
+      let md = `# AUDITORÍA DE PLANIFICACIÓN - ${String(proyecto?.nombre || "PROYECTO").toUpperCase()}\n\n`;
+      md += `## 1. Información General del Proyecto\n`;
+      md += `- **Nombre:** ${proyecto?.nombre || "No especificado"}\n`;
+      md += `- **Descripción:** ${proyecto?.descripcion || "No especificado"}\n\n`;
+
+      md += `## 2. Stack Tecnológico Elegido\n`;
+      const stackList: string[] = [];
+      if (proyecto?.stack) {
+        Object.entries(proyecto.stack).forEach(([layer, techs]) => {
+          if (
+            layer !== "comandos" &&
+            Array.isArray(techs) &&
+            techs.length > 0
+          ) {
+            const catName =
+              layer === "baseDatos"
+                ? "Base de Datos"
+                : layer.charAt(0).toUpperCase() + layer.slice(1);
+            stackList.push(`- **${catName}:** ${techs.join(", ")}`);
+          }
+        });
+      }
+      md +=
+        stackList.length > 0
+          ? stackList.join("\n") + "\n\n"
+          : "*No configurado*\n\n";
+
+      md += `## 3. Modelo Físico de Base de Datos (SCHEMA.md)\n`;
+      md += `\`\`\`sql\n${entidades || "-- No configurado."}\n\`\`\`\n\n`;
+
+      md += `## 4. Desglose del Backlog Completo\n\n`;
+      if (epicas.length === 0) {
+        md += `*No hay épicas configuradas en el backlog.*\n`;
+      } else {
+        epicas.forEach((epica) => {
+          md += `### Épica: ${epica.nombre}\n`;
+          md += `*Descripción:* ${epica.descripcion || "Sin descripción"}\n\n`;
+
+          const epicaStories = historias.filter(
+            (h) =>
+              h.epicaId === epica.id ||
+              String(h.epicNombre || "")
+                .toLowerCase()
+                .trim() === String(epica.nombre).toLowerCase().trim()
+          );
+
+          if (epicaStories.length === 0) {
+            md += `  *Sin historias de usuario registradas para esta épica.*\n\n`;
+          } else {
+            epicaStories.forEach((story) => {
+              md += `#### Historia de Usuario: ${story.titulo}\n`;
+              md += `- **Descripción:** ${story.descripcion || "Sin descripción"}\n`;
+              md += `- **Prioridad:** ${story.prioridad || "Media"}\n`;
+              md += `- **Estimación:** ${story.estimacion || 0} pts\n\n`;
+
+              const storyTareas = tareas.filter(
+                (t) => t.historiaId === story.id
+              );
+              if (storyTareas.length === 0) {
+                md += `  *Sin actividades técnicas desglosadas aún.*\n\n`;
+              } else {
+                md += `##### Actividades Técnicas Desglosadas:\n`;
+                storyTareas.forEach((t, idx) => {
+                  md += `${idx + 1}. **${t.titulo}** (Estado: ${t.estado?.toUpperCase() || "TODO"})\n`;
+                  if (t.descripcion) {
+                    md += `   - *Descripción:* ${t.descripcion}\n`;
+                  }
+                  if (
+                    Array.isArray(t.criteriosAceptacion) &&
+                    t.criteriosAceptacion.length > 0
+                  ) {
+                    md += `   - *Criterios de Aceptación (QA/BDD):*\n`;
+                    t.criteriosAceptacion.forEach((crit: any) => {
+                      md += `     * ${crit}\n`;
+                    });
+                  }
+                });
+                md += `\n`;
+              }
+            });
+          }
+          md += `---\n\n`;
+        });
+      }
+
+      navigator.clipboard.writeText(md);
+      mostrarToast(
+        "Auditoría de planificación copiada al portapapeles.",
+        "exito"
+      );
+    } catch (err: any) {
+      mostrarToast(`Error al generar la auditoría: ${err.message}`, "error");
+    }
+  };
+
   const handleImportarBacklog = async () => {
     try {
       const parsed = JSON.parse(backlogJson);
@@ -1231,6 +1341,12 @@ Formato JSON esperado:
             className="rounded border border-zinc-800 bg-zinc-900 px-3 py-1 font-mono text-[9px] font-bold text-zinc-300 uppercase transition-all hover:bg-zinc-800"
           >
             📄 Descargar Todo (.md)
+          </button>
+          <button
+            onClick={copiarAuditoriaCompletaParaIA}
+            className="rounded border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 font-mono text-[9px] font-black text-emerald-400 uppercase transition-all hover:bg-emerald-500/20"
+          >
+            🔍 Copiar Auditoría para IA
           </button>
         </div>
       </div>
