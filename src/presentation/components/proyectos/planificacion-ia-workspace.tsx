@@ -159,14 +159,36 @@ FORMATO JSON ESPERADO:
 ]
 \`\`\``;
 
-const PROMPT_INICIALIZADOR = `Eres un DevOps y Tech Lead Experto. Genera los comandos y scripts de terminal necesarios para inicializar manualmente el proyecto en limpio basándote en la especificación de stack de CLAUDE.md.
+const PROMPT_INICIALIZADOR = `<role>
+Actúa como un DevOps Engineer Senior y Tech Lead Experto en Arquitectura de Software Moderna.
+Tu objetivo es generar una guía ejecutiva paso a paso con los comandos de terminal y scripts necesarios para inicializar un proyecto en limpio y su pipeline de CI/CD, basándote en la especificación de stack definida en el archivo CLAUDE.md.
+</role>
 
-INSTRUCCIONES:
-Proporciona paso a paso las instrucciones del setup:
-1. Comandos de inicialización (ej: npm init, npx create-next-app, etc.).
-2. Comandos de instalación de dependencias del stack.
-3. Configuración inicial de herramientas de desarrollo (ESLint, Prettier, TypeScript, Dockerfiles).
-4. Estructura de carpetas inicial.`;
+<input_context>
+{{CONTENIDO_DE_CLAUDE_MD}}
+</input_context>
+
+<reglas_de_compatibilidad_y_versiones>
+1. VERIFICACIÓN Y BÚSQUEDA PREVIA: Antes de generar los comandos, verifica mentalmente (o utiliza búsqueda en web si está disponible) la compatibilidad real entre las herramientas del stack para evitar conflictos entre dependencias pares (peer dependencies).
+2. LATEST STABLE (Última Versión Estable): Prioriza SIEMPRE las versiones más recientes pero estrictamente ESTABLES (LTS o Stable Release). Queda absolutamente prohibido sugerir versiones Canary, Beta, Release Candidate (RC) o experimentales.
+3. CERO COMANDOS OBSOLETOS: No utilices comandos ni herramientas deprecadas (ejemplo: prohíbese \`create-react-app\`, configuraciones heredadas obsoletas o flags retirados).
+4. ESTÁNDARES MODERNOS DE CONFIGURACIÓN:
+   - Configura las herramientas de linting y formateo usando sus estándares vigentes (ej. ESLint Flat Config \`eslint.config.js\` en lugar de archivos \`.eslintrc\` heredados).
+   - Utiliza buenas prácticas actuales en Dockerfiles (builds multi-stage, imágenes base alpine/slim oficiales y usuarios no-root por seguridad).
+5. GESTOR DE PAQUETES CONSISTENTE: Respeta estrictamente el gestor de paquetes indicado en el CLAUDE.md (\`npm\`, \`pnpm\`, \`yarn\` o \`bun\`). Si no se especifica ninguno, utiliza \`npm\` por defecto en todos los comandos para no mezclar lockfiles.
+6. CI/CD EFICIENTE Y SEGURO: El workflow de GitHub Actions debe utilizar acciones oficiales actualizadas (ej. \`actions/checkout@v4\`, \`actions/setup-node@v4\`), implementar caché de dependencias para acelerar las ejecuciones y separar claramente el pipeline en trabajos de verificación (Lint, Type-check, Test, Build).
+</reglas_de_compatibilidad_y_versiones>
+
+<instrucciones_ejecucion>
+Proporciona una guía clara, ordenada y lista para copiar y pegar en la terminal, dividida en las siguientes secciones obligatorias:
+
+1. **Comandos de Inicialización Base:** Comandos exactos para crear el esqueleto del proyecto en una sola línea de comando cuando sea posible (ej. \`npx create-next-app@latest ...\` con flags predeterminados recomendados).
+2. **Instalación de Dependencias del Stack:** Comandos divididos claramente entre dependencias de producción (\`dependencies\`) y dependencias de desarrollo (\`devDependencies\`).
+3. **Configuración de Herramientas de Desarrollo:** Snippets de código actualizados para los archivos clave de configuración inicial (ej. \`tsconfig.json\`, \`eslint.config.js\`, \`prettier.config.js\` y \`Dockerfile\` multi-stage optimizado).
+4. **Estructura de Carpetas Recomendada:** Árbol de directorios visual con una breve explicación en una línea del propósito de cada directorio principal.
+5. **Pipeline de CI/CD (GitHub Actions):** El código completo para crear el archivo \`.github/workflows/ci.yml\`. Debe ejecutarse automáticamente en Pull Requests y pushes a la rama \`main\`, verificando el linting, tipado estático, pruebas (si aplican) y compilación del build de forma automatizada.
+6. **Comando de Verificación Final:** Un script o comando de prueba rápida para validar en local que la instalación y los scripts del pipeline funcionarán correctamente antes de hacer el primer push (ej. \`npm run build && npm run lint\`).
+</instrucciones_ejecucion>`;
 
 const PROMPT_MODULAR_EPICAS = `Actúa como un Product Owner Senior. Tu objetivo es analizar los requisitos y la base de datos para generar las Épicas del backlog del proyecto.
 Debes basarte estrictamente en la arquitectura, el stack y los estándares definidos en el archivo CLAUDE.md.
@@ -378,6 +400,7 @@ export const PlanificacionIAWorkspace: React.FC<
   const [rolesMarkdown, setRolesMarkdown] = useState("");
   const [erroresMarkdown, setErroresMarkdown] = useState("");
   const [seedMarkdown, setSeedMarkdown] = useState("");
+  const [setupMarkdown, setSetupMarkdown] = useState("");
   const [selectedDocName, setSelectedDocName] = useState<string>("CLAUDE.md");
   const [docEditContent, setDocEditContent] = useState<string>("");
 
@@ -472,6 +495,7 @@ export const PlanificacionIAWorkspace: React.FC<
       setRolesMarkdown(contexto.rolesMarkdown || "");
       setSeedMarkdown(contexto.seedMarkdown || "");
       setErroresMarkdown(contexto.erroresMarkdown || "");
+      setSetupMarkdown(contexto.setupMarkdown || "");
 
       if (Array.isArray(contexto.seccionesSitemap)) {
         setSeccionesSitemap(contexto.seccionesSitemap);
@@ -762,9 +786,9 @@ export const PlanificacionIAWorkspace: React.FC<
 
   const copiarPromptInicializador = () => {
     const prompt = PROMPT_INICIALIZADOR.replace(
-      "{{stack_summary}}",
-      compileStackSummary()
-    ).replace("{{estandares_summary}}", compileStandardsSummary());
+      "{{CONTENIDO_DE_CLAUDE_MD}}",
+      generarClaudeMd(true)
+    );
 
     navigator.clipboard.writeText(prompt);
     mostrarToast("Prompt de Setup Inicializador copiado.", "exito");
@@ -1211,6 +1235,12 @@ ${comprimirEsquema(entidades)}
     mostrarToast("¡Archivo ERRORS.md descargado!", "exito");
   };
 
+  const descargarSetupMd = () => {
+    const content = setupMarkdown || `# SETUP.md\n\n*No configurado*`;
+    descargarArchivo(content, "SETUP.md");
+    mostrarToast("¡Archivo SETUP.md descargado!", "exito");
+  };
+
   const selectDocumentForEdit = (name: string) => {
     setSelectedDocName(name);
     let content = "";
@@ -1238,6 +1268,8 @@ ${comprimirEsquema(entidades)}
       content = seedMarkdown || "";
     } else if (name === "ERRORS.md") {
       content = erroresMarkdown || "";
+    } else if (name === "SETUP.md") {
+      content = setupMarkdown || "";
     }
     setDocEditContent(content);
   };
@@ -1259,6 +1291,7 @@ ${comprimirEsquema(entidades)}
     rolesMarkdown,
     seedMarkdown,
     erroresMarkdown,
+    setupMarkdown,
     contexto,
   ]);
 
@@ -1325,6 +1358,12 @@ ${comprimirEsquema(entidades)}
           ...currentCtx,
           erroresMarkdown: docEditContent,
         });
+      } else if (selectedDocName === "SETUP.md") {
+        setSetupMarkdown(docEditContent);
+        await db.proyecto_contexto.put({
+          ...currentCtx,
+          setupMarkdown: docEditContent,
+        });
       }
       mostrarToast(`¡Archivo ${selectedDocName} guardado con éxito!`, "exito");
     } catch (err: any) {
@@ -1358,6 +1397,7 @@ ${comprimirEsquema(entidades)}
       const seedContent = seedMarkdown || `# SEED.md\n\n*No configurado*`;
       const errorsContent =
         erroresMarkdown || `# ERRORS.md\n\n*No configurado*`;
+      const setupContent = setupMarkdown || `# SETUP.md\n\n*No configurado*`;
 
       zip.file("CLAUDE.md", claude);
 
@@ -1375,6 +1415,7 @@ ${comprimirEsquema(entidades)}
         docsFolder.file("ROLES.md", rolesContent);
         docsFolder.file("SEED.md", seedContent);
         docsFolder.file("ERRORS.md", errorsContent);
+        docsFolder.file("SETUP.md", setupContent);
       }
 
       const content = await zip.generateAsync({ type: "blob" });
@@ -2707,6 +2748,12 @@ Formato JSON esperado:
                 status: !!erroresMarkdown?.trim(),
                 onDownload: descargarErrorsMd,
               },
+              {
+                name: "SETUP.md",
+                desc: "Pasos de inicialización y comandos manuales o ejecutados.",
+                status: !!setupMarkdown?.trim(),
+                onDownload: descargarSetupMd,
+              },
             ].map((doc) => {
               const isSelected = selectedDocName === doc.name;
               return (
@@ -2766,12 +2813,20 @@ Formato JSON esperado:
                 la base del proyecto en tu máquina.
               </p>
             </div>
-            <button
-              onClick={copiarPromptInicializador}
-              className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
-            >
-              📋 Copiar Prompt Setup
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => selectDocumentForEdit("SETUP.md")}
+                className="rounded border border-sky-500/20 bg-sky-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
+              >
+                ✍️ Redactar SETUP.md
+              </button>
+              <button
+                onClick={copiarPromptInicializador}
+                className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+              >
+                📋 Copiar Prompt Setup
+              </button>
+            </div>
           </div>
 
           {/* Interactive Document Editor Workspace */}
