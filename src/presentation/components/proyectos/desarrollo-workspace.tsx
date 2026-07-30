@@ -363,6 +363,39 @@ ${contexto.erroresMarkdown}
     const storyTareas = (tareas || []).filter(
       (t: any) => t.historiaId === historia.id
     );
+
+    if (storyTareas.length > 0) {
+      prom += `\n<actividades_tecnicas>\n`;
+      prom += `Para cumplir con esta historia de usuario, debes implementar o verificar las siguientes actividades técnicas desglosadas en la fase de planificación:\n\n`;
+      storyTareas.forEach((t: any, idx: number) => {
+        prom += `### Actividad ${idx + 1}: ${t.titulo}\n`;
+        if (t.rol) prom += `- **Rol Recomendado:** ${t.rol}\n`;
+        if (t.componente)
+          prom += `- **Componente/Archivo:** \`${t.componente}\` en la ruta \`${t.ruta || ""}\`\n`;
+        if (t.modulo) prom += `- **Módulo:** ${t.modulo}\n`;
+        if (Array.isArray(t.etiquetas) && t.etiquetas.length > 0) {
+          prom += `- **Etiquetas:** ${t.etiquetas.join(", ")}\n`;
+        }
+        if (Array.isArray(t.pasos) && t.pasos.length > 0) {
+          prom += `- **Checklist de Pasos a Seguir:**\n`;
+          t.pasos.forEach((p: string) => {
+            prom += `  * [ ] ${p}\n`;
+          });
+        }
+        if (
+          Array.isArray(t.criteriosAceptacion) &&
+          t.criteriosAceptacion.length > 0
+        ) {
+          prom += `- **Criterios de Aceptación Específicos:**\n`;
+          t.criteriosAceptacion.forEach((crit: string) => {
+            prom += `  * ${crit}\n`;
+          });
+        }
+        prom += `\n`;
+      });
+      prom += `</actividades_tecnicas>\n`;
+    }
+
     const tareasWithSeed = storyTareas.filter(
       (t: any) => t.seed && t.seed.modelo
     );
