@@ -361,6 +361,17 @@ export const PlanificacionIAWorkspace: React.FC<
       return;
     }
 
+    const getEpicNumber = (name: unknown): number => {
+      const strName = typeof name === "string" ? name : "";
+      const match = strName.match(/(?:Épica|Epic|Epica)\s*(\d+)/i);
+      return match ? parseInt(match[1], 10) : 999;
+    };
+    projectEpicas.sort((a, b) => {
+      const nameA = a["nombre"];
+      const nameB = b["nombre"];
+      return getEpicNumber(nameA) - getEpicNumber(nameB);
+    });
+
     let storiesText = "";
     if (projectEpicas.length > 0) {
       projectEpicas.forEach((ep) => {
@@ -871,6 +882,17 @@ Formato JSON esperado:
       .equals(proyectoId)
       .toArray();
 
+    const getEpicNumber = (name: unknown): number => {
+      const strName = typeof name === "string" ? name : "";
+      const match = strName.match(/(?:Épica|Epic|Epica)\s*(\d+)/i);
+      return match ? parseInt(match[1], 10) : 999;
+    };
+    projectEpicas.sort((a, b) => {
+      const nameA = a["nombre"];
+      const nameB = b["nombre"];
+      return getEpicNumber(nameA) - getEpicNumber(nameB);
+    });
+
     let md = `# Backlog Completo de Ingeniería - ${proyecto?.nombre || "Proyecto"}\n\n`;
     md += `Este documento contiene el desglose jerárquico de Épicas, Historias de Usuario y Actividades Técnicas detalladas con sus respectivos archivos, rutas, pasos de checklist y criterios de aceptación.\n\n`;
 
@@ -1099,6 +1121,12 @@ Formato JSON esperado:
         .where("proyectoId")
         .equals(proyectoId)
         .toArray()) as any[];
+
+      const getEpicNumber = (name: string): number => {
+        const match = name.match(/(?:Épica|Epic|Epica)\s*(\d+)/i);
+        return match ? parseInt(match[1], 10) : 999;
+      };
+      epicas.sort((a, b) => getEpicNumber(a.nombre) - getEpicNumber(b.nombre));
 
       let md = `# AUDITORÍA DE PLANIFICACIÓN - ${String(proyecto?.nombre || "PROYECTO").toUpperCase()}\n\n`;
       md += `## 1. Información General del Proyecto\n`;
