@@ -1513,6 +1513,126 @@ Formato JSON esperado:
     }
   };
 
+  const handleLimpiarEpicas = async () => {
+    if (
+      confirm(
+        "¿Estás seguro de que deseas eliminar permanentemente todas las Épicas de este proyecto? Las historias existentes perderán su asociación con las épicas."
+      )
+    ) {
+      try {
+        await db.epicas.where("proyectoId").equals(proyectoId).delete();
+        await db.historias
+          .where("proyectoId")
+          .equals(proyectoId)
+          .modify({ epicaId: "" });
+        mostrarToast("Épicas eliminadas correctamente.", "exito");
+      } catch (err: any) {
+        mostrarToast(`Error al limpiar épicas: ${err.message}`, "error");
+      }
+    }
+  };
+
+  const handleLimpiarHistorias = async () => {
+    if (
+      confirm(
+        "¿Estás seguro de que deseas eliminar permanentemente todas las Historias de Usuario de este proyecto? Las actividades existentes perderán su asociación con las historias."
+      )
+    ) {
+      try {
+        await db.historias.where("proyectoId").equals(proyectoId).delete();
+        await db.tareas
+          .where("proyectoId")
+          .equals(proyectoId)
+          .modify({ historiaId: "" });
+        mostrarToast("Historias de Usuario eliminadas correctamente.", "exito");
+      } catch (err: any) {
+        mostrarToast(`Error al limpiar historias: ${err.message}`, "error");
+      }
+    }
+  };
+
+  const handleLimpiarActividades = async () => {
+    if (
+      confirm(
+        "¿Estás seguro de que deseas eliminar permanentemente todas las Actividades Técnicas de este proyecto?"
+      )
+    ) {
+      try {
+        await db.tareas.where("proyectoId").equals(proyectoId).delete();
+        mostrarToast("Actividades Técnicas eliminadas correctamente.", "exito");
+      } catch (err: any) {
+        mostrarToast(`Error al limpiar actividades: ${err.message}`, "error");
+      }
+    }
+  };
+
+  const handleLimpiarConfigActividades = async () => {
+    if (
+      confirm(
+        "¿Estás seguro de que deseas restablecer la Configuración Técnica (Roles, Componentes, Pasos) de todas las actividades de este proyecto?"
+      )
+    ) {
+      try {
+        await db.tareas.where("proyectoId").equals(proyectoId).modify({
+          rol: "",
+          componente: "",
+          ruta: "",
+          modulo: "",
+          pasos: [],
+          seed: null,
+        });
+        mostrarToast(
+          "Configuración técnica restablecida correctamente.",
+          "exito"
+        );
+      } catch (err: any) {
+        mostrarToast(
+          `Error al restablecer configuración: ${err.message}`,
+          "error"
+        );
+      }
+    }
+  };
+
+  const handleLimpiarCriterios = async () => {
+    if (
+      confirm(
+        "¿Estás seguro de que deseas eliminar permanentemente todos los Criterios de Aceptación vinculados a las actividades de este proyecto?"
+      )
+    ) {
+      try {
+        await db.tareas.where("proyectoId").equals(proyectoId).modify({
+          criteriosAceptacion: [],
+        });
+        mostrarToast(
+          "Criterios de Aceptación eliminados correctamente.",
+          "exito"
+        );
+      } catch (err: any) {
+        mostrarToast(`Error al limpiar criterios: ${err.message}`, "error");
+      }
+    }
+  };
+
+  const handleLimpiarSprints = async () => {
+    if (
+      confirm(
+        "¿Estás seguro de que deseas eliminar permanentemente todos los Sprints de este proyecto? Las historias asociadas a los sprints quedarán sin planificar."
+      )
+    ) {
+      try {
+        await db.sprints.where("proyectoId").equals(proyectoId).delete();
+        await db.historias
+          .where("proyectoId")
+          .equals(proyectoId)
+          .modify({ sprintId: "" });
+        mostrarToast("Sprints eliminados correctamente.", "exito");
+      } catch (err: any) {
+        mostrarToast(`Error al limpiar sprints: ${err.message}`, "error");
+      }
+    }
+  };
+
   return (
     <Card>
       <div className="mb-4 flex items-start justify-between border-b border-[#2A2A2E] pb-3">
@@ -1671,6 +1791,12 @@ Formato JSON esperado:
           setSelectedAuditTareaId={setSelectedAuditTareaId}
           tareasConCriterios={tareasConCriterios}
           handleLimpiarPlanificacion={handleLimpiarPlanificacion}
+          handleLimpiarEpicas={handleLimpiarEpicas}
+          handleLimpiarHistorias={handleLimpiarHistorias}
+          handleLimpiarActividades={handleLimpiarActividades}
+          handleLimpiarConfigActividades={handleLimpiarConfigActividades}
+          handleLimpiarCriterios={handleLimpiarCriterios}
+          handleLimpiarSprints={handleLimpiarSprints}
           copiarPromptBacklog={copiarPromptBacklog}
           handleImportarBacklog={handleImportarBacklog}
           copiarPromptEpicasModulares={copiarPromptEpicasModulares}

@@ -30,6 +30,12 @@ interface ImportadorTabProps {
   setSelectedAuditTareaId: (id: string | null) => void;
   tareasConCriterios: any[];
   handleLimpiarPlanificacion: () => void;
+  handleLimpiarEpicas: () => void;
+  handleLimpiarHistorias: () => void;
+  handleLimpiarActividades: () => void;
+  handleLimpiarConfigActividades: () => void;
+  handleLimpiarCriterios: () => void;
+  handleLimpiarSprints: () => void;
   copiarPromptBacklog: () => void;
   handleImportarBacklog: () => void;
   copiarPromptEpicasModulares: () => void;
@@ -73,6 +79,12 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
   setSelectedAuditTareaId,
   tareasConCriterios,
   handleLimpiarPlanificacion,
+  handleLimpiarEpicas,
+  handleLimpiarHistorias,
+  handleLimpiarActividades,
+  handleLimpiarConfigActividades,
+  handleLimpiarCriterios,
+  handleLimpiarSprints,
   copiarPromptBacklog,
   handleImportarBacklog,
   copiarPromptEpicasModulares,
@@ -204,12 +216,22 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
               rows={4}
               className="border-zinc-855 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none"
             />
-            <button
-              onClick={handleImportarEpicasModulares}
-              className="self-end rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400"
-            >
-              Procesar e Importar Épicas
-            </button>
+            <div className="flex justify-end gap-2">
+              {epicasCount > 0 && (
+                <button
+                  onClick={handleLimpiarEpicas}
+                  className="rounded border border-red-500/30 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase hover:bg-red-500/25"
+                >
+                  🗑️ Limpiar Épicas
+                </button>
+              )}
+              <button
+                onClick={handleImportarEpicasModulares}
+                className="rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400"
+              >
+                Procesar e Importar Épicas
+              </button>
+            </div>
           </div>
 
           {/* Step 2: Historias */}
@@ -247,13 +269,23 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
               rows={4}
               className="border-zinc-855 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none disabled:opacity-50"
             />
-            <button
-              disabled={epicasCount === 0}
-              onClick={handleImportarHistoriasModulares}
-              className="self-end rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400 disabled:opacity-40"
-            >
-              Procesar e Importar Historias
-            </button>
+            <div className="flex justify-end gap-2">
+              {historiasCount > 0 && (
+                <button
+                  onClick={handleLimpiarHistorias}
+                  className="rounded border border-red-500/30 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase hover:bg-red-500/25"
+                >
+                  🗑️ Limpiar Historias
+                </button>
+              )}
+              <button
+                disabled={epicasCount === 0}
+                onClick={handleImportarHistoriasModulares}
+                className="rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400 disabled:opacity-40"
+              >
+                Procesar e Importar Historias
+              </button>
+            </div>
           </div>
 
           {/* Step 3: Actividades */}
@@ -291,13 +323,23 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
               rows={4}
               className="border-zinc-855 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none disabled:opacity-50"
             />
-            <button
-              disabled={historiasCount === 0}
-              onClick={handleImportarActividadesModulares}
-              className="self-end rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400 disabled:opacity-40"
-            >
-              Procesar e Importar Actividades
-            </button>
+            <div className="flex justify-end gap-2">
+              {tareasCount > 0 && (
+                <button
+                  onClick={handleLimpiarActividades}
+                  className="rounded border border-red-500/30 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase hover:bg-red-500/25"
+                >
+                  🗑️ Limpiar Actividades
+                </button>
+              )}
+              <button
+                disabled={historiasCount === 0}
+                onClick={handleImportarActividadesModulares}
+                className="rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400 disabled:opacity-40"
+              >
+                Procesar e Importar Actividades
+              </button>
+            </div>
           </div>
 
           {/* Step 4: Technical Configuration of Activities */}
@@ -336,13 +378,23 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
               rows={5}
               className="border-zinc-855 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none disabled:opacity-50"
             />
-            <button
-              disabled={tareasCount === 0}
-              onClick={handleImportarConfigActividades}
-              className="self-end rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400 disabled:opacity-40"
-            >
-              Procesar y Configurar Actividades
-            </button>
+            <div className="flex justify-end gap-2">
+              {configCount > 0 && (
+                <button
+                  onClick={handleLimpiarConfigActividades}
+                  className="rounded border border-red-500/30 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase hover:bg-red-500/25"
+                >
+                  🗑️ Restablecer Configuración
+                </button>
+              )}
+              <button
+                disabled={tareasCount === 0}
+                onClick={handleImportarConfigActividades}
+                className="rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400 disabled:opacity-40"
+              >
+                Procesar y Configurar Actividades
+              </button>
+            </div>
           </div>
 
           {/* Step 5: Acceptance Criteria */}
@@ -388,13 +440,23 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
                   rows={6}
                   className="border-zinc-855 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none focus:border-emerald-500/30 disabled:opacity-50"
                 />
-                <button
-                  disabled={tareasCount === 0}
-                  onClick={handleImportarCriterios}
-                  className="self-end rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase shadow-sm transition-all hover:bg-emerald-400 disabled:opacity-40"
-                >
-                  Procesar y Vincular Criterios
-                </button>
+                <div className="flex justify-end gap-2">
+                  {criteriosCount > 0 && (
+                    <button
+                      onClick={handleLimpiarCriterios}
+                      className="rounded border border-red-500/30 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase hover:bg-red-500/25"
+                    >
+                      🗑️ Limpiar Criterios
+                    </button>
+                  )}
+                  <button
+                    disabled={tareasCount === 0}
+                    onClick={handleImportarCriterios}
+                    className="rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase shadow-sm transition-all hover:bg-emerald-400 disabled:opacity-40"
+                  >
+                    Procesar y Vincular Criterios
+                  </button>
+                </div>
               </div>
 
               {/* Visualizer list */}
@@ -522,13 +584,23 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
               rows={5}
               className="border-zinc-855 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none disabled:opacity-50"
             />
-            <button
-              disabled={historiasCount === 0}
-              onClick={handleImportarSprints}
-              className="self-end rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400 disabled:opacity-40"
-            >
-              Procesar e Importar Sprints
-            </button>
+            <div className="flex justify-end gap-2">
+              {sprintsCount > 0 && (
+                <button
+                  onClick={handleLimpiarSprints}
+                  className="rounded border border-red-500/30 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase hover:bg-red-500/25"
+                >
+                  🗑️ Limpiar Sprints
+                </button>
+              )}
+              <button
+                disabled={historiasCount === 0}
+                onClick={handleImportarSprints}
+                className="rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400 disabled:opacity-40"
+              >
+                Procesar e Importar Sprints
+              </button>
+            </div>
           </div>
         </div>
       )}
