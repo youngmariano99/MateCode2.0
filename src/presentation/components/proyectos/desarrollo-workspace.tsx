@@ -345,20 +345,20 @@ Tu objetivo es resolver el ticket de la estación "${estacion}" de manera ejecut
   - Prioridad: ${historia.prioridad || "Media"}
   - Estación Actual: ${estacion}
   - Criterios de Aceptación: ${historia.descripcion || "Ver requerimientos generales."}
-  - Instrucción local: "Consulta los archivos de especificación local en tu repositorio si tienes dudas (CLAUDE.md, SCHEMA.md, DESIGN.md, SITEMAP.md, ROLES.md)."
+  - Instrucción local: "Consulta los archivos de especificación local en tu repositorio si tienes dudas (CLAUDE.md, SCHEMA.md, DESIGN.md, SITEMAP.md, ROLES.md, ERRORS.md, SEED.md)."
 </ticket_context>
 
 <handoff_estacion_anterior>
 ${handoffStr}
 </handoff_estacion_anterior>
-`;
 
-    if (contexto?.erroresMarkdown) {
-      prom += `\n<errores_de_negocio>
-Implementa y maneja el control de excepciones de negocio siguiendo estrictamente las definiciones y códigos estandarizados documentados en el archivo "ERRORS.md" y su especificación:
-${contexto.erroresMarkdown}
-</errores_de_negocio>\n`;
-    }
+<errores_de_negocio>
+Implementa y maneja el control de excepciones de negocio siguiendo estrictamente las definiciones y códigos estandarizados en el archivo local "ERRORS.md".
+- Antes de emitir o manejar un error de BD/Permisos/Sistema (ej: códigos NX-PER-*, NX-SYS-*), LEER el archivo "ERRORS.md" en el repositorio para aplicar el código y mensaje exacto.
+- Prohibido inventar códigos de error que no estén en dicho catálogo.
+- Todo error visual en cliente debe respetar las directrices de diseño (sin alerts nativos del navegador, usando librerías UI del proyecto).
+</errores_de_negocio>
+`;
 
     const storyTareas = (tareas || []).filter(
       (t: any) => t.historiaId === historia.id
