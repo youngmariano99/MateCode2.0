@@ -19,6 +19,8 @@ interface DescargasPlanningTabProps {
   descargarSeedMd: () => void;
   descargarErrorsMd: () => void;
   descargarSetupMd: () => void;
+  descargarBacklogMd: () => void;
+  descargarSprintsMd: () => void;
   entidades: string;
   requisitosFuncionales: string;
   requisitosNoFuncionales: string;
@@ -49,6 +51,8 @@ export const DescargasPlanningTab: React.FC<DescargasPlanningTabProps> = ({
   descargarSeedMd,
   descargarErrorsMd,
   descargarSetupMd,
+  descargarBacklogMd,
+  descargarSprintsMd,
   entidades,
   requisitosFuncionales,
   requisitosNoFuncionales,
@@ -126,6 +130,18 @@ export const DescargasPlanningTab: React.FC<DescargasPlanningTabProps> = ({
             desc: "Pasos de inicialización y comandos manuales o ejecutados.",
             status: !!setupMarkdown?.trim(),
             onDownload: descargarSetupMd,
+          },
+          {
+            name: "BACKLOG.md",
+            desc: "Estructura de Épicas, Historias y Actividades Técnicas detalladas.",
+            status: true,
+            onDownload: descargarBacklogMd,
+          },
+          {
+            name: "SPRINTS.md",
+            desc: "Cronograma e hitos de entregas organizados por sprints semanales.",
+            status: true,
+            onDownload: descargarSprintsMd,
           },
         ].map((doc) => {
           const isSelected = selectedDocName === doc.name;

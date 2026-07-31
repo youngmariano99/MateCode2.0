@@ -80,6 +80,168 @@ const ESTADOS_PROYECTO = [
 
 const TIPOS_PROYECTO = ["Sistemas", "Landing/Institucional"];
 
+interface ProyectoCardProps {
+  proyecto: ProyectoCRM;
+  clientName: string;
+  onSelect: (p: ProyectoCRM) => void;
+  onEdit: (p: ProyectoCRM) => void;
+  onDelete: (p: ProyectoCRM) => void;
+}
+
+const ProyectoCard: React.FC<ProyectoCardProps> = ({
+  proyecto,
+  clientName,
+  onSelect,
+  onEdit,
+  onDelete,
+}) => {
+  const tareas =
+    useLiveQuery(
+      () => db.tareas.where("proyectoId").equals(proyecto.id).toArray(),
+      [proyecto.id]
+    ) || [];
+
+  const historias =
+    useLiveQuery(
+      () => db.historias.where("proyectoId").equals(proyecto.id).toArray(),
+      [proyecto.id]
+    ) || [];
+
+  const totalTasks = tareas.length;
+  const completedTasks = tareas.filter(
+    (t) => t.estado === "done" || t.estado === "Finalizado"
+  ).length;
+
+  const totalStories = historias.length;
+  const completedStories = historias.filter((s) => {
+    const est = s["estado"];
+    return (
+      typeof est === "string" &&
+      (est.toLowerCase() === "done" || est === "Finalizado" || est === "Done")
+    );
+  }).length;
+
+  let progressPercent = 0;
+  let progressText = "";
+  if (totalTasks > 0) {
+    progressPercent = Math.round((completedTasks / totalTasks) * 100);
+    progressText = `${completedTasks} de ${totalTasks} actividades`;
+  } else if (totalStories > 0) {
+    progressPercent = Math.round((completedStories / totalStories) * 100);
+    progressText = `${completedStories} de ${totalStories} historias`;
+  } else {
+    progressPercent = 0;
+    progressText = "Sin tareas planificadas";
+  }
+
+  let timeBadgeColor = "border-zinc-850 bg-zinc-900/40 text-zinc-400";
+  let timeText = "Sin fecha límite";
+
+  if (proyecto.fechaEntrega) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const deliveryDate = new Date(proyecto.fechaEntrega);
+    deliveryDate.setHours(0, 0, 0, 0);
+
+    const diffTime = deliveryDate.getTime() - today.getTime();
+    const daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (daysDiff < 0) {
+      const absDays = Math.abs(daysDiff);
+      timeText = `Vencido hace ${absDays} d`;
+      timeBadgeColor =
+        "border-rose-500/20 bg-rose-500/10 text-rose-400 font-bold animate-pulse";
+    } else if (daysDiff === 0) {
+      timeText = "Vence hoy";
+      timeBadgeColor =
+        "border-rose-500/20 bg-rose-500/10 text-rose-400 font-bold animate-pulse";
+    } else if (daysDiff <= 3) {
+      timeText = `Faltan ${daysDiff} d`;
+      timeBadgeColor =
+        "border-rose-500/20 bg-rose-500/10 text-rose-400 font-bold";
+    } else if (daysDiff <= 10) {
+      timeText = `Faltan ${daysDiff} d`;
+      timeBadgeColor =
+        "border-amber-500/20 bg-amber-500/10 text-amber-400 font-bold";
+    } else {
+      timeText = `Faltan ${daysDiff} d`;
+      timeBadgeColor =
+        "border-emerald-500/20 bg-emerald-500/10 text-emerald-400";
+    }
+  }
+
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-3">
+        <h3
+          onClick={() => onSelect(proyecto)}
+          className="block cursor-pointer text-xs font-bold text-zinc-200 transition-all hover:text-emerald-400"
+        >
+          {proyecto.nombre}
+        </h3>
+        <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] font-bold text-emerald-400">
+          {proyecto.estado}
+        </span>
+      </div>
+      <p className="mt-1 font-mono text-[10px] text-zinc-500">
+        Cliente: {clientName} • Tipo: {proyecto.tipo}
+      </p>
+
+      {proyecto.descripcion && (
+        <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-zinc-400">
+          {proyecto.descripcion}
+        </p>
+      )}
+
+      {/* Progress Bar */}
+      <div className="mt-4 flex flex-col gap-1">
+        <div className="flex items-center justify-between font-mono text-[9px]">
+          <span className="text-zinc-550">Progreso</span>
+          <span className="font-bold text-emerald-400">{progressPercent}%</span>
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full border border-zinc-800/40 bg-zinc-900">
+          <div
+            className="h-full bg-emerald-500 transition-all duration-300"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+        <span className="font-mono text-[8px] text-zinc-500">
+          {progressText}
+        </span>
+      </div>
+
+      {/* Time Planning Alarm */}
+      <div className="mt-3.5 flex items-center justify-between border-t border-[#2A2A2E]/30 pt-2.5">
+        <span className="font-mono text-[9px] text-zinc-500">Entrega</span>
+        <span
+          className={`rounded border px-1.5 py-0.5 font-mono text-[9px] ${timeBadgeColor}`}
+        >
+          {timeText}
+        </span>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between border-t border-[#2A2A2E]/60 pt-3">
+        <button
+          onClick={() => onDelete(proyecto)}
+          className="rounded-lg p-1.5 text-zinc-600 transition-colors hover:bg-rose-500/10 hover:text-rose-400"
+          title="Eliminar Proyecto"
+        >
+          <Icono.Close className="h-4 w-4" />
+        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onEdit(proyecto)}
+            className="text-zinc-450 rounded-xl border border-zinc-800 bg-transparent px-3 py-1.5 font-mono text-[10px] hover:bg-zinc-900 hover:text-zinc-200"
+          >
+            Editar
+          </button>
+          <Button onClick={() => onSelect(proyecto)}>Ingresar</Button>
+        </div>
+      </div>
+    </Card>
+  );
+};
+
 export default function ProyectosPage() {
   const { mostrarToast } = useToast();
   const crearUC = new CrearProyectoUseCase();
@@ -108,6 +270,26 @@ export default function ProyectosPage() {
     () => db.proyecto_contexto.get(proyectoSeleccionado?.id || ""),
     [proyectoSeleccionado]
   ) as Record<string, unknown> | undefined;
+
+  const selectedProyectoTareas =
+    useLiveQuery(
+      () =>
+        db.tareas
+          .where("proyectoId")
+          .equals(proyectoSeleccionado?.id || "")
+          .toArray(),
+      [proyectoSeleccionado]
+    ) || [];
+
+  const selectedProyectoHistorias =
+    useLiveQuery(
+      () =>
+        db.historias
+          .where("proyectoId")
+          .equals(proyectoSeleccionado?.id || "")
+          .toArray(),
+      [proyectoSeleccionado]
+    ) || [];
 
   const abrirModulo = (modulo: string) => {
     setModuloActivo(modulo);
@@ -393,12 +575,73 @@ export default function ProyectosPage() {
       clientes.find((c) => c.id === proyectoSeleccionado.clienteId)?.nombre ||
       "💡 Idea / Proyecto Propio";
 
+    // Selected project calculations
+    const totalSelTasks = selectedProyectoTareas.length;
+    const completedSelTasks = selectedProyectoTareas.filter(
+      (t) => t.estado === "done" || t.estado === "Finalizado"
+    ).length;
+
+    const totalSelStories = selectedProyectoHistorias.length;
+    const completedSelStories = selectedProyectoHistorias.filter((s) => {
+      const est = s["estado"];
+      return (
+        typeof est === "string" &&
+        (est.toLowerCase() === "done" || est === "Finalizado" || est === "Done")
+      );
+    }).length;
+
+    let selProgressPercent = 0;
+    if (totalSelTasks > 0) {
+      selProgressPercent = Math.round(
+        (completedSelTasks / totalSelTasks) * 100
+      );
+    } else if (totalSelStories > 0) {
+      selProgressPercent = Math.round(
+        (completedSelStories / totalSelStories) * 100
+      );
+    }
+
+    let selTimeBadgeColor = "border-zinc-800 bg-zinc-900/40 text-zinc-400";
+    let selTimeText = "Sin fecha límite";
+    if (proyectoSeleccionado.fechaEntrega) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const deliveryDate = new Date(proyectoSeleccionado.fechaEntrega);
+      deliveryDate.setHours(0, 0, 0, 0);
+
+      const diffTime = deliveryDate.getTime() - today.getTime();
+      const daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (daysDiff < 0) {
+        const absDays = Math.abs(daysDiff);
+        selTimeText = `Vencido hace ${absDays} d`;
+        selTimeBadgeColor =
+          "border-rose-500/20 bg-rose-500/10 text-rose-400 font-bold animate-pulse";
+      } else if (daysDiff === 0) {
+        selTimeText = "Vence hoy";
+        selTimeBadgeColor =
+          "border-rose-500/20 bg-rose-500/10 text-rose-400 font-bold animate-pulse";
+      } else if (daysDiff <= 3) {
+        selTimeText = `Urgente: ${daysDiff} d`;
+        selTimeBadgeColor =
+          "border-rose-500/20 bg-rose-500/10 text-rose-400 font-bold";
+      } else if (daysDiff <= 10) {
+        selTimeText = `Quedan ${daysDiff} d`;
+        selTimeBadgeColor =
+          "border-amber-500/20 bg-amber-500/10 text-amber-400 font-bold";
+      } else {
+        selTimeText = `Quedan ${daysDiff} d`;
+        selTimeBadgeColor =
+          "border-emerald-500/20 bg-emerald-500/10 text-emerald-400";
+      }
+    }
+
     return (
       <MainLayout breadcrumbs={breadcrumbs}>
         <div className="flex flex-col gap-6">
           {/* Details header */}
-          <div className="flex flex-col justify-between gap-4 border-b border-[#2A2A2E] pb-5 md:flex-row md:items-center">
-            <div>
+          <div className="flex flex-col justify-between gap-4 border-b border-[#2A2A2E] pb-5 lg:flex-row lg:items-center">
+            <div className="flex-1">
               <button
                 onClick={() => setProyectoSeleccionado(null)}
                 className="mb-2 flex items-center gap-1.5 font-mono text-xs font-bold text-zinc-400 hover:text-zinc-200"
@@ -412,7 +655,34 @@ export default function ProyectosPage() {
                 Cliente: {cliNombre} • Tipo: {proyectoSeleccionado.tipo}
               </p>
             </div>
-            <div className="flex gap-2">
+
+            {/* Time and Progress Quick Indicator */}
+            <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-[#2A2A2E]/50 bg-zinc-950/40 px-4 py-3 md:min-w-[320px] lg:min-w-[400px]">
+              <div className="flex flex-1 flex-col gap-1">
+                <div className="flex justify-between font-mono text-[10px]">
+                  <span className="text-zinc-550">Progreso</span>
+                  <span className="font-bold text-emerald-400">
+                    {selProgressPercent}%
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full border border-zinc-800/40 bg-zinc-900">
+                  <div
+                    className="h-full bg-emerald-500 transition-all duration-300"
+                    style={{ width: `${selProgressPercent}%` }}
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-0.5 font-mono">
+                <span className="text-[9px] text-zinc-500">Límite</span>
+                <span
+                  className={`rounded border px-1.5 py-0.5 text-[9px] ${selTimeBadgeColor}`}
+                >
+                  {selTimeText}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 gap-2">
               <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-xs font-bold text-emerald-400 select-none">
                 Estado: {proyectoSeleccionado.estado}
               </span>
@@ -721,51 +991,19 @@ export default function ProyectosPage() {
             proyectos.map((p) => {
               const clientName =
                 clientes.find((c) => c.id === p.clienteId)?.nombre ||
-                "Cargando...";
+                "💡 Idea / Proyecto Propio";
               return (
-                <Card key={p.id}>
-                  <div className="flex items-start justify-between gap-3">
-                    <h3
-                      onClick={() => setProyectoSeleccionado(p)}
-                      className="block cursor-pointer text-xs font-bold text-zinc-200 transition-all hover:text-emerald-400"
-                    >
-                      {p.nombre}
-                    </h3>
-                    <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] font-bold text-emerald-400">
-                      {p.estado}
-                    </span>
-                  </div>
-                  <p className="mt-1 font-mono text-[10px] text-zinc-500">
-                    Cliente: {clientName} • Tipo: {p.tipo}
-                  </p>
-                  <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-zinc-400">
-                    {p.descripcion || "Sin descripción adicional."}
-                  </p>
-
-                  <div className="mt-4 flex items-center justify-between border-t border-[#2A2A2E]/60 pt-3">
-                    <button
-                      onClick={() => handleBorrarProyectoRapido(p)}
-                      className="rounded-lg p-1.5 text-zinc-600 transition-colors hover:bg-rose-500/10 hover:text-rose-400"
-                      title="Eliminar Proyecto"
-                    >
-                      <Icono.Close className="h-4 w-4" />
-                    </button>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setProyectoEdicion(p);
-                          setModalAbierto(true);
-                        }}
-                        className="rounded-xl border border-zinc-800 bg-transparent px-3 py-1.5 font-mono text-[10px] text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
-                      >
-                        Editar
-                      </button>
-                      <Button onClick={() => setProyectoSeleccionado(p)}>
-                        Ingresar Workspace
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
+                <ProyectoCard
+                  key={p.id}
+                  proyecto={p}
+                  clientName={clientName}
+                  onSelect={setProyectoSeleccionado}
+                  onEdit={(p) => {
+                    setProyectoEdicion(p);
+                    setModalAbierto(true);
+                  }}
+                  onDelete={handleBorrarProyectoRapido}
+                />
               );
             })
           )}

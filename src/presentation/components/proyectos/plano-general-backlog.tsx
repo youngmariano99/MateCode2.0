@@ -90,6 +90,31 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
   );
   const [actividadEditandoTexto, setActividadEditandoTexto] = useState("");
 
+  // View states
+  const [vistaCompacta, setVistaCompacta] = useState(false);
+  const [collapsedEpics, setCollapsedEpics] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  const toggleEpicCollapse = (epicId: string) => {
+    setCollapsedEpics((prev) => ({
+      ...prev,
+      [epicId]: !prev[epicId],
+    }));
+  };
+
+  const collapseAllEpics = () => {
+    const collapsed: Record<string, boolean> = {};
+    epicas.forEach((ep) => {
+      collapsed[ep.id] = true;
+    });
+    setCollapsedEpics(collapsed);
+  };
+
+  const expandAllEpics = () => {
+    setCollapsedEpics({});
+  };
+
   // Epic Actions
   const crearEpic = async () => {
     if (!nuevoEpicNombre.trim()) return;
@@ -358,6 +383,55 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
         </div>
       )}
 
+      {/* Visual Controls for Compact / Simplified View */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-900 bg-zinc-950 p-4 font-mono text-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-zinc-550 text-[10px] uppercase">
+            Modo de visualización:
+          </span>
+          <div className="flex rounded-lg border border-zinc-800 bg-zinc-900 p-0.5">
+            <button
+              onClick={() => setVistaCompacta(false)}
+              className={`rounded px-3 py-1 text-[10px] font-bold uppercase transition-all ${
+                !vistaCompacta
+                  ? "bg-zinc-800 font-extrabold text-emerald-400"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              🛠️ Gestión Completa
+            </button>
+            <button
+              onClick={() => setVistaCompacta(true)}
+              className={`rounded px-3 py-1 text-[10px] font-bold uppercase transition-all ${
+                vistaCompacta
+                  ? "bg-zinc-800 font-extrabold text-emerald-400"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              📊 Avance Simplificado
+            </button>
+          </div>
+        </div>
+
+        {/* Collapsing utilities in Compact Mode */}
+        {vistaCompacta && (
+          <div className="flex gap-2">
+            <button
+              onClick={collapseAllEpics}
+              className="text-zinc-450 rounded border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-[9px] hover:bg-zinc-900 hover:text-zinc-200"
+            >
+              📁 Colapsar Épicas
+            </button>
+            <button
+              onClick={expandAllEpics}
+              className="text-zinc-450 rounded border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-[9px] hover:bg-zinc-900 hover:text-zinc-200"
+            >
+              📂 Expandir Épicas
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Epics layout grid */}
       <div className="flex flex-col gap-5">
         {epicas.length === 0 ? (
@@ -375,6 +449,165 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
             const progresoEp =
               totalEp > 0 ? Math.round((doneEp / totalEp) * 100) : 0;
             const isEpicEditing = epicEditandoId === ep.id;
+
+            if (vistaCompacta) {
+              const isCollapsed = collapsedEpics[ep.id];
+              return (
+                <div
+                  key={ep.id}
+                  className="hover:border-zinc-850 rounded-xl border border-zinc-900 bg-zinc-950 p-4 transition-colors"
+                >
+                  {/* Compact Epic Header */}
+                  <div
+                    onClick={() => toggleEpicCollapse(ep.id)}
+                    className="flex cursor-pointer items-center justify-between gap-4 font-mono select-none"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-zinc-550 text-[10px]">
+                        {isCollapsed ? "▶" : "▼"}
+                      </span>
+                      <span className="text-xs font-bold text-white uppercase">
+                        📁 {ep.nombre}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {totalEp > 0 && (
+                        <span className="text-[9px] font-bold text-zinc-400">
+                          {doneEp}/{totalEp} HUs
+                        </span>
+                      )}
+                      <span className="text-[10px] font-black text-emerald-400">
+                        {progresoEp}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Epic Progress Bar */}
+                  <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-zinc-900">
+                    <div
+                      className="h-full bg-emerald-500 transition-all duration-300"
+                      style={{ width: `${progresoEp}%` }}
+                    />
+                  </div>
+
+                  {/* Stories inside Epic */}
+                  {!isCollapsed && historiasEpica.length > 0 && (
+                    <div className="mt-3.5 flex flex-col gap-3.5 border-l border-zinc-900 pl-3">
+                      {historiasEpica.map((h) => {
+                        const actividadesStory = tareas.filter(
+                          (t) => t.historiaId === h.id
+                        );
+                        const totalAct = actividadesStory.length;
+                        const doneAct = actividadesStory.filter(
+                          (t) => t.estado === "done"
+                        ).length;
+                        const progresoStory =
+                          totalAct > 0
+                            ? Math.round((doneAct / totalAct) * 100)
+                            : 0;
+
+                        return (
+                          <div
+                            key={h.id}
+                            className="flex flex-col gap-1.5 font-mono"
+                          >
+                            {/* HU Header */}
+                            <div className="flex items-center justify-between gap-3 text-[11px]">
+                              <span className="font-bold text-zinc-300">
+                                💡 HU: {h.titulo}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                {totalAct > 0 && (
+                                  <span className="text-[9px] text-zinc-500">
+                                    {doneAct}/{totalAct} Tareas
+                                  </span>
+                                )}
+                                <span className="text-[9px] font-bold text-emerald-500/80">
+                                  {progresoStory}%
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* HU Progress Line */}
+                            <div className="h-0.5 w-full overflow-hidden rounded bg-zinc-900/60">
+                              <div
+                                className="h-full bg-emerald-500/60"
+                                style={{ width: `${progresoStory}%` }}
+                              />
+                            </div>
+
+                            {/* Activities in HU */}
+                            {actividadesStory.length > 0 && (
+                              <div className="mt-1 flex flex-col gap-1 border-l border-[#2A2A2E] pl-2.5">
+                                {actividadesStory.map((act) => {
+                                  let actColor =
+                                    "border-zinc-800 bg-zinc-900 text-zinc-400";
+                                  let actText = "To Do";
+
+                                  if (act.estado === "done") {
+                                    actColor =
+                                      "border-emerald-500/20 bg-emerald-500/10 text-emerald-400";
+                                    actText = "Done";
+                                  } else if (
+                                    act.estado === "doing" ||
+                                    act.estado === "review" ||
+                                    act.estado === "testing" ||
+                                    act.estado === "blocked"
+                                  ) {
+                                    actColor =
+                                      "border-amber-500/20 bg-amber-500/10 text-amber-400";
+                                    actText = "In Progress";
+                                  } else {
+                                    actColor =
+                                      "border-rose-500/20 bg-rose-500/10 text-rose-450";
+                                    actText = "To Do";
+                                  }
+
+                                  return (
+                                    <div
+                                      key={act.id}
+                                      className="flex items-center justify-between gap-3 text-[10px]"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="checkbox"
+                                          checked={act.estado === "done"}
+                                          onChange={() =>
+                                            alternarEstadoActividad(
+                                              act.id,
+                                              act.estado
+                                            )
+                                          }
+                                          className="h-3 w-3 cursor-pointer rounded border-zinc-800 bg-zinc-900 text-emerald-500 focus:ring-emerald-500/20 focus:ring-offset-zinc-950"
+                                        />
+                                        <span
+                                          className={
+                                            act.estado === "done"
+                                              ? "text-zinc-600 line-through select-none"
+                                              : "text-zinc-400 select-none"
+                                          }
+                                        >
+                                          {act.titulo}
+                                        </span>
+                                      </div>
+                                      <span
+                                        className={`py-0.2 rounded border px-1.5 text-[8px] font-bold uppercase ${actColor}`}
+                                      >
+                                        {actText}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
 
             return (
               <div

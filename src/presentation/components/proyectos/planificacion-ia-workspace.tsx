@@ -346,20 +346,50 @@ export const PlanificacionIAWorkspace: React.FC<
   };
 
   const copiarPromptSprints = async () => {
+    const projectEpicas = await db.epicas
+      .where("proyectoId")
+      .equals(proyectoId)
+      .toArray();
+
     const projectStories = await db.historias
       .where("proyectoId")
       .equals(proyectoId)
       .toArray();
+
     if (projectStories.length === 0) {
       mostrarToast("No hay historias cargadas.", "error");
       return;
     }
-    const storiesText = projectStories
-      .map(
-        (h) =>
-          `- TÍTULO: ${h.titulo} | ESTIMACIÓN: ${h.estimacion}h | PRIORIDAD: ${h.prioridad}`
-      )
-      .join("\n");
+
+    let storiesText = "";
+    if (projectEpicas.length > 0) {
+      projectEpicas.forEach((ep) => {
+        const storiesInEpic = projectStories.filter((h) => h.epicaId === ep.id);
+        if (storiesInEpic.length > 0) {
+          storiesText += `\n### ÉPICA / MÓDULO: ${ep.nombre}\n`;
+          storiesInEpic.forEach((h) => {
+            storiesText += `- TÍTULO: ${h.titulo} | ESTIMACIÓN: ${h.estimacion || 3}h | PRIORIDAD: ${h.prioridad || "Media"}\n`;
+          });
+        }
+      });
+
+      const orphanStories = projectStories.filter(
+        (h) => !projectEpicas.some((ep) => ep.id === h.epicaId)
+      );
+      if (orphanStories.length > 0) {
+        storiesText += `\n### OTRAS HISTORIAS DE USUARIO:\n`;
+        orphanStories.forEach((h) => {
+          storiesText += `- TÍTULO: ${h.titulo} | ESTIMACIÓN: ${h.estimacion || 3}h | PRIORIDAD: ${h.prioridad || "Media"}\n`;
+        });
+      }
+    } else {
+      storiesText = projectStories
+        .map(
+          (h) =>
+            `- TÍTULO: ${h.titulo} | ESTIMACIÓN: ${h.estimacion || 3}h | PRIORIDAD: ${h.prioridad || "Media"}`
+        )
+        .join("\n");
+    }
 
     const prompt = PROMPT_SPRINTS.replace(
       "{{backlog_stories}}",
@@ -592,7 +622,7 @@ Formato JSON esperado:
     }
   };
 
-  const selectDocumentForEdit = (name: string) => {
+  const selectDocumentForEdit = async (name: string) => {
     setSelectedDocName(name);
     let content = "";
     if (name === "CLAUDE.md") {
@@ -621,6 +651,10 @@ Formato JSON esperado:
       content = erroresMarkdown || "";
     } else if (name === "SETUP.md") {
       content = setupMarkdown || "";
+    } else if (name === "BACKLOG.md") {
+      content = await generarBacklogMarkdown();
+    } else if (name === "SPRINTS.md") {
+      content = await generarSprintsMarkdown();
     }
     setDocEditContent(content);
   };
@@ -633,6 +667,17 @@ Formato JSON esperado:
 
   const handleSaveSelectedDoc = async () => {
     try {
+      if (
+        selectedDocName === "BACKLOG.md" ||
+        selectedDocName === "SPRINTS.md"
+      ) {
+        mostrarToast(
+          `${selectedDocName} es una vista generada automáticamente. Edita los ítems directamente en las pestañas 'Backlog' o 'Sprints'.`,
+          "info"
+        );
+        return;
+      }
+
       const currentCtx = (await db.proyecto_contexto.get(proyectoId)) || {
         proyectoId,
       };
@@ -812,79 +857,232 @@ Formato JSON esperado:
     mostrarToast("¡Archivo SETUP.md descargado!", "exito");
   };
 
-  const descargarZipDocumentosCompleto = () => {
-    const claude = generarClaudeMd(true);
-    const schema = entidades || "";
-    let reqs = contexto?.requerimientosMarkdownOverride || "";
-    if (!reqs) {
-      reqs = `# REQUISITOS_${
-        String(proyecto?.nombre || "")
-          .toUpperCase()
-          .replace(/[^A-Z0-9]+/g, "_") || "PROYECTO"
-      }.md\n\n## Requisitos Funcionales\n${requisitosFuncionales || ""}\n\n## Requisitos No Funcionales\n${requisitosNoFuncionales || ""}`;
+  const generarBacklogMarkdown = async (): Promise<string> => {
+    const projectEpicas = await db.epicas
+      .where("proyectoId")
+      .equals(proyectoId)
+      .toArray();
+    const projectStories = await db.historias
+      .where("proyectoId")
+      .equals(proyectoId)
+      .toArray();
+    const projectTareas = await db.tareas
+      .where("proyectoId")
+      .equals(proyectoId)
+      .toArray();
+
+    let md = `# Backlog Completo de Ingeniería - ${proyecto?.nombre || "Proyecto"}\n\n`;
+    md += `Este documento contiene el desglose jerárquico de Épicas, Historias de Usuario y Actividades Técnicas detalladas con sus respectivos archivos, rutas, pasos de checklist y criterios de aceptación.\n\n`;
+
+    if (projectEpicas.length === 0) {
+      md += `*No hay épicas ni backlog registrado.*\n`;
+      return md;
     }
-    const design =
-      ds?.designSystemMarkdown || `# DESIGN.md\n\n*No configurado*`;
-    const sitemapContent =
-      sitemapSystemMarkdown ||
-      sitemapMarkup ||
-      sitemap ||
-      `# SITEMAP.md\n\n*No configurado*`;
-    const rolesContent = rolesMarkdown || `# ROLES.md\n\n*No configurado*`;
-    const seedContent = seedMarkdown || `# SEED.md\n\n*No configurado*`;
-    const errorsContent = erroresMarkdown || `# ERRORS.md\n\n*No configurado*`;
-    const setupContent = setupMarkdown || `# SETUP.md\n\n*No configurado*`;
 
-    const filesMap: Record<string, string> = {
-      "CLAUDE.md": claude,
-      "SCHEMA.md": schema,
-      "REQUERIMIENTOS.md": reqs,
-      "DESIGN.md": design,
-      "SITEMAP.md": sitemapContent,
-      "ROLES.md": rolesContent,
-      "SEED.md": seedContent,
-      "ERRORS.md": errorsContent,
-      "SETUP.md": setupContent,
-    };
+    for (const ep of projectEpicas) {
+      md += `## 📁 Épica: ${ep.nombre}\n`;
+      if (ep.descripcion) md += `*Descripción:* ${ep.descripcion}\n`;
+      md += `\n`;
 
-    descargarZipDocumentos((proyecto as any)?.nombre || "proyecto", filesMap)
-      .then(() =>
-        mostrarToast("¡ZIP de documentación descargado con éxito!", "exito")
-      )
-      .catch((err) =>
-        mostrarToast(`Error al generar ZIP: ${err.message}`, "error")
-      );
+      const storiesEp = projectStories.filter((h) => h.epicaId === ep.id);
+      if (storiesEp.length === 0) {
+        md += `*Sin historias registradas en esta épica.*\n\n`;
+        continue;
+      }
+
+      for (const h of storiesEp) {
+        md += `### 💡 Historia: ${h.titulo}\n`;
+        md += `- **Prioridad:** ${h.prioridad || "Media"}\n`;
+        md += `- **Estimación:** ${h.estimacion || 3} SP\n`;
+        if (h.descripcion)
+          md += `- **Descripción / CA Funcionales:** ${h.descripcion}\n`;
+        md += `\n`;
+
+        const tareasStory = projectTareas.filter((t) => t.historiaId === h.id);
+        if (tareasStory.length > 0) {
+          md += `#### Actividades Técnicas Desglosadas:\n`;
+          tareasStory.forEach((t: any, idx: number) => {
+            md += `##### ${idx + 1}. ${t.titulo}\n`;
+            if (t.rol) md += `- **Rol:** ${t.rol}\n`;
+            if (t.componente)
+              md += `- **Componente/Archivo:** \`${t.componente}\` en la ruta \`${t.ruta || ""}\`\n`;
+            if (t.modulo) md += `- **Módulo:** ${t.modulo}\n`;
+            if (Array.isArray(t.etiquetas) && t.etiquetas.length > 0) {
+              md += `- **Etiquetas:** ${t.etiquetas.join(", ")}\n`;
+            }
+            if (Array.isArray(t.pasos) && t.pasos.length > 0) {
+              md += `- **Checklist de Implementación:**\n`;
+              t.pasos.forEach((p: string) => {
+                md += `  - [ ] ${p}\n`;
+              });
+            }
+            if (
+              Array.isArray(t.criteriosAceptacion) &&
+              t.criteriosAceptacion.length > 0
+            ) {
+              md += `- **Criterios de Aceptación (BDD):**\n`;
+              t.criteriosAceptacion.forEach((crit: string) => {
+                md += `  - ${crit}\n`;
+              });
+            }
+            md += `\n`;
+          });
+        } else {
+          md += `*Sin actividades técnicas desglosadas.*\n\n`;
+        }
+      }
+      md += `---\n\n`;
+    }
+
+    return md;
   };
 
-  const descargarTodoMarkdown = () => {
-    let md = `# Planificación Completa del Proyecto: ${proyecto?.nombre || ""}\n\n`;
-    md += `## 1. Requisitos Funcionales\n${requisitosFuncionales || "*No configurado*"}\n\n`;
-    md += `## 2. Requisitos No Funcionales\n${requisitosNoFuncionales || "*No configurado*"}\n\n`;
+  const generarSprintsMarkdown = async (): Promise<string> => {
+    const projectSprints = await db.sprints
+      .where("proyectoId")
+      .equals(proyectoId)
+      .toArray();
+    const projectStories = await db.historias
+      .where("proyectoId")
+      .equals(proyectoId)
+      .toArray();
 
-    if (seccionesSitemap.length > 0) {
-      md += `## 3. Estructura de Secciones (Sitemap Landing / Institucional)\n\n`;
-      seccionesSitemap.forEach((sec) => {
-        md += `### {{${sec.nombre}}}\n${sec.descripcion}\n\n`;
-      });
-    } else {
-      md += `## 3. Sitemap General\n${sitemap || "*No configurado*"}\n\n`;
+    let md = `# Planificación de Sprints - ${proyecto?.nombre || "Proyecto"}\n\n`;
+    md += `Distribución temporal de Historias de Usuario organizadas en iteraciones de desarrollo.\n\n`;
+
+    if (projectSprints.length === 0) {
+      md += `*No hay sprints planificados.*\n`;
+      return md;
     }
 
-    md += `## 4. Entidades y Modelado 3FN\n${entidades || "*No configurado*"}\n\n`;
+    projectSprints.forEach((sp) => {
+      md += `## 🏃 ${sp.nombre}\n`;
+      md += `- **Objetivo:** ${sp.objetivo || "Sin objetivo definido."}\n`;
+      md += `- **Duración:** ${sp.duracionSemanas || 2} semanas\n`;
+      md += `- **Capacidad:** ${sp.capacidad || 20} SP\n`;
+      md += `\n### Historias asignadas:\n`;
 
-    const blob = new Blob([md], { type: "text/markdown;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute(
-      "download",
-      `planificacion_${proyecto?.nombre || proyectoId}.md`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      const storiesSp = projectStories.filter((h) => h.sprintId === sp.id);
+      if (storiesSp.length > 0) {
+        storiesSp.forEach((h) => {
+          md += `- **${h.titulo}** (${h.estimacion || 3} SP) - Prioridad: ${h.prioridad || "Media"}\n`;
+          if (h.descripcion) md += `  *Descripción:* ${h.descripcion}\n`;
+        });
+      } else {
+        md += `*Ninguna historia asignada a este sprint.*\n`;
+      }
+      md += `\n---\n\n`;
+    });
 
-    mostrarToast("Descargando planificación completa .md...", "info");
+    return md;
+  };
+
+  const descargarBacklogMd = async () => {
+    const backlogContent = await generarBacklogMarkdown();
+    descargarArchivo(backlogContent, "BACKLOG.md");
+    mostrarToast("¡Archivo BACKLOG.md descargado!", "exito");
+  };
+
+  const descargarSprintsMd = async () => {
+    const sprintsContent = await generarSprintsMarkdown();
+    descargarArchivo(sprintsContent, "SPRINTS.md");
+    mostrarToast("¡Archivo SPRINTS.md descargado!", "exito");
+  };
+
+  const descargarZipDocumentosCompleto = async () => {
+    try {
+      const claude = generarClaudeMd(true);
+      const schema = entidades || "";
+      let reqs = contexto?.requerimientosMarkdownOverride || "";
+      if (!reqs) {
+        reqs = `# REQUISITOS_${
+          String(proyecto?.nombre || "")
+            .toUpperCase()
+            .replace(/[^A-Z0-9]+/g, "_") || "PROYECTO"
+        }.md\n\n## Requisitos Funcionales\n${requisitosFuncionales || ""}\n\n## Requisitos No Funcionales\n${requisitosNoFuncionales || ""}`;
+      }
+      const design =
+        ds?.designSystemMarkdown || `# DESIGN.md\n\n*No configurado*`;
+      const sitemapContent =
+        sitemapSystemMarkdown ||
+        sitemapMarkup ||
+        sitemap ||
+        `# SITEMAP.md\n\n*No configurado*`;
+      const rolesContent = rolesMarkdown || `# ROLES.md\n\n*No configurado*`;
+      const seedContent = seedMarkdown || `# SEED.md\n\n*No configurado*`;
+      const errorsContent =
+        erroresMarkdown || `# ERRORS.md\n\n*No configurado*`;
+      const setupContent = setupMarkdown || `# SETUP.md\n\n*No configurado*`;
+
+      const backlogContent = await generarBacklogMarkdown();
+      const sprintsContent = await generarSprintsMarkdown();
+
+      const filesMap: Record<string, string> = {
+        "CLAUDE.md": claude,
+        "SCHEMA.md": schema,
+        "REQUERIMIENTOS.md": reqs,
+        "DESIGN.md": design,
+        "SITEMAP.md": sitemapContent,
+        "ROLES.md": rolesContent,
+        "SEED.md": seedContent,
+        "ERRORS.md": errorsContent,
+        "SETUP.md": setupContent,
+        "BACKLOG.md": backlogContent,
+        "SPRINTS.md": sprintsContent,
+      };
+
+      await descargarZipDocumentos(
+        (proyecto as any)?.nombre || "proyecto",
+        filesMap
+      );
+      mostrarToast("¡ZIP de documentación descargado con éxito!", "exito");
+    } catch (err: any) {
+      mostrarToast(`Error al generar ZIP: ${err.message}`, "error");
+    }
+  };
+
+  const descargarTodoMarkdown = async () => {
+    try {
+      let md = `# Planificación Completa del Proyecto: ${proyecto?.nombre || ""}\n\n`;
+      md += `## 1. Requisitos Funcionales\n${requisitosFuncionales || "*No configurado*"}\n\n`;
+      md += `## 2. Requisitos No Funcionales\n${requisitosNoFuncionales || "*No configurado*"}\n\n`;
+
+      if (seccionesSitemap.length > 0) {
+        md += `## 3. Estructura de Secciones (Sitemap Landing / Institucional)\n\n`;
+        seccionesSitemap.forEach((sec) => {
+          md += `### {{${sec.nombre}}}\n${sec.descripcion}\n\n`;
+        });
+      } else {
+        md += `## 3. Sitemap General\n${sitemap || "*No configurado*"}\n\n`;
+      }
+
+      md += `## 4. Entidades y Modelado 3FN\n${entidades || "*No configurado*"}\n\n`;
+
+      const backlogContent = await generarBacklogMarkdown();
+      md += `## 5. Backlog Completo de Ingeniería (Historias y Actividades)\n\n${backlogContent}\n\n`;
+
+      const sprintsContent = await generarSprintsMarkdown();
+      md += `## 6. Planificación de Sprints\n\n${sprintsContent}\n\n`;
+
+      const blob = new Blob([md], { type: "text/markdown;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `planificacion_${proyecto?.nombre || proyectoId}.md`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      mostrarToast("Descargando planificación completa .md...", "info");
+    } catch (err: any) {
+      mostrarToast(
+        `Error al generar planificación completa: ${err.message}`,
+        "error"
+      );
+    }
   };
 
   const copiarAuditoriaCompletaParaIA = async () => {
@@ -1509,6 +1707,8 @@ Formato JSON esperado:
           descargarSeedMd={descargarSeedMd}
           descargarErrorsMd={descargarErrorsMd}
           descargarSetupMd={descargarSetupMd}
+          descargarBacklogMd={descargarBacklogMd}
+          descargarSprintsMd={descargarSprintsMd}
           entidades={entidades}
           requisitosFuncionales={requisitosFuncionales}
           requisitosNoFuncionales={requisitosNoFuncionales}
