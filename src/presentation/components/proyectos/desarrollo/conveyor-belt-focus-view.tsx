@@ -7,6 +7,7 @@ interface ConveyorBeltFocusViewProps {
   isOpen: boolean;
   onClose: () => void;
   selectedHistoriaCinta: any;
+  selectedActividadCinta?: any;
   activeCintaExecution: any;
   focusedSprint: any;
   cintaHandoffInput: string;
@@ -30,6 +31,7 @@ interface ConveyorBeltFocusViewProps {
     real: string
   ) => void;
   resolverBugEstacion: (estacion: string) => void;
+  completarCerrarActividad?: (id: string) => void;
   promptMagro: string;
   mostrarToast: (msg: string, tipo: "exito" | "error" | "info") => void;
   isCicdModalOpen: boolean;
@@ -40,6 +42,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
   isOpen,
   onClose,
   selectedHistoriaCinta,
+  selectedActividadCinta,
   activeCintaExecution,
   focusedSprint,
   cintaHandoffInput,
@@ -58,23 +61,40 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
   registrarIteracionEstacion,
   registrarBugEstacion,
   resolverBugEstacion,
+  completarCerrarActividad,
   promptMagro,
   mostrarToast,
   isCicdModalOpen,
   setIsCicdModalOpen,
 }) => {
-  if (!isOpen || !selectedHistoriaCinta || !activeCintaExecution) return null;
+  if (!isOpen) return null;
+  if (!selectedHistoriaCinta && !selectedActividadCinta) return null;
+  if (!activeCintaExecution) return null;
+
+  const isActividadMode = !!selectedActividadCinta;
+  const currentItem = isActividadMode
+    ? selectedActividadCinta
+    : selectedHistoriaCinta;
 
   const meta = activeCintaExecution.metadata || {};
   const pipeline = meta.pipeline || [];
   const activeIdx = meta.activeStationIndex || 0;
-  const activeStation = pipeline[activeIdx] || "QA";
-  const shortId = `hu-${selectedHistoriaCinta.id.split("_").pop() || "hu"}`;
-  const cleanTitle = selectedHistoriaCinta.titulo
+
+  // Under activity focus mode, the "station" is represented by a default key
+  const activeStation = isActividadMode
+    ? "default"
+    : pipeline[activeIdx] || "QA";
+
+  const shortId = isActividadMode
+    ? `act-${currentItem.id.split("_").pop() || "act"}`
+    : `hu-${currentItem.id.split("_").pop() || "hu"}`;
+
+  const cleanTitle = currentItem.titulo
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-");
   const branchName = `feature/mc-${shortId}-${cleanTitle}`;
 
+  // Extract history
   const allHandoffs = Object.entries(meta.handoffs || {}) as Array<
     [string, any]
   >;
@@ -83,83 +103,93 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
   const activeBug = stationBugs.find((b: any) => !b.resuelto);
 
   return (
-    <div className="animate-in fade-in fixed inset-0 z-50 flex flex-col overflow-y-auto bg-[#0B0F19] p-6 font-mono text-zinc-100 duration-200">
-      {/* Header Bar */}
-      <div className="mb-5 flex items-center justify-between border-b border-zinc-800 pb-4">
-        <div className="flex items-center gap-3">
-          <span className="animate-pulse rounded border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold text-emerald-400 uppercase">
-            CINTA ACTIVA
-          </span>
-          <div>
-            <h2 className="text-sm font-bold text-zinc-200 uppercase">
-              Cinta: mc-{shortId} — {selectedHistoriaCinta.titulo}
+    <div className="animate-in fade-in fixed inset-0 z-40 flex flex-col overflow-y-auto bg-zinc-950 p-6 duration-300">
+      {/* Top Header Row */}
+      <div className="mb-6 flex flex-col justify-between gap-4 border-b border-zinc-900 pb-4 sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="rounded border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 font-mono text-[8px] font-bold text-emerald-400 uppercase">
+              MODO ENFOQUE ACTIVO
+            </span>
+            {focusedSprint && (
+              <span className="font-mono text-[9px] text-zinc-500">
+                Sprint: {focusedSprint.nombre}
+              </span>
+            )}
+          </div>
+          <div className="mt-1.5 flex items-center gap-2">
+            <h2 className="font-mono text-sm font-bold text-zinc-200 uppercase">
+              {isActividadMode ? "Actividad" : "Cinta"}: mc-{shortId} —{" "}
+              {currentItem.titulo}
             </h2>
-            <p className="mt-0.5 text-[9px] text-zinc-500">
-              Rama: {branchName} | Sprint Asignado:{" "}
-              {focusedSprint?.nombre || "General"}
-            </p>
           </div>
         </div>
         <button
           onClick={onClose}
-          className="rounded border border-red-500/20 bg-red-500/10 px-3.5 py-1.5 text-[9px] font-bold text-red-400 uppercase transition-all hover:bg-red-500/20"
+          className="text-zinc-350 hover:bg-zinc-850 rounded border border-zinc-800 bg-zinc-900 px-3.5 py-1.5 font-mono text-[9px] font-bold uppercase transition-all hover:text-zinc-100"
         >
-          ❌ Salir del Modo Enfoque
+          ⬅ Volver al Tablero
         </button>
       </div>
 
-      {/* Conveyor Belt Ribbon */}
-      <div className="mb-6 flex items-center justify-center gap-2 rounded-xl border border-zinc-900 bg-zinc-950/40 p-4">
-        {pipeline.map((st: string, idx: number) => {
-          const isCompleted = idx < activeIdx;
-          const isActive = idx === activeIdx;
+      {/* Conveyor Belt Ribbon (Hide for Activity focus mode) */}
+      {!isActividadMode && (
+        <div className="mb-6 flex items-center justify-center gap-2 rounded-xl border border-zinc-900 bg-zinc-950/40 p-4">
+          {pipeline.map((st: string, idx: number) => {
+            const isCompleted = idx < activeIdx;
+            const isActive = idx === activeIdx;
 
-          let stateClass = "border-zinc-800 bg-zinc-900 text-zinc-500";
-          if (isActive)
-            stateClass =
-              "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 ring-2 ring-emerald-500/10 animate-pulse";
-          if (isCompleted)
-            stateClass = "border-sky-500/30 bg-sky-500/10 text-sky-400";
+            let stateClass = "border-zinc-800 bg-zinc-900 text-zinc-500";
+            if (isActive)
+              stateClass =
+                "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 ring-2 ring-emerald-500/10 animate-pulse";
+            if (isCompleted)
+              stateClass = "border-sky-500/30 bg-sky-500/10 text-sky-400";
 
-          return (
-            <React.Fragment key={st}>
-              <div
-                className={`flex items-center gap-2 rounded-lg border px-4 py-2 text-[10px] font-bold uppercase transition-all ${stateClass}`}
-              >
-                {isCompleted ? "✓ " : ""}
-                {st}
-              </div>
-              {idx < pipeline.length - 1 && (
-                <span className="text-xs text-zinc-700">➔</span>
-              )}
-            </React.Fragment>
-          );
-        })}
-      </div>
+            return (
+              <React.Fragment key={st}>
+                <div
+                  className={`flex items-center gap-2 rounded-lg border px-4 py-2 font-mono text-[10px] font-bold uppercase transition-all ${stateClass}`}
+                >
+                  {isCompleted ? "✓ " : ""}
+                  {st}
+                </div>
+                {idx < pipeline.length - 1 && (
+                  <span className="text-xs text-zinc-700">➔</span>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      )}
 
       {/* Workstation Workspace split */}
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-12">
-        {/* Left Column */}
+        {/* Left Column (Prompt & Code) */}
         <div className="flex flex-col gap-4 xl:col-span-7">
           <div className="rounded-xl border border-zinc-900 bg-zinc-950/60 p-4">
             <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
               <div>
-                <span className="text-[10px] font-bold text-zinc-200 uppercase">
-                  📋 Prompt de la Estación: {activeStation}
+                <span className="font-mono text-[10px] font-bold text-zinc-200 uppercase">
+                  📋 Prompt de la{" "}
+                  {isActividadMode ? "Actividad" : `Estación: ${activeStation}`}
                 </span>
-                <p className="text-zinc-555 mt-0.5 text-[8px]">
-                  XML limpio de handoffs anteriores para alimentar a la IA
+                <p className="mt-0.5 font-mono text-[8px] text-zinc-500">
+                  XML limpio con contexto local e instrucciones para alimentar a
+                  la IA
                 </p>
               </div>
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(promptMagro);
                   mostrarToast(
-                    `Prompt de la estación ${activeStation} copiado.`,
+                    isActividadMode
+                      ? "Prompt de actividad copiado."
+                      : `Prompt de la estación ${activeStation} copiado.`,
                     "exito"
                   );
                 }}
-                className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+                className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
               >
                 📋 Copiar Prompt
               </button>
@@ -169,19 +199,20 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
               readOnly
               value={promptMagro}
               rows={12}
-              className="w-full rounded border border-zinc-900 bg-zinc-900/30 p-3 font-mono text-[10px] text-zinc-400 outline-none"
+              className="w-full rounded border border-zinc-900 bg-zinc-900/30 p-3 font-mono text-[10px] text-zinc-400 outline-none select-all"
             />
           </div>
 
           {/* Handoff Submission Box */}
           <div className="flex flex-col gap-3 rounded-xl border border-zinc-900 bg-zinc-950/60 p-4">
             <div>
-              <span className="text-[10px] font-bold text-zinc-200 uppercase">
-                📥 Registrar Handoff & Avanzar
+              <span className="font-mono text-[10px] font-bold text-zinc-200 uppercase">
+                📥 Registrar Handoff {isActividadMode ? "" : "& Avanzar"}
               </span>
-              <p className="text-zinc-555 mt-0.5 text-[8px]">
-                Pega la salida JSON entregada por la IA para pasar el contexto a
-                la siguiente estación.
+              <p className="mt-0.5 font-mono text-[8px] text-zinc-500">
+                {isActividadMode
+                  ? "Pega la salida JSON entregada por la IA para poner la actividad en revisión."
+                  : "Pega la salida JSON entregada por la IA para pasar el contexto a la siguiente estación."}
               </p>
             </div>
 
@@ -199,7 +230,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                   <span className="block text-[9px] font-bold text-emerald-400 uppercase">
                     🔄 Actualizaciones de Documentación Detectadas
                   </span>
-                  <span className="mt-1 block text-[8px] leading-normal text-zinc-400">
+                  <span className="mt-1 block font-mono text-[8px] leading-normal text-zinc-400">
                     La IA sugiere cambios para:{" "}
                     {Object.keys(detectedDocUpdates)
                       .map((k) => `${k.toUpperCase()}.md`)
@@ -209,58 +240,88 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                 </div>
                 <button
                   onClick={handleAplicarActualizacionesDocs}
-                  className="shrink-0 rounded bg-emerald-500 px-2.5 py-1.5 text-[8px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
+                  className="shrink-0 rounded bg-emerald-500 px-2.5 py-1.5 font-mono text-[8px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
                 >
                   Aplicar y Sincronizar
                 </button>
               </div>
             )}
 
-            <div className="mt-1 flex items-center justify-between">
-              <span className="text-zinc-550 text-[8px]">
-                * El JSON guardado se usará para alimentar automáticamente el
-                prompt de la próxima estación.
+            <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-zinc-650 font-mono text-[8px]">
+                * El JSON se usará para auditar la entrega y registrar los
+                cambios técnicos de la actividad.
               </span>
-              <button
-                onClick={() => {
-                  avanzarEstacionCinta(activeStation, cintaHandoffInput);
-                  setCintaHandoffInput("");
-                }}
-                disabled={!cintaHandoffInput.trim()}
-                className="rounded bg-emerald-500 px-4 py-2 text-[10px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400 disabled:opacity-40"
-              >
-                Sincronizar y Avanzar ➔
-              </button>
+
+              {isActividadMode ? (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      avanzarEstacionCinta("default", cintaHandoffInput);
+                      setCintaHandoffInput("");
+                    }}
+                    disabled={!cintaHandoffInput.trim()}
+                    className="rounded bg-emerald-500 px-4 py-2 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400 disabled:opacity-40"
+                  >
+                    💾 Guardar Handoff
+                  </button>
+                  {completarCerrarActividad &&
+                    (currentItem.estado === "in_revision" ||
+                      currentItem.estado === "review") && (
+                      <button
+                        onClick={() => completarCerrarActividad(currentItem.id)}
+                        className="rounded bg-sky-500 px-4 py-2 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-sky-400"
+                      >
+                        🏁 Completar y Cerrar Ticket
+                      </button>
+                    )}
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    avanzarEstacionCinta(activeStation, cintaHandoffInput);
+                    setCintaHandoffInput("");
+                  }}
+                  disabled={!cintaHandoffInput.trim()}
+                  className="rounded bg-emerald-500 px-4 py-2 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400 disabled:opacity-40"
+                >
+                  Sincronizar y Avanzar ➔
+                </button>
+              )}
             </div>
           </div>
 
-          {activeStation === "QA" && (
+          {/* Git Flow of closing (Only if QA or in activity in-revision/completado) */}
+          {(!isActividadMode && activeStation === "QA") ||
+          (isActividadMode &&
+            (currentItem.estado === "in_revision" ||
+              currentItem.estado === "completado")) ? (
             <div className="flex flex-col gap-3 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
               <div>
-                <span className="text-[10px] font-bold text-sky-400 uppercase">
+                <span className="font-mono text-[10px] font-bold text-sky-400 uppercase">
                   🚀 Git Flow de Cierre & CI/CD
                 </span>
-                <p className="text-zinc-555 mt-0.5 text-[8px]">
-                  Comandos sugeridos para mezclar los cambios de feature/mc-
-                  {shortId} en main
+                <p className="mt-0.5 font-mono text-[8px] text-zinc-500">
+                  Comandos sugeridos para integrar los cambios del ticket en la
+                  rama principal.
                 </p>
               </div>
 
               <div className="flex items-center justify-between gap-3 rounded border border-zinc-900 bg-zinc-950 p-2.5">
-                <code className="text-zinc-450 text-[9px] break-all select-all">
-                  {`git add . && git commit -m "feat(mc-${shortId}): implementa ${selectedHistoriaCinta.titulo.toLowerCase().replace(/"/g, "")}" && git checkout main && git merge ${branchName} && git push origin main`}
+                <code className="text-zinc-450 font-mono text-[9px] break-all select-all">
+                  {`git add . && git commit -m "feat(mc-${shortId}): implementa ${currentItem.titulo.toLowerCase().replace(/"/g, "")}" && git checkout main && git merge ${branchName} && git push origin main`}
                 </code>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(
-                      `git add .\ngit commit -m "feat(mc-${shortId}): implementa ${selectedHistoriaCinta.titulo}"\ngit checkout main\ngit merge ${branchName}\ngit push origin main`
+                      `git add .\ngit commit -m "feat(mc-${shortId}): implementa ${currentItem.titulo}"\ngit checkout main\ngit merge ${branchName}\ngit push origin main`
                     );
                     mostrarToast(
                       "Comandos Git copiados al portapapeles.",
                       "exito"
                     );
                   }}
-                  className="shrink-0 rounded border border-sky-500/20 bg-sky-500/10 px-2.5 py-1.5 text-[8px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
+                  className="shrink-0 rounded border border-sky-500/20 bg-sky-500/10 px-2.5 py-1.5 font-mono text-[8px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
                 >
                   📋 Copiar Git
                 </button>
@@ -273,28 +334,50 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                 🛠️ Configurar GitHub Actions Workflow (CI/CD)
               </button>
             </div>
-          )}
+          ) : null}
         </div>
 
-        {/* Right Column */}
+        {/* Right Column (Instructions, Iterations, Bugs) */}
         <div className="flex flex-col gap-4 xl:col-span-5">
+          {/* Acceptance criteria / Context */}
           <div className="rounded-xl border border-zinc-900 bg-zinc-950/60 p-4">
-            <span className="text-[9px] font-bold text-zinc-400 uppercase">
-              🎯 Criterios de Aceptación HU
+            <span className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
+              🎯{" "}
+              {isActividadMode
+                ? "Detalle de Actividad"
+                : "Criterios de Aceptación HU"}
             </span>
-            <div className="mt-2 max-h-[80px] overflow-y-auto pr-1 text-[10px] leading-relaxed text-zinc-300">
-              {selectedHistoriaCinta.descripcion ||
-                "No hay criterios de aceptación detallados cargados."}
+            <div className="mt-2 max-h-[80px] overflow-y-auto pr-1 font-mono text-[10px] leading-relaxed text-zinc-300">
+              {isActividadMode ? (
+                <div className="flex flex-col gap-2">
+                  <span>{currentItem.titulo}</span>
+                  {currentItem.pasos && currentItem.pasos.length > 0 && (
+                    <div className="mt-1">
+                      <span className="block text-[8px] font-bold text-zinc-500 uppercase">
+                        Pasos:
+                      </span>
+                      {currentItem.pasos.map((p: string, idx: number) => (
+                        <div key={idx} className="text-zinc-400">
+                          • {p}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                currentItem.descripcion || "No hay descripción adicional."
+              )}
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
+          {/* Iterations channel */}
+          <div className="flex flex-col gap-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 font-mono">
             <span className="text-[10px] font-bold text-sky-400 uppercase">
               🔄 Carril de Iteraciones ({stationIterations.length})
             </span>
-            <p className="text-zinc-555 text-[8px]">
-              Registra feedback para que la IA refine o ajuste la
-              nomenclatura/diseño.
+            <p className="text-zinc-550 text-[8px]">
+              Registra feedback para que la IA refine o ajuste detalles del
+              código generado.
             </p>
 
             <textarea
@@ -325,11 +408,11 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                     mostrarToast("Escribe tus ajustes primero.", "error");
                     return;
                   }
-                  const p = `ROL: Desarrollador Senior\n\nTICKET: mc-${shortId} (${activeStation})\n\nAJUSTES:\n${cintaIterationFeedback.trim()}\n\nAplica los ajustes indicados manteniendo consistencia con el código actual.\nDevuelve el código completo y el bloque JSON de handoff.`;
+                  const p = `ROL: Desarrollador Senior\n\nTICKET: mc-${shortId} (${isActividadMode ? "Actividad" : activeStation})\n\nAJUSTES:\n${cintaIterationFeedback.trim()}\n\nAplica los ajustes indicados manteniendo consistencia con el código actual.\nDevuelve el código completo y el bloque JSON de handoff.`;
                   navigator.clipboard.writeText(p);
                   mostrarToast("Prompt de refinamiento copiado.", "exito");
                 }}
-                className="animate-pulse rounded bg-sky-500 px-3 py-1.5 text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-sky-400"
+                className="rounded bg-sky-500 px-3 py-1.5 text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-sky-400"
               >
                 Copiar Prompt Refinamiento
               </button>
@@ -342,8 +425,8 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                     key={idx}
                     className="rounded border border-zinc-900 bg-zinc-950 p-2 text-[9px] text-zinc-300"
                   >
-                    <span className="font-mono font-bold text-sky-400">
-                      [{it.fecha} - {it.version}]:
+                    <span className="font-bold text-sky-400">
+                      [{it.fecha} - {it.version || `v${idx + 1}`}]:
                     </span>{" "}
                     {it.feedback}
                   </div>
@@ -352,7 +435,8 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
             )}
           </div>
 
-          <div className="flex flex-col gap-2 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+          {/* Bugs logger channel */}
+          <div className="flex flex-col gap-2 rounded-xl border border-red-500/20 bg-red-500/5 p-4 font-mono">
             <span className="text-[10px] font-bold text-red-400 uppercase">
               🐛 Carril de Errores & Bugs ({stationBugs.length})
             </span>
@@ -367,23 +451,29 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                     {activeBug.logs}
                   </pre>
                   {activeBug.comportamientoEsperado && (
-                    <div className="mt-2 text-zinc-300">
+                    <div className="text-zinc-350 mt-2">
                       <span className="text-zinc-550 font-bold">Esperado:</span>{" "}
                       {activeBug.comportamientoEsperado}
+                    </div>
+                  )}
+                  {activeBug.comportamientoReal && (
+                    <div className="text-zinc-350 mt-1">
+                      <span className="text-zinc-550 font-bold">Obtenido:</span>{" "}
+                      {activeBug.comportamientoReal}
                     </div>
                   )}
                 </div>
                 <div className="flex justify-end gap-2">
                   <button
                     onClick={() => {
-                      const p = `ROL: Senior Debugger\n\nERROR EN ESTACIÓN: ${activeStation}\n\nLOGS:\n${activeBug.logs}\n\nAnaliza y soluciona el crash de arriba en feature/mc-${shortId}. Asegura no romper contratos previos.\nDevuelve el código completo y el bloque JSON de handoff.`;
+                      const p = `ROL: Senior Debugger\n\nERROR EN TICKET: mc-${shortId}\n\nLOGS:\n${activeBug.logs}\n\nAnaliza y soluciona el crash de arriba en feature/mc-${shortId}. Asegura no romper contratos previos.\nDevuelve el código completo y el bloque JSON de handoff.`;
                       navigator.clipboard.writeText(p);
                       mostrarToast(
                         "Prompt de depuración de bug copiado.",
                         "exito"
                       );
                     }}
-                    className="hover:bg-red-450 animate-pulse rounded bg-red-500 px-3.5 py-1.5 text-[9px] font-bold text-zinc-950 uppercase transition-all"
+                    className="rounded bg-red-500 px-3.5 py-1.5 text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-red-400"
                   >
                     Copiar Prompt Bug
                   </button>
@@ -397,9 +487,9 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
               </div>
             ) : (
               <div className="flex flex-col gap-2">
-                <p className="text-zinc-555 text-[8px]">
-                  Si el código generado produce algún crash o error en terminal,
-                  repórtalo aquí.
+                <p className="text-zinc-550 text-[8px]">
+                  Si el código generado produce algún crash o error en
+                  terminal/consola, repórtalo aquí.
                 </p>
                 <textarea
                   value={cintaBugLogs}
@@ -449,7 +539,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                 {stationBugs.map((b: any, idx: number) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between rounded border border-zinc-900 bg-zinc-950 p-1.5 text-[8px] text-zinc-400"
+                    className="animate-in slide-in-from-top-1 flex items-center justify-between rounded border border-zinc-900 bg-zinc-950 p-1.5 text-[8px] text-zinc-400"
                   >
                     <span className="max-w-[280px] truncate">
                       [{b.fecha}] {b.logs}
@@ -469,14 +559,15 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
             )}
           </div>
 
-          <div className="rounded-xl border border-zinc-900 bg-zinc-950/60 p-4">
+          {/* History of handoffs */}
+          <div className="rounded-xl border border-zinc-900 bg-zinc-950/60 p-4 font-mono">
             <span className="text-[10px] font-bold text-zinc-400 uppercase">
               📂 Historial de Handoffs ({allHandoffs.length})
             </span>
 
             {allHandoffs.length === 0 ? (
-              <p className="text-zinc-555 mt-2 text-[8px]">
-                Aún no se han completado estaciones en esta cinta.
+              <p className="text-zinc-550 mt-2 text-[8px]">
+                Aún no se han completado entregas de handoffs para este ticket.
               </p>
             ) : (
               <div className="mt-2.5 flex max-h-[180px] flex-col gap-2 overflow-y-auto pr-1">
@@ -487,21 +578,23 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                   >
                     <div className="flex items-center justify-between text-[8px]">
                       <span className="font-bold text-sky-400 uppercase">
-                        Estación: {stationName}
+                        {isActividadMode
+                          ? "Handoff registrado"
+                          : `Estación: ${stationName}`}
                       </span>
                       <span className="text-zinc-550">
                         [{data.fecha || "Completada"}]
                       </span>
                     </div>
                     {data.archivos_creados_o_modificados && (
-                      <div className="mt-1 text-[8px] text-zinc-500">
+                      <div className="text-zinc-550 mt-1 text-[8px]">
                         📁 <b>Archivos:</b>{" "}
                         {data.archivos_creados_o_modificados.join(", ")}
                       </div>
                     )}
                     {data.resumen_tecnico && (
-                      <div className="mt-0.5 text-[8px] text-zinc-300 italic">
-                        📝 <b>Notas:</b> {data.resumen_tecnico}
+                      <div className="text-zinc-350 mt-0.5 text-[8px] italic">
+                        📝 <b>Resumen:</b> {data.resumen_tecnico}
                       </div>
                     )}
                   </div>
@@ -513,15 +606,15 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
       </div>
 
       {isCicdModalOpen && (
-        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="w-[550px] rounded-xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl">
+        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm duration-200">
+          <div className="w-[550px] rounded-xl border border-zinc-800 bg-zinc-950 p-5 font-mono shadow-2xl">
             <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-3">
-              <span className="font-mono text-xs font-bold text-sky-400 uppercase">
+              <span className="text-xs font-bold text-sky-400 uppercase">
                 🛠️ Configurar GitHub Actions Workflow
               </span>
               <button
                 onClick={() => setIsCicdModalOpen(false)}
-                className="hover:text-zinc-350 font-mono text-[9px] text-zinc-500 uppercase"
+                className="hover:text-zinc-350 text-[9px] text-zinc-500 uppercase"
               >
                 Cerrar
               </button>
@@ -547,7 +640,7 @@ Crea el archivo \`.github/workflows/ci.yml\` con las siguientes especificaciones
 
 Devuelve el YAML completo optimizado y limpio sin explicaciones introductorias.`}
                 rows={8}
-                className="w-full rounded border border-zinc-900 bg-zinc-900/50 p-2.5 font-mono text-[9px] text-zinc-400 outline-none"
+                className="w-full rounded border border-zinc-900 bg-zinc-900/50 p-2.5 text-[9px] text-zinc-400 outline-none"
               />
 
               <button

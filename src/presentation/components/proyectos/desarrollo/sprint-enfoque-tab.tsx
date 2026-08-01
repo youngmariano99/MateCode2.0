@@ -1,9 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Card } from "../../card";
-import { db } from "../../../../offline/dexie/db";
 
 interface SprintEnfoqueTabProps {
   sprints: any[];
@@ -14,31 +13,33 @@ interface SprintEnfoqueTabProps {
   focusedSprint: any | null;
   selectedSprintId: string;
   setSelectedSprintId: (id: string) => void;
-  storiesPage: number;
-  setStoriesPage: (p: number) => void;
-  expandedStoryIds: Record<string, boolean>;
-  setExpandedStoryIds: React.Dispatch<
-    React.SetStateAction<Record<string, boolean>>
-  >;
   iniciarSprint: () => void;
-  setIsImportDesvioOpen: (open: boolean) => void;
-  selectedActividadId: string;
-  setSelectedActividadId: (id: string) => void;
+  finalizarSprint: (targetSprintId?: string) => void;
+  iniciarCintaProduccionActividad: (act: any) => void;
   handleUpdateActividadEstado: (id: string, nuevoEstado: string) => void;
-  iniciarCintaProduccion: (hist: any) => void;
-  cintaPipelineConfig: string[];
-  handleTogglePipelineStation: (st: string) => void;
-  mostrarToast: (msg: string, type: "exito" | "error" | "info") => void;
+  setIsImportDesvioOpen: (open: boolean) => void;
 }
 
-const COMPONENTES_PUNTOS = [
-  { key: "todo", label: "Por Hacer" },
-  { key: "doing", label: "En Desarrollo" },
-  { key: "review", label: "En Revisión" },
-  { key: "testing", label: "Testing" },
-  { key: "blocked", label: "Bloqueado" },
-  { key: "done", label: "Finalizado" },
+const KANBAN_COLUMNS = [
+  { key: "todo", label: "Por Hacer", color: "text-zinc-400 border-zinc-800" },
+  {
+    key: "in_progress",
+    label: "En Progreso",
+    color: "text-amber-400 border-amber-500/20 bg-amber-500/5",
+  },
+  {
+    key: "in_revision",
+    label: "En Revisión",
+    color: "text-sky-400 border-sky-500/20 bg-sky-500/5",
+  },
+  {
+    key: "completado",
+    label: "Completado",
+    color: "text-emerald-400 border-emerald-500/20 bg-emerald-500/5",
+  },
 ];
+
+const COLUMN_FLOW = ["todo", "in_progress", "in_revision", "completado"];
 
 export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
   sprints,
@@ -49,55 +50,139 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
   focusedSprint,
   selectedSprintId,
   setSelectedSprintId,
-  storiesPage,
-  setStoriesPage,
-  expandedStoryIds,
-  setExpandedStoryIds,
   iniciarSprint,
-  setIsImportDesvioOpen,
-  selectedActividadId,
-  setSelectedActividadId,
+  finalizarSprint,
+  iniciarCintaProduccionActividad,
   handleUpdateActividadEstado,
-  iniciarCintaProduccion,
-  cintaPipelineConfig,
-  handleTogglePipelineStation,
-  mostrarToast,
+  setIsImportDesvioOpen,
 }) => {
+  // Context modals
+  const [activeModalContext, setActiveModalContext] = useState<{
+    tipo: "epica" | "historia";
+    nombre: string;
+    descripcion: string;
+  } | null>(null);
+
+  // Rollover dialog
+  const [isRolloverOpen, setIsRolloverOpen] = useState(false);
+  const [rolloverTargetSprintId, setRolloverTargetSprintId] = useState("");
+
+  const getActividadesByCol = (colKey: string) => {
+    return actividadesSprint.filter((t) => {
+      const st = t.estado || "todo";
+      if (colKey === "todo") return st === "todo";
+      if (colKey === "in_progress")
+        return st === "doing" || st === "in_progress";
+      if (colKey === "in_revision")
+        return st === "review" || st === "testing" || st === "in_revision";
+      if (colKey === "completado") return st === "done" || st === "completado";
+      return false;
+    });
+  };
+
+  const handleMoveState = (
+    actId: string,
+    currentState: string,
+    direction: "prev" | "next"
+  ) => {
+    let flowKey = "todo";
+    if (currentState === "doing" || currentState === "in_progress")
+      flowKey = "in_progress";
+    else if (
+      currentState === "review" ||
+      currentState === "testing" ||
+      currentState === "in_revision"
+    )
+      flowKey = "in_revision";
+    else if (currentState === "done" || currentState === "completado")
+      flowKey = "completado";
+
+    const currentIndex = COLUMN_FLOW.indexOf(flowKey);
+    let nextIndex = currentIndex;
+    if (direction === "next" && currentIndex < COLUMN_FLOW.length - 1) {
+      nextIndex++;
+    } else if (direction === "prev" && currentIndex > 0) {
+      nextIndex--;
+    }
+
+    if (nextIndex !== currentIndex) {
+      handleUpdateActividadEstado(actId, COLUMN_FLOW[nextIndex]);
+    }
+  };
+
+  const handleFinalizarSprintClick = () => {
+    const incomplete = actividadesSprint.filter((t) => {
+      const st = t.estado || "todo";
+      return st !== "done" && st !== "completado";
+    });
+
+    if (incomplete.length > 0) {
+      setIsRolloverOpen(true);
+    } else {
+      if (
+        confirm(
+          "¿Estás seguro de finalizar este sprint? Todas las tareas han sido completadas."
+        )
+      ) {
+        finalizarSprint();
+      }
+    }
+  };
+
   return (
     <Card>
+      {/* Top Header Controls */}
       <div className="mb-4 flex flex-col justify-between gap-3 border-b border-zinc-900 pb-3 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
           <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
-            Sprint de Enfoque Activo
+            Desarrollo por Sprints & Kanban
           </h3>
           <p className="mt-0.5 font-mono text-[9px] text-zinc-500">
-            Visualiza y enfoca el desarrollo en un sprint de trabajo
+            Gestiona el sprint de desarrollo, visualiza las tareas por estados e
+            inicia el modo enfoque.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <select
             value={selectedSprintId}
             onChange={(e) => setSelectedSprintId(e.target.value)}
-            className="max-w-[320px] rounded border-zinc-800 bg-zinc-900 px-2.5 py-1.5 font-mono text-[10px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500"
+            className="max-w-[320px] rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 font-mono text-[10px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500"
           >
-            <option value="">Selecciona sprint...</option>
+            <option value="">Selecciona un sprint...</option>
             {sprints.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.nombre} ({s.estado})
+                {s.nombre} (
+                {s.estado === "planificacion"
+                  ? "En Planificación"
+                  : s.estado === "activo"
+                    ? "Activo"
+                    : "Completado"}
+                )
               </option>
             ))}
           </select>
+
           {focusedSprint && focusedSprint.estado === "planificacion" && (
             <button
               onClick={iniciarSprint}
-              className="rounded bg-emerald-500 px-2 py-1 font-mono text-[9px] font-bold text-zinc-950 uppercase"
+              className="rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
             >
-              Iniciar
+              ⚡ Comenzar Sprint
             </button>
           )}
+
+          {focusedSprint && focusedSprint.estado === "activo" && (
+            <button
+              onClick={handleFinalizarSprintClick}
+              className="rounded bg-red-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-100 uppercase transition-all hover:bg-red-600"
+            >
+              🏁 Finalizar Sprint
+            </button>
+          )}
+
           <button
             onClick={() => setIsImportDesvioOpen(true)}
-            className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+            className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
           >
             ➕ Importar Desvío
           </button>
@@ -105,372 +190,371 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
       </div>
 
       {focusedSprint ? (
-        <div className="flex flex-col gap-2">
-          <div className="mb-2 grid grid-cols-3 gap-2 rounded-lg border border-zinc-900 bg-zinc-950/40 p-2.5">
-            <div className="border-r border-zinc-900 text-center">
+        <div className="flex flex-col gap-4">
+          {/* Metadata banner */}
+          <div className="grid grid-cols-1 gap-2 rounded-lg border border-zinc-900 bg-zinc-950/40 p-2.5 sm:grid-cols-3">
+            <div className="border-zinc-900 text-center sm:border-r">
               <span className="block font-mono text-[8px] text-zinc-500 uppercase">
-                Objetivo
+                Objetivo del Sprint
               </span>
               <span className="block truncate font-mono text-[10px] font-bold text-zinc-300">
-                {focusedSprint.objetivo || "Sin objetivo"}
+                {focusedSprint.objetivo || "Sin objetivo definido"}
               </span>
             </div>
-            <div className="border-r border-zinc-900 text-center">
+            <div className="border-zinc-900 text-center sm:border-r">
               <span className="block font-mono text-[8px] text-zinc-500 uppercase">
-                Capacidad
+                Capacidad Planeada
               </span>
               <span className="block font-mono text-[10px] font-bold text-zinc-300">
-                {focusedSprint.capacidad || 0} Ptos
+                {focusedSprint.capacidad || 0} Ptos de Historia
               </span>
             </div>
             <div className="text-center">
               <span className="block font-mono text-[8px] text-zinc-500 uppercase">
-                Semanas
+                Duración
               </span>
               <span className="block font-mono text-[10px] font-bold text-zinc-300">
-                {focusedSprint.duracionSemanas || 2} Sem
+                {focusedSprint.duracionSemanas || 2} Semanas
               </span>
             </div>
           </div>
 
-          {/* Spacious Table list of User Stories */}
-          {(() => {
-            if (historiasSprint.length === 0) {
-              return (
-                <p className="rounded-xl border border-zinc-900 bg-zinc-950/20 py-8 text-center font-mono text-[10px] text-zinc-500">
-                  No hay historias asociadas a este sprint de enfoque.
-                </p>
-              );
-            }
+          {/* Planning state fallback */}
+          {focusedSprint.estado === "planificacion" ? (
+            <div className="rounded-xl border border-zinc-900 bg-zinc-950/20 p-8 text-center font-mono">
+              <p className="text-[10px] text-zinc-400">
+                Este sprint se encuentra actualmente en **Planificación**.
+              </p>
+              <p className="text-zinc-650 mt-1 text-[8px]">
+                Revisa los ítems asignados o haz clic en &quot;Comenzar
+                Sprint&quot; en la barra de control para habilitar el Kanban de
+                ejecución.
+              </p>
 
-            const storiesList = historiasSprint;
-            const totalStories = storiesList.length;
-            const itemsPerPage = 4;
-            const totalPages = Math.ceil(totalStories / itemsPerPage);
-            const activePage = Math.max(1, Math.min(storiesPage, totalPages));
-            const startIndex = (activePage - 1) * itemsPerPage;
-            const paginatedStories = storiesList.slice(
-              startIndex,
-              startIndex + itemsPerPage
-            );
-
-            return (
-              <div className="flex flex-col gap-4">
-                <div className="overflow-x-auto rounded-xl border border-zinc-900 bg-zinc-950/20">
-                  <table className="w-full border-collapse text-left font-mono">
-                    <thead>
-                      <tr className="border-b border-zinc-900 bg-zinc-950/60 text-[9px] font-bold text-zinc-400 uppercase">
-                        <th className="w-[180px] p-3">Épica / Módulo</th>
-                        <th className="p-3">Historia de Usuario</th>
-                        <th className="w-[120px] p-3 text-center">
-                          Estimación / Prioridad
-                        </th>
-                        <th className="w-[100px] p-3 text-center">Estado</th>
-                        <th className="w-[230px] p-3">Mover Sprint</th>
-                        <th className="w-[130px] p-3 text-center">Acciones</th>
+              <div className="mt-6 overflow-x-auto text-left">
+                <span className="mb-2 block text-[8px] font-bold text-zinc-500 uppercase">
+                  Historias y Actividades Programadas
+                </span>
+                <table className="w-full border-collapse text-[9px] text-zinc-400">
+                  <thead>
+                    <tr className="border-b border-zinc-900 text-zinc-500 uppercase">
+                      <th className="p-2 text-left">Historia de Usuario</th>
+                      <th className="p-2 text-left">Estimación</th>
+                      <th className="p-2 text-left">Actividades asignadas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historiasSprint.map((h) => {
+                      const sub = tareas.filter((t) => t.historiaId === h.id);
+                      return (
+                        <tr key={h.id} className="border-b border-zinc-900/40">
+                          <td className="p-2 font-bold text-zinc-300">
+                            {h.titulo}
+                          </td>
+                          <td className="p-2">{h.estimacion}h</td>
+                          <td className="p-2">
+                            {sub.length > 0 ? (
+                              <div className="flex flex-col gap-1 text-[8px]">
+                                {sub.map((t) => (
+                                  <div key={t.id} className="text-zinc-450">
+                                    • {t.titulo}{" "}
+                                    <span className="text-[7px] text-zinc-600">
+                                      ({t.rol})
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-zinc-600 italic">
+                                Sin actividades asignadas
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {historiasSprint.length === 0 && (
+                      <tr>
+                        <td
+                          colSpan={3}
+                          className="py-4 text-center text-zinc-600"
+                        >
+                          No hay historias asignadas a este sprint.
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-900/60 text-[10px]">
-                      {paginatedStories.map((hist) => {
-                        const matchedEpic = epicas.find(
-                          (e) => e.id === hist.epicaId
-                        );
-                        const subTareas = tareas.filter(
-                          (t) => t.historiaId === hist.id
-                        );
-                        const isExpanded = !!expandedStoryIds[hist.id];
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            /* Kanban Board */
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              {KANBAN_COLUMNS.map((col) => {
+                const acts = getActividadesByCol(col.key);
+                return (
+                  <div
+                    key={col.key}
+                    className="flex min-h-[500px] flex-col rounded-xl border border-zinc-900 bg-zinc-950/20 p-3"
+                  >
+                    {/* Column Header */}
+                    <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
+                      <span
+                        className={`font-mono text-[10px] font-bold uppercase ${col.color.split(" ")[0]}`}
+                      >
+                        {col.label}
+                      </span>
+                      <span className="py-0.2 rounded border border-zinc-800 bg-zinc-900 px-1.5 font-mono text-[8px] font-bold text-zinc-400">
+                        {acts.length}
+                      </span>
+                    </div>
 
-                        let priorityColor =
-                          "bg-zinc-900 text-zinc-400 border-zinc-800";
-                        if (
-                          hist.prioridad === "Alta" ||
-                          hist.prioridad === "Crítica"
-                        ) {
-                          priorityColor =
-                            "bg-red-500/10 text-red-400 border-red-500/20";
-                        } else if (hist.prioridad === "Media") {
-                          priorityColor =
-                            "bg-amber-500/10 text-amber-400 border-amber-500/20";
-                        } else {
-                          priorityColor =
-                            "bg-sky-500/10 text-sky-400 border-sky-500/20";
-                        }
+                    {/* Column Items */}
+                    <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
+                      {acts.map((t) => {
+                        const matchedStory = historiasSprint.find(
+                          (h) => h.id === t.historiaId
+                        );
+                        const matchedEpic = matchedStory
+                          ? epicas.find((e) => e.id === matchedStory.epicaId)
+                          : null;
 
-                        let statusColor =
-                          "bg-zinc-900 text-zinc-400 border-zinc-850";
-                        if (hist.estado === "done") {
-                          statusColor =
-                            "bg-emerald-500/10 text-emerald-400 border-emerald-500/25";
-                        } else if (hist.estado === "doing") {
-                          statusColor =
-                            "bg-sky-500/10 text-sky-400 border-sky-500/25";
-                        }
+                        const isCompletado =
+                          t.estado === "done" || t.estado === "completado";
+                        const isRevision =
+                          t.estado === "review" ||
+                          t.estado === "testing" ||
+                          t.estado === "in_revision";
+                        const isEnProgreso =
+                          t.estado === "doing" || t.estado === "in_progress";
 
                         return (
-                          <React.Fragment key={hist.id}>
-                            <tr
-                              className={`transition-all hover:bg-zinc-900/20 ${isExpanded ? "bg-zinc-900/10" : ""}`}
-                            >
-                              <td className="p-3 align-middle">
-                                <span className="inline-block max-w-[170px] truncate rounded border border-sky-500/20 bg-sky-500/5 px-2 py-0.5 text-[8px] font-bold text-sky-400 uppercase">
-                                  {matchedEpic
-                                    ? matchedEpic.nombre
-                                    : "Épica General"}
-                                </span>
-                              </td>
-                              <td className="p-3 align-middle font-bold text-zinc-200">
-                                {hist.titulo}
-                              </td>
-                              <td className="p-3 text-center align-middle">
-                                <div className="flex flex-col items-center gap-1">
-                                  <span className="text-[9px] font-bold text-zinc-400">
-                                    {hist.estimacion}h
-                                  </span>
-                                  <span
-                                    className={`py-0.2 rounded border px-1.5 text-[7px] font-bold uppercase ${priorityColor}`}
-                                  >
-                                    {hist.prioridad}
-                                  </span>
+                          <div
+                            key={t.id}
+                            className={`flex flex-col gap-2 rounded-lg border border-zinc-900 bg-zinc-900/10 p-3 transition-all hover:border-zinc-800 hover:bg-zinc-900/30 ${
+                              isEnProgreso
+                                ? "border-amber-500/20 bg-amber-500/5"
+                                : isRevision
+                                  ? "border-sky-500/20 bg-sky-500/5"
+                                  : isCompletado
+                                    ? "border-emerald-500/20 bg-emerald-500/5 opacity-70"
+                                    : ""
+                            }`}
+                          >
+                            {/* Card Top Title & ID */}
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
+                                ACT-{t.id.slice(-4).toUpperCase()}
+                              </span>
+                              {/* Arrow state changers */}
+                              {focusedSprint.estado === "activo" && (
+                                <div className="flex shrink-0 items-center gap-1">
+                                  {col.key !== "todo" && (
+                                    <button
+                                      onClick={() =>
+                                        handleMoveState(
+                                          t.id,
+                                          t.estado || "todo",
+                                          "prev"
+                                        )
+                                      }
+                                      className="rounded border border-zinc-800 bg-zinc-900 px-1 font-mono text-[8px] text-zinc-400 hover:text-zinc-200"
+                                      title="Mover columna anterior"
+                                    >
+                                      ◀
+                                    </button>
+                                  )}
+                                  {col.key !== "completado" && (
+                                    <button
+                                      onClick={() =>
+                                        handleMoveState(
+                                          t.id,
+                                          t.estado || "todo",
+                                          "next"
+                                        )
+                                      }
+                                      className="rounded border border-zinc-800 bg-zinc-900 px-1 font-mono text-[8px] text-zinc-400 hover:text-zinc-200"
+                                      title="Mover columna siguiente"
+                                    >
+                                      ▶
+                                    </button>
+                                  )}
                                 </div>
-                              </td>
-                              <td className="p-3 text-center align-middle">
-                                <span
-                                  className={`rounded border px-1.5 py-0.5 text-[8px] font-bold uppercase ${statusColor}`}
+                              )}
+                            </div>
+
+                            <span className="font-mono text-[9px] leading-normal font-bold text-zinc-200">
+                              {t.titulo}
+                            </span>
+
+                            {/* Tags layer (Epic & HU) */}
+                            <div className="flex flex-wrap gap-1.5">
+                              {matchedEpic && (
+                                <button
+                                  onClick={() =>
+                                    setActiveModalContext({
+                                      tipo: "epica",
+                                      nombre: matchedEpic.nombre,
+                                      descripcion:
+                                        matchedEpic.descripcion ||
+                                        "Sin descripción",
+                                    })
+                                  }
+                                  className="py-0.2 rounded border border-sky-500/20 bg-sky-500/5 px-1 font-mono text-[7px] text-sky-400 uppercase transition-all hover:bg-sky-500/10"
+                                  title="Ver Épica"
                                 >
-                                  {hist.estado || "todo"}
+                                  📦 {matchedEpic.nombre.slice(0, 15)}...
+                                </button>
+                              )}
+                              {matchedStory && (
+                                <button
+                                  onClick={() =>
+                                    setActiveModalContext({
+                                      tipo: "historia",
+                                      nombre: matchedStory.titulo,
+                                      descripcion:
+                                        matchedStory.descripcion ||
+                                        "Sin descripción de criterios de aceptación.",
+                                    })
+                                  }
+                                  className="py-0.2 rounded border border-purple-500/20 bg-purple-500/5 px-1 font-mono text-[7px] text-purple-400 uppercase transition-all hover:bg-purple-500/10"
+                                  title="Ver Historia de Usuario"
+                                >
+                                  🎯 HU-
+                                  {matchedStory.id.slice(-4).toUpperCase()}
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Technical meta info */}
+                            <div className="mt-0.5 flex flex-col gap-0.5 border-t border-zinc-900/60 pt-1.5 font-mono text-[7px] text-zinc-500">
+                              {t.rol && <span>👤 Rol: {t.rol}</span>}
+                              {t.componente && (
+                                <span>📄 File: {t.componente}</span>
+                              )}
+                              {t.ruta && (
+                                <span className="truncate">
+                                  📂 Path: {t.ruta}
                                 </span>
-                              </td>
-                              <td className="p-3 align-middle">
-                                <select
-                                  value={hist.sprintId || ""}
-                                  onChange={async (e) => {
-                                    const newSprintId = e.target.value;
-                                    try {
-                                      await db.historias.update(hist.id, {
-                                        sprintId: newSprintId,
-                                      });
-                                      mostrarToast(
-                                        "Historia reasignada de sprint correctamente.",
-                                        "exito"
-                                      );
-                                    } catch (err: any) {
-                                      mostrarToast(
-                                        `Error al mover historia: ${err.message}`,
-                                        "error"
-                                      );
-                                    }
-                                  }}
-                                  className="w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-[9px] text-zinc-400 outline-none focus:ring-1 focus:ring-emerald-500/25"
+                              )}
+                            </div>
+
+                            {/* Launch focus mode */}
+                            {focusedSprint.estado === "activo" &&
+                              !isCompletado && (
+                                <button
+                                  onClick={() =>
+                                    iniciarCintaProduccionActividad(t)
+                                  }
+                                  className="mt-1 flex items-center justify-center gap-1 rounded border border-emerald-500/25 bg-emerald-500/10 py-1 font-mono text-[8px] font-bold text-emerald-400 uppercase transition-all hover:bg-emerald-500/20"
                                 >
-                                  <option value="">
-                                    (Sin Sprint / Backlog)
-                                  </option>
-                                  {sprints.map((s) => (
-                                    <option key={s.id} value={s.id}>
-                                      Mover a: {s.nombre}
-                                    </option>
-                                  ))}
-                                </select>
-                              </td>
-                              <td className="p-3 text-center align-middle">
-                                <div className="flex items-center justify-center gap-1.5">
-                                  <button
-                                    onClick={() =>
-                                      setExpandedStoryIds((prev) => ({
-                                        ...prev,
-                                        [hist.id]: !prev[hist.id],
-                                      }))
-                                    }
-                                    className={`rounded border px-2.5 py-1.5 text-[8px] font-bold uppercase transition-all ${
-                                      isExpanded
-                                        ? "border-sky-500/30 bg-sky-500/10 text-sky-400"
-                                        : "border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200"
-                                    }`}
-                                  >
-                                    {isExpanded
-                                      ? "Ocultar"
-                                      : `Ver Tareas (${subTareas.length})`}
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-
-                            {isExpanded && (
-                              <tr>
-                                <td
-                                  colSpan={6}
-                                  className="border-t border-zinc-900/40 bg-zinc-950/60 p-4"
-                                >
-                                  <div className="flex flex-col gap-3 font-mono">
-                                    <div className="flex items-center justify-between border-b border-zinc-900 pb-1.5">
-                                      <span className="text-[8px] font-bold text-zinc-500 uppercase">
-                                        Actividades Técnicas Relacionadas
-                                      </span>
-                                      <button
-                                        onClick={() =>
-                                          iniciarCintaProduccion(hist)
-                                        }
-                                        className="flex items-center gap-1 rounded border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[8px] font-bold text-emerald-400 uppercase shadow-sm transition-all hover:border-emerald-500/45 hover:bg-emerald-500/20"
-                                      >
-                                        ⚙️ Iniciar Cinta de Producción
-                                      </button>
-                                    </div>
-
-                                    {subTareas.length === 0 ? (
-                                      <div className="py-4 text-center text-[9px] text-zinc-500">
-                                        Esta historia no contiene actividades
-                                        técnicas.
-                                      </div>
-                                    ) : (
-                                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                        {subTareas.map((t) => {
-                                          const isTarget =
-                                            selectedActividadId === t.id;
-                                          return (
-                                            <div
-                                              key={t.id}
-                                              className={`flex flex-col gap-2 rounded-lg border p-3 transition-all ${
-                                                isTarget
-                                                  ? "border-emerald-500/30 bg-emerald-500/5 shadow-md shadow-emerald-500/5"
-                                                  : "border-zinc-900 bg-zinc-950/20 hover:border-zinc-800"
-                                              }`}
-                                            >
-                                              <div className="flex items-start justify-between gap-3">
-                                                <div className="min-w-0 flex-1">
-                                                  <span className="block truncate text-[9px] font-bold text-zinc-200">
-                                                    {t.titulo}
-                                                  </span>
-                                                  <div className="text-zinc-550 mt-1 flex flex-wrap gap-2 text-[7px]">
-                                                    {t.modulo && (
-                                                      <span>📦 {t.modulo}</span>
-                                                    )}
-                                                    {t.rol && (
-                                                      <span>👤 {t.rol}</span>
-                                                    )}
-                                                    {t.componente && (
-                                                      <span>
-                                                        📄 {t.componente}
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                </div>
-                                                <span className="shrink-0 rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[7px] font-bold text-zinc-400 uppercase">
-                                                  {(t.etiquetas || []).join(
-                                                    ", "
-                                                  ) || "GENERAL"}
-                                                </span>
-                                              </div>
-
-                                              {t.pasos &&
-                                                t.pasos.length > 0 && (
-                                                  <div className="border-t border-zinc-900/60 pt-1.5">
-                                                    <span className="mb-1 block text-[7px] font-bold text-zinc-500 uppercase">
-                                                      Pasos Técnicos (
-                                                      {t.pasos.length}):
-                                                    </span>
-                                                    <div className="max-h-[60px] overflow-y-auto pr-1 text-[8px] leading-normal text-zinc-400">
-                                                      {t.pasos.map(
-                                                        (
-                                                          p: string,
-                                                          pidx: number
-                                                        ) => (
-                                                          <div
-                                                            key={pidx}
-                                                            className="truncate"
-                                                          >
-                                                            • {p}
-                                                          </div>
-                                                        )
-                                                      )}
-                                                    </div>
-                                                  </div>
-                                                )}
-
-                                              <div className="mt-auto flex items-center justify-between gap-2 border-t border-zinc-900/60 pt-2">
-                                                <select
-                                                  value={t.estado || "todo"}
-                                                  onChange={(e) =>
-                                                    handleUpdateActividadEstado(
-                                                      t.id,
-                                                      e.target.value
-                                                    )
-                                                  }
-                                                  className="rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[8px] text-zinc-300 outline-none focus:ring-1 focus:ring-emerald-500/25"
-                                                >
-                                                  {COMPONENTES_PUNTOS.map(
-                                                    (cp) => (
-                                                      <option
-                                                        key={cp.key}
-                                                        value={cp.key}
-                                                      >
-                                                        {cp.label}
-                                                      </option>
-                                                    )
-                                                  )}
-                                                </select>
-
-                                                <button
-                                                  onClick={() =>
-                                                    setSelectedActividadId(t.id)
-                                                  }
-                                                  className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[8px] font-bold text-emerald-400 uppercase transition-all hover:bg-emerald-500/20"
-                                                >
-                                                  🚀 Implementar
-                                                </button>
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </React.Fragment>
+                                  🎯 Modo Enfoque
+                                </button>
+                              )}
+                          </div>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Pagination Controls */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between border-t border-zinc-900 pt-3">
-                    <span className="font-mono text-[8px] text-zinc-500">
-                      Mostrando historias {startIndex + 1}-
-                      {Math.min(startIndex + itemsPerPage, totalStories)} de{" "}
-                      {totalStories}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        disabled={activePage === 1}
-                        onClick={() => setStoriesPage(activePage - 1)}
-                        className="rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-[8px] font-bold text-zinc-300 hover:text-zinc-100 disabled:opacity-40"
-                      >
-                        ◀ Anterior
-                      </button>
-                      <span className="font-mono text-[9px] font-bold text-zinc-400">
-                        Pág {activePage} de {totalPages}
-                      </span>
-                      <button
-                        disabled={activePage === totalPages}
-                        onClick={() => setStoriesPage(activePage + 1)}
-                        className="rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-[8px] font-bold text-zinc-300 hover:text-zinc-100 disabled:opacity-40"
-                      >
-                        Siguiente ▶
-                      </button>
+                      {acts.length === 0 && (
+                        <div className="rounded-xl border border-dashed border-zinc-900/60 py-8 text-center font-mono text-[8px] text-zinc-600">
+                          Vacio
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
-            );
-          })()}
+                );
+              })}
+            </div>
+          )}
         </div>
       ) : (
         <p className="py-5 text-center font-mono text-[10px] text-zinc-500">
-          Selecciona o crea un sprint para enfocar el desarrollo.
+          Selecciona un sprint en el menú para cargar su planificación.
         </p>
+      )}
+
+      {/* Sutil Context Modal for Epics / HUs */}
+      {activeModalContext && (
+        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm duration-200">
+          <div className="w-[450px] rounded-xl border border-zinc-800 bg-zinc-950/90 p-5 font-mono shadow-2xl">
+            <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
+              <span className="text-[10px] font-bold text-sky-400 uppercase">
+                Contexto:{" "}
+                {activeModalContext.tipo === "epica"
+                  ? "Épica / Módulo"
+                  : "Historia de Usuario"}
+              </span>
+              <button
+                onClick={() => setActiveModalContext(null)}
+                className="hover:text-zinc-350 text-[9px] text-zinc-500 uppercase"
+              >
+                Cerrar
+              </button>
+            </div>
+            <h4 className="mb-2 text-[11px] leading-snug font-bold text-zinc-100">
+              {activeModalContext.nombre}
+            </h4>
+            <div className="max-h-[220px] overflow-y-auto rounded border border-zinc-900/60 bg-zinc-900/20 p-2.5 pr-1 text-[9px] leading-relaxed text-zinc-400">
+              {activeModalContext.descripcion}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rollover Modal */}
+      {isRolloverOpen && (
+        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm duration-200">
+          <div className="w-[480px] rounded-xl border border-zinc-800 bg-zinc-950 p-5 font-mono shadow-2xl">
+            <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
+              <span className="text-[10px] font-bold text-red-400 uppercase">
+                ⚠️ Finalizar Sprint con Tareas Pendientes
+              </span>
+              <button
+                onClick={() => setIsRolloverOpen(false)}
+                className="hover:text-zinc-350 text-[9px] text-zinc-500 uppercase"
+              >
+                Cancelar
+              </button>
+            </div>
+            <p className="mb-3 text-[9px] leading-relaxed text-zinc-400">
+              Detectamos actividades no completadas en este sprint. Para poder
+              cerrar el sprint, debes reprogramar las Historias de Usuario con
+              tareas pendientes a otro sprint:
+            </p>
+            <div className="flex flex-col gap-3">
+              <select
+                value={rolloverTargetSprintId}
+                onChange={(e) => setRolloverTargetSprintId(e.target.value)}
+                className="w-full rounded border border-zinc-900 bg-zinc-900 p-2 text-[9px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500"
+              >
+                <option value="">(Volver al Backlog / Sin Sprint)</option>
+                {sprints
+                  .filter(
+                    (s) =>
+                      s.id !== selectedSprintId && s.estado !== "completado"
+                  )
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      Reprogramar a: {s.nombre} (
+                      {s.estado === "planificacion"
+                        ? "En Planificación"
+                        : "Activo"}
+                      )
+                    </option>
+                  ))}
+              </select>
+
+              <button
+                onClick={() => {
+                  finalizarSprint(rolloverTargetSprintId || undefined);
+                  setIsRolloverOpen(false);
+                }}
+                className="hover:bg-red-650 w-full rounded bg-red-500 py-2 text-center text-[10px] font-bold text-zinc-100 uppercase transition-all"
+              >
+                Confirmar y Finalizar Sprint 🏁
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </Card>
   );

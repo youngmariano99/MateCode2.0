@@ -88,6 +88,9 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
   const [selectedHistoriaCinta, setSelectedHistoriaCinta] = useState<
     any | null
   >(null);
+  const [selectedActividadCinta, setSelectedActividadCinta] = useState<
+    any | null
+  >(null);
   const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
   const [cintaPipelineConfig, setCintaPipelineConfig] = useState<string[]>([
     "BD",
@@ -98,9 +101,18 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
 
   // Reactive query for the active Cinta Task Execution
   const activeCintaExecution = useLiveQuery(async () => {
-    if (!selectedHistoriaCinta) return undefined;
-    return await db.task_executions.get(`cinta_hu_${selectedHistoriaCinta.id}`);
-  }, [selectedHistoriaCinta]) as any;
+    if (selectedActividadCinta) {
+      return await db.task_executions.get(
+        `execution_act_${selectedActividadCinta.id}`
+      );
+    }
+    if (selectedHistoriaCinta) {
+      return await db.task_executions.get(
+        `cinta_hu_${selectedHistoriaCinta.id}`
+      );
+    }
+    return undefined;
+  }, [selectedActividadCinta, selectedHistoriaCinta]) as any;
 
   // Focus Mode local input states
   const [cintaHandoffInput, setCintaHandoffInput] = useState("");
@@ -519,7 +531,10 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
     estacion: string,
     handoffJsonStr: string
   ) => {
-    if (!activeCintaExecution || !selectedHistoriaCinta) return;
+    if (!activeCintaExecution) return;
+    if (!selectedHistoriaCinta && !selectedActividadCinta) return;
+
+    const isActividad = !!selectedActividadCinta;
 
     try {
       let handoffData = {};
@@ -533,9 +548,6 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
       }
 
       const meta = activeCintaExecution.metadata || {};
-      const pipeline = meta.pipeline || [];
-      const activeIdx = meta.activeStationIndex || 0;
-
       const updatedHandoffs = {
         ...(meta.handoffs || {}),
         [estacion]: {
@@ -544,33 +556,62 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
         },
       };
 
-      if (activeIdx >= pipeline.length - 1) {
+      if (isActividad && selectedActividadCinta) {
         await db.task_executions.update(activeCintaExecution.id, {
-          estado: "COMPLETED",
-          fechaFin: Date.now(),
+          estado: "IN_REVISION",
           metadata: {
             ...meta,
             handoffs: updatedHandoffs,
           },
         });
-        await db.historias.update(selectedHistoriaCinta.id, {
-          estado: "done",
+        await db.tareas.update(selectedActividadCinta.id, {
+          estado: "in_revision",
         });
-        setIsFocusMode(false);
-        setSelectedHistoriaCinta(null);
+
+        setSelectedActividadCinta((prev: any) => ({
+          ...prev,
+          estado: "in_revision",
+        }));
+
         mostrarToast(
-          `¡Historia "${selectedHistoriaCinta.titulo}" completada con éxito en la Cinta!`,
+          "Handoff guardado con éxito. Actividad ahora está En Revisión.",
           "exito"
         );
-      } else {
-        await db.task_executions.update(activeCintaExecution.id, {
-          metadata: {
-            ...meta,
-            activeStationIndex: activeIdx + 1,
-            handoffs: updatedHandoffs,
-          },
-        });
-        mostrarToast(`Estación ${estacion} completada. Avanzando...`, "exito");
+      } else if (selectedHistoriaCinta) {
+        const pipeline = meta.pipeline || [];
+        const activeIdx = meta.activeStationIndex || 0;
+
+        if (activeIdx >= pipeline.length - 1) {
+          await db.task_executions.update(activeCintaExecution.id, {
+            estado: "COMPLETED",
+            fechaFin: Date.now(),
+            metadata: {
+              ...meta,
+              handoffs: updatedHandoffs,
+            },
+          });
+          await db.historias.update(selectedHistoriaCinta.id, {
+            estado: "done",
+          });
+          setIsFocusMode(false);
+          setSelectedHistoriaCinta(null);
+          mostrarToast(
+            `¡Historia "${selectedHistoriaCinta.titulo}" completada con éxito en la Cinta!`,
+            "exito"
+          );
+        } else {
+          await db.task_executions.update(activeCintaExecution.id, {
+            metadata: {
+              ...meta,
+              activeStationIndex: activeIdx + 1,
+              handoffs: updatedHandoffs,
+            },
+          });
+          mostrarToast(
+            `Estación ${estacion} completada. Avanzando...`,
+            "exito"
+          );
+        }
       }
     } catch (err: any) {
       mostrarToast(`Error al avanzar: ${err.message}`, "error");
@@ -581,7 +622,11 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
     estacion: string,
     feedback: string
   ) => {
-    if (!activeCintaExecution || !selectedHistoriaCinta || !feedback.trim())
+    if (
+      !activeCintaExecution ||
+      (!selectedHistoriaCinta && !selectedActividadCinta) ||
+      !feedback.trim()
+    )
       return;
 
     try {
@@ -590,9 +635,9 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
       const stationIterations = currentIterations[estacion] || [];
 
       const newIt = {
-        version: `v1.${stationIterations.length + 1}`,
-        feedback: feedback.trim(),
         fecha: new Date().toLocaleTimeString(),
+        version: `v${stationIterations.length + 1}`,
+        feedback: feedback.trim(),
       };
 
       await db.task_executions.update(activeCintaExecution.id, {
@@ -616,7 +661,12 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
     expected: string,
     real: string
   ) => {
-    if (!activeCintaExecution || !selectedHistoriaCinta || !logs.trim()) return;
+    if (
+      !activeCintaExecution ||
+      (!selectedHistoriaCinta && !selectedActividadCinta) ||
+      !logs.trim()
+    )
+      return;
 
     try {
       const meta = activeCintaExecution.metadata || {};
@@ -727,13 +777,273 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
     setExpandedTicketIds((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const salirEnfoqueActividad = async () => {
+    try {
+      await db.proyecto_estado_tecnico.update(proyectoId, {
+        activeActivityFocusId: null,
+      });
+      setSelectedActividadCinta(null);
+      setIsFocusMode(false);
+    } catch (err: any) {
+      console.error("Error al salir de enfoque:", err);
+    }
+  };
+
+  const completarCerrarActividad = async (actividadId: string) => {
+    try {
+      await db.transaction(
+        "rw",
+        [db.tareas, db.task_executions, db.proyecto_estado_tecnico],
+        async () => {
+          await db.tareas.update(actividadId, { estado: "completado" });
+          await db.task_executions.update(`execution_act_${actividadId}`, {
+            estado: "COMPLETED",
+            fechaFin: Date.now(),
+          });
+          await db.proyecto_estado_tecnico.update(proyectoId, {
+            activeActivityFocusId: null,
+          });
+        }
+      );
+      setSelectedActividadCinta(null);
+      setIsFocusMode(false);
+      mostrarToast("Actividad completada y ticket cerrado.", "exito");
+    } catch (err: any) {
+      mostrarToast(
+        `Error al completar y cerrar actividad: ${err.message}`,
+        "error"
+      );
+    }
+  };
+
+  const iniciarCintaProduccionActividad = async (actividad: any) => {
+    try {
+      await db.tareas.update(actividad.id, { estado: "in_progress" });
+      const execId = `execution_act_${actividad.id}`;
+      const existing = await db.task_executions.get(execId);
+      if (!existing) {
+        await db.task_executions.put({
+          id: execId,
+          proyectoId,
+          actividadId: actividad.id,
+          estado: "IN_PROGRESS",
+          fechaInicio: Date.now(),
+          metadata: {
+            handoffs: {},
+            iterations: [],
+            bugs: [],
+          },
+        });
+      }
+      await db.proyecto_estado_tecnico.put({
+        proyectoId,
+        activeActivityFocusId: actividad.id,
+      });
+      setSelectedActividadCinta(actividad);
+      setIsFocusMode(true);
+      mostrarToast(
+        `Iniciando enfoque en actividad: ${actividad.titulo}`,
+        "info"
+      );
+    } catch (err: any) {
+      mostrarToast(`Error al iniciar enfoque: ${err.message}`, "error");
+    }
+  };
+
+  const generarPromptActividadTicket = (actividad: any) => {
+    if (!proyecto) return "";
+    const parentStory = historias.find((h) => h.id === actividad.historiaId);
+    const storyTitle = parentStory ? parentStory.titulo : "General";
+    const priority = parentStory ? parentStory.prioridad : "Media";
+
+    const shortId = `act-${actividad.id.split("_").pop() || "act"}`;
+    const cleanTitle = actividad.titulo
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-");
+    const branchName = `feature/mc-${shortId}-${cleanTitle}`;
+
+    const stationIterations =
+      activeCintaExecution?.metadata?.iterations?.default || [];
+    let iterationsStr = "";
+    if (stationIterations.length > 0) {
+      iterationsStr =
+        "\n" +
+        stationIterations
+          .map((it: any, idx: number) => {
+            return `[Iteración ${idx + 1} - ${it.fecha}]: ${it.feedback}`;
+          })
+          .join("\n") +
+        "\n";
+    }
+
+    const stationBugs = activeCintaExecution?.metadata?.bugs?.default || [];
+    let bugsStr = "";
+    const activeBug = stationBugs.find((b: any) => !b.resuelto);
+    if (activeBug) {
+      bugsStr = `\n<reporte_error_bug_activo>
+  - Logs/Error de consola: ${activeBug.logs}
+  - Comportamiento esperado: ${activeBug.comportamientoEsperado}
+  - Comportamiento real: ${activeBug.comportamientoReal}
+  - Rama de depuración: bugfix/mc-bug-${shortId}
+</reporte_error_bug_activo>\n`;
+    }
+
+    const stepsList = Array.isArray(actividad.pasos)
+      ? actividad.pasos.map((p: string) => `  * [ ] ${p}`).join("\n")
+      : "  * [ ] Implementar la funcionalidad técnica de la actividad.";
+
+    const criteriaList = Array.isArray(actividad.criteriosAceptacion)
+      ? actividad.criteriosAceptacion.map((c: string) => `  * ${c}`).join("\n")
+      : "  * Confirmar funcionamiento y robustez de la lógica implementada.";
+
+    let prompt = `<role>
+Actúa como un ${actividad.rol || "Desarrollador Fullstack"} de nivel Senior.
+Tu objetivo es resolver el ticket de la actividad de manera ejecutiva, escribiendo código limpio, modular y listo para producción sin agregar introducciones, saludos ni disculpas.
+</role>
+
+<ticket_context>
+  - Proyecto: ${proyecto.nombre || "NODEXA CORE"}
+  - Historia: ${storyTitle}
+  - Prioridad: ${priority}
+  - Actividad Actual: ${actividad.titulo}
+  - Componente/Archivo: ${actividad.componente || "No especificado"}
+  - Ruta de Destino: ${actividad.ruta || "No especificada"}
+  - Módulo: ${actividad.modulo || "No especificado"}
+  - Criterios de Aceptación: Ver detalle abajo en actividades_tecnicas.
+  - Instrucción local: "Consulta los archivos de especificación local en tu repositorio si tienes dudas (CLAUDE.md, SCHEMA.md, DESIGN.md, SITEMAP.md, ROLES.md, ERRORS.md, SEED.md)."
+</ticket_context>
+
+<handoff_estacion_anterior>
+No hay handoff previo (estación inicial).
+</handoff_estacion_anterior>
+
+<errores_de_negocio>
+Implementa y maneja el control de excepciones de negocio siguiendo estrictamente las definiciones y códigos estandarizados en el archivo local "ERRORS.md".
+- Antes de emitir o manejar un error de BD/Permisos/Sistema (ej: códigos NX-PER-*, NX-SYS-*), LEER el archivo "ERRORS.md" en el repositorio para aplicar el código y mensaje exacto.
+- Prohibido inventar códigos de error que no estén en dicho catálogo.
+- Todo error visual en cliente debe respetar las directrices de diseño (sin alerts nativos del navegador, usando librerías UI del proyecto).
+</errores_de_negocio>
+
+<actividades_tecnicas>
+Para cumplir con esta actividad, debes implementar o verificar los siguientes pasos de checklist y criterios específicos:
+
+### Checklist de Pasos a Seguir:
+${stepsList}
+
+### Criterios de Aceptación Específicos:
+${criteriaList}
+</actividades_tecnicas>
+`;
+
+    if (actividad.seed && actividad.seed.modelo) {
+      prompt += `\n<requerimiento_datos_semilla>
+Para la siembra y pruebas volumétricas del sistema, genera scripts de datos semilla (Seed Data) correspondientes:
+  - Modelo: "${actividad.seed.modelo}" (Volumen deseado: ${actividad.seed.volumen} registros)
+  - Directrices: ${actividad.seed.indicaciones || "Generar datos de muestra realistas para simular estrés y probar filtros/paginaciones."}
+Nota: La cantidad de registros a simular debe seguir los volúmenes indicados para probar adecuadamente paginaciones y límites del frontend.
+</requerimiento_datos_semilla>\n`;
+    }
+
+    if (iterationsStr) {
+      prompt += `\n<refinamientos_solicitados>${iterationsStr}</refinamientos_solicitados>\n`;
+    }
+
+    if (bugsStr) {
+      prompt += `\n<instrucciones_correccion_error>
+${bugsStr}
+  Analiza la causa raíz del error reportado arriba y proporciona la corrección pertinente asegurando no romper contratos ni firmas previas.
+</instrucciones_correccion_error>\n`;
+    }
+
+    prompt += `
+<instrucciones_git>
+  Trabaja y realiza los cambios sobre la rama "${branchName}".
+</instrucciones_git>
+
+<salida_requerida>
+Devuelve el código limpio completo que deba ser creado o modificado.
+Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estructura exacta para realizar el handoff e indicar si realizaste algún cambio en los documentos de especificaciones locales (SCHEMA.md, SITEMAP.md, ROLES.md, SEED.md, ERRORS.md o DESIGN.md). Si no hubo cambios en un documento, omite su propiedad en "update_docs":
+
+\`\`\`json
+{
+  "handoff": {
+    "archivos_creados_o_modificados": ["lista de archivos modificados"],
+    "firmas_o_contratos_exportados": ["lista de firmas, endpoints o esquemas"],
+    "resumen_tecnico": "breve descripción de las decisiones tomadas en esta estación"
+  },
+  "update_docs": {
+    "schema": "contenido completo de SCHEMA.md si cambió, sino omitir",
+    "sitemap": "contenido completo de SITEMAP.md si cambió, sino omitir",
+    "roles": "contenido completo de ROLES.md si cambió, sino omitir",
+    "errors": "contenido completo de ERRORS.md si cambió, sino omitir",
+    "seed": "contenido completo de SEED.md si cambió, sino omitir",
+    "design": "contenido completo de DESIGN.md si cambió, sino omitir"
+  }
+}
+\`\`\`
+</salida_requerida>`;
+    return prompt;
+  };
+
+  useEffect(() => {
+    const restoreFocusState = async () => {
+      try {
+        const state = await db.proyecto_estado_tecnico.get(proyectoId);
+        if (state && state.activeActivityFocusId) {
+          const act = await db.tareas.get(state.activeActivityFocusId);
+          if (act && act.estado !== "completado" && act.estado !== "done") {
+            setSelectedActividadCinta(act);
+            setIsFocusMode(true);
+          } else {
+            await db.proyecto_estado_tecnico.update(proyectoId, {
+              activeActivityFocusId: null,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error restoring focus state:", err);
+      }
+    };
+    restoreFocusState();
+  }, [proyectoId]);
+
   const iniciarSprint = async () => {
     if (!selectedSprintId) return;
     try {
-      await db.sprints.update(selectedSprintId, { estado: "activo" });
+      await db.transaction("rw", [db.sprints], async () => {
+        await db.sprints
+          .where("proyectoId")
+          .equals(proyectoId)
+          .modify({ estado: "planificado" });
+        await db.sprints.update(selectedSprintId, { estado: "activo" });
+      });
       mostrarToast("Sprint iniciado con éxito.", "exito");
     } catch (err: any) {
       mostrarToast(`Error al iniciar sprint: ${err.message}`, "error");
+    }
+  };
+
+  const finalizarSprint = async (targetSprintId?: string) => {
+    if (!selectedSprintId) return;
+    try {
+      await db.transaction("rw", [db.sprints, db.historias], async () => {
+        if (targetSprintId) {
+          const storiesToMove = historias.filter((h) => {
+            if (h.sprintId !== selectedSprintId) return false;
+            const subTareas = tareas.filter((t) => t.historiaId === h.id);
+            return subTareas.some(
+              (t) => t.estado !== "completado" && t.estado !== "done"
+            );
+          });
+          for (const story of storiesToMove) {
+            await db.historias.update(story.id, { sprintId: targetSprintId });
+          }
+        }
+        await db.sprints.update(selectedSprintId, { estado: "completado" });
+      });
+      mostrarToast("Sprint finalizado con éxito.", "exito");
+    } catch (err: any) {
+      mostrarToast(`Error al finalizar sprint: ${err.message}`, "error");
     }
   };
 
@@ -1067,8 +1377,9 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
     (a, b) => (a.fechaInicio || 0) - (b.fechaInicio || 0)
   );
 
-  const promptMagro =
-    selectedHistoriaCinta && activeCintaExecution
+  const promptMagro = selectedActividadCinta
+    ? generarPromptActividadTicket(selectedActividadCinta)
+    : selectedHistoriaCinta && activeCintaExecution
       ? generarPromptEstacion(
           selectedHistoriaCinta,
           (activeCintaExecution.metadata?.pipeline || [])[
@@ -1083,11 +1394,16 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
       {/* Focus Mode Fullscreen Conveyor Belt Viewport */}
       <ConveyorBeltFocusView
         isOpen={isFocusMode}
-        onClose={() => {
-          setIsFocusMode(false);
-          setSelectedHistoriaCinta(null);
-        }}
+        onClose={
+          selectedActividadCinta
+            ? salirEnfoqueActividad
+            : () => {
+                setIsFocusMode(false);
+                setSelectedHistoriaCinta(null);
+              }
+        }
         selectedHistoriaCinta={selectedHistoriaCinta}
+        selectedActividadCinta={selectedActividadCinta}
         activeCintaExecution={activeCintaExecution}
         focusedSprint={focusedSprint}
         cintaHandoffInput={cintaHandoffInput}
@@ -1106,6 +1422,7 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
         registrarIteracionEstacion={registrarIteracionEstacion}
         registrarBugEstacion={registrarBugEstacion}
         resolverBugEstacion={resolverBugEstacion}
+        completarCerrarActividad={completarCerrarActividad}
         promptMagro={promptMagro}
         mostrarToast={mostrarToast}
         isCicdModalOpen={isCicdModalOpen}
@@ -1204,19 +1521,11 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
               focusedSprint={focusedSprint}
               selectedSprintId={selectedSprintId}
               setSelectedSprintId={setSelectedSprintId}
-              storiesPage={storiesPage}
-              setStoriesPage={setStoriesPage}
-              expandedStoryIds={expandedStoryIds}
-              setExpandedStoryIds={setExpandedStoryIds}
               iniciarSprint={iniciarSprint}
-              setIsImportDesvioOpen={setIsImportDesvioOpen}
-              selectedActividadId={selectedActividadId}
-              setSelectedActividadId={setSelectedActividadId}
+              finalizarSprint={finalizarSprint}
+              iniciarCintaProduccionActividad={iniciarCintaProduccionActividad}
               handleUpdateActividadEstado={handleUpdateActividadEstado}
-              iniciarCintaProduccion={iniciarCintaProduccion}
-              cintaPipelineConfig={cintaPipelineConfig}
-              handleTogglePipelineStation={handleTogglePipelineStation}
-              mostrarToast={mostrarToast}
+              setIsImportDesvioOpen={setIsImportDesvioOpen}
             />
           )}
 
