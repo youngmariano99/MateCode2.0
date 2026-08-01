@@ -826,6 +826,7 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
           id: execId,
           proyectoId,
           actividadId: actividad.id,
+          titulo: actividad.titulo,
           estado: "IN_PROGRESS",
           fechaInicio: Date.now(),
           metadata: {
@@ -1497,20 +1498,32 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
       ) : (
         <div className="flex w-full flex-col gap-6">
           {activeTabMode === "secciones" ? (
-            <SeccionesDesarrolloTab
-              seccionesDisponibles={seccionesDisponibles}
-              seccionNombre={seccionNombre}
-              handleSeleccionarSeccion={handleSeleccionarSeccion}
-              seccionNombreCustom={seccionNombreCustom}
-              setSeccionNombreCustom={setSeccionNombreCustom}
-              seccionDescripcion={seccionDescripcion}
-              setSeccionDescripcion={setSeccionDescripcion}
-              ticketMiembro={ticketMiembro}
-              setTicketMiembro={setTicketMiembro}
-              selectedRole={selectedRole}
-              setSelectedRole={setSelectedRole}
-              iniciarSeccionLandingTicket={iniciarSeccionLandingTicket}
-            />
+            <>
+              <SeccionesDesarrolloTab
+                seccionesDisponibles={seccionesDisponibles}
+                seccionNombre={seccionNombre}
+                handleSeleccionarSeccion={handleSeleccionarSeccion}
+                seccionNombreCustom={seccionNombreCustom}
+                setSeccionNombreCustom={setSeccionNombreCustom}
+                seccionDescripcion={seccionDescripcion}
+                setSeccionDescripcion={setSeccionDescripcion}
+                ticketMiembro={ticketMiembro}
+                setTicketMiembro={setTicketMiembro}
+                selectedRole={selectedRole}
+                setSelectedRole={setSelectedRole}
+                iniciarSeccionLandingTicket={iniciarSeccionLandingTicket}
+              />
+              <ConsolaTicketsTab
+                ticketsOrdenados={ticketsOrdenados}
+                proyecto={proyecto}
+                contexto={contexto}
+                ds={ds}
+                expandedTicketIds={expandedTicketIds}
+                toggleExpandTicket={toggleExpandTicket}
+                handleEliminarTicket={handleEliminarTicket}
+                mostrarToast={mostrarToast}
+              />
+            </>
           ) : (
             <SprintEnfoqueTab
               sprints={sprints}
@@ -1528,17 +1541,6 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
               setIsImportDesvioOpen={setIsImportDesvioOpen}
             />
           )}
-
-          <ConsolaTicketsTab
-            ticketsOrdenados={ticketsOrdenados}
-            proyecto={proyecto}
-            contexto={contexto}
-            ds={ds}
-            expandedTicketIds={expandedTicketIds}
-            toggleExpandTicket={toggleExpandTicket}
-            handleEliminarTicket={handleEliminarTicket}
-            mostrarToast={mostrarToast}
-          />
         </div>
       )}
 

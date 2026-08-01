@@ -288,8 +288,8 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
             className={`rounded px-2 py-0.5 font-mono text-[8px] font-bold ${
               ticket.estado === "COMPLETED"
                 ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
-                : ticket.titulo.startsWith("BUG") ||
-                    ticket.titulo.startsWith("HOTFIX")
+                : (ticket.titulo || "").startsWith("BUG") ||
+                    (ticket.titulo || "").startsWith("HOTFIX")
                   ? "border border-red-500/20 bg-red-500/10 text-red-400"
                   : "border border-amber-500/20 bg-amber-500/10 text-amber-400"
             }`}
