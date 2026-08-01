@@ -152,7 +152,7 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
             {sprints.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.nombre} (
-                {s.estado === "planificacion"
+                {s.estado === "planificado"
                   ? "En Planificación"
                   : s.estado === "activo"
                     ? "Activo"
@@ -162,7 +162,7 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
             ))}
           </select>
 
-          {focusedSprint && focusedSprint.estado === "planificacion" && (
+          {focusedSprint && focusedSprint.estado === "planificado" && (
             <button
               onClick={iniciarSprint}
               className="rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
@@ -220,7 +220,7 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
           </div>
 
           {/* Planning state fallback */}
-          {focusedSprint.estado === "planificacion" ? (
+          {focusedSprint.estado === "planificado" ? (
             <div className="rounded-xl border border-zinc-900 bg-zinc-950/20 p-8 text-center font-mono">
               <p className="text-[10px] text-zinc-400">
                 Este sprint se encuentra actualmente en **Planificación**.
@@ -535,7 +535,7 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
                   .map((s) => (
                     <option key={s.id} value={s.id}>
                       Reprogramar a: {s.nombre} (
-                      {s.estado === "planificacion"
+                      {s.estado === "planificado"
                         ? "En Planificación"
                         : "Activo"}
                       )
