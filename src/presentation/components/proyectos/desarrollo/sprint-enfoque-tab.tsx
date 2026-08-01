@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card } from "../../card";
 
 interface SprintEnfoqueTabProps {
@@ -15,6 +15,7 @@ interface SprintEnfoqueTabProps {
   setSelectedSprintId: (id: string) => void;
   iniciarSprint: () => void;
   finalizarSprint: (targetSprintId?: string) => void;
+  cancelarSprint: (reiniciarTareas: boolean) => void;
   iniciarCintaProduccionActividad: (act: any) => void;
   handleUpdateActividadEstado: (id: string, nuevoEstado: string) => void;
   setIsImportDesvioOpen: (open: boolean) => void;
@@ -52,10 +53,14 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
   setSelectedSprintId,
   iniciarSprint,
   finalizarSprint,
+  cancelarSprint,
   iniciarCintaProduccionActividad,
   handleUpdateActividadEstado,
   setIsImportDesvioOpen,
 }) => {
+  // viewMode can be "dashboard" (list of all sprints) or "kanban" (focus view of a sprint)
+  const [viewMode, setViewMode] = useState<"dashboard" | "kanban">("dashboard");
+
   // Context modals
   const [activeModalContext, setActiveModalContext] = useState<{
     tipo: "epica" | "historia";
@@ -66,6 +71,22 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
   // Rollover dialog
   const [isRolloverOpen, setIsRolloverOpen] = useState(false);
   const [rolloverTargetSprintId, setRolloverTargetSprintId] = useState("");
+
+  // Cancel sprint dialog
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [resetTasksOnCancel, setResetTasksOnCancel] = useState(true);
+
+  // Auto-switch to Kanban mode if there is an active sprint
+  useEffect(() => {
+    const activeSprint = sprints.find((s) => s.estado === "activo");
+    if (activeSprint && viewMode !== "kanban") {
+      const timer = setTimeout(() => {
+        setSelectedSprintId(activeSprint.id);
+        setViewMode("kanban");
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [sprints, viewMode, setSelectedSprintId]);
 
   const getActividadesByCol = (colKey: string) => {
     return actividadesSprint.filter((t) => {
@@ -125,60 +146,90 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
         )
       ) {
         finalizarSprint();
+        setViewMode("dashboard");
       }
     }
   };
 
+  const handleIniciarSprintFromDashboard = (sprintId: string) => {
+    setSelectedSprintId(sprintId);
+    // Execute iniciarSprint next tick
+    setTimeout(() => {
+      iniciarSprint();
+      setViewMode("kanban");
+    }, 50);
+  };
+
+  const handleVerSprintDetails = (sprintId: string) => {
+    setSelectedSprintId(sprintId);
+    setViewMode("kanban");
+  };
+
   return (
     <Card>
-      {/* Top Header Controls */}
+      {/* View Switcher Top Bar */}
       <div className="mb-4 flex flex-col justify-between gap-3 border-b border-zinc-900 pb-3 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
-          <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
-            Desarrollo por Sprints & Kanban
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
+              {viewMode === "dashboard"
+                ? "Planificador y Control de Sprints"
+                : `Tablero de Trabajo: ${focusedSprint?.nombre || ""}`}
+            </h3>
+            {focusedSprint &&
+              focusedSprint.estado === "activo" &&
+              viewMode === "kanban" && (
+                <span className="animate-pulse rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-[7px] text-emerald-400 uppercase">
+                  Sprint en Curso
+                </span>
+              )}
+          </div>
           <p className="mt-0.5 font-mono text-[9px] text-zinc-500">
-            Gestiona el sprint de desarrollo, visualiza las tareas por estados e
-            inicia el modo enfoque.
+            {viewMode === "dashboard"
+              ? "Dashboard general con el estado, capacidad y métricas de todos los sprints."
+              : "Vista de ejecución por estados de actividad y modo enfoque."}
           </p>
         </div>
+
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <select
-            value={selectedSprintId}
-            onChange={(e) => setSelectedSprintId(e.target.value)}
-            className="max-w-[320px] rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 font-mono text-[10px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500"
-          >
-            <option value="">Selecciona un sprint...</option>
-            {sprints.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.nombre} (
-                {s.estado === "planificado"
-                  ? "En Planificación"
-                  : s.estado === "activo"
-                    ? "Activo"
-                    : "Completado"}
-                )
-              </option>
-            ))}
-          </select>
-
-          {focusedSprint && focusedSprint.estado === "planificado" && (
+          {viewMode === "kanban" && (
             <button
-              onClick={iniciarSprint}
-              className="rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
+              onClick={() => setViewMode("dashboard")}
+              className="text-zinc-350 hover:bg-zinc-850 rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 font-mono text-[9px] font-bold uppercase transition-all hover:text-zinc-100"
             >
-              ⚡ Comenzar Sprint
+              📂 Ver Sprints
             </button>
           )}
 
-          {focusedSprint && focusedSprint.estado === "activo" && (
-            <button
-              onClick={handleFinalizarSprintClick}
-              className="rounded bg-red-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-100 uppercase transition-all hover:bg-red-600"
-            >
-              🏁 Finalizar Sprint
-            </button>
-          )}
+          {viewMode === "kanban" &&
+            focusedSprint &&
+            focusedSprint.estado === "planificado" && (
+              <button
+                onClick={iniciarSprint}
+                className="rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
+              >
+                ⚡ Comenzar Sprint
+              </button>
+            )}
+
+          {viewMode === "kanban" &&
+            focusedSprint &&
+            focusedSprint.estado === "activo" && (
+              <>
+                <button
+                  onClick={() => setIsCancelModalOpen(true)}
+                  className="rounded border border-red-500/20 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase transition-all hover:bg-red-500/20"
+                >
+                  ❌ Cancelar Sprint
+                </button>
+                <button
+                  onClick={handleFinalizarSprintClick}
+                  className="rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
+                >
+                  🏁 Finalizar Sprint
+                </button>
+              </>
+            )}
 
           <button
             onClick={() => setIsImportDesvioOpen(true)}
@@ -189,8 +240,143 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
         </div>
       </div>
 
-      {focusedSprint ? (
+      {/* DASHBOARD MODE: Sprint Grid List */}
+      {viewMode === "dashboard" ? (
         <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {sprints.map((s) => {
+              const stories = tareas.filter((t) =>
+                historiasSprint.some(
+                  (h) => h.sprintId === s.id && h.id === t.historiaId
+                )
+              );
+              const completedCount = stories.filter(
+                (t) => t.estado === "completado" || t.estado === "done"
+              ).length;
+              const progressPct =
+                stories.length > 0
+                  ? Math.round((completedCount / stories.length) * 100)
+                  : 0;
+
+              return (
+                <div
+                  key={s.id}
+                  className={`flex flex-col rounded-xl border p-4 font-mono transition-all hover:bg-zinc-900/10 ${
+                    s.estado === "activo"
+                      ? "border-emerald-500/30 bg-emerald-500/5"
+                      : s.estado === "completado"
+                        ? "border-zinc-900 bg-zinc-950/20 opacity-70"
+                        : "border-zinc-900 bg-zinc-950/40"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="truncate text-[11px] font-bold text-zinc-200">
+                      {s.nombre}
+                    </span>
+                    <span
+                      className={`py-0.2 rounded border px-1.5 text-[7px] font-bold uppercase ${
+                        s.estado === "activo"
+                          ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                          : s.estado === "completado"
+                            ? "border-zinc-800 bg-zinc-900 text-zinc-500"
+                            : "border-zinc-800 bg-zinc-900 text-zinc-400"
+                      }`}
+                    >
+                      {s.estado === "activo"
+                        ? "Activo"
+                        : s.estado === "completado"
+                          ? "Completado"
+                          : "Planificado"}
+                    </span>
+                  </div>
+
+                  <p className="mt-2 line-clamp-2 min-h-[24px] text-[8px] leading-normal text-zinc-400">
+                    {s.objetivo || "Sin objetivo definido."}
+                  </p>
+
+                  {/* Micro stats grid */}
+                  <div className="my-3 grid grid-cols-3 gap-2 border-t border-b border-zinc-900/60 py-2 text-[8px] text-zinc-500">
+                    <div>
+                      <span className="block text-[7px] text-zinc-600 uppercase">
+                        Capacidad
+                      </span>
+                      <span className="text-zinc-350 font-bold">
+                        {s.capacidad || 0} Ptos
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[7px] text-zinc-600 uppercase">
+                        Duración
+                      </span>
+                      <span className="text-zinc-350 font-bold">
+                        {s.duracionSemanas || 2} Semanas
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[7px] text-zinc-600 uppercase">
+                        Tareas
+                      </span>
+                      <span className="text-zinc-350 font-bold">
+                        {completedCount}/{stories.length}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  {stories.length > 0 && (
+                    <div className="mb-4">
+                      <div className="mb-1 flex items-center justify-between text-[7px] text-zinc-500">
+                        <span>Progreso</span>
+                        <span>{progressPct}%</span>
+                      </div>
+                      <div className="h-1 w-full overflow-hidden rounded-full bg-zinc-900">
+                        <div
+                          className={`h-full ${s.estado === "activo" ? "animate-pulse bg-emerald-500" : "bg-sky-500"}`}
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions footer */}
+                  <div className="mt-auto flex gap-2 pt-2">
+                    {s.estado === "planificado" && (
+                      <button
+                        onClick={() => handleIniciarSprintFromDashboard(s.id)}
+                        className="flex-1 rounded bg-emerald-500 py-1.5 text-center text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
+                      >
+                        ⚡ Comenzar
+                      </button>
+                    )}
+                    {s.estado === "activo" && (
+                      <button
+                        onClick={() => handleVerSprintDetails(s.id)}
+                        className="flex-1 rounded border border-emerald-500/30 bg-emerald-500/20 py-1.5 text-center text-[9px] font-bold text-emerald-400 uppercase transition-all hover:bg-emerald-500/30"
+                      >
+                        🎯 Tablero
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleVerSprintDetails(s.id)}
+                      className="flex-1 rounded border border-zinc-800 bg-zinc-900 py-1.5 text-center text-[9px] font-bold text-zinc-400 uppercase transition-all hover:text-zinc-200"
+                    >
+                      📋 Detalles
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {sprints.length === 0 && (
+              <div className="col-span-full rounded-xl border border-dashed border-zinc-900 bg-zinc-900/10 py-10 text-center font-mono text-[10px] text-zinc-500">
+                No hay sprints creados en la planificación de este proyecto.
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* KANBAN / SCOPE VIEW MODE */
+        <div className="animate-in fade-in flex flex-col gap-4 duration-200">
           {/* Metadata banner */}
           <div className="grid grid-cols-1 gap-2 rounded-lg border border-zinc-900 bg-zinc-950/40 p-2.5 sm:grid-cols-3">
             <div className="border-zinc-900 text-center sm:border-r">
@@ -198,7 +384,7 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
                 Objetivo del Sprint
               </span>
               <span className="block truncate font-mono text-[10px] font-bold text-zinc-300">
-                {focusedSprint.objetivo || "Sin objetivo definido"}
+                {focusedSprint?.objetivo || "Sin objetivo definido"}
               </span>
             </div>
             <div className="border-zinc-900 text-center sm:border-r">
@@ -206,7 +392,7 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
                 Capacidad Planeada
               </span>
               <span className="block font-mono text-[10px] font-bold text-zinc-300">
-                {focusedSprint.capacidad || 0} Ptos de Historia
+                {focusedSprint?.capacidad || 0} Ptos de Historia
               </span>
             </div>
             <div className="text-center">
@@ -214,13 +400,13 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
                 Duración
               </span>
               <span className="block font-mono text-[10px] font-bold text-zinc-300">
-                {focusedSprint.duracionSemanas || 2} Semanas
+                {focusedSprint?.duracionSemanas || 2} Semanas
               </span>
             </div>
           </div>
 
-          {/* Planning state fallback */}
-          {focusedSprint.estado === "planificado" ? (
+          {/* Planning view if the selected sprint is NOT started yet */}
+          {focusedSprint?.estado === "planificado" ? (
             <div className="rounded-xl border border-zinc-900 bg-zinc-950/20 p-8 text-center font-mono">
               <p className="text-[10px] text-zinc-400">
                 Este sprint se encuentra actualmente en **Planificación**.
@@ -235,7 +421,7 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
                 <span className="mb-2 block text-[8px] font-bold text-zinc-500 uppercase">
                   Historias y Actividades Programadas
                 </span>
-                <table className="w-full border-collapse text-[9px] text-zinc-400">
+                <table className="w-full border-collapse font-mono text-[9px] text-zinc-400">
                   <thead>
                     <tr className="border-b border-zinc-900 text-zinc-500 uppercase">
                       <th className="p-2 text-left">Historia de Usuario</th>
@@ -288,7 +474,7 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
               </div>
             </div>
           ) : (
-            /* Kanban Board */
+            /* KANBAN BOARD VIEW */
             <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
               {KANBAN_COLUMNS.map((col) => {
                 const acts = getActividadesByCol(col.key);
@@ -347,7 +533,7 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
                                 ACT-{t.id.slice(-4).toUpperCase()}
                               </span>
                               {/* Arrow state changers */}
-                              {focusedSprint.estado === "activo" && (
+                              {focusedSprint?.estado === "activo" && (
                                 <div className="flex shrink-0 items-center gap-1">
                                   {col.key !== "todo" && (
                                     <button
@@ -440,7 +626,7 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
                             </div>
 
                             {/* Launch focus mode */}
-                            {focusedSprint.estado === "activo" &&
+                            {focusedSprint?.estado === "activo" &&
                               !isCompletado && (
                                 <button
                                   onClick={() =>
@@ -466,10 +652,6 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
             </div>
           )}
         </div>
-      ) : (
-        <p className="py-5 text-center font-mono text-[10px] text-zinc-500">
-          Selecciona un sprint en el menú para cargar su planificación.
-        </p>
       )}
 
       {/* Sutil Context Modal for Epics / HUs */}
@@ -518,7 +700,7 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
             <p className="mb-3 text-[9px] leading-relaxed text-zinc-400">
               Detectamos actividades no completadas en este sprint. Para poder
               cerrar el sprint, debes reprogramar las Historias de Usuario con
-              tareas pendientes a otro sprint:
+              tareas pendientes a otro sprint (o al Backlog general):
             </p>
             <div className="flex flex-col gap-3">
               <select
@@ -526,7 +708,9 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
                 onChange={(e) => setRolloverTargetSprintId(e.target.value)}
                 className="w-full rounded border border-zinc-900 bg-zinc-900 p-2 text-[9px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500"
               >
-                <option value="">(Volver al Backlog / Sin Sprint)</option>
+                <option value="backlog">
+                  (Enviar al Backlog - Sin Sprint)
+                </option>
                 {sprints
                   .filter(
                     (s) =>
@@ -545,13 +729,98 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
 
               <button
                 onClick={() => {
-                  finalizarSprint(rolloverTargetSprintId || undefined);
+                  finalizarSprint(rolloverTargetSprintId || "backlog");
                   setIsRolloverOpen(false);
+                  setViewMode("dashboard");
                 }}
                 className="hover:bg-red-650 w-full rounded bg-red-500 py-2 text-center text-[10px] font-bold text-zinc-100 uppercase transition-all"
               >
                 Confirmar y Finalizar Sprint 🏁
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Sprint Dialog Modal */}
+      {isCancelModalOpen && (
+        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm duration-200">
+          <div className="w-[450px] rounded-xl border border-zinc-800 bg-zinc-950 p-5 font-mono shadow-2xl">
+            <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
+              <span className="text-[10px] font-bold text-red-400 uppercase">
+                ⚠️ Cancelar Sprint Activo
+              </span>
+              <button
+                onClick={() => setIsCancelModalOpen(false)}
+                className="hover:text-zinc-350 text-[9px] text-zinc-500 uppercase"
+              >
+                Cerrar
+              </button>
+            </div>
+            <p className="mb-4 text-[9px] leading-relaxed text-zinc-400">
+              Esta acción detendrá el desarrollo y devolverá el sprint al estado
+              **&quot;Planificado&quot;**. Podrás iniciarlo de nuevo más tarde.
+            </p>
+
+            <div className="flex flex-col gap-3">
+              <span className="block text-[8px] font-bold text-zinc-500 uppercase">
+                ¿Qué hacer con las tareas del sprint?
+              </span>
+
+              <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-zinc-900 bg-zinc-900/10 p-2.5 hover:border-zinc-800">
+                <input
+                  type="radio"
+                  checked={resetTasksOnCancel}
+                  onChange={() => setResetTasksOnCancel(true)}
+                  className="mt-0.5 accent-emerald-500"
+                />
+                <div className="text-[9px]">
+                  <span className="block font-bold text-zinc-200">
+                    Reiniciar Progreso (Recomendado)
+                  </span>
+                  <span className="block text-[8px] leading-normal text-zinc-500">
+                    Restablece todas las actividades de este sprint al estado
+                    **&quot;Por Hacer&quot;** (todo).
+                  </span>
+                </div>
+              </label>
+
+              <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-zinc-900 bg-zinc-900/10 p-2.5 hover:border-zinc-800">
+                <input
+                  type="radio"
+                  checked={!resetTasksOnCancel}
+                  onChange={() => setResetTasksOnCancel(false)}
+                  className="mt-0.5 accent-emerald-500"
+                />
+                <div className="text-[9px]">
+                  <span className="block font-bold text-zinc-200">
+                    Mantener Progreso
+                  </span>
+                  <span className="block text-[8px] leading-normal text-zinc-500">
+                    Conserva el estado actual de las actividades (ej: las que ya
+                    estaban completadas seguirán completadas).
+                  </span>
+                </div>
+              </label>
+
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={() => setIsCancelModalOpen(false)}
+                  className="text-zinc-450 flex-1 rounded border border-zinc-800 bg-zinc-900 py-2 text-center text-[9px] font-bold uppercase transition-all hover:text-zinc-200"
+                >
+                  Volver atrás
+                </button>
+                <button
+                  onClick={() => {
+                    cancelarSprint(resetTasksOnCancel);
+                    setIsCancelModalOpen(false);
+                    setViewMode("dashboard");
+                  }}
+                  className="flex-1 rounded bg-red-500 py-2 text-center text-[9px] font-bold text-zinc-100 uppercase transition-all hover:bg-red-600"
+                >
+                  Sí, Cancelar Sprint
+                </button>
+              </div>
             </div>
           </div>
         </div>

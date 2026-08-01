@@ -1037,7 +1037,9 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
             );
           });
           for (const story of storiesToMove) {
-            await db.historias.update(story.id, { sprintId: targetSprintId });
+            await db.historias.update(story.id, {
+              sprintId: targetSprintId === "backlog" ? null : targetSprintId,
+            });
           }
         }
         await db.sprints.update(selectedSprintId, { estado: "completado" });
@@ -1045,6 +1047,54 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
       mostrarToast("Sprint finalizado con éxito.", "exito");
     } catch (err: any) {
       mostrarToast(`Error al finalizar sprint: ${err.message}`, "error");
+    }
+  };
+
+  const cancelarSprint = async (reiniciarTareas: boolean) => {
+    if (!selectedSprintId) return;
+    try {
+      await db.transaction(
+        "rw",
+        [db.sprints, db.historias, db.tareas, db.proyecto_estado_tecnico],
+        async () => {
+          await db.sprints.update(selectedSprintId, {
+            estado: "planificado",
+          });
+
+          const stories = await db.historias
+            .where("sprintId")
+            .equals(selectedSprintId)
+            .toArray();
+          const storyIds = stories.map((h) => h.id);
+
+          if (reiniciarTareas && storyIds.length > 0) {
+            await db.tareas
+              .where("historiaId")
+              .anyOf(storyIds as string[])
+              .modify({ estado: "todo" });
+          }
+
+          const focusState = await db.proyecto_estado_tecnico.get(proyectoId);
+          if (focusState && focusState.activeActivityFocusId) {
+            const act = await db.tareas.get(focusState.activeActivityFocusId);
+            if (act && storyIds.includes(act.historiaId)) {
+              await db.proyecto_estado_tecnico.update(proyectoId, {
+                activeActivityFocusId: null,
+              });
+            }
+          }
+        }
+      );
+
+      const focusState = await db.proyecto_estado_tecnico.get(proyectoId);
+      if (!focusState?.activeActivityFocusId) {
+        setSelectedActividadCinta(null);
+        setIsFocusMode(false);
+      }
+
+      mostrarToast("Sprint cancelado y devuelto a planificación.", "info");
+    } catch (err: any) {
+      mostrarToast(`Error al cancelar sprint: ${err.message}`, "error");
     }
   };
 
@@ -1536,6 +1586,7 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
               setSelectedSprintId={setSelectedSprintId}
               iniciarSprint={iniciarSprint}
               finalizarSprint={finalizarSprint}
+              cancelarSprint={cancelarSprint}
               iniciarCintaProduccionActividad={iniciarCintaProduccionActividad}
               handleUpdateActividadEstado={handleUpdateActividadEstado}
               setIsImportDesvioOpen={setIsImportDesvioOpen}
