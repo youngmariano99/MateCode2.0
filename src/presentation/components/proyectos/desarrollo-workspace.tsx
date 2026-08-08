@@ -1577,6 +1577,7 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
           ) : (
             <SprintEnfoqueTab
               sprints={sprints}
+              historias={historias}
               historiasSprint={historiasSprint}
               epicas={epicas}
               tareas={tareas}

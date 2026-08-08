@@ -3,9 +3,11 @@
 
 import React, { useState, useEffect } from "react";
 import { Card } from "../../card";
+import { db } from "../../../../offline/dexie/db";
 
 interface SprintEnfoqueTabProps {
   sprints: any[];
+  historias: any[];
   historiasSprint: any[];
   epicas: any[];
   tareas: any[];
@@ -44,6 +46,7 @@ const COLUMN_FLOW = ["todo", "in_progress", "in_revision", "completado"];
 
 export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
   sprints,
+  historias,
   historiasSprint,
   epicas,
   tareas,
@@ -87,6 +90,101 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
       return () => clearTimeout(timer);
     }
   }, [sprints, viewMode, setSelectedSprintId]);
+
+  const descargarHandoffsSprint = async () => {
+    if (!selectedSprintId || !focusedSprint) return;
+    try {
+      const stories = historias.filter((h) => h.sprintId === selectedSprintId);
+      if (stories.length === 0) {
+        alert("No hay historias en este sprint para descargar.");
+        return;
+      }
+
+      let mdContent = `# Handoffs y Entregables del Sprint - ${focusedSprint.nombre}\n\n`;
+      mdContent += `**Objetivo:** ${focusedSprint.objetivo || "Sin objetivo definido."}\n`;
+      mdContent += `**Capacidad:** ${focusedSprint.capacidad || 0} Ptos | **Duración:** ${focusedSprint.duracionSemanas || 2} Semanas\n`;
+      mdContent += `**Estado del Sprint:** ${focusedSprint.estado.toUpperCase()}\n\n`;
+      mdContent += `--- \n\n`;
+
+      for (const story of stories) {
+        mdContent += `## 🎯 HU: ${story.titulo}\n`;
+        if (story.descripcion) {
+          mdContent += `*Criterios de Aceptación/Descripción:*\n\`\`\`text\n${story.descripcion}\n\`\`\`\n\n`;
+        }
+
+        const subTasks = tareas.filter((t) => t.historiaId === story.id);
+        if (subTasks.length === 0) {
+          mdContent += `*Sin actividades programadas.*\n\n`;
+          continue;
+        }
+
+        for (const task of subTasks) {
+          const isCompletado =
+            task.estado === "completado" ||
+            task.estado === "Completado" ||
+            task.estado === "done" ||
+            task.estado === "Done" ||
+            task.estado === "Finalizado";
+
+          mdContent += `### 📄 [${isCompletado ? "✔ COMPLETADA" : "⏳ PENDIENTE"}] ${task.titulo}\n`;
+          mdContent += `- **Rol:** ${task.rol || "General"}\n`;
+          mdContent += `- **Componente/Ruta:** \`${task.componente || "N/A"}\` (${task.ruta || "N/A"})\n\n`;
+
+          const executionId = `execution_act_${task.id}`;
+          const execution = (await db.task_executions.get(executionId)) as any;
+
+          if (execution && execution.metadata && execution.metadata.handoff) {
+            const ho = execution.metadata.handoff;
+            mdContent += `#### 💾 Devolución / Handoff de la IA:\n`;
+            if (ho.resumen_tecnico) {
+              mdContent += `**Resumen Técnico:**\n${ho.resumen_tecnico}\n\n`;
+            }
+            if (
+              ho.archivos_creados_o_modificados &&
+              ho.archivos_creados_o_modificados.length > 0
+            ) {
+              mdContent += `**Archivos Modificados:**\n`;
+              ho.archivos_creados_o_modificados.forEach((f: string) => {
+                mdContent += `- \`${f}\`\n`;
+              });
+              mdContent += `\n`;
+            }
+            if (
+              ho.firmas_o_contratos_exportados &&
+              ho.firmas_o_contratos_exportados.length > 0
+            ) {
+              mdContent += `**Contratos y API signatures:**\n`;
+              ho.firmas_o_contratos_exportados.forEach((c: string) => {
+                mdContent += `- \`${c}\`\n`;
+              });
+              mdContent += `\n`;
+            }
+          } else {
+            mdContent += `*No se registró devolución técnica para esta actividad.*\n\n`;
+          }
+          mdContent += `\n`;
+        }
+        mdContent += `--- \n\n`;
+      }
+
+      const blob = new Blob([mdContent], {
+        type: "text/markdown;charset=utf-8;",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const cleanName = focusedSprint.nombre
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `devoluciones-${cleanName}.md`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(`Error al generar handoffs: ${err.message}`);
+    }
+  };
 
   const getActividadesByCol = (colKey: string) => {
     return actividadesSprint.filter((t) => {
@@ -201,6 +299,16 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
             </button>
           )}
 
+          {viewMode === "kanban" && focusedSprint && (
+            <button
+              onClick={descargarHandoffsSprint}
+              className="rounded border border-sky-500/20 bg-sky-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-sky-400 uppercase transition-all hover:bg-sky-500/20"
+              title="Descargar devoluciones de la IA de este Sprint en un archivo .md"
+            >
+              📥 Descargar Handoffs (.md)
+            </button>
+          )}
+
           {viewMode === "kanban" &&
             focusedSprint &&
             focusedSprint.estado === "planificado" && (
@@ -246,12 +354,17 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {sprints.map((s) => {
               const stories = tareas.filter((t) =>
-                historiasSprint.some(
+                historias.some(
                   (h) => h.sprintId === s.id && h.id === t.historiaId
                 )
               );
               const completedCount = stories.filter(
-                (t) => t.estado === "completado" || t.estado === "done"
+                (t) =>
+                  t.estado === "completado" ||
+                  t.estado === "Completado" ||
+                  t.estado === "done" ||
+                  t.estado === "Done" ||
+                  t.estado === "Finalizado"
               ).length;
               const progressPct =
                 stories.length > 0

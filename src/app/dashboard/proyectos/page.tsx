@@ -578,7 +578,12 @@ export default function ProyectosPage() {
     // Selected project calculations
     const totalSelTasks = selectedProyectoTareas.length;
     const completedSelTasks = selectedProyectoTareas.filter(
-      (t) => t.estado === "done" || t.estado === "Finalizado"
+      (t) =>
+        t.estado === "done" ||
+        t.estado === "Done" ||
+        t.estado === "Finalizado" ||
+        t.estado === "completado" ||
+        t.estado === "Completado"
     ).length;
 
     const totalSelStories = selectedProyectoHistorias.length;
@@ -586,7 +591,9 @@ export default function ProyectosPage() {
       const est = s["estado"];
       return (
         typeof est === "string" &&
-        (est.toLowerCase() === "done" || est === "Finalizado" || est === "Done")
+        (est.toLowerCase() === "done" ||
+          est === "Finalizado" ||
+          est.toLowerCase() === "completado")
       );
     }).length;
 
