@@ -547,9 +547,50 @@ export class MateCodeDB extends Dexie {
       actas_auditoria: "++id, executionId, tipoEvento, fecha",
       contacto_sesiones: "id, nombre, creadoEn, estado",
       servicios_agencia: "id, nombre",
+      planificaciones_contenido: "id, fechaInicio, fechaFin",
+      contenidos: "id, planificacionId, estado, fecha",
+    });
+
+    // Version 14 stores (Automation and checkpoint support)
+    this.version(14).stores({
+      clientes: "id, nombre, correo",
+      contactos: "id, nombre, clienteId",
+      contratos: "id, codigo, clienteId",
+      pagos: "id, codigo, contratoId",
+      proyectos: "id, nombre, clienteId",
+      tareas: "id, proyectoId, estado",
+      documentos: "id, titulo, tipo, clienteId",
+      recorridos: "id, fecha",
+      visitas: "id, clienteId, recorridoId",
+      epicas: "id, proyectoId",
+      historias: "id, proyectoId, epicaId, sprintId, estado",
+      sprints: "id, proyectoId, estado",
+      cola_eventos: "++id, tabla, accion, registroId",
+      logs_sincronizacion: "++id, tipo, fecha",
+      potenciales_clientes:
+        "id, nombre, visitado, convertido, creadoEn, sesionId, estadoOutbound",
+      comentarios_proyecto: "id, proyectoId, creadoEn",
+      archivos_proyecto: "id, proyectoId, creadoEn",
+      plantillas_backlog: "id, nombre",
+      prompt_templates: "id, fase",
+      proyecto_contexto: "proyectoId",
+      proyecto_design_system: "proyectoId",
+      proyecto_estado_tecnico: "proyectoId",
+      agencia_config: "id, tipo",
+      workflow_templates: "id, nombre, fase",
+      workflow_steps: "id, templateId, orden",
+      task_executions: "id, proyectoId, templateId, estado, usuarioAsignadoId",
+      task_step_states: "id, executionId, stepId",
+      task_comments: "id, executionId, stepId, creadoEn",
+      actas_auditoria: "++id, executionId, tipoEvento, fecha",
+      contacto_sesiones: "id, nombre, creadoEn, estado",
+      servicios_agencia: "id, nombre",
       reuniones_contacto: "id, prospectoId, tipo, fecha, completado",
       planificaciones_contenido: "id, fechaInicio, fechaFin",
       contenidos: "id, planificacionId, estado, fecha",
+      proyecto_config_automatizacion: "proyectoId",
+      task_execution_checkpoints:
+        "id, taskExecutionId, actividadId, proyectoId, estadoCheckpoint",
     });
 
     this.on("populate", async () => {

@@ -544,3 +544,139 @@ export const automatizaciones = pgTable("automatizaciones", {
   activo: boolean("activo").default(true).notNull(),
   ...columnasAuditoria,
 });
+
+// ==========================================
+// 8. Ingeniería de Desarrollo (Sprints & Kanban)
+// ==========================================
+
+export const epicas = pgTable("epicas", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  proyectoId: varchar("proyecto_id", { length: 255 }).notNull(),
+  nombre: varchar("nombre", { length: 255 }).notNull(),
+  descripcion: text("descripcion"),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+});
+
+export const sprints = pgTable("sprints", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  proyectoId: varchar("proyecto_id", { length: 255 }).notNull(),
+  nombre: varchar("nombre", { length: 255 }).notNull(),
+  duracionSemanas: integer("duracion_semanas").default(2).notNull(),
+  fechaInicio: timestamp("fecha_inicio"),
+  fechaFin: timestamp("fecha_fin"),
+  objetivo: text("objetivo"),
+  descripcion: text("descripcion"),
+  capacidad: integer("capacidad").default(10).notNull(),
+  miembros: text("miembros"), // Lista de miembros serializada
+  estado: varchar("estado", { length: 50 }).default("planificado").notNull(),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  finalizadoEn: timestamp("finalizado_en"),
+});
+
+export const historias = pgTable("historias", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  proyectoId: varchar("proyecto_id", { length: 255 }).notNull(),
+  epicaId: varchar("epica_id", { length: 255 }),
+  sprintId: varchar("sprint_id", { length: 255 }),
+  titulo: varchar("titulo", { length: 255 }).notNull(),
+  descripcion: text("descripcion"),
+  prioridad: varchar("prioridad", { length: 50 }).default("Media").notNull(),
+  estimacion: integer("estimacion").default(1).notNull(),
+  estado: varchar("estado", { length: 50 }).default("backlog").notNull(),
+  dependencias: text("dependencias"), // Array JSON serializado
+  etiquetas: text("etiquetas"), // Array JSON serializado
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+});
+
+export const tareas = pgTable("tareas", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  proyectoId: varchar("proyecto_id", { length: 255 }).notNull(),
+  historiaId: varchar("historia_id", { length: 255 }),
+  titulo: varchar("titulo", { length: 255 }).notNull(),
+  descripcion: text("descripcion"),
+  estado: varchar("estado", { length: 50 }).default("todo").notNull(),
+  rol: varchar("rol", { length: 100 }),
+  componente: varchar("componente", { length: 255 }),
+  ruta: varchar("ruta", { length: 255 }),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
+
+export const taskExecutions = pgTable("task_executions", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  proyectoId: varchar("proyecto_id", { length: 255 }).notNull(),
+  templateId: varchar("template_id", { length: 255 }),
+  estado: varchar("estado", { length: 50 }).notNull(),
+  usuarioAsignadoId: varchar("usuario_asignado_id", { length: 255 }),
+  metadata: text("metadata"), // JSON conteniendo handoffs y logs de ejecución
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
+
+export const proyectoContexto = pgTable("proyecto_contexto", {
+  proyectoId: varchar("proyecto_id", { length: 255 }).primaryKey(),
+  doloresCliente: text("dolores_cliente"),
+  reglasNegocio: text("reglas_negocio"),
+  publicoObjetivo: text("publico_objetivo"),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
+
+export const proyectoDesignSystem = pgTable("proyecto_design_system", {
+  proyectoId: varchar("proyecto_id", { length: 255 }).primaryKey(),
+  arquetipo: varchar("arquetipo", { length: 255 }),
+  metafora: text("metafora"),
+  radioBordes: varchar("radio_bordes", { length: 50 }),
+  sombras: varchar("sombras", { length: 50 }),
+  directrizNegacion: text("directriz_negacion"),
+  parejaTipografica: varchar("pareja_tipografica", { length: 255 }),
+  escalaEspaciado: varchar("escala_espaciado", { length: 50 }),
+  reglaColor: text("regla_color"),
+  estiloAnimaciones: varchar("estilo_animaciones", { length: 255 }),
+  estadoHover: varchar("estado_hover", { length: 255 }),
+  logoUrl: varchar("logo_url", { length: 500 }),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
+
+export const proyectoEstadoTecnico = pgTable("proyecto_estado_tecnico", {
+  proyectoId: varchar("proyecto_id", { length: 255 }).primaryKey(),
+  dependencias: text("dependencias"), // Array JSON serializado
+  esquemaDb: text("esquema_db"), // Objeto JSON serializado
+  activeActivityFocusId: varchar("active_activity_focus_id", { length: 255 }),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
+
+export const proyectoConfigAutomatizacion = pgTable(
+  "proyecto_config_automatizacion",
+  {
+    proyectoId: varchar("proyecto_id", { length: 255 }).primaryKey(),
+    buildCmd: varchar("build_cmd", { length: 500 })
+      .default("npm run build")
+      .notNull(),
+    lintCmd: varchar("lint_cmd", { length: 500 })
+      .default("npm run lint")
+      .notNull(),
+    testCmd: varchar("test_cmd", { length: 500 })
+      .default("npm run test")
+      .notNull(),
+    maxRetriesLinter: integer("max_retries_linter").default(3).notNull(),
+    creadoEn: timestamp("creado_en").defaultNow().notNull(),
+    actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  }
+);
+
+export const taskExecutionCheckpoints = pgTable("task_execution_checkpoints", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  taskExecutionId: varchar("task_execution_id", { length: 255 }).notNull(),
+  actividadId: varchar("actividad_id", { length: 255 }).notNull(),
+  proyectoId: varchar("proyecto_id", { length: 255 }).notNull(),
+  estadoCheckpoint: varchar("estado_checkpoint", { length: 50 }).notNull(),
+  ultimoErrorLogs: text("ultimo_error_logs"),
+  ultimoPromptRefinamiento: text("ultimo_prompt_refinamiento"),
+  reintentosFallidos: integer("reintentos_fallidos").default(0).notNull(),
+  commitShaBase: varchar("commit_sha_base", { length: 100 }),
+  commitShaError: varchar("commit_sha_error", { length: 100 }),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});

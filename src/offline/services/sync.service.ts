@@ -47,4 +47,47 @@ export const SyncService = {
     });
     if (onProgress) onProgress("Sincronización finalizada.");
   },
+
+  respaldarTodoEnSupabase: async (
+    onProgress?: (msg: string) => void
+  ): Promise<void> => {
+    if (onProgress) onProgress("Leyendo datos locales...");
+
+    // Leer tablas principales deIndexedDB
+    const proyectos = await db.proyectos.toArray();
+    const epicas = await db.epicas.toArray();
+    const sprints = await db.sprints.toArray();
+    const historias = await db.historias.toArray();
+    const tareas = await db.tareas.toArray();
+    const taskExecutions = await db.task_executions.toArray();
+    const proyectoContexto = await db.proyecto_contexto.toArray();
+    const proyectoDesignSystem = await db.proyecto_design_system.toArray();
+    const proyectoEstadoTecnico = await db.proyecto_estado_tecnico.toArray();
+
+    // Tablas CRM
+    const clientes = await db.clientes.toArray();
+    const contactos = await db.contactos.toArray();
+    const contratos = await db.contratos.toArray();
+    const pagos = await db.pagos.toArray();
+
+    if (onProgress) onProgress("Subiendo respaldo a la nube...");
+
+    await HttpClient.post("/sync/bulk", {
+      proyectos,
+      epicas,
+      sprints,
+      historias,
+      tareas,
+      task_executions: taskExecutions,
+      proyecto_contexto: proyectoContexto,
+      proyecto_design_system: proyectoDesignSystem,
+      proyecto_estado_tecnico: proyectoEstadoTecnico,
+      clientes,
+      contactos,
+      contratos,
+      pagos,
+    });
+
+    if (onProgress) onProgress("Respaldo completado.");
+  },
 };

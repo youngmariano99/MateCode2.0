@@ -15,6 +15,20 @@
       "when": 1783715555280,
       "tag": "0001_deep_cargill",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786197579711,
+      "tag": "0002_late_eternity",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786198905434,
+      "tag": "0003_eager_sinister_six",
+      "breakpoints": true
     }
   ]
 }
