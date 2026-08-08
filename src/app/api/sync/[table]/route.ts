@@ -68,14 +68,25 @@ export async function POST(
       "eliminadoEn",
       "fechaInicio",
       "fechaFin",
+      "fechaEntrega",
       "fechaVencimiento",
       "fechaPago",
       "fechaFirma",
+      "fechaSeguimiento",
+      "fechaVisita",
       "expiracion",
     ];
     for (const field of dateFields) {
-      if (typeof dbPayload[field] === "number") {
-        dbPayload[field] = new Date(dbPayload[field]);
+      const val = dbPayload[field];
+      if (val !== undefined && val !== null && val !== "") {
+        if (typeof val === "number" || typeof val === "string") {
+          const parsedDate = new Date(val);
+          if (!isNaN(parsedDate.getTime())) {
+            dbPayload[field] = parsedDate;
+          } else {
+            dbPayload[field] = null;
+          }
+        }
       }
     }
 
