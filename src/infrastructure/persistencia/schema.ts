@@ -302,13 +302,9 @@ export const estadosCliente = pgTable("estados_cliente", {
 // ==========================================
 
 export const proyectos = pgTable("proyectos", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  agenciaId: uuid("agencia_id")
-    .references(() => agencias.id)
-    .notNull(),
-  clienteId: uuid("cliente_id")
-    .references(() => clientes.id)
-    .notNull(),
+  id: varchar("id", { length: 255 }).primaryKey(),
+  agenciaId: uuid("agencia_id").references(() => agencias.id),
+  clienteId: uuid("cliente_id").references(() => clientes.id),
   nombre: varchar("nombre", { length: 255 }).notNull(),
   descripcion: text("descripcion"),
   tipo: varchar("tipo", { length: 100 }).notNull(),
@@ -321,7 +317,7 @@ export const proyectos = pgTable("proyectos", {
 
 export const comentarios = pgTable("comentarios", {
   id: uuid("id").primaryKey().defaultRandom(),
-  proyectoId: uuid("proyecto_id")
+  proyectoId: varchar("proyecto_id", { length: 255 })
     .references(() => proyectos.id)
     .notNull(),
   usuarioId: uuid("usuario_id")
@@ -333,7 +329,7 @@ export const comentarios = pgTable("comentarios", {
 
 export const archivos = pgTable("archivos", {
   id: uuid("id").primaryKey().defaultRandom(),
-  proyectoId: uuid("proyecto_id")
+  proyectoId: varchar("proyecto_id", { length: 255 })
     .references(() => proyectos.id)
     .notNull(),
   nombre: varchar("nombre", { length: 255 }).notNull(),
@@ -362,7 +358,9 @@ export const pagos = pgTable("pagos", {
   clienteId: uuid("cliente_id")
     .references(() => clientes.id)
     .notNull(),
-  proyectoId: uuid("proyecto_id").references(() => proyectos.id),
+  proyectoId: varchar("proyecto_id", { length: 255 }).references(
+    () => proyectos.id
+  ),
   monto: numeric("monto", { precision: 12, scale: 2 }).notNull(),
   moneda: varchar("moneda", { length: 10 }).default("ARS").notNull(),
   estado: varchar("estado", { length: 50 }).default("pendiente").notNull(),
@@ -406,7 +404,9 @@ export const contratos = pgTable("contratos", {
   clienteId: uuid("cliente_id")
     .references(() => clientes.id)
     .notNull(),
-  proyectoId: uuid("proyecto_id").references(() => proyectos.id),
+  proyectoId: varchar("proyecto_id", { length: 255 }).references(
+    () => proyectos.id
+  ),
   titulo: varchar("titulo", { length: 255 }).notNull(),
   contenido: text("contenido").notNull(),
   estado: varchar("estado", { length: 50 }).default("borrador").notNull(),

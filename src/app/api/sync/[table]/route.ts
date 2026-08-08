@@ -89,6 +89,20 @@ export async function POST(
         }
       }
     }
+    // Convertir cadenas vacías a null para campos de tipo UUID o referencias
+    const emptyToNullFields = [
+      "clienteId",
+      "agenciaId",
+      "responsableId",
+      "sprintId",
+      "epicaId",
+      "historiaId",
+    ];
+    for (const field of emptyToNullFields) {
+      if (dbPayload[field] === "") {
+        dbPayload[field] = null;
+      }
+    }
 
     // Normalizar payloads complejos (Arrays o JSON a string)
     const jsonFields = [
