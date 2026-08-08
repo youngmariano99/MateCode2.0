@@ -129,35 +129,53 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
           mdContent += `### 📄 [${isCompletado ? "✔ COMPLETADA" : "⏳ PENDIENTE"}] ${task.titulo}\n`;
           mdContent += `- **Rol:** ${task.rol || "General"}\n`;
           mdContent += `- **Componente/Ruta:** \`${task.componente || "N/A"}\` (${task.ruta || "N/A"})\n\n`;
-
           const executionId = `execution_act_${task.id}`;
           const execution = (await db.task_executions.get(executionId)) as any;
 
-          if (execution && execution.metadata && execution.metadata.handoff) {
-            const ho = execution.metadata.handoff;
+          // Intentar obtener handoff singular, o recopilar de handoffs plurales
+          const handoffsList: any[] = [];
+          if (execution && execution.metadata) {
+            if (execution.metadata.handoff) {
+              handoffsList.push(execution.metadata.handoff);
+            }
+            if (
+              execution.metadata.handoffs &&
+              typeof execution.metadata.handoffs === "object"
+            ) {
+              Object.values(execution.metadata.handoffs).forEach((ho: any) => {
+                if (ho && typeof ho === "object") {
+                  handoffsList.push(ho);
+                }
+              });
+            }
+          }
+
+          if (handoffsList.length > 0) {
             mdContent += `#### 💾 Devolución / Handoff de la IA:\n`;
-            if (ho.resumen_tecnico) {
-              mdContent += `**Resumen Técnico:**\n${ho.resumen_tecnico}\n\n`;
-            }
-            if (
-              ho.archivos_creados_o_modificados &&
-              ho.archivos_creados_o_modificados.length > 0
-            ) {
-              mdContent += `**Archivos Modificados:**\n`;
-              ho.archivos_creados_o_modificados.forEach((f: string) => {
-                mdContent += `- \`${f}\`\n`;
-              });
-              mdContent += `\n`;
-            }
-            if (
-              ho.firmas_o_contratos_exportados &&
-              ho.firmas_o_contratos_exportados.length > 0
-            ) {
-              mdContent += `**Contratos y API signatures:**\n`;
-              ho.firmas_o_contratos_exportados.forEach((c: string) => {
-                mdContent += `- \`${c}\`\n`;
-              });
-              mdContent += `\n`;
+            for (const ho of handoffsList) {
+              if (ho.resumen_tecnico) {
+                mdContent += `**Resumen Técnico:**\n${ho.resumen_tecnico}\n\n`;
+              }
+              if (
+                ho.archivos_creados_o_modificados &&
+                ho.archivos_creados_o_modificados.length > 0
+              ) {
+                mdContent += `**Archivos Modificados:**\n`;
+                ho.archivos_creados_o_modificados.forEach((f: string) => {
+                  mdContent += `- \`${f}\`\n`;
+                });
+                mdContent += `\n`;
+              }
+              if (
+                ho.firmas_o_contratos_exportados &&
+                ho.firmas_o_contratos_exportados.length > 0
+              ) {
+                mdContent += `**Contratos y API signatures:**\n`;
+                ho.firmas_o_contratos_exportados.forEach((c: string) => {
+                  mdContent += `- \`${c}\`\n`;
+                });
+                mdContent += `\n`;
+              }
             }
           } else {
             mdContent += `*No se registró devolución técnica para esta actividad.*\n\n`;
