@@ -1576,6 +1576,7 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
             </>
           ) : (
             <SprintEnfoqueTab
+              proyecto={proyecto}
               sprints={sprints}
               historias={historias}
               historiasSprint={historiasSprint}

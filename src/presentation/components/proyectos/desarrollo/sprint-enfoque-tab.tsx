@@ -4,8 +4,11 @@
 import React, { useState, useEffect } from "react";
 import { Card } from "../../card";
 import { db } from "../../../../offline/dexie/db";
+import { QueueService } from "../../../../offline/services/queue.service";
+import { useToast } from "../../../hooks/useToast";
 
 interface SprintEnfoqueTabProps {
+  proyecto: any;
   sprints: any[];
   historias: any[];
   historiasSprint: any[];
@@ -45,6 +48,7 @@ const KANBAN_COLUMNS = [
 const COLUMN_FLOW = ["todo", "in_progress", "in_revision", "completado"];
 
 export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
+  proyecto,
   sprints,
   historias,
   historiasSprint,
@@ -61,6 +65,458 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
   handleUpdateActividadEstado,
   setIsImportDesvioOpen,
 }) => {
+  const { mostrarToast } = useToast();
+
+  const PROMPT_SPRINTS_CONTINUACION = `<rol>
+Actúa como Scrum Master y Tech Lead Senior.
+Tu objetivo es planificar nuevos Sprints correctivos o de extensión para desarrollar funcionalidades faltantes o nuevas, basándote en la situación actual del Backlog del proyecto.
+</rol>
+
+<contexto>
+  - Proyecto: {{nombre_proyecto}}
+  - Descripción: {{descripcion_proyecto}}
+  - Stack Técnico y Estándares:
+{{CLAUDE_MD}}
+
+  - Sitemap / Mapa del Sitio actual:
+{{sitemap}}
+
+  - Backlog de Épicas e Historias Existentes:
+{{backlog_historias}}
+</contexto>
+
+<instrucciones_de_usuario>
+El usuario indica lo siguiente sobre lo que se necesita desarrollar a continuación:
+"{{instrucciones_usuario}}"
+</instrucciones_de_usuario>
+
+<reglas_de_generacion>
+1. COHERENCIA LOGÍSTICA: Si se trata de desarrollar algo que faltó de sprints anteriores, asocia las nuevas historias/actividades a las Épicas existentes. Si son nuevas funcionalidades, crea las Épicas y las Historias de Usuario correspondientes.
+2. DETALLE TÉCNICO COMPLETO: Para cada nueva historia de usuario o actividad técnica que agregues, debes especificar:
+   - Las actividades técnicas individuales (desglose de tareas).
+   - Para cada actividad, define:
+     - "rol": El rol técnico idóneo (BD, Backend, Frontend, QA, etc.).
+     - "componente": El nombre del archivo o componente a crear o modificar.
+     - "ruta": La ruta de archivos sugerida dentro del repositorio.
+     - "modulo": El nombre del módulo del sistema.
+     - "etiquetas": Array de tecnologías/keywords.
+     - "pasos": Checklist detallado de pasos de implementación.
+     - "criteriosAceptacion": Criterios de aceptación técnicos que validen la tarea.
+     - "seed": (Opcional) Directrices de datos semilla si la actividad requiere sembrar base de datos.
+3. ESTADO INICIAL: Todo nuevo sprint, historia y actividad que se cree debe inicializarse con estado planificado/pendiente ("todo" / "planificado").
+</reglas_de_generacion>
+
+<output_requerido>
+Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin texto explicativo, sin bloques de código markdown extra (solo el JSON crudo):
+[
+  {
+    "sprintNombre": "Sprint X: [Breve título descriptivo del sprint]",
+    "sprintObjetivo": "[Objetivo principal del sprint]",
+    "sprintDuracionSemanas": 2,
+    "sprintCapacidad": 20,
+    "historias": [
+      {
+        "epicaNombre": "[Nombre de Épica existente o una nueva si es funcionalidad nueva]",
+        "epicaDescripcion": "[Descripción de la épica si es nueva, o vacío/omitido si ya existe]",
+        "titulo": "[Título descriptivo de la Historia de Usuario]",
+        "descripcion": "[Como usuario quiero... para... (Criterios de aceptación generales)]",
+        "prioridad": "Alta" | "Media" | "Baja",
+        "estimacion": 5,
+        "actividades": [
+          {
+            "titulo": "[Título de la actividad técnica]",
+            "rol": "Backend" | "Frontend" | "BD" | "QA" | "Devops",
+            "componente": "[Nombre de componente/archivo]",
+            "ruta": "[Ruta sugerida]",
+            "modulo": "[Nombre del módulo]",
+            "etiquetas": ["etiqueta1", "etiqueta2"],
+            "pasos": [
+              "Paso 1...",
+              "Paso 2..."
+            ],
+            "criteriosAceptacion": [
+              "Criterio 1...",
+              "Criterio 2..."
+            ],
+            "seed": {
+              "modelo": "[Nombre de tabla/entidad si requiere datos semilla, sino omitir]",
+              "volumen": 10,
+              "indicaciones": "[Directrices de datos de prueba]"
+            }
+          }
+        ]
+      }
+    ]
+  }
+]
+</output_requerido>`;
+
+  // Extension Modal States
+  const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
+  const [extensionTab, setExtensionTab] = useState<"sprint" | "backlog" | "ia">(
+    "ia"
+  );
+
+  // Form states for manual sprint
+  const [newSprintNombre, setNewSprintNombre] = useState("");
+  const [newSprintObjetivo, setNewSprintObjetivo] = useState("");
+  const [newSprintDuracion, setNewSprintDuracion] = useState(2);
+  const [newSprintCapacidad, setNewSprintCapacidad] = useState(20);
+
+  // Form states for IA Tab
+  const [userInstructions, setUserInstructions] = useState("");
+  const [backlogJson, setBacklogJson] = useState("");
+
+  // Planificar backlog states
+  const [selectedSprintForAssign, setSelectedSprintForAssign] = useState("");
+
+  // Set default selected sprint for assignment when sprints load
+  useEffect(() => {
+    const defaultSprint = sprints.find(
+      (s) => s.estado === "planificado" || s.estado === "activo"
+    );
+    if (defaultSprint && !selectedSprintForAssign) {
+      const timer = setTimeout(() => {
+        setSelectedSprintForAssign(defaultSprint.id);
+      }, 0);
+      return () => clearTimeout(timer);
+    } else if (sprints.length > 0 && !selectedSprintForAssign) {
+      const timer = setTimeout(() => {
+        setSelectedSprintForAssign(sprints[0].id);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [sprints, selectedSprintForAssign]);
+
+  const handleFinalizarDesarrollo = async () => {
+    if (!proyecto) return;
+    if (
+      confirm(
+        `¿Estás seguro de dar por finalizado el desarrollo del proyecto "${proyecto.nombre}"? Esto cambiará su estado a "Finalizado".`
+      )
+    ) {
+      try {
+        await db.transaction(
+          "rw",
+          [db.proyectos, db.cola_eventos],
+          async () => {
+            await db.proyectos.update(proyecto.id, { estado: "Finalizado" });
+            await QueueService.encolar("proyectos", "editar", proyecto.id, {
+              id: proyecto.id,
+              estado: "Finalizado",
+            });
+          }
+        );
+        mostrarToast("Desarrollo finalizado con éxito.", "exito");
+      } catch (err: any) {
+        mostrarToast("Error al finalizar desarrollo: " + err.message, "error");
+      }
+    }
+  };
+
+  const handleCrearSprintManual = async () => {
+    if (!proyecto) return;
+    if (!newSprintNombre.trim()) {
+      mostrarToast("El nombre del sprint es obligatorio.", "error");
+      return;
+    }
+    const sprintId = `spr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const start = Date.now();
+    const end = start + newSprintDuracion * 7 * 24 * 60 * 60 * 1000;
+
+    const payload = {
+      id: sprintId,
+      proyectoId: proyecto.id,
+      nombre: newSprintNombre,
+      duracionSemanas: newSprintDuracion,
+      fechaInicio: start,
+      fechaFin: end,
+      objetivo: newSprintObjetivo,
+      capacidad: newSprintCapacidad,
+      estado: "planificado",
+    };
+
+    try {
+      await db.transaction("rw", [db.sprints, db.cola_eventos], async () => {
+        await db.sprints.add(payload);
+        await QueueService.encolar("sprints", "crear", sprintId, payload);
+      });
+      setNewSprintNombre("");
+      setNewSprintObjetivo("");
+      setIsExtensionModalOpen(false);
+      mostrarToast("Sprint planificado con éxito.", "exito");
+    } catch (err: any) {
+      mostrarToast("Error al crear sprint: " + err.message, "error");
+    }
+  };
+
+  const handleAsignarHistoriaASprint = async (storyId: string) => {
+    if (!selectedSprintForAssign) {
+      mostrarToast("Selecciona un sprint de destino.", "error");
+      return;
+    }
+    try {
+      await db.transaction("rw", [db.historias, db.cola_eventos], async () => {
+        await db.historias.update(storyId, {
+          sprintId: selectedSprintForAssign,
+        });
+        await QueueService.encolar("historias", "editar", storyId, {
+          id: storyId,
+          sprintId: selectedSprintForAssign,
+        });
+      });
+      mostrarToast("Historia asignada con éxito.", "exito");
+    } catch (err: any) {
+      mostrarToast("Error al asignar historia: " + err.message, "error");
+    }
+  };
+
+  const handleCopiarPromptIA = async () => {
+    if (!proyecto) return;
+    try {
+      const ctx = await db.proyecto_contexto.get(proyecto.id);
+      const sitemapContent = String(
+        (ctx as any)?.sitemapSystemMarkdown ||
+          (ctx as any)?.sitemapMarkup ||
+          (ctx as any)?.sitemap ||
+          "No configurado."
+      );
+
+      const backlogText = epicas
+        .map((e) => {
+          const storyList = historias.filter((h) => h.epicaId === e.id);
+          const storyText = storyList
+            .map((h) => {
+              const sprint = sprints.find((s) => s.id === h.sprintId);
+              const sprintText = sprint
+                ? ` (Sprint: ${sprint.nombre}, Estado Sprint: ${sprint.estado})`
+                : " (En Backlog)";
+              return `    - Historia: "${h.titulo}" [Prioridad: ${h.prioridad || "Media"}, Estimación: ${h.estimacion || 3} Ptos, Estado: ${h.estado || "Todo"}]${sprintText}\n      Criterios/Descripción: ${h.descripcion || "Sin descripción"}`;
+            })
+            .join("\n");
+          return `- Épica: "${e.nombre}"\n  Descripción: ${e.descripcion || "Sin descripción"}\n  Historias:\n${storyText || "    (Sin historias)"}`;
+        })
+        .join("\n\n");
+
+      let stackText = "No configurado.";
+      if (proyecto.stack) {
+        stackText = Object.entries(proyecto.stack)
+          .filter(([key]) => key !== "comandos")
+          .map(
+            ([layer, techs]) =>
+              `  - **${layer}:** ${Array.isArray(techs) ? techs.join(", ") : techs}`
+          )
+          .join("\n");
+      }
+
+      let estandaresText = "No configurado.";
+      if (proyecto.estandares) {
+        estandaresText = Object.entries(proyecto.estandares)
+          .map(
+            ([cat, rules]) =>
+              `  - **${cat}:** ${Array.isArray(rules) ? rules.join(", ") : rules}`
+          )
+          .join("\n");
+      }
+
+      const prompt = PROMPT_SPRINTS_CONTINUACION.replace(
+        "{{nombre_proyecto}}",
+        proyecto.nombre || ""
+      )
+        .replace("{{descripcion_proyecto}}", proyecto.descripcion || "")
+        .replace(
+          "{{CLAUDE_MD}}",
+          `### Stack Tecnológico\n${stackText}\n\n### Estándares\n${estandaresText}`
+        )
+        .replace("{{sitemap}}", sitemapContent)
+        .replace("{{backlog_historias}}", backlogText)
+        .replace(
+          "{{instrucciones_usuario}}",
+          userInstructions || "Ajustes varios y continuación de desarrollo."
+        );
+
+      await navigator.clipboard.writeText(prompt);
+      mostrarToast(
+        "¡Prompt unificado copiado al portapapeles! Pégalo en tu IA preferida.",
+        "exito"
+      );
+    } catch (err: any) {
+      mostrarToast("Error al copiar prompt: " + err.message, "error");
+    }
+  };
+
+  const handleImportarSprintsJson = async () => {
+    if (!proyecto) return;
+    if (!backlogJson.trim()) {
+      mostrarToast("Por favor, pega el JSON de la IA primero.", "error");
+      return;
+    }
+    try {
+      const parsed = JSON.parse(backlogJson);
+      if (!Array.isArray(parsed)) {
+        throw new Error("El JSON debe ser un array de Sprints.");
+      }
+
+      await db.transaction(
+        "rw",
+        [db.sprints, db.epicas, db.historias, db.tareas, db.cola_eventos],
+        async () => {
+          const epicasExistentes = await db.epicas
+            .where("proyectoId")
+            .equals(proyecto.id)
+            .toArray();
+          const historiasExistentes = await db.historias
+            .where("proyectoId")
+            .equals(proyecto.id)
+            .toArray();
+
+          for (const sp of parsed) {
+            const sprintId = `spr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+            const duration = sp.sprintDuracionSemanas || 2;
+            const start = Date.now();
+            const end = start + duration * 7 * 24 * 60 * 60 * 1000;
+
+            const sprintPayload = {
+              id: sprintId,
+              proyectoId: proyecto.id,
+              nombre: sp.sprintNombre,
+              objetivo: sp.sprintObjetivo || "",
+              duracionSemanas: duration,
+              fechaInicio: start,
+              fechaFin: end,
+              capacidad: sp.sprintCapacidad || 20,
+              estado: "planificado",
+            };
+
+            await db.sprints.add(sprintPayload);
+            await QueueService.encolar(
+              "sprints",
+              "crear",
+              sprintId,
+              sprintPayload
+            );
+
+            if (Array.isArray(sp.historias)) {
+              for (const h of sp.historias) {
+                // Find or create Epic
+                let epicaId = "";
+                const matchedEpic = epicasExistentes.find(
+                  (e: any) =>
+                    e.nombre.toLowerCase().trim() ===
+                    h.epicaNombre.toLowerCase().trim()
+                );
+
+                if (matchedEpic) {
+                  epicaId = matchedEpic.id as string;
+                } else {
+                  epicaId = `epi_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+                  const epicPayload = {
+                    id: epicaId,
+                    proyectoId: proyecto.id,
+                    nombre: h.epicaNombre,
+                    descripcion: h.epicaDescripcion || "",
+                    creadoEn: Date.now(),
+                  };
+                  await db.epicas.add(epicPayload);
+                  await QueueService.encolar(
+                    "epicas",
+                    "crear",
+                    epicaId,
+                    epicPayload
+                  );
+                  epicasExistentes.push(epicPayload);
+                }
+
+                // Find or create Story
+                let storyId = "";
+                const matchedStory = historiasExistentes.find(
+                  (he: any) =>
+                    he.titulo.toLowerCase().trim() ===
+                    h.titulo.toLowerCase().trim()
+                );
+
+                if (matchedStory) {
+                  storyId = matchedStory.id as string;
+                  await db.historias.update(storyId, {
+                    sprintId: sprintId,
+                    epicaId: epicaId,
+                  });
+                  await QueueService.encolar("historias", "editar", storyId, {
+                    id: storyId,
+                    sprintId: sprintId,
+                    epicaId: epicaId,
+                  });
+                } else {
+                  storyId = `his_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+                  const storyPayload = {
+                    id: storyId,
+                    proyectoId: proyecto.id,
+                    epicaId: epicaId,
+                    sprintId: sprintId,
+                    titulo: h.titulo,
+                    descripcion: h.descripcion || "",
+                    prioridad: h.prioridad || "Media",
+                    estimacion: h.estimacion || 3,
+                    estado: "Todo",
+                    creadoEn: Date.now(),
+                  };
+                  await db.historias.add(storyPayload);
+                  await QueueService.encolar(
+                    "historias",
+                    "crear",
+                    storyId,
+                    storyPayload
+                  );
+                  historiasExistentes.push(storyPayload);
+                }
+
+                // Create Tasks/Activities
+                if (Array.isArray(h.actividades)) {
+                  for (const act of h.actividades) {
+                    const newTaskId = `tar_${Math.random().toString(36).substring(2, 9)}`;
+                    const taskPayload = {
+                      id: newTaskId,
+                      proyectoId: proyecto.id,
+                      historiaId: storyId,
+                      titulo: act.titulo,
+                      estado: "todo",
+                      rol: act.rol || "",
+                      componente: act.componente || "",
+                      ruta: act.ruta || "",
+                      modulo: act.modulo || "",
+                      etiquetas: act.etiquetas || [],
+                      pasos: act.pasos || [],
+                      criteriosAceptacion: act.criteriosAceptacion || [],
+                      seed: act.seed || null,
+                      creadoEn: Date.now(),
+                      actualizadoEn: Date.now(),
+                    };
+                    await db.tareas.add(taskPayload);
+                    await QueueService.encolar(
+                      "tareas",
+                      "crear",
+                      newTaskId,
+                      taskPayload
+                    );
+                  }
+                }
+              }
+            }
+          }
+        }
+      );
+
+      setBacklogJson("");
+      setIsExtensionModalOpen(false);
+      mostrarToast(
+        "¡Sprints, Épicas, Historias y Actividades importadas con éxito!",
+        "exito"
+      );
+    } catch (err: any) {
+      mostrarToast("Error al importar: " + err.message, "error");
+    }
+  };
+
   // viewMode can be "dashboard" (list of all sprints) or "kanban" (focus view of a sprint)
   const [viewMode, setViewMode] = useState<"dashboard" | "kanban">("dashboard");
 
@@ -356,6 +812,26 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
                 </button>
               </>
             )}
+
+          {viewMode === "dashboard" && (
+            <>
+              {proyecto && proyecto.estado === "Desarrollo" && (
+                <button
+                  onClick={handleFinalizarDesarrollo}
+                  className="rounded bg-emerald-500 px-2.5 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase shadow-md shadow-emerald-500/20 transition-all hover:bg-emerald-400"
+                  title="Finalizar el desarrollo del proyecto"
+                >
+                  🏁 Finalizar Desarrollo
+                </button>
+              )}
+              <button
+                onClick={() => setIsExtensionModalOpen(true)}
+                className="rounded border border-sky-500/20 bg-sky-500/10 px-2.5 py-1.5 font-mono text-[9px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
+              >
+                ➕ Extender Sprint / Backlog
+              </button>
+            </>
+          )}
 
           <button
             onClick={() => setIsImportDesvioOpen(true)}
@@ -952,6 +1428,244 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
                   Sí, Cancelar Sprint
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Backlog & Sprint Extension Modal */}
+      {isExtensionModalOpen && (
+        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm duration-200">
+          <div className="flex max-h-[85vh] w-[650px] flex-col overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 p-6 font-mono shadow-2xl">
+            <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-sky-500" />
+                <span className="text-[11px] font-bold tracking-wider text-zinc-100 uppercase">
+                  Extender Backlog & Sprints
+                </span>
+              </div>
+              <button
+                onClick={() => setIsExtensionModalOpen(false)}
+                className="hover:text-zinc-350 text-[10px] font-bold text-zinc-500 uppercase"
+              >
+                Cerrar ✕
+              </button>
+            </div>
+
+            {/* Modal Tabs Header */}
+            <div className="mb-4 flex gap-1 border-b border-zinc-900 pb-2">
+              {[
+                { id: "ia", label: "✨ Importar con IA (Recomendado)" },
+                { id: "sprint", label: "📅 Crear Sprint Manual" },
+                { id: "backlog", label: "📋 Vincular Backlog" },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setExtensionTab(t.id as any)}
+                  className={`rounded-lg border px-3 py-1.5 text-[9px] font-bold uppercase transition-all ${
+                    extensionTab === t.id
+                      ? "border-sky-500/30 bg-sky-500/10 text-sky-400"
+                      : "hover:text-zinc-350 border-transparent text-zinc-500 hover:bg-zinc-900/40"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Modal Content Scroll Area */}
+            <div className="flex-1 overflow-y-auto pr-1 text-left">
+              {extensionTab === "ia" && (
+                <div className="flex flex-col gap-4">
+                  <div className="rounded-lg border border-sky-500/10 bg-sky-500/5 p-3 text-[9px] leading-relaxed text-sky-300">
+                    💡 **¿Cómo funciona?**
+                    <br />
+                    1. Escribe en las instrucciones lo que deseas agregar o
+                    corregir (ej. &quot;Falta agregar cupones de descuento y
+                    reparar el flujo de login que falla al expirar token&quot;).
+                    <br />
+                    2. Haz clic en **Copiar Prompt** para enviar a la IA todo el
+                    contexto actual (backlog, stack y sitemap).
+                    <br />
+                    3. Pega el JSON que te devuelva la IA abajo y haz clic en
+                    **Importar**. Se creará todo de forma estructurada
+                    automáticamente.
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[8px] font-bold tracking-wider text-zinc-500 uppercase">
+                      1. Instrucciones para la IA (Ajustes o Nuevas
+                      Funcionalidades)
+                    </label>
+                    <textarea
+                      value={userInstructions}
+                      onChange={(e) => setUserInstructions(e.target.value)}
+                      placeholder="Escribe lo que falta desarrollar o los nuevos requerimientos..."
+                      className="h-20 w-full rounded-lg border border-zinc-800 bg-zinc-900/60 p-2.5 font-mono text-[9px] text-zinc-300 placeholder-zinc-700 focus:border-sky-500/40 focus:outline-none"
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleCopiarPromptIA}
+                    className="w-full rounded bg-sky-500 py-2 text-center text-[9px] font-bold text-zinc-950 uppercase shadow-md shadow-sky-500/25 transition-all hover:bg-sky-400"
+                  >
+                    📋 Generar & Copiar Prompt para la IA
+                  </button>
+
+                  <div className="flex flex-col gap-1.5 border-t border-zinc-900 pt-4">
+                    <label className="text-[8px] font-bold tracking-wider text-zinc-500 uppercase">
+                      2. Pegar JSON de respuesta de la IA
+                    </label>
+                    <textarea
+                      value={backlogJson}
+                      onChange={(e) => setBacklogJson(e.target.value)}
+                      placeholder="Pega el array JSON devuelto por la IA..."
+                      className="h-28 w-full rounded-lg border border-zinc-800 bg-zinc-900/60 p-2.5 font-mono text-[8px] text-zinc-300 placeholder-zinc-700 focus:border-emerald-500/40 focus:outline-none"
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleImportarSprintsJson}
+                    className="w-full rounded bg-emerald-500 py-2.5 text-center text-[9px] font-bold text-zinc-950 uppercase shadow-md shadow-emerald-500/25 transition-all hover:bg-emerald-400"
+                  >
+                    📥 Procesar e Importar Backlog de Extensión
+                  </button>
+                </div>
+              )}
+
+              {extensionTab === "sprint" && (
+                <div className="flex flex-col gap-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[8px] font-bold text-zinc-500 uppercase">
+                        Nombre del Sprint
+                      </label>
+                      <input
+                        type="text"
+                        value={newSprintNombre}
+                        onChange={(e) => setNewSprintNombre(e.target.value)}
+                        placeholder="Ej: Sprint 5: Ajustes y QA"
+                        className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 font-mono text-[9px] text-zinc-200 focus:border-sky-500/40 focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[8px] font-bold text-zinc-500 uppercase">
+                        Capacidad (Puntos)
+                      </label>
+                      <input
+                        type="number"
+                        value={newSprintCapacidad}
+                        onChange={(e) =>
+                          setNewSprintCapacidad(Number(e.target.value))
+                        }
+                        className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 font-mono text-[9px] text-zinc-200 focus:border-sky-500/40 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[8px] font-bold text-zinc-500 uppercase">
+                      Duración (Semanas)
+                    </label>
+                    <select
+                      value={newSprintDuracion}
+                      onChange={(e) =>
+                        setNewSprintDuracion(Number(e.target.value))
+                      }
+                      className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 font-mono text-[9px] text-zinc-200 focus:border-sky-500/40 focus:outline-none"
+                    >
+                      <option value={1}>1 Semana</option>
+                      <option value={2}>2 Semanas</option>
+                      <option value={3}>3 Semanas</option>
+                      <option value={4}>4 Semanas</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[8px] font-bold text-zinc-500 uppercase">
+                      Objetivo del Sprint
+                    </label>
+                    <textarea
+                      value={newSprintObjetivo}
+                      onChange={(e) => setNewSprintObjetivo(e.target.value)}
+                      placeholder="Describir el objetivo principal o alcance del sprint..."
+                      className="h-20 w-full rounded-lg border border-zinc-800 bg-zinc-900/60 p-2.5 font-mono text-[9px] text-zinc-300 focus:border-sky-500/40 focus:outline-none"
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleCrearSprintManual}
+                    className="w-full rounded bg-emerald-500 py-2 text-center text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
+                  >
+                    ➕ Planificar Sprint
+                  </button>
+                </div>
+              )}
+
+              {extensionTab === "backlog" && (
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[8px] font-bold text-zinc-500 uppercase">
+                      Seleccionar Sprint de Destino
+                    </label>
+                    <select
+                      value={selectedSprintForAssign}
+                      onChange={(e) =>
+                        setSelectedSprintForAssign(e.target.value)
+                      }
+                      className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 font-mono text-[9px] text-zinc-200 focus:border-sky-500/40 focus:outline-none"
+                    >
+                      <option value="">-- Selecciona un Sprint --</option>
+                      {sprints.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.nombre} ({s.estado})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="border-t border-zinc-900 pt-3">
+                    <span className="mb-2 block text-[8px] font-bold text-zinc-500 uppercase">
+                      Historias Huérfanas (Sin Sprint Asignado)
+                    </span>
+
+                    <div className="flex max-h-[220px] flex-col gap-2 overflow-y-auto pr-1">
+                      {historias.filter((h) => !h.sprintId).length === 0 ? (
+                        <p className="py-6 text-center text-[9px] text-zinc-500">
+                          No hay historias sin sprint asignado.
+                        </p>
+                      ) : (
+                        historias
+                          .filter((h) => !h.sprintId)
+                          .map((h) => (
+                            <div
+                              key={h.id}
+                              className="flex items-center justify-between gap-3 rounded-lg border border-zinc-900 bg-zinc-900/20 p-2.5"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <span className="block truncate text-[9px] font-bold text-zinc-200">
+                                  {h.titulo}
+                                </span>
+                                <span className="block truncate text-[7px] text-zinc-500">
+                                  Prioridad: {h.prioridad || "Media"} •
+                                  Estimación: {h.estimacion || 0} Ptos
+                                </span>
+                              </div>
+                              <button
+                                onClick={() =>
+                                  handleAsignarHistoriaASprint(h.id)
+                                }
+                                className="shrink-0 rounded border border-sky-500/30 bg-sky-500/10 px-2 py-1 text-[8px] font-bold text-sky-400 uppercase transition-all hover:bg-sky-500/20"
+                              >
+                                Vincular 🔗
+                              </button>
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
