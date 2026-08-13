@@ -109,7 +109,12 @@ const ProyectoCard: React.FC<ProyectoCardProps> = ({
 
   const totalTasks = tareas.length;
   const completedTasks = tareas.filter(
-    (t) => t.estado === "done" || t.estado === "Finalizado"
+    (t) =>
+      t.estado === "done" ||
+      t.estado === "Done" ||
+      t.estado === "Finalizado" ||
+      t.estado === "completado" ||
+      t.estado === "Completado"
   ).length;
 
   const totalStories = historias.length;
@@ -117,7 +122,9 @@ const ProyectoCard: React.FC<ProyectoCardProps> = ({
     const est = s["estado"];
     return (
       typeof est === "string" &&
-      (est.toLowerCase() === "done" || est === "Finalizado" || est === "Done")
+      (est.toLowerCase() === "done" ||
+        est.toLowerCase() === "completado" ||
+        est === "Finalizado")
     );
   }).length;
 

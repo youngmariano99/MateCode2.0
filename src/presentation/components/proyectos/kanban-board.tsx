@@ -47,10 +47,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ proyectoId }) => {
   const { mostrarToast } = useToast();
 
   // Reactive DB queries
-  const sprints = (useLiveQuery(
-    () => db.sprints.where("proyectoId").equals(proyectoId).toArray(),
-    [proyectoId]
-  ) || []) as unknown as SprintCRM[];
+  const sprints = (
+    (useLiveQuery(
+      () => db.sprints.where("proyectoId").equals(proyectoId).toArray(),
+      [proyectoId]
+    ) || []) as unknown as SprintCRM[]
+  ).filter((s) => !(s as unknown as { eliminado?: boolean }).eliminado);
   const historias = (useLiveQuery(
     () => db.historias.where("proyectoId").equals(proyectoId).toArray(),
     [proyectoId]

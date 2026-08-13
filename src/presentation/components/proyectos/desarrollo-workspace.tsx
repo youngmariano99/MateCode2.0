@@ -6,6 +6,7 @@ import { Card } from "../card";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../../offline/dexie/db";
 import { useToast } from "../../hooks/useToast";
+import { QueueService } from "../../../offline/services/queue.service";
 
 import { SprintEnfoqueTab } from "./desarrollo/sprint-enfoque-tab";
 import { SeccionesDesarrolloTab } from "./desarrollo/secciones-desarrollo-tab";
@@ -65,9 +66,11 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
   }, [isLandingType]);
 
   // Load Sprints, Stories, and Activities reactively
-  const sprints = (useLiveQuery(() =>
-    db.sprints.where("proyectoId").equals(proyectoId).toArray()
-  ) || []) as any[];
+  const sprints = (
+    (useLiveQuery(() =>
+      db.sprints.where("proyectoId").equals(proyectoId).toArray()
+    ) || []) as any[]
+  ).filter((s) => !s.eliminado);
 
   const historias = (useLiveQuery(() =>
     db.historias.where("proyectoId").equals(proyectoId).toArray()
@@ -1011,12 +1014,38 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
   const iniciarSprint = async () => {
     if (!selectedSprintId) return;
     try {
-      await db.transaction("rw", [db.sprints], async () => {
-        await db.sprints
+      const spr = sprints.find((s) => s.id === selectedSprintId);
+      const duration = spr?.duracionSemanas || 2;
+      const start = Date.now();
+      const end = start + duration * 7 * 24 * 60 * 60 * 1000;
+
+      await db.transaction("rw", [db.sprints, db.cola_eventos], async () => {
+        const projectSprints = await db.sprints
           .where("proyectoId")
           .equals(proyectoId)
-          .modify({ estado: "planificado" });
-        await db.sprints.update(selectedSprintId, { estado: "activo" });
+          .toArray();
+        for (const s of projectSprints) {
+          const sAny = s as any;
+          if (sAny.estado === "activo") {
+            await db.sprints.update(sAny.id, { estado: "planificado" });
+            await QueueService.encolar("sprints", "editar", sAny.id, {
+              id: sAny.id,
+              estado: "planificado",
+            });
+          }
+        }
+
+        await db.sprints.update(selectedSprintId, {
+          estado: "activo",
+          fechaInicio: start,
+          fechaFin: end,
+        });
+        await QueueService.encolar("sprints", "editar", selectedSprintId, {
+          id: selectedSprintId,
+          estado: "activo",
+          fechaInicio: start,
+          fechaFin: end,
+        });
       });
       mostrarToast("Sprint iniciado con éxito.", "exito");
     } catch (err: any) {
@@ -1027,23 +1056,42 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
   const finalizarSprint = async (targetSprintId?: string) => {
     if (!selectedSprintId) return;
     try {
-      await db.transaction("rw", [db.sprints, db.historias], async () => {
-        if (targetSprintId) {
-          const storiesToMove = historias.filter((h) => {
-            if (h.sprintId !== selectedSprintId) return false;
-            const subTareas = tareas.filter((t) => t.historiaId === h.id);
-            return subTareas.some(
-              (t) => t.estado !== "completado" && t.estado !== "done"
-            );
-          });
-          for (const story of storiesToMove) {
-            await db.historias.update(story.id, {
-              sprintId: targetSprintId === "backlog" ? null : targetSprintId,
+      const finishDate = Date.now();
+      await db.transaction(
+        "rw",
+        [db.sprints, db.historias, db.cola_eventos],
+        async () => {
+          if (targetSprintId) {
+            const storiesToMove = historias.filter((h) => {
+              if (h.sprintId !== selectedSprintId) return false;
+              const subTareas = tareas.filter((t) => t.historiaId === h.id);
+              return subTareas.some(
+                (t) => t.estado !== "completado" && t.estado !== "done"
+              );
             });
+            for (const story of storiesToMove) {
+              const nextSprintId =
+                targetSprintId === "backlog" ? null : targetSprintId;
+              await db.historias.update(story.id, {
+                sprintId: nextSprintId,
+              });
+              await QueueService.encolar("historias", "editar", story.id, {
+                id: story.id,
+                sprintId: nextSprintId,
+              });
+            }
           }
+          await db.sprints.update(selectedSprintId, {
+            estado: "completado",
+            finalizadoEn: finishDate,
+          });
+          await QueueService.encolar("sprints", "editar", selectedSprintId, {
+            id: selectedSprintId,
+            estado: "completado",
+            finalizadoEn: finishDate,
+          });
         }
-        await db.sprints.update(selectedSprintId, { estado: "completado" });
-      });
+      );
       mostrarToast("Sprint finalizado con éxito.", "exito");
     } catch (err: any) {
       mostrarToast(`Error al finalizar sprint: ${err.message}`, "error");
@@ -1055,10 +1103,24 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
     try {
       await db.transaction(
         "rw",
-        [db.sprints, db.historias, db.tareas, db.proyecto_estado_tecnico],
+        [
+          db.sprints,
+          db.historias,
+          db.tareas,
+          db.proyecto_estado_tecnico,
+          db.cola_eventos,
+        ],
         async () => {
           await db.sprints.update(selectedSprintId, {
             estado: "planificado",
+            fechaInicio: null,
+            fechaFin: null,
+          });
+          await QueueService.encolar("sprints", "editar", selectedSprintId, {
+            id: selectedSprintId,
+            estado: "planificado",
+            fechaInicio: null,
+            fechaFin: null,
           });
 
           const stories = await db.historias
@@ -1072,6 +1134,18 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
               .where("historiaId")
               .anyOf(storyIds as string[])
               .modify({ estado: "todo" });
+
+            const tasks = await db.tareas
+              .where("historiaId")
+              .anyOf(storyIds as string[])
+              .toArray();
+            for (const t of tasks) {
+              const tAny = t as any;
+              await QueueService.encolar("tareas", "editar", tAny.id, {
+                id: tAny.id,
+                estado: "todo",
+              });
+            }
           }
 
           const focusState = await db.proyecto_estado_tecnico.get(proyectoId);
@@ -1081,6 +1155,15 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
               await db.proyecto_estado_tecnico.update(proyectoId, {
                 activeActivityFocusId: null,
               });
+              await QueueService.encolar(
+                "proyecto_estado_tecnico",
+                "editar",
+                proyectoId,
+                {
+                  id: proyectoId,
+                  activeActivityFocusId: null,
+                }
+              );
             }
           }
         }
@@ -1092,7 +1175,7 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
         setIsFocusMode(false);
       }
 
-      mostrarToast("Sprint cancelado y devuelto a planificación.", "info");
+      mostrarToast("Sprint cancelado con éxito.", "exito");
     } catch (err: any) {
       mostrarToast(`Error al cancelar sprint: ${err.message}`, "error");
     }

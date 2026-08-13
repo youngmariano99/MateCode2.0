@@ -49,7 +49,7 @@ const COLUMN_FLOW = ["todo", "in_progress", "in_revision", "completado"];
 
 export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
   proyecto,
-  sprints,
+  sprints: rawSprints,
   historias,
   historiasSprint,
   epicas,
@@ -65,6 +65,7 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
   handleUpdateActividadEstado,
   setIsImportDesvioOpen,
 }) => {
+  const sprints = (rawSprints || []).filter((s) => !s.eliminado);
   const { mostrarToast } = useToast();
 
   const PROMPT_SPRINTS_CONTINUACION = `<rol>
@@ -517,6 +518,43 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
     }
   };
 
+  const handleEliminarSprintSoft = async (sprintId: string) => {
+    if (!proyecto) return;
+    if (
+      confirm(
+        "¿Estás seguro de eliminar este sprint? Las historias asignadas a él regresarán al backlog de forma permanente."
+      )
+    ) {
+      try {
+        await db.transaction(
+          "rw",
+          [db.sprints, db.historias, db.cola_eventos],
+          async () => {
+            await db.sprints.update(sprintId, { eliminado: true });
+            await QueueService.encolar("sprints", "editar", sprintId, {
+              id: sprintId,
+              eliminado: true,
+            });
+
+            const sprintStories = historias.filter(
+              (h) => h.sprintId === sprintId
+            );
+            for (const story of sprintStories) {
+              await db.historias.update(story.id, { sprintId: "" });
+              await QueueService.encolar("historias", "editar", story.id, {
+                id: story.id,
+                sprintId: "",
+              });
+            }
+          }
+        );
+        mostrarToast("Sprint eliminado con éxito.", "exito");
+      } catch (err: any) {
+        mostrarToast("Error al eliminar sprint: " + err.message, "error");
+      }
+    }
+  };
+
   // viewMode can be "dashboard" (list of all sprints) or "kanban" (focus view of a sprint)
   const [viewMode, setViewMode] = useState<"dashboard" | "kanban">("dashboard");
 
@@ -880,21 +918,33 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
                     <span className="truncate text-[11px] font-bold text-zinc-200">
                       {s.nombre}
                     </span>
-                    <span
-                      className={`py-0.2 rounded border px-1.5 text-[7px] font-bold uppercase ${
-                        s.estado === "activo"
-                          ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <span
+                        className={`py-0.2 rounded border px-1.5 text-[7px] font-bold uppercase ${
+                          s.estado === "activo"
+                            ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                            : s.estado === "completado"
+                              ? "border-zinc-800 bg-zinc-900 text-zinc-500"
+                              : "border-zinc-800 bg-zinc-900 text-zinc-400"
+                        }`}
+                      >
+                        {s.estado === "activo"
+                          ? "Activo"
                           : s.estado === "completado"
-                            ? "border-zinc-800 bg-zinc-900 text-zinc-500"
-                            : "border-zinc-800 bg-zinc-900 text-zinc-400"
-                      }`}
-                    >
-                      {s.estado === "activo"
-                        ? "Activo"
-                        : s.estado === "completado"
-                          ? "Completado"
-                          : "Planificado"}
-                    </span>
+                            ? "Completado"
+                            : "Planificado"}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEliminarSprintSoft(s.id);
+                        }}
+                        className="text-zinc-650 rounded p-0.5 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                        title="Eliminar Sprint (Soft Delete)"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
 
                   <p className="mt-2 line-clamp-2 min-h-[24px] text-[8px] leading-normal text-zinc-400">
@@ -927,6 +977,36 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
                         {completedCount}/{stories.length}
                       </span>
                     </div>
+                  </div>
+
+                  {/* Start/End/Completion Dates */}
+                  <div className="mb-3 flex flex-col gap-0.5 border-b border-zinc-900/40 pb-2.5 font-mono text-[8px] text-zinc-500">
+                    {s.fechaInicio && (
+                      <div className="flex justify-between">
+                        <span className="text-zinc-650">INICIO:</span>
+                        <span className="font-bold text-zinc-400">
+                          {new Date(s.fechaInicio).toLocaleDateString("es-AR")}
+                        </span>
+                      </div>
+                    )}
+                    {s.fechaFin && s.estado !== "completado" && (
+                      <div className="flex justify-between">
+                        <span className="text-zinc-650">FIN ESTIMADO:</span>
+                        <span className="font-bold text-zinc-400">
+                          {new Date(s.fechaFin).toLocaleDateString("es-AR")}
+                        </span>
+                      </div>
+                    )}
+                    {s.finalizadoEn && (
+                      <div className="flex justify-between">
+                        <span className="text-zinc-650 text-emerald-500/80">
+                          COMPLETADO:
+                        </span>
+                        <span className="font-bold text-emerald-400">
+                          {new Date(s.finalizadoEn).toLocaleDateString("es-AR")}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Progress bar */}

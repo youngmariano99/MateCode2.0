@@ -960,10 +960,9 @@ Formato JSON esperado:
   };
 
   const generarSprintsMarkdown = async (): Promise<string> => {
-    const projectSprints = await db.sprints
-      .where("proyectoId")
-      .equals(proyectoId)
-      .toArray();
+    const projectSprints = (
+      await db.sprints.where("proyectoId").equals(proyectoId).toArray()
+    ).filter((s: any) => !s.eliminado);
     const projectStories = await db.historias
       .where("proyectoId")
       .equals(proyectoId)
