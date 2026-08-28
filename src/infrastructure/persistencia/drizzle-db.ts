@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-const connectionString = process.env.DATABASE_URL || "";
+const connectionString = (process.env.DATABASE_URL || "").trim();
 
 // prepare: false is required to support transaction mode connection poolers like Supavisor
 const client = postgres(connectionString, { prepare: false });
