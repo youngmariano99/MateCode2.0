@@ -68,6 +68,7 @@ export async function POST(
       "eliminadoEn",
       "fechaInicio",
       "fechaFin",
+      "finalizadoEn",
       "fechaEntrega",
       "fechaVencimiento",
       "fechaPago",

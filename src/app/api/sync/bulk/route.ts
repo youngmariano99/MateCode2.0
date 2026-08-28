@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
             "eliminadoEn",
             "fechaInicio",
             "fechaFin",
+            "finalizadoEn",
             "fechaEntrega",
             "fechaVencimiento",
             "fechaPago",
