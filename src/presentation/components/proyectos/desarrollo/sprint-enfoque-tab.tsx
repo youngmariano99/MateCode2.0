@@ -650,25 +650,41 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
               if (ho.resumen_tecnico) {
                 mdContent += `**Resumen Técnico:**\n${ho.resumen_tecnico}\n\n`;
               }
-              if (
-                ho.archivos_creados_o_modificados &&
-                ho.archivos_creados_o_modificados.length > 0
-              ) {
-                mdContent += `**Archivos Modificados:**\n`;
-                ho.archivos_creados_o_modificados.forEach((f: string) => {
-                  mdContent += `- \`${f}\`\n`;
-                });
-                mdContent += `\n`;
+              if (ho.archivos_creados_o_modificados) {
+                const filesArray = Array.isArray(
+                  ho.archivos_creados_o_modificados
+                )
+                  ? ho.archivos_creados_o_modificados
+                  : typeof ho.archivos_creados_o_modificados === "string"
+                    ? ho.archivos_creados_o_modificados
+                        .split(",")
+                        .map((s: string) => s.trim())
+                    : [];
+                if (filesArray.length > 0) {
+                  mdContent += `**Archivos Modificados:**\n`;
+                  filesArray.forEach((f: string) => {
+                    mdContent += `- \`${f}\`\n`;
+                  });
+                  mdContent += `\n`;
+                }
               }
-              if (
-                ho.firmas_o_contratos_exportados &&
-                ho.firmas_o_contratos_exportados.length > 0
-              ) {
-                mdContent += `**Contratos y API signatures:**\n`;
-                ho.firmas_o_contratos_exportados.forEach((c: string) => {
-                  mdContent += `- \`${c}\`\n`;
-                });
-                mdContent += `\n`;
+              if (ho.firmas_o_contratos_exportados) {
+                const exportsArray = Array.isArray(
+                  ho.firmas_o_contratos_exportados
+                )
+                  ? ho.firmas_o_contratos_exportados
+                  : typeof ho.firmas_o_contratos_exportados === "string"
+                    ? ho.firmas_o_contratos_exportados
+                        .split(",")
+                        .map((s: string) => s.trim())
+                    : [];
+                if (exportsArray.length > 0) {
+                  mdContent += `**Contratos y API signatures:**\n`;
+                  exportsArray.forEach((c: string) => {
+                    mdContent += `- \`${c}\`\n`;
+                  });
+                  mdContent += `\n`;
+                }
               }
             }
           } else {

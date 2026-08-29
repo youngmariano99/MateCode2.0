@@ -589,7 +589,9 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                     {data.archivos_creados_o_modificados && (
                       <div className="text-zinc-550 mt-1 text-[8px]">
                         📁 <b>Archivos:</b>{" "}
-                        {data.archivos_creados_o_modificados.join(", ")}
+                        {Array.isArray(data.archivos_creados_o_modificados)
+                          ? data.archivos_creados_o_modificados.join(", ")
+                          : String(data.archivos_creados_o_modificados)}
                       </div>
                     )}
                     {data.resumen_tecnico && (

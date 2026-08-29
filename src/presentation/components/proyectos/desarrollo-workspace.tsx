@@ -1339,7 +1339,10 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
             ([stName, data]: [string, any]) => {
               md += `  * **Estación: ${stName}**\n`;
               if (data.archivos_creados_o_modificados) {
-                md += `    - Archivos: ${data.archivos_creados_o_modificados.join(", ")}\n`;
+                const files = Array.isArray(data.archivos_creados_o_modificados)
+                  ? data.archivos_creados_o_modificados.join(", ")
+                  : String(data.archivos_creados_o_modificados);
+                md += `    - Archivos: ${files}\n`;
               }
               if (data.resumen_tecnico) {
                 md += `    - Resumen: ${data.resumen_tecnico}\n`;
