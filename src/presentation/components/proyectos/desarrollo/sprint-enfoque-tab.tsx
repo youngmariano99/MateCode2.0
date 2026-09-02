@@ -19,6 +19,7 @@ interface SprintEnfoqueTabProps {
   selectedSprintId: string;
   setSelectedSprintId: (id: string) => void;
   iniciarSprint: () => void;
+  reabrirSprint?: (sprintId?: string) => Promise<void> | void;
   finalizarSprint: (targetSprintId?: string) => void;
   cancelarSprint: (reiniciarTareas: boolean) => void;
   iniciarCintaProduccionActividad: (act: any) => void;
@@ -59,13 +60,23 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
   selectedSprintId,
   setSelectedSprintId,
   iniciarSprint,
+  reabrirSprint,
   finalizarSprint,
   cancelarSprint,
   iniciarCintaProduccionActividad,
   handleUpdateActividadEstado,
   setIsImportDesvioOpen,
 }) => {
-  const sprints = (rawSprints || []).filter((s) => !s.eliminado);
+  const sprints = (rawSprints || [])
+    .filter((s) => !s.eliminado)
+    .sort((a, b) => {
+      const matchA = a.nombre?.match(/Sprint\s+(\d+)/i);
+      const matchB = b.nombre?.match(/Sprint\s+(\d+)/i);
+      if (matchA && matchB) {
+        return parseInt(matchA[1], 10) - parseInt(matchB[1], 10);
+      }
+      return (a.creadoEn || 0) - (b.creadoEn || 0);
+    });
   const { mostrarToast } = useToast();
 
   const PROMPT_SPRINTS_CONTINUACION = `<rol>
@@ -777,6 +788,20 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
     }
   };
 
+  const handleReabrirSprintClick = (sprintId?: string) => {
+    const targetId = sprintId || focusedSprint?.id;
+    if (!targetId) return;
+    if (
+      confirm(
+        "¿Deseas reabrir este Sprint? Su fecha de inicio original se mantendrá y podrás agregar tareas o corregir bugs. La fecha de fin se actualizará cuando vuelvas a finalizarlo."
+      )
+    ) {
+      if (reabrirSprint) {
+        reabrirSprint(targetId);
+      }
+    }
+  };
+
   const handleIniciarSprintFromDashboard = (sprintId: string) => {
     setSelectedSprintId(sprintId);
     // Execute iniciarSprint next tick
@@ -809,6 +834,13 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
                   Sprint en Curso
                 </span>
               )}
+            {focusedSprint &&
+              focusedSprint.estado === "completado" &&
+              viewMode === "kanban" && (
+                <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[7px] font-bold text-emerald-400 uppercase">
+                  ✓ Sprint Completado
+                </span>
+              )}
           </div>
           <p className="mt-0.5 font-mono text-[9px] text-zinc-500">
             {viewMode === "dashboard"
@@ -836,6 +868,18 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
               📥 Descargar Handoffs (.md)
             </button>
           )}
+
+          {viewMode === "kanban" &&
+            focusedSprint &&
+            focusedSprint.estado === "completado" && (
+              <button
+                onClick={() => handleReabrirSprintClick(focusedSprint.id)}
+                className="rounded border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-amber-400 uppercase transition-all hover:bg-amber-500/20"
+                title="Reabrir sprint para agregar tareas o registrar bugs manteniendo la fecha de inicio"
+              >
+                🔄 Reabrir Sprint
+              </button>
+            )}
 
           {viewMode === "kanban" &&
             focusedSprint &&
@@ -1059,11 +1103,22 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
                         🎯 Tablero
                       </button>
                     )}
+                    {s.estado === "completado" && (
+                      <button
+                        onClick={() => handleReabrirSprintClick(s.id)}
+                        className="flex-1 rounded border border-amber-500/20 bg-amber-500/10 py-1.5 text-center text-[9px] font-bold text-amber-400 uppercase transition-all hover:bg-amber-500/20"
+                        title="Reabrir sprint para agregar tareas o registrar bugs manteniendo la fecha de inicio"
+                      >
+                        🔄 Reabrir
+                      </button>
+                    )}
                     <button
                       onClick={() => handleVerSprintDetails(s.id)}
                       className="flex-1 rounded border border-zinc-800 bg-zinc-900 py-1.5 text-center text-[9px] font-bold text-zinc-400 uppercase transition-all hover:text-zinc-200"
                     >
-                      📋 Detalles
+                      {s.estado === "completado"
+                        ? "📥 Ver / Handoff"
+                        : "📋 Detalles"}
                     </button>
                   </div>
                 </div>

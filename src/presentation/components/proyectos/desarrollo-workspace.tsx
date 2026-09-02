@@ -70,7 +70,16 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
     (useLiveQuery(() =>
       db.sprints.where("proyectoId").equals(proyectoId).toArray()
     ) || []) as any[]
-  ).filter((s) => !s.eliminado);
+  )
+    .filter((s) => !s.eliminado)
+    .sort((a, b) => {
+      const matchA = a.nombre?.match(/Sprint\s+(\d+)/i);
+      const matchB = b.nombre?.match(/Sprint\s+(\d+)/i);
+      if (matchA && matchB) {
+        return parseInt(matchA[1], 10) - parseInt(matchB[1], 10);
+      }
+      return (a.creadoEn || 0) - (b.creadoEn || 0);
+    });
 
   const historias = (useLiveQuery(() =>
     db.historias.where("proyectoId").equals(proyectoId).toArray()
@@ -1016,7 +1025,8 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
     try {
       const spr = sprints.find((s) => s.id === selectedSprintId);
       const duration = spr?.duracionSemanas || 2;
-      const start = Date.now();
+      // Preserve existing fechaInicio if previously recorded
+      const start = spr?.fechaInicio || Date.now();
       const end = start + duration * 7 * 24 * 60 * 60 * 1000;
 
       await db.transaction("rw", [db.sprints, db.cola_eventos], async () => {
@@ -1026,7 +1036,7 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
           .toArray();
         for (const s of projectSprints) {
           const sAny = s as any;
-          if (sAny.estado === "activo") {
+          if (sAny.estado === "activo" && sAny.id !== selectedSprintId) {
             await db.sprints.update(sAny.id, { estado: "planificado" });
             await QueueService.encolar("sprints", "editar", sAny.id, {
               id: sAny.id,
@@ -1039,17 +1049,49 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
           estado: "activo",
           fechaInicio: start,
           fechaFin: end,
+          finalizadoEn: null,
         });
         await QueueService.encolar("sprints", "editar", selectedSprintId, {
           id: selectedSprintId,
           estado: "activo",
           fechaInicio: start,
           fechaFin: end,
+          finalizadoEn: null,
         });
       });
       mostrarToast("Sprint iniciado con éxito.", "exito");
     } catch (err: any) {
       mostrarToast(`Error al iniciar sprint: ${err.message}`, "error");
+    }
+  };
+
+  const reabrirSprint = async (sprintIdToReopen?: string) => {
+    const targetId = sprintIdToReopen || selectedSprintId;
+    if (!targetId) return;
+    try {
+      const spr = sprints.find((s) => s.id === targetId);
+      const start = spr?.fechaInicio || Date.now();
+      const duration = spr?.duracionSemanas || 2;
+      const end = start + duration * 7 * 24 * 60 * 60 * 1000;
+
+      await db.transaction("rw", [db.sprints, db.cola_eventos], async () => {
+        await db.sprints.update(targetId, {
+          estado: "activo",
+          fechaInicio: start,
+          fechaFin: end,
+          finalizadoEn: null,
+        });
+        await QueueService.encolar("sprints", "editar", targetId, {
+          id: targetId,
+          estado: "activo",
+          fechaInicio: start,
+          fechaFin: end,
+          finalizadoEn: null,
+        });
+      });
+      mostrarToast("Sprint reabierto en modo activo.", "info");
+    } catch (err: any) {
+      mostrarToast(`Error al reabrir sprint: ${err.message}`, "error");
     }
   };
 
@@ -1673,6 +1715,7 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
               selectedSprintId={selectedSprintId}
               setSelectedSprintId={setSelectedSprintId}
               iniciarSprint={iniciarSprint}
+              reabrirSprint={reabrirSprint}
               finalizarSprint={finalizarSprint}
               cancelarSprint={cancelarSprint}
               iniciarCintaProduccionActividad={iniciarCintaProduccionActividad}

@@ -52,7 +52,19 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ proyectoId }) => {
       () => db.sprints.where("proyectoId").equals(proyectoId).toArray(),
       [proyectoId]
     ) || []) as unknown as SprintCRM[]
-  ).filter((s) => !(s as unknown as { eliminado?: boolean }).eliminado);
+  )
+    .filter((s) => !(s as unknown as { eliminado?: boolean }).eliminado)
+    .sort((a, b) => {
+      const matchA = a.nombre?.match(/Sprint\s+(\d+)/i);
+      const matchB = b.nombre?.match(/Sprint\s+(\d+)/i);
+      if (matchA && matchB) {
+        return parseInt(matchA[1], 10) - parseInt(matchB[1], 10);
+      }
+      return (
+        ((a as unknown as { creadoEn?: number }).creadoEn || 0) -
+        ((b as unknown as { creadoEn?: number }).creadoEn || 0)
+      );
+    });
   const historias = (useLiveQuery(
     () => db.historias.where("proyectoId").equals(proyectoId).toArray(),
     [proyectoId]
