@@ -21,6 +21,33 @@ import { generarPromptActividadTicket } from "../src/domain/prompts/generar-prom
 import { db, schema } from "./db";
 import { eq } from "drizzle-orm";
 
+// Pedido explícito de handoff en un segundo turno, cuando el turno de
+// desarrollo no lo incluyó al final de su propia respuesta (ver punto 3 del
+// roadmap: economía de tokens — este prompt es corto a propósito, solo pide
+// lo que falta, no repite contexto que la sesión ya tiene).
+const PROMPT_SOLO_HANDOFF = `Ya terminaste el desarrollo de este ticket en tu respuesta anterior. Ahora respondé ÚNICAMENTE con el bloque JSON de handoff, sin código, sin explicaciones adicionales, empezando con \`\`\`json y terminando con \`\`\`:
+
+\`\`\`json
+{
+  "handoff": {
+    "archivos_creados_o_modificados": ["lista de archivos que realmente creaste o modificaste"],
+    "firmas_o_contratos_exportados": ["lista de firmas, endpoints o esquemas que realmente exportaste"],
+    "resumen_tecnico": "breve descripción técnica de las decisiones tomadas, para otro desarrollador",
+    "resumen_negocio": "explicación en 3-5 oraciones, SIN jerga técnica, de qué problema resolvió este ticket y qué puede hacer ahora el usuario final que antes no podía",
+    "guia_pruebas_manual": {
+      "pasos": ["paso 1 para probar esto manualmente", "paso 2", "..."],
+      "datosPrueba": "credenciales o datos de prueba a usar, si aplica",
+      "resultadoEsperado": "qué debería observar quien prueba si todo funciona bien"
+    },
+    "acciones_manuales_requeridas": [
+      { "nivel": "moderada", "descripcion": "..." }
+    ]
+  }
+}
+\`\`\`
+
+Si alguna sección no aplica, igual incluí la clave con un valor vacío ([] o ""), no la omitas.`;
+
 let detenido = false;
 process.on("SIGINT", () => {
   console.log(
@@ -122,12 +149,18 @@ async function procesarCheckpoint(
     resumeSessionId: checkpoint.claudeSessionId ?? undefined,
   });
 
+  // Acumuladores de métricas: si hace falta un segundo turno para pedir el
+  // handoff, sus tokens/costo se suman acá antes de persistir al final.
+  let tokensInputTotal = resultado.tokensInput ?? 0;
+  let tokensOutputTotal = resultado.tokensOutput ?? 0;
+  let costoUsdTotal = resultado.costoUsd ?? 0;
+
   await actualizarCheckpoint(checkpoint.id, {
     claudeSessionId:
       resultado.sessionId ?? checkpoint.claudeSessionId ?? undefined,
-    tokensInput: resultado.tokensInput,
-    tokensOutput: resultado.tokensOutput,
-    costoUsd: resultado.costoUsd,
+    tokensInput: tokensInputTotal,
+    tokensOutput: tokensOutputTotal,
+    costoUsd: costoUsdTotal,
   });
 
   if (!resultado.ok) {
@@ -167,15 +200,52 @@ async function procesarCheckpoint(
     return;
   }
 
-  const bloqueJson = extraerBloqueJson(resultado.textoResultado);
+  let bloqueJson = extraerBloqueJson(resultado.textoResultado);
   if (!bloqueJson) {
-    await fallarOReintentar(
-      checkpoint,
-      "HANDOFF_INVALID_JSON",
-      "El agente no devolvió el bloque JSON de handoff esperado.",
-      configAuto
+    // El agente terminó su turno de desarrollo con un resumen en prosa, sin
+    // el bloque JSON pedido al final (compite con toda la tarea de código en
+    // el mismo turno — poco confiable). Se lo volvemos a pedir en un segundo
+    // turno corto, dedicado únicamente al handoff, sobre la misma sesión.
+    console.log(
+      `[runner] Checkpoint ${checkpoint.id}: el turno de desarrollo no trajo el JSON de handoff, pidiéndolo en un segundo turno...`
     );
-    return;
+    const resultadoHandoff = await invocarClaudeCode({
+      prompt: PROMPT_SOLO_HANDOFF,
+      rutaRepo: proyectoCfg.rutaLocalRepo,
+      claudeExecutable: proyectoCfg.claudeExecutable,
+      resumeSessionId:
+        resultado.sessionId ?? checkpoint.claudeSessionId ?? undefined,
+      timeoutMs: 5 * 60 * 1000,
+    });
+    tokensInputTotal += resultadoHandoff.tokensInput ?? 0;
+    tokensOutputTotal += resultadoHandoff.tokensOutput ?? 0;
+    costoUsdTotal += resultadoHandoff.costoUsd ?? 0;
+    await actualizarCheckpoint(checkpoint.id, {
+      claudeSessionId:
+        resultadoHandoff.sessionId ?? resultado.sessionId ?? undefined,
+      tokensInput: tokensInputTotal,
+      tokensOutput: tokensOutputTotal,
+      costoUsd: costoUsdTotal,
+    });
+    if (!resultadoHandoff.ok) {
+      await fallarOReintentar(
+        checkpoint,
+        "HANDOFF_INVALID_JSON",
+        `El agente no devolvió el JSON de handoff ni en el turno de desarrollo ni en el pedido explícito: ${resultadoHandoff.errorMensaje}`,
+        configAuto
+      );
+      return;
+    }
+    bloqueJson = extraerBloqueJson(resultadoHandoff.textoResultado);
+    if (!bloqueJson) {
+      await fallarOReintentar(
+        checkpoint,
+        "HANDOFF_INVALID_JSON",
+        `El agente tampoco devolvió JSON en el pedido explícito de handoff. Respuesta: ${resultadoHandoff.textoResultado.slice(0, 500)}`,
+        configAuto
+      );
+      return;
+    }
   }
 
   let candidato: unknown;
