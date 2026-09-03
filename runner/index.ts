@@ -41,9 +41,12 @@ async function procesarCheckpoint(
     return;
   }
 
-  const esRetoma = checkpoint.estadoCheckpoint === "QA_RETRYING";
+  const esHuerfano =
+    checkpoint.estadoCheckpoint === "IN_PROGRESS_AI" ||
+    checkpoint.estadoCheckpoint === "QA_VALIDATING";
+  const esRetoma = checkpoint.estadoCheckpoint === "QA_RETRYING" || esHuerfano;
   console.log(
-    `[runner] ${esRetoma ? "Retomando" : "Iniciando"} checkpoint ${checkpoint.id} (actividad ${checkpoint.actividadId})...`
+    `[runner] ${esRetoma ? "Retomando" : "Iniciando"} checkpoint ${checkpoint.id} (actividad ${checkpoint.actividadId})${esHuerfano ? " — estaba huérfano, un runner anterior lo dejó a mitad de camino" : ""}...`
   );
 
   if (!esRetoma) {
@@ -130,7 +133,7 @@ async function procesarCheckpoint(
   if (!resultado.ok) {
     await fallarOReintentar(
       checkpoint,
-      "TOKEN_LIMIT_EXCEEDED",
+      "CLAUDE_CODE_INVOCATION_FAILED",
       resultado.errorMensaje || "Fallo desconocido invocando Claude Code.",
       configAuto
     );
@@ -191,10 +194,12 @@ async function procesarCheckpoint(
 
   const validacion = parseHandoffIA(JSON.stringify(candidato));
   if (!validacion.ok) {
+    const bloqueRecortado =
+      bloqueJson.length > 800 ? bloqueJson.slice(0, 800) + "…" : bloqueJson;
     await fallarOReintentar(
       checkpoint,
       "HANDOFF_INVALID_JSON",
-      validacion.detalle,
+      `${validacion.detalle}\n\nJSON recibido:\n${bloqueRecortado}`,
       configAuto
     );
     return;

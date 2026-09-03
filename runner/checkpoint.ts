@@ -1,4 +1,13 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, lt, or } from "drizzle-orm";
+
+/**
+ * Un checkpoint en IN_PROGRESS_AI/QA_VALIDATING más viejo que esto se
+ * considera huérfano (el proceso que lo estaba corriendo murió — Ctrl+C,
+ * crash, corte de luz) y se recoge para retomar, en vez de quedar trabado
+ * para siempre. Mayor al timeout interno más largo (invocación: 30 min) para
+ * no pisarle el trabajo a un runner que todavía está activo.
+ */
+const MINUTOS_PARA_CONSIDERAR_HUERFANO = 35;
 import { db, schema } from "./db";
 import type {
   AccionManualRequerida,
@@ -26,12 +35,32 @@ export async function buscarCheckpointsListos(): Promise<CheckpointRow[]> {
   return rows as unknown as CheckpointRow[];
 }
 
-/** También retoma checkpoints que quedaron a mitad de camino (corte de créditos/proceso). */
+/**
+ * Retoma checkpoints que quedaron a mitad de camino: QA_RETRYING (fallo
+ * manejado por el propio runner, listo para reintentar) y también
+ * IN_PROGRESS_AI/QA_VALIDATING huérfanos (el runner que los procesaba murió
+ * sin terminar — Ctrl+C, crash, corte de luz — y quedaron trabados sin que
+ * nadie los reclame).
+ */
 export async function buscarCheckpointsParaRetomar(): Promise<CheckpointRow[]> {
+  const limite = new Date(
+    Date.now() - MINUTOS_PARA_CONSIDERAR_HUERFANO * 60_000
+  );
   const rows = await db
     .select()
     .from(schema.taskExecutionCheckpoints)
-    .where(eq(schema.taskExecutionCheckpoints.estadoCheckpoint, "QA_RETRYING"));
+    .where(
+      or(
+        eq(schema.taskExecutionCheckpoints.estadoCheckpoint, "QA_RETRYING"),
+        and(
+          inArray(schema.taskExecutionCheckpoints.estadoCheckpoint, [
+            "IN_PROGRESS_AI",
+            "QA_VALIDATING",
+          ]),
+          lt(schema.taskExecutionCheckpoints.actualizadoEn, limite)
+        )
+      )
+    );
   return rows as unknown as CheckpointRow[];
 }
 

@@ -82,6 +82,14 @@ export const CATALOGO_ERRORES_SEED = [
       "Créditos/tokens agotados a mitad de ejecución: el checkpoint queda resumible con el session id guardado.",
   },
   {
+    codigo: "CLAUDE_CODE_INVOCATION_FAILED",
+    categoria: "infraestructura",
+    severidad: "alta",
+    esRecuperable: true,
+    accionSugerida:
+      "No se pudo ejecutar el proceso de Claude Code (binario no encontrado, crash, timeout). Revisar claudeExecutable en runner.config.json y que el proceso pueda correr en esa ruta.",
+  },
+  {
     codigo: "MERGE_CONFLICT",
     categoria: "git",
     severidad: "alta",

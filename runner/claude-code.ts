@@ -37,7 +37,13 @@ export function invocarClaudeCode({
   resumeSessionId,
   timeoutMs = 30 * 60 * 1000, // 30 min: dejar tiempo real para un ticket completo
 }: InvocarClaudeCodeOptions): Promise<InvocacionClaudeCodeResult> {
-  const args = ["-p", prompt, "--output-format", "json"];
+  // El prompt va por stdin, no como argumento de línea de comandos: en
+  // Windows, CreateProcess tiene un límite de ~32K caracteres para el
+  // comando completo, y un prompt real (checklist + criterios) puede
+  // acercarse o superarlo — cuando eso pasa, el spawn falla y Node lo
+  // reporta como un confuso "ENOENT" en vez de un error de longitud. Por
+  // stdin no hay ese límite.
+  const args = ["-p", "--output-format", "json"];
   if (resumeSessionId) {
     args.push("--resume", resumeSessionId);
   }
@@ -45,7 +51,12 @@ export function invocarClaudeCode({
   return new Promise((resolve) => {
     const child = spawn(claudeExecutable, args, {
       cwd: rutaRepo,
-      shell: false,
+      // En Windows, "claude" instalado vía npm es un shim .cmd/.ps1 — spawn
+      // con shell:false no lo resuelve y tira ENOENT aunque el comando exista
+      // (gotcha conocido de Node en Windows). Como el prompt va por stdin y
+      // no por argv, habilitar el shell acá no reintroduce el riesgo de
+      // escape que sí tendría pasar el prompt como argumento.
+      shell: process.platform === "win32",
     });
 
     let stdout = "";
@@ -53,6 +64,13 @@ export function invocarClaudeCode({
     const timer = setTimeout(() => {
       child.kill("SIGTERM");
     }, timeoutMs);
+
+    child.stdin.on("error", () => {
+      // Si el proceso ya murió (ej. binario no encontrado), escribir a su
+      // stdin tira EPIPE — lo ignoramos, el error real ya lo capta "error".
+    });
+    child.stdin.write(prompt, "utf-8");
+    child.stdin.end();
 
     child.stdout.on("data", (chunk) => {
       stdout += chunk.toString();
@@ -64,10 +82,22 @@ export function invocarClaudeCode({
     child.on("close", (code) => {
       clearTimeout(timer);
       if (code !== 0) {
+        // El error real suele venir en el JSON de stdout (ej. "Not logged in"),
+        // no en stderr — probamos ahí primero antes de caer al mensaje genérico.
+        let mensajeDesdeStdout: string | undefined;
+        try {
+          const parsed = JSON.parse(stdout);
+          mensajeDesdeStdout = parsed.result || parsed.error;
+        } catch {
+          // stdout no era JSON, seguimos con stderr/mensaje genérico.
+        }
         resolve({
           ok: false,
           textoResultado: stdout,
-          errorMensaje: stderr || `Claude Code terminó con código ${code}.`,
+          errorMensaje:
+            mensajeDesdeStdout ||
+            stderr ||
+            `Claude Code terminó con código ${code}.`,
         });
         return;
       }
