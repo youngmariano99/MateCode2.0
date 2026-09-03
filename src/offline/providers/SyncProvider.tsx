@@ -23,8 +23,15 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({
     if (sincronizando) return;
     Promise.resolve().then(() => setSincronizando(true));
     try {
-      await SyncService.sincronizar();
-      mostrarToast("Sincronización completada con éxito.", "exito");
+      const { fallidos } = await SyncService.sincronizar();
+      if (fallidos > 0) {
+        mostrarToast(
+          `Sincronización parcial: ${fallidos} evento(s) con error, se reintentarán luego.`,
+          "error"
+        );
+      } else {
+        mostrarToast("Sincronización completada con éxito.", "exito");
+      }
     } catch {
       mostrarToast(
         "Error en la sincronización automática. Se reintentará luego.",

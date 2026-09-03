@@ -6,6 +6,8 @@ import { Card } from "../../card";
 import { db } from "../../../../offline/dexie/db";
 import { QueueService } from "../../../../offline/services/queue.service";
 import { useToast } from "../../../hooks/useToast";
+import { EjecucionIAControl } from "./ejecucion-ia-control";
+import { CheckpointPullService } from "../../../../offline/services/checkpoint-pull.service";
 
 interface SprintEnfoqueTabProps {
   proyecto: any;
@@ -78,6 +80,22 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
       return (a.creadoEn || 0) - (b.creadoEn || 0);
     });
   const { mostrarToast } = useToast();
+
+  // El runner de automatización IA corre aparte (Node local) y escribe el
+  // progreso directo en Supabase — este es el único punto del sistema que
+  // "hala" (pull) cambios remotos hacia IndexedDB, para que el tablero
+  // refleje en vivo lo que el runner va haciendo con cada ticket.
+  useEffect(() => {
+    if (!proyecto?.id) return;
+    const traer = () => {
+      CheckpointPullService.sincronizarDesdeRemoto(proyecto.id).catch(() => {
+        // Silencioso: si no hay conexión, el tablero sigue mostrando el último estado conocido.
+      });
+    };
+    traer();
+    const intervalo = setInterval(traer, 10000);
+    return () => clearInterval(intervalo);
+  }, [proyecto?.id]);
 
   const PROMPT_SPRINTS_CONTINUACION = `<rol>
 Actúa como Scrum Master y Tech Lead Senior.
@@ -541,10 +559,12 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
           "rw",
           [db.sprints, db.historias, db.cola_eventos],
           async () => {
-            await db.sprints.update(sprintId, { eliminado: true });
+            const eliminadoEn = Date.now();
+            await db.sprints.update(sprintId, { eliminado: true, eliminadoEn });
             await QueueService.encolar("sprints", "editar", sprintId, {
               id: sprintId,
               eliminado: true,
+              eliminadoEn,
             });
 
             const sprintStories = historias.filter(
@@ -1383,7 +1403,7 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
                               )}
                             </div>
 
-                            {/* Launch focus mode */}
+                            {/* Launch focus mode (manual) */}
                             {focusedSprint?.estado === "activo" &&
                               !isCompletado && (
                                 <button
@@ -1394,6 +1414,15 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
                                 >
                                   🎯 Modo Enfoque
                                 </button>
+                              )}
+
+                            {/* Ejecución automatizada con IA (Fase 3) */}
+                            {focusedSprint?.estado === "activo" &&
+                              !isCompletado && (
+                                <EjecucionIAControl
+                                  proyectoId={proyecto.id}
+                                  actividad={{ id: t.id, titulo: t.titulo }}
+                                />
                               )}
                           </div>
                         );

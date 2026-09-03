@@ -1,0 +1,9 @@
+{
+  "pollIntervalMs": 15000,
+  "proyectos": {
+    "REEMPLAZAR_CON_EL_ID_DE_PROYECTO": {
+      "rutaLocalRepo": "C:/ruta/absoluta/al/repositorio/del/proyecto",
+      "claudeExecutable": "claude"
+    }
+  }
+}

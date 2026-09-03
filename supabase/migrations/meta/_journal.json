@@ -36,6 +36,20 @@
       "when": 1786200691649,
       "tag": "0004_huge_ares",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788383100246,
+      "tag": "0005_curly_marvex",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788394704670,
+      "tag": "0006_powerful_wolfpack",
+      "breakpoints": true
     }
   ]
 }

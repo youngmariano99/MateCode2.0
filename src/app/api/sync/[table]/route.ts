@@ -3,6 +3,8 @@ import { db } from "../../../../infrastructure/persistencia/drizzle-db";
 import * as schema from "../../../../infrastructure/persistencia/schema";
 import { eq } from "drizzle-orm";
 
+export const maxDuration = 30;
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tableMapper: Record<string, any> = {
   proyectos: schema.proyectos,
@@ -14,6 +16,8 @@ const tableMapper: Record<string, any> = {
   proyecto_contexto: schema.proyectoContexto,
   proyecto_design_system: schema.proyectoDesignSystem,
   proyecto_estado_tecnico: schema.proyectoEstadoTecnico,
+  proyecto_config_automatizacion: schema.proyectoConfigAutomatizacion,
+  task_execution_checkpoints: schema.taskExecutionCheckpoints,
   clientes: schema.clientes,
   contactos: schema.contactos,
   contratos: schema.contratos,
@@ -46,6 +50,7 @@ export async function POST(
       "proyecto_contexto",
       "proyecto_design_system",
       "proyecto_estado_tecnico",
+      "proyecto_config_automatizacion",
     ].includes(table);
 
     const conflictTarget = isProjectConfigTable
@@ -76,6 +81,8 @@ export async function POST(
       "fechaSeguimiento",
       "fechaVisita",
       "expiracion",
+      "tiempoInicio",
+      "tiempoFin",
     ];
     for (const field of dateFields) {
       const val = dbPayload[field];
@@ -112,6 +119,11 @@ export async function POST(
       "etiquetas",
       "esquemaDb",
       "metadata",
+      "allowedTools",
+      "deniedPaths",
+      "accionesManualesModeradas",
+      "accionesManualesCriticas",
+      "guiaPruebasManual",
     ];
     for (const field of jsonFields) {
       if (

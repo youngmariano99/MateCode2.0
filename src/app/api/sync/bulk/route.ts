@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "../../../../infrastructure/persistencia/drizzle-db";
 import * as schema from "../../../../infrastructure/persistencia/schema";
 
+// El respaldo completo hace muchas inserciones secuenciales dentro de una
+// transacción; el timeout por defecto de una función serverless (10s en
+// Hobby) puede no alcanzar con datasets grandes. Vercel limita esto según el
+// plan, pero declarar un máximo mayor evita cortar la función antes de tiempo
+// en planes que sí lo soportan.
+export const maxDuration = 60;
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const tableMapper: Record<string, any> = {
   proyectos: schema.proyectos,
@@ -13,6 +20,8 @@ const tableMapper: Record<string, any> = {
   proyecto_contexto: schema.proyectoContexto,
   proyecto_design_system: schema.proyectoDesignSystem,
   proyecto_estado_tecnico: schema.proyectoEstadoTecnico,
+  proyecto_config_automatizacion: schema.proyectoConfigAutomatizacion,
+  task_execution_checkpoints: schema.taskExecutionCheckpoints,
   clientes: schema.clientes,
   contactos: schema.contactos,
   contratos: schema.contratos,
@@ -40,6 +49,7 @@ export async function POST(req: NextRequest) {
           "proyecto_contexto",
           "proyecto_design_system",
           "proyecto_estado_tecnico",
+          "proyecto_config_automatizacion",
         ].includes(table);
 
         const conflictTarget = isProjectConfigTable
@@ -64,6 +74,8 @@ export async function POST(req: NextRequest) {
             "fechaSeguimiento",
             "fechaVisita",
             "expiracion",
+            "tiempoInicio",
+            "tiempoFin",
           ];
           for (const field of dateFields) {
             const val = dbPayload[field];
@@ -101,6 +113,11 @@ export async function POST(req: NextRequest) {
             "etiquetas",
             "esquemaDb",
             "metadata",
+            "allowedTools",
+            "deniedPaths",
+            "accionesManualesModeradas",
+            "accionesManualesCriticas",
+            "guiaPruebasManual",
           ];
           for (const field of jsonFields) {
             if (

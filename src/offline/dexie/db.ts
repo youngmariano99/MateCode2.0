@@ -1,4 +1,17 @@
 import Dexie, { Table } from "dexie";
+import type {
+  ProyectoConfigAutomatizacion,
+  TaskExecutionCheckpoint,
+} from "../../domain/entidades/automatizacion-ia.entity";
+
+export interface CatalogoErrorRow {
+  codigo: string;
+  categoria: string;
+  severidad: "baja" | "media" | "alta" | "critica";
+  esRecuperable: boolean;
+  accionSugerida?: string;
+  creadoEn: number;
+}
 
 export interface EventoPendiente {
   id?: number;
@@ -7,6 +20,9 @@ export interface EventoPendiente {
   registroId: string;
   payload: Record<string, unknown>;
   fecha: number;
+  intentos?: number;
+  ultimoError?: string;
+  ultimoIntentoEn?: number;
 }
 
 export interface LogSincronizacion {
@@ -62,6 +78,14 @@ export class MateCodeDB extends Dexie {
   public contacto_sesiones!: Table<Record<string, unknown>, string>;
   public servicios_agencia!: Table<Record<string, unknown>, string>;
   public reuniones_contacto!: Table<Record<string, unknown>, string>;
+
+  // Automatización de ejecución con IA (Fase 0/1)
+  public proyecto_config_automatizacion!: Table<
+    ProyectoConfigAutomatizacion,
+    string
+  >;
+  public task_execution_checkpoints!: Table<TaskExecutionCheckpoint, string>;
+  public catalogo_errores!: Table<CatalogoErrorRow, string>;
 
   constructor() {
     super("MateCodeLocalDB");
@@ -593,6 +617,11 @@ export class MateCodeDB extends Dexie {
         "id, taskExecutionId, actividadId, proyectoId, estadoCheckpoint",
     });
 
+    // Version 15: catálogo de errores compartido (Fase 1 de automatización IA)
+    this.version(15).stores({
+      catalogo_errores: "codigo, categoria, severidad",
+    });
+
     this.on("populate", async () => {
       await this.table("prompt_templates").bulkPut(defaultTemplates);
       await this.table("workflow_templates").bulkPut(defaultWorkflows);
@@ -624,6 +653,19 @@ export class MateCodeDB extends Dexie {
         },
       ];
       await this.table("servicios_agencia").bulkPut(defaultServices);
+    });
+
+    // Corre en cada apertura (nuevas instalaciones y upgrades de usuarios
+    // existentes), a diferencia de "populate" que solo corre en DB nueva.
+    this.on("ready", async () => {
+      const count = await this.table("catalogo_errores").count();
+      if (count === 0) {
+        const { CATALOGO_ERRORES_SEED } =
+          await import("../../domain/entidades/automatizacion-ia.entity");
+        await this.table("catalogo_errores").bulkPut(
+          CATALOGO_ERRORES_SEED.map((e) => ({ ...e, creadoEn: Date.now() }))
+        );
+      }
     });
   }
 }

@@ -555,6 +555,8 @@ export const epicas = pgTable("epicas", {
   nombre: varchar("nombre", { length: 255 }).notNull(),
   descripcion: text("descripcion"),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  eliminado: boolean("eliminado").default(false).notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const sprints = pgTable("sprints", {
@@ -570,7 +572,10 @@ export const sprints = pgTable("sprints", {
   miembros: text("miembros"), // Lista de miembros serializada
   estado: varchar("estado", { length: 50 }).default("planificado").notNull(),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   finalizadoEn: timestamp("finalizado_en"),
+  eliminado: boolean("eliminado").default(false).notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const historias = pgTable("historias", {
@@ -583,9 +588,13 @@ export const historias = pgTable("historias", {
   prioridad: varchar("prioridad", { length: 50 }).default("Media").notNull(),
   estimacion: integer("estimacion").default(1).notNull(),
   estado: varchar("estado", { length: 50 }).default("backlog").notNull(),
+  completada: boolean("completada").default(false).notNull(),
   dependencias: text("dependencias"), // Array JSON serializado
   etiquetas: text("etiquetas"), // Array JSON serializado
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  eliminado: boolean("eliminado").default(false).notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const tareas = pgTable("tareas", {
@@ -600,17 +609,24 @@ export const tareas = pgTable("tareas", {
   ruta: varchar("ruta", { length: 255 }),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  eliminado: boolean("eliminado").default(false).notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const taskExecutions = pgTable("task_executions", {
   id: varchar("id", { length: 255 }).primaryKey(),
   proyectoId: varchar("proyecto_id", { length: 255 }).notNull(),
   templateId: varchar("template_id", { length: 255 }),
+  titulo: varchar("titulo", { length: 500 }),
   estado: varchar("estado", { length: 50 }).notNull(),
   usuarioAsignadoId: varchar("usuario_asignado_id", { length: 255 }),
   metadata: text("metadata"), // JSON conteniendo handoffs y logs de ejecución
+  fechaInicio: timestamp("fecha_inicio"),
+  fechaFin: timestamp("fecha_fin"),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  eliminado: boolean("eliminado").default(false).notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const proyectoContexto = pgTable("proyecto_contexto", {
@@ -661,11 +677,34 @@ export const proyectoConfigAutomatizacion = pgTable(
     testCmd: varchar("test_cmd", { length: 500 })
       .default("npm run test")
       .notNull(),
+    // Comandos desagregados por tipo de verificación (Fase 1 — estandarización
+    // de "qué" se verifica en cada capa, independiente de la herramienta del proyecto).
+    testUnitCmd: varchar("test_unit_cmd", { length: 500 }),
+    testIntegrationCmd: varchar("test_integration_cmd", { length: 500 }),
+    testE2eCmd: varchar("test_e2e_cmd", { length: 500 }),
     maxRetriesLinter: integer("max_retries_linter").default(3).notNull(),
+    // Estándar de economía de tokens: tamaño máximo sugerido por archivo.
+    maxLineasPorArchivo: integer("max_lineas_por_archivo")
+      .default(300)
+      .notNull(),
+    // Corralito de seguridad del runner (Claude Code): listas en JSON.
+    allowedTools: text("allowed_tools"),
+    deniedPaths: text("denied_paths"),
     creadoEn: timestamp("creado_en").defaultNow().notNull(),
     actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   }
 );
+
+// Catálogo de errores compartido entre el sistema y el agente de IA: mismo
+// "idioma" para clasificar cualquier fallo del runner, en vez de texto libre.
+export const catalogoErrores = pgTable("catalogo_errores", {
+  codigo: varchar("codigo", { length: 100 }).primaryKey(),
+  categoria: varchar("categoria", { length: 100 }).notNull(),
+  severidad: varchar("severidad", { length: 20 }).notNull(), // "baja" | "media" | "alta" | "critica"
+  esRecuperable: boolean("es_recuperable").default(true).notNull(),
+  accionSugerida: text("accion_sugerida"),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+});
 
 export const taskExecutionCheckpoints = pgTable("task_execution_checkpoints", {
   id: varchar("id", { length: 255 }).primaryKey(),
@@ -678,5 +717,29 @@ export const taskExecutionCheckpoints = pgTable("task_execution_checkpoints", {
   reintentosFallidos: integer("reintentos_fallidos").default(0).notNull(),
   commitShaBase: varchar("commit_sha_base", { length: 100 }),
   commitShaError: varchar("commit_sha_error", { length: 100 }),
+  // Métricas de eficiencia (Fase 1, punto 3 del roadmap): tiempo y tokens reales
+  // por intento, para poder medir después si el proceso es eficiente o no.
+  tokensInput: integer("tokens_input"),
+  tokensOutput: integer("tokens_output"),
+  costoUsd: doublePrecision("costo_usd"),
+  tiempoInicio: timestamp("tiempo_inicio"),
+  tiempoFin: timestamp("tiempo_fin"),
+  // Sesión resumible de Claude Code: permite continuar sin reconstruir contexto
+  // (ni tokens) tras un corte de créditos/conexión (Fase 0/1, punto 7).
+  claudeSessionId: varchar("claude_session_id", { length: 255 }),
+  // Catálogo de errores compartido (punto 1) — código, no texto libre.
+  codigoError: varchar("codigo_error", { length: 100 }).references(
+    () => catalogoErrores.codigo
+  ),
+  // Acciones fuera del alcance de la IA (punto 9), clasificadas en 2 niveles
+  // (punto extra del usuario): moderadas no bloquean, críticas sí.
+  accionesManualesModeradas: text("acciones_manuales_moderadas"), // JSON[]
+  accionesManualesCriticas: text("acciones_manuales_criticas"), // JSON[]
+  // Doble resumen del handoff (punto 2): técnico ya vive en task_executions.metadata,
+  // este es el resumen en lenguaje de Product Owner para lectura no técnica.
+  resumenNegocio: text("resumen_negocio"),
+  // Guía de pruebas manuales estandarizada (punto 6): pasos, datos de prueba,
+  // resultado esperado.
+  guiaPruebasManual: text("guia_pruebas_manual"), // JSON
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
 });

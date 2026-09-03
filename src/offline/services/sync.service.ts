@@ -1,11 +1,21 @@
 import { db } from "../dexie/db";
-import { QueueService } from "./queue.service";
+import { MAX_INTENTOS_SYNC, QueueService } from "./queue.service";
 import { HttpClient } from "../../presentation/services/http-client";
 
 export const SyncService = {
-  sincronizar: async (onProgress?: (msg: string) => void): Promise<void> => {
+  /**
+   * Procesa la cola de eventos pendientes. Un evento que falla NO corta el resto
+   * de la cola: se registra el fallo (intentos/ultimoError) y se continúa con los
+   * siguientes, para que la sincronización sea resiliente ante un evento puntual
+   * roto (crítico una vez que el volumen de eventos aumente con la automatización IA).
+   * Un evento que agota MAX_INTENTOS_SYNC queda en la cola marcado como "conflicto"
+   * para revisión manual, en vez de reintentarse indefinidamente.
+   */
+  sincronizar: async (
+    onProgress?: (msg: string) => void
+  ): Promise<{ exitosos: number; fallidos: number }> => {
     const pendientes = await QueueService.obtenerPendientes();
-    if (pendientes.length === 0) return;
+    if (pendientes.length === 0) return { exitosos: 0, fallidos: 0 };
 
     if (onProgress) onProgress("Iniciando sincronización...");
     await db.logs_sincronizacion.add({
@@ -14,7 +24,17 @@ export const SyncService = {
       fecha: Date.now(),
     });
 
+    let exitosos = 0;
+    let fallidos = 0;
+
     for (const evento of pendientes) {
+      if (evento.id === undefined) continue;
+
+      if ((evento.intentos ?? 0) >= MAX_INTENTOS_SYNC) {
+        fallidos++;
+        continue;
+      }
+
       try {
         if (onProgress)
           onProgress(`Sincronizando ${evento.accion} en ${evento.tabla}...`);
@@ -26,26 +46,35 @@ export const SyncService = {
           payload: evento.payload,
         });
 
-        if (evento.id !== undefined) {
-          await QueueService.eliminar(evento.id);
-        }
+        await QueueService.eliminar(evento.id);
+        exitosos++;
       } catch (err: unknown) {
         const errorMsg = err instanceof Error ? err.message : String(err);
+        const actualizado = await QueueService.registrarFallo(
+          evento.id,
+          errorMsg
+        );
+        fallidos++;
+
+        const agotoIntentos = (actualizado?.intentos ?? 0) >= MAX_INTENTOS_SYNC;
         await db.logs_sincronizacion.add({
-          tipo: "error",
-          mensaje: `Error al sincronizar evento ${evento.id}: ${errorMsg}`,
+          tipo: agotoIntentos ? "conflicto" : "error",
+          mensaje: agotoIntentos
+            ? `Evento ${evento.id} (${evento.tabla}/${evento.accion}) agotó ${MAX_INTENTOS_SYNC} intentos: ${errorMsg}. Requiere revisión manual.`
+            : `Error al sincronizar evento ${evento.id} (intento ${actualizado?.intentos ?? "?"}): ${errorMsg}`,
           fecha: Date.now(),
         });
-        throw err;
+        // No relanzamos: seguimos con el resto de la cola.
       }
     }
 
     await db.logs_sincronizacion.add({
-      tipo: "exito",
-      mensaje: "Sincronización finalizada con éxito.",
+      tipo: fallidos === 0 ? "exito" : "error",
+      mensaje: `Sincronización finalizada: ${exitosos} ok, ${fallidos} con error.`,
       fecha: Date.now(),
     });
     if (onProgress) onProgress("Sincronización finalizada.");
+    return { exitosos, fallidos };
   },
 
   respaldarTodoEnSupabase: async (
@@ -63,6 +92,10 @@ export const SyncService = {
     const proyectoContexto = await db.proyecto_contexto.toArray();
     const proyectoDesignSystem = await db.proyecto_design_system.toArray();
     const proyectoEstadoTecnico = await db.proyecto_estado_tecnico.toArray();
+    const proyectoConfigAutomatizacion =
+      await db.proyecto_config_automatizacion.toArray();
+    const taskExecutionCheckpoints =
+      await db.task_execution_checkpoints.toArray();
 
     // Tablas CRM
     const clientes = await db.clientes.toArray();
@@ -82,6 +115,8 @@ export const SyncService = {
       proyecto_contexto: proyectoContexto,
       proyecto_design_system: proyectoDesignSystem,
       proyecto_estado_tecnico: proyectoEstadoTecnico,
+      proyecto_config_automatizacion: proyectoConfigAutomatizacion,
+      task_execution_checkpoints: taskExecutionCheckpoints,
       clientes,
       contactos,
       contratos,

@@ -16,6 +16,8 @@ import { BugHotfixModal } from "./desarrollo/bug-hotfix-modal";
 import { ImportDesvioModal } from "./desarrollo/import-desvio-modal";
 import { ConveyorBeltFocusView } from "./desarrollo/conveyor-belt-focus-view";
 import { PROMPT_DESVIO_SPRINT } from "./constants/prompts";
+import { generarPromptActividadTicket as generarPromptActividadTicketPuro } from "../../../domain/prompts/generar-prompt-actividad";
+import { parseHandoffIA } from "../../../domain/entidades/automatizacion-ia.entity";
 
 interface DesarrolloWorkspaceProps {
   proyectoId: string;
@@ -549,15 +551,22 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
     const isActividad = !!selectedActividadCinta;
 
     try {
-      let handoffData = {};
+      let parsedRaw: any;
       try {
-        const parsed = JSON.parse(handoffJsonStr);
-        handoffData = parsed.handoff || parsed;
-      } catch (err) {
+        parsedRaw = JSON.parse(handoffJsonStr);
+      } catch {
         throw new Error(
           "El contenido ingresado no es un JSON válido. Asegúrate de copiarlo completo."
         );
       }
+      const handoffCandidate = parsedRaw.handoff || parsedRaw;
+      const validacion = parseHandoffIA(JSON.stringify(handoffCandidate));
+      if (!validacion.ok) {
+        throw new Error(
+          `El handoff no cumple el formato esperado (${validacion.codigoError}): ${validacion.detalle}`
+        );
+      }
+      const handoffData = validacion.data;
 
       const meta = activeCintaExecution.metadata || {};
       const updatedHandoffs = {
@@ -759,9 +768,13 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
   const [bugType, setBugType] = useState<"bugfix" | "hotfix">("bugfix");
 
   // Tickets (executions) loaded
-  const ticketExecutions = (useLiveQuery(() =>
-    db.task_executions.where("proyectoId").equals(proyectoId).toArray()
-  ) || []) as any[];
+  const ticketExecutions = (useLiveQuery(async () => {
+    const todos = await db.task_executions
+      .where("proyectoId")
+      .equals(proyectoId)
+      .toArray();
+    return todos.filter((t: any) => !t.eliminado);
+  }) || []) as any[];
 
   // Collapsible cards state: record of ticketId -> isExpanded
   const [expandedTicketIds, setExpandedTicketIds] = useState<
@@ -866,136 +879,31 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
   const generarPromptActividadTicket = (actividad: any) => {
     if (!proyecto) return "";
     const parentStory = historias.find((h) => h.id === actividad.historiaId);
-    const storyTitle = parentStory ? parentStory.titulo : "General";
-    const priority = parentStory ? parentStory.prioridad : "Media";
 
-    const shortId = `act-${actividad.id.split("_").pop() || "act"}`;
-    const cleanTitle = actividad.titulo
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-");
-    const branchName = `feature/mc-${shortId}-${cleanTitle}`;
-
-    const stationIterations =
+    const stationIterations: any[] =
       activeCintaExecution?.metadata?.iterations?.default || [];
-    let iterationsStr = "";
-    if (stationIterations.length > 0) {
-      iterationsStr =
-        "\n" +
-        stationIterations
-          .map((it: any, idx: number) => {
-            return `[Iteración ${idx + 1} - ${it.fecha}]: ${it.feedback}`;
-          })
-          .join("\n") +
-        "\n";
-    }
-
-    const stationBugs = activeCintaExecution?.metadata?.bugs?.default || [];
-    let bugsStr = "";
+    const stationBugs: any[] =
+      activeCintaExecution?.metadata?.bugs?.default || [];
     const activeBug = stationBugs.find((b: any) => !b.resuelto);
-    if (activeBug) {
-      bugsStr = `\n<reporte_error_bug_activo>
-  - Logs/Error de consola: ${activeBug.logs}
-  - Comportamiento esperado: ${activeBug.comportamientoEsperado}
-  - Comportamiento real: ${activeBug.comportamientoReal}
-  - Rama de depuración: bugfix/mc-bug-${shortId}
-</reporte_error_bug_activo>\n`;
-    }
 
-    const stepsList = Array.isArray(actividad.pasos)
-      ? actividad.pasos.map((p: string) => `  * [ ] ${p}`).join("\n")
-      : "  * [ ] Implementar la funcionalidad técnica de la actividad.";
-
-    const criteriaList = Array.isArray(actividad.criteriosAceptacion)
-      ? actividad.criteriosAceptacion.map((c: string) => `  * ${c}`).join("\n")
-      : "  * Confirmar funcionamiento y robustez de la lógica implementada.";
-
-    let prompt = `<role>
-Actúa como un ${actividad.rol || "Desarrollador Fullstack"} de nivel Senior.
-Tu objetivo es resolver el ticket de la actividad de manera ejecutiva, escribiendo código limpio, modular y listo para producción sin agregar introducciones, saludos ni disculpas.
-</role>
-
-<ticket_context>
-  - Proyecto: ${proyecto.nombre || "NODEXA CORE"}
-  - Historia: ${storyTitle}
-  - Prioridad: ${priority}
-  - Actividad Actual: ${actividad.titulo}
-  - Componente/Archivo: ${actividad.componente || "No especificado"}
-  - Ruta de Destino: ${actividad.ruta || "No especificada"}
-  - Módulo: ${actividad.modulo || "No especificado"}
-  - Criterios de Aceptación: Ver detalle abajo en actividades_tecnicas.
-  - Instrucción local: "Consulta los archivos de especificación local en tu repositorio si tienes dudas (CLAUDE.md, SCHEMA.md, DESIGN.md, SITEMAP.md, ROLES.md, ERRORS.md, SEED.md)."
-</ticket_context>
-
-<handoff_estacion_anterior>
-No hay handoff previo (estación inicial).
-</handoff_estacion_anterior>
-
-<errores_de_negocio>
-Implementa y maneja el control de excepciones de negocio siguiendo estrictamente las definiciones y códigos estandarizados en el archivo local "ERRORS.md".
-- Antes de emitir o manejar un error de BD/Permisos/Sistema (ej: códigos NX-PER-*, NX-SYS-*), LEER el archivo "ERRORS.md" en el repositorio para aplicar el código y mensaje exacto.
-- Prohibido inventar códigos de error que no estén en dicho catálogo.
-- Todo error visual en cliente debe respetar las directrices de diseño (sin alerts nativos del navegador, usando librerías UI del proyecto).
-</errores_de_negocio>
-
-<actividades_tecnicas>
-Para cumplir con esta actividad, debes implementar o verificar los siguientes pasos de checklist y criterios específicos:
-
-### Checklist de Pasos a Seguir:
-${stepsList}
-
-### Criterios de Aceptación Específicos:
-${criteriaList}
-</actividades_tecnicas>
-`;
-
-    if (actividad.seed && actividad.seed.modelo) {
-      prompt += `\n<requerimiento_datos_semilla>
-Para la siembra y pruebas volumétricas del sistema, genera scripts de datos semilla (Seed Data) correspondientes:
-  - Modelo: "${actividad.seed.modelo}" (Volumen deseado: ${actividad.seed.volumen} registros)
-  - Directrices: ${actividad.seed.indicaciones || "Generar datos de muestra realistas para simular estrés y probar filtros/paginaciones."}
-Nota: La cantidad de registros a simular debe seguir los volúmenes indicados para probar adecuadamente paginaciones y límites del frontend.
-</requerimiento_datos_semilla>\n`;
-    }
-
-    if (iterationsStr) {
-      prompt += `\n<refinamientos_solicitados>${iterationsStr}</refinamientos_solicitados>\n`;
-    }
-
-    if (bugsStr) {
-      prompt += `\n<instrucciones_correccion_error>
-${bugsStr}
-  Analiza la causa raíz del error reportado arriba y proporciona la corrección pertinente asegurando no romper contratos ni firmas previas.
-</instrucciones_correccion_error>\n`;
-    }
-
-    prompt += `
-<instrucciones_git>
-  Trabaja y realiza los cambios sobre la rama "${branchName}".
-</instrucciones_git>
-
-<salida_requerida>
-Devuelve el código limpio completo que deba ser creado o modificado.
-Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estructura exacta para realizar el handoff e indicar si realizaste algún cambio en los documentos de especificaciones locales (SCHEMA.md, SITEMAP.md, ROLES.md, SEED.md, ERRORS.md o DESIGN.md). Si no hubo cambios en un documento, omite su propiedad en "update_docs":
-
-\`\`\`json
-{
-  "handoff": {
-    "archivos_creados_o_modificados": ["lista de archivos modificados"],
-    "firmas_o_contratos_exportados": ["lista de firmas, endpoints o esquemas"],
-    "resumen_tecnico": "breve descripción de las decisiones tomadas en esta estación"
-  },
-  "update_docs": {
-    "schema": "contenido completo de SCHEMA.md si cambió, sino omitir",
-    "sitemap": "contenido completo de SITEMAP.md si cambió, sino omitir",
-    "roles": "contenido completo de ROLES.md si cambió, sino omitir",
-    "errors": "contenido completo de ERRORS.md si cambió, sino omitir",
-    "seed": "contenido completo de SEED.md si cambió, sino omitir",
-    "design": "contenido completo de DESIGN.md si cambió, sino omitir"
-  }
-}
-\`\`\`
-</salida_requerida>`;
-    return prompt;
+    return generarPromptActividadTicketPuro({
+      actividad,
+      proyectoNombre: (proyecto as any).nombre,
+      historiaPadre: parentStory
+        ? { titulo: parentStory.titulo, prioridad: parentStory.prioridad }
+        : undefined,
+      iteraciones: stationIterations.map((it) => ({
+        fecha: it.fecha,
+        feedback: it.feedback,
+      })),
+      bugActivo: activeBug
+        ? {
+            logs: activeBug.logs,
+            comportamientoEsperado: activeBug.comportamientoEsperado,
+            comportamientoReal: activeBug.comportamientoReal,
+          }
+        : undefined,
+    });
   };
 
   useEffect(() => {
@@ -1537,14 +1445,26 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
   const handleEliminarTicket = async (id: string, titulo: string) => {
     if (confirm(`¿Estás seguro de eliminar el ticket "${titulo}"?`)) {
       try {
+        const eliminadoEn = Date.now();
         await db.transaction(
           "rw",
           [db.task_executions, db.task_step_states],
           async () => {
-            await db.task_executions.delete(id);
+            // Soft-delete: task_executions sincroniza con Supabase, un hard-delete
+            // local dejaría el registro remoto huérfano sin propagar el borrado.
+            await db.task_executions.update(id, {
+              eliminado: true,
+              eliminadoEn,
+            });
+            // task_step_states nunca sincroniza con el servidor, se puede purgar local.
             await db.task_step_states.where("executionId").equals(id).delete();
           }
         );
+        await QueueService.encolar("task_executions", "editar", id, {
+          id,
+          eliminado: true,
+          eliminadoEn,
+        });
         mostrarToast("Ticket eliminado correctamente.", "exito");
       } catch (err: any) {
         mostrarToast(`Error al eliminar ticket: ${err.message}`, "error");

@@ -1,5 +1,12 @@
 # Plan de Automatización de Ejecución (Flujo Híbrido, Autónomo y Agnóstico)
 
+> ⚠️ **Superseded parcialmente por [`ROADMAP_AUTOMATIZACION_IA.md`](./ROADMAP_AUTOMATIZACION_IA.md).**
+> El modelo de datos de las secciones 1-2 (checkpoints, config de automatización) sigue
+> vigente y se extiende ahí. La sección 3 (motor de ejecución vía API cruda de Anthropic
+>
+> - Tool Use manual en un route de Next.js) queda reemplazada por un runner local con
+>   Claude Code headless — ver el roadmap nuevo para el diseño vigente y las fases activas.
+
 Este documento define la planificación técnica detallada para implementar el Módulo de Ejecución Autónoma e Híbrida de Sprints y Actividades en MateCode 2.0. El diseño garantiza flexibilidad, resiliencia con checkpoints de estado, validación agnóstica del stack de software y optimización del costo de tokens con caching.
 
 ---
