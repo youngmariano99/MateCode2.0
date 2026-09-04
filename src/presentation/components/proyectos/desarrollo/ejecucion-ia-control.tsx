@@ -125,9 +125,15 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
 
   const reintentarConIA = async () => {
     try {
+      // actualizadoEn se pisa acá A PROPÓSITO: el pull automático (cada 10s)
+      // compara esta fecha contra la del servidor para no sobreescribir una
+      // acción local recién hecha con un estado remoto todavía viejo — sin
+      // esto, el cambio podía "volver atrás" solo un instante después.
+      const actualizadoEn = Date.now();
       await db.task_execution_checkpoints.update(checkpointId, {
         estadoCheckpoint: "IDLE",
         reintentosFallidos: 0,
+        actualizadoEn,
       } as any);
       await QueueService.encolar(
         "task_execution_checkpoints",
@@ -137,6 +143,7 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
           id: checkpointId,
           estadoCheckpoint: "IDLE",
           reintentosFallidos: 0,
+          actualizadoEn,
         }
       );
       await forzarSyncSilencioso();
@@ -148,10 +155,15 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
 
   const marcarVerificado = async () => {
     try {
+      const actualizadoEn = Date.now();
       await db.task_execution_checkpoints.update(checkpointId, {
         estadoCheckpoint: "VERIFICADO_HUMANO",
+        actualizadoEn,
       } as any);
-      await db.tareas.update(actividad.id, { estado: "completado" });
+      await db.tareas.update(actividad.id, {
+        estado: "completado",
+        actualizadoEn,
+      });
       await QueueService.encolar(
         "task_execution_checkpoints",
         "editar",
@@ -159,11 +171,13 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
         {
           id: checkpointId,
           estadoCheckpoint: "VERIFICADO_HUMANO",
+          actualizadoEn,
         }
       );
       await QueueService.encolar("tareas", "editar", actividad.id, {
         id: actividad.id,
         estado: "completado",
+        actualizadoEn,
       });
       await forzarSyncSilencioso();
       mostrarToast(
@@ -205,9 +219,11 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
         metadata: metaActualizada,
       });
 
+      const actualizadoEn = Date.now();
       await db.task_execution_checkpoints.update(checkpointId, {
         estadoCheckpoint: "IDLE",
         reintentosFallidos: 0,
+        actualizadoEn,
       } as any);
       await QueueService.encolar(
         "task_execution_checkpoints",
@@ -217,6 +233,7 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
           id: checkpointId,
           estadoCheckpoint: "IDLE",
           reintentosFallidos: 0,
+          actualizadoEn,
         }
       );
 

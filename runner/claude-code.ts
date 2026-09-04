@@ -43,7 +43,18 @@ export function invocarClaudeCode({
   // acercarse o superarlo — cuando eso pasa, el spawn falla y Node lo
   // reporta como un confuso "ENOENT" en vez de un error de longitud. Por
   // stdin no hay ese límite.
-  const args = ["-p", "--output-format", "json"];
+  // Sin modo de permisos explícito, Claude Code headless deniega Write/Edit
+  // por defecto (no hay TTY para aprobar interactivamente) — el agente
+  // termina "simulando" el trabajo sin aplicarlo. acceptEdits habilita las
+  // ediciones de archivo automáticamente; Bash sigue regido por las reglas
+  // allow/deny del corralito (escribirCorralito), no queda todo abierto.
+  const args = [
+    "-p",
+    "--output-format",
+    "json",
+    "--permission-mode",
+    "acceptEdits",
+  ];
   if (resumeSessionId) {
     args.push("--resume", resumeSessionId);
   }

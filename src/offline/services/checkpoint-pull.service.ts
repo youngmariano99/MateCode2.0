@@ -35,17 +35,35 @@ export const CheckpointPullService = {
       `/checkpoints/${proyectoId}`
     );
 
-    for (const cp of data.checkpoints) {
+    for (const cp of data.checkpoints as {
+      id: string;
+      actualizadoEn: string;
+    }[]) {
+      // Sin este guard, un poll que cae justo después de una acción local
+      // (ej. click en "Verificado") pisaba el estado recién puesto con el
+      // que todavía estaba en Supabase un instante antes de que el push
+      // terminara de aplicarse — la UI "volvía atrás" un momento después.
+      const existing = await db.task_execution_checkpoints.get(cp.id);
+      const remoteTs = toEpoch(cp.actualizadoEn) ?? 0;
+      const localTs = (existing?.actualizadoEn as number) || 0;
+      if (existing && remoteTs < localTs) continue;
+
       await db.task_execution_checkpoints.put({
         ...cp,
-        tiempoInicio: toEpoch(cp.tiempoInicio),
-        tiempoFin: toEpoch(cp.tiempoFin),
-        actualizadoEn: toEpoch(cp.actualizadoEn) ?? Date.now(),
+        tiempoInicio: toEpoch((cp as Record<string, unknown>).tiempoInicio),
+        tiempoFin: toEpoch((cp as Record<string, unknown>).tiempoFin),
+        actualizadoEn: remoteTs || Date.now(),
         accionesManualesModeradas:
-          parseJsonSafe(cp.accionesManualesModeradas) || [],
+          parseJsonSafe(
+            (cp as Record<string, unknown>).accionesManualesModeradas
+          ) || [],
         accionesManualesCriticas:
-          parseJsonSafe(cp.accionesManualesCriticas) || [],
-        guiaPruebasManual: parseJsonSafe(cp.guiaPruebasManual),
+          parseJsonSafe(
+            (cp as Record<string, unknown>).accionesManualesCriticas
+          ) || [],
+        guiaPruebasManual: parseJsonSafe(
+          (cp as Record<string, unknown>).guiaPruebasManual
+        ),
       } as never);
     }
 
