@@ -64,6 +64,8 @@ export const CheckpointPullService = {
         guiaPruebasManual: parseJsonSafe(
           (cp as Record<string, unknown>).guiaPruebasManual
         ),
+        desviosDelPlan:
+          parseJsonSafe((cp as Record<string, unknown>).desviosDelPlan) || [],
       } as never);
     }
 

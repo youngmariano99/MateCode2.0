@@ -435,32 +435,33 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
                 </a>
               )}
 
-              {(checkpoint.desviosDelPlan || []).length > 0 && (
-                <div className="rounded border border-amber-500/20 bg-amber-500/5 p-2">
-                  <span className="mb-1 block text-[8px] font-bold text-amber-400 uppercase">
-                    ⚠️ Decisiones que difieren del ticket
-                  </span>
-                  {checkpoint.desviosDelPlan.map((d: any, idx: number) => (
-                    <div
-                      key={idx}
-                      className="mb-1.5 border-b border-amber-500/10 pb-1.5 text-[9px] leading-relaxed text-amber-200 last:mb-0 last:border-none last:pb-0"
-                    >
-                      <p>
-                        <span className="text-amber-400">Pedía:</span>{" "}
-                        {d.loQuePediaElTicket}
-                      </p>
-                      <p>
-                        <span className="text-amber-400">Se hizo:</span>{" "}
-                        {d.loQueSeHizo}
-                      </p>
-                      <p>
-                        <span className="text-amber-400">Motivo:</span>{" "}
-                        {d.motivo}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {Array.isArray(checkpoint.desviosDelPlan) &&
+                checkpoint.desviosDelPlan.length > 0 && (
+                  <div className="rounded border border-amber-500/20 bg-amber-500/5 p-2">
+                    <span className="mb-1 block text-[8px] font-bold text-amber-400 uppercase">
+                      ⚠️ Decisiones que difieren del ticket
+                    </span>
+                    {checkpoint.desviosDelPlan.map((d: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="mb-1.5 border-b border-amber-500/10 pb-1.5 text-[9px] leading-relaxed text-amber-200 last:mb-0 last:border-none last:pb-0"
+                      >
+                        <p>
+                          <span className="text-amber-400">Pedía:</span>{" "}
+                          {d.loQuePediaElTicket}
+                        </p>
+                        <p>
+                          <span className="text-amber-400">Se hizo:</span>{" "}
+                          {d.loQueSeHizo}
+                        </p>
+                        <p>
+                          <span className="text-amber-400">Motivo:</span>{" "}
+                          {d.motivo}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
               {resumenTecnico && (
                 <div>
