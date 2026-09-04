@@ -3,6 +3,12 @@ import { invocarClaudeCode } from "./claude-code";
 import { correrVerificacion, type PasoVerificacion } from "./verificacion";
 import { escribirCorralito } from "./corralito";
 import { extraerBloqueJson } from "./extraer-json";
+import { crearCommitYPR, commitYPushFix } from "./git-pr";
+import { esperarChecksCI, type CiGateResultado } from "./ci-gate";
+import type {
+  AccionManualRequerida,
+  HandoffIA,
+} from "../src/domain/entidades/automatizacion-ia.entity";
 import {
   buscarCheckpointsListos,
   buscarCheckpointsParaRetomar,
@@ -35,13 +41,23 @@ const PROMPT_SOLO_HANDOFF = `Ya terminaste el desarrollo de este ticket en tu re
     "resumen_tecnico": "breve descripción técnica de las decisiones tomadas, para otro desarrollador",
     "resumen_negocio": "explicación en 3-5 oraciones, SIN jerga técnica, de qué problema resolvió este ticket y qué puede hacer ahora el usuario final que antes no podía",
     "guia_pruebas_manual": {
-      "pasos": ["paso 1 para probar esto manualmente", "paso 2", "..."],
+      "prerequisitos": ["ej: correr npm run dev"],
+      "pasos": ["paso 1 concreto con URL o botón exacto", "paso 2", "..."],
       "datosPrueba": "credenciales o datos de prueba a usar, si aplica",
-      "resultadoEsperado": "qué debería observar quien prueba si todo funciona bien"
+      "resultadoEsperado": {
+        "descripcion": "qué debería observar quien prueba si todo funciona bien",
+        "mensajeVisible": "texto exacto en pantalla, si aplica",
+        "dondeVerificar": "en qué pantalla/URL",
+        "codigoHttpEsperado": 200
+      }
     },
     "acciones_manuales_requeridas": [
       { "nivel": "moderada", "descripcion": "..." }
-    ]
+    ],
+    "desvios_del_plan": [
+      { "loQuePediaElTicket": "...", "loQueSeHizo": "...", "motivo": "..." }
+    ],
+    "archivo_prueba_creado": "docs/pruebas_testeos/N_Nombre_Backend.md (si creaste uno en tu turno anterior, sino omitir)"
   }
 }
 \`\`\`
@@ -291,6 +307,8 @@ async function procesarCheckpoint(
     guiaPruebasManual: handoff.guia_pruebas_manual,
     accionesManualesCriticas: criticas,
     accionesManualesModeradas: moderadas,
+    desviosDelPlan: handoff.desvios_del_plan,
+    archivoPruebaPath: handoff.archivo_prueba_creado,
   });
 
   await guardarHandoffEnTaskExecution(checkpoint.taskExecutionId, handoff);
@@ -300,6 +318,56 @@ async function procesarCheckpoint(
       checkpoint.actividadId,
       checkpoint.taskExecutionId
     );
+
+    const resultadoPR = await crearCommitYPR({
+      rutaRepo: proyectoCfg.rutaLocalRepo,
+      mensajeCommit: `feat: ${actividad.titulo}\n\n${handoff.resumen_tecnico}\n\nGenerado por el runner de automatización de MateCode 2.0.\n\nCo-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`,
+      tituloPR: actividad.titulo,
+      cuerpoPR: construirCuerpoPR(handoff, moderadas),
+    });
+
+    if (resultadoPR.sinCambios) {
+      console.log(
+        `[runner] Ticket ${checkpoint.actividadId}: el agente no dejó cambios en el working tree, no se crea PR.`
+      );
+    } else if (resultadoPR.ok) {
+      await actualizarCheckpoint(checkpoint.id, {
+        prUrl: resultadoPR.prUrl,
+        prEstado: "creado",
+      });
+      console.log(
+        `[runner] Ticket ${checkpoint.actividadId}: PR creado → ${resultadoPR.prUrl}`
+      );
+
+      const ciResultado = await correrGateCI(
+        proyectoCfg.rutaLocalRepo,
+        configAuto?.maxRetriesLinter ?? 3,
+        proyectoCfg.claudeExecutable,
+        resultado.sessionId ?? checkpoint.claudeSessionId ?? undefined
+      );
+      await actualizarCheckpoint(checkpoint.id, {
+        ciEstado: ciResultado.ciEstado,
+        ciDetalle: ciResultado.detalle,
+      });
+      if (ciResultado.ciEstado === "fallo") {
+        console.log(
+          `[runner] Ticket ${checkpoint.actividadId}: el CI del PR no pasó tras los reintentos. Queda para revisión humana igual.`
+        );
+      } else if (ciResultado.ciEstado === "paso") {
+        console.log(`[runner] Ticket ${checkpoint.actividadId}: CI del PR OK.`);
+      }
+    } else {
+      // No es un fallo del ticket: el diff sigue ahí en el repo, listo para
+      // que el humano lo commitee/pushee a mano (equivalente manual).
+      await actualizarCheckpoint(checkpoint.id, {
+        prEstado: "fallido",
+        prError: resultadoPR.error,
+      });
+      console.log(
+        `[runner] Ticket ${checkpoint.actividadId}: no se pudo crear el PR automáticamente (${resultadoPR.error}). El diff queda en el repo para aplicar manualmente.`
+      );
+    }
+
     console.log(
       `[runner] Ticket ${checkpoint.actividadId} listo para revisión humana.`
     );
@@ -374,6 +442,121 @@ async function guardarHandoffEnTaskExecution(
     .update(schema.taskExecutions)
     .set({ metadata: JSON.stringify(meta), actualizadoEn: new Date() })
     .where(eq(schema.taskExecutions.id, taskExecutionId));
+}
+
+/**
+ * Espera los checks del PR y, si fallan, pide un fix al mismo agente (misma
+ * sesión, --resume) y lo pushea, hasta `maxIntentos` veces. Acotado a
+ * propósito ("si no consume mucho" — nunca reintenta indefinido) y solo entra
+ * en juego si el repo tiene CI configurado (`esperarChecksCI` devuelve
+ * "sin_ci" de inmediato si no).
+ */
+async function correrGateCI(
+  rutaRepo: string,
+  maxIntentos: number,
+  claudeExecutable: string | undefined,
+  sessionIdInicial: string | undefined
+): Promise<CiGateResultado> {
+  let sesion = sessionIdInicial;
+  let intento = 0;
+
+  while (intento < maxIntentos) {
+    const resultado = await esperarChecksCI(rutaRepo);
+    if (resultado.ciEstado !== "fallo") return resultado;
+
+    intento++;
+    if (intento >= maxIntentos) return resultado;
+
+    console.log(
+      `[runner] CI falló (intento ${intento}/${maxIntentos}), pidiendo un fix al agente...`
+    );
+    const fix = await invocarClaudeCode({
+      prompt: `El PR que acabás de abrir falló los checks de CI. Corregí el problema y dejá el fix listo para pushear. Log de CI:\n${resultado.detalle}`,
+      rutaRepo,
+      claudeExecutable,
+      resumeSessionId: sesion,
+      timeoutMs: 10 * 60 * 1000,
+    });
+    sesion = fix.sessionId ?? sesion;
+    if (!fix.ok) {
+      return {
+        ciEstado: "fallo",
+        detalle: `No se pudo pedir el fix al agente: ${fix.errorMensaje}`,
+      };
+    }
+
+    const pushFix = await commitYPushFix(
+      rutaRepo,
+      `fix: corrección tras fallo de CI (intento ${intento})\n\nCo-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`
+    );
+    if (!pushFix.ok) {
+      return {
+        ciEstado: "fallo",
+        detalle: `El agente respondió pero no se pudo pushear el fix: ${pushFix.error}`,
+      };
+    }
+  }
+
+  return { ciEstado: "fallo", detalle: "Se agotaron los reintentos de CI." };
+}
+
+function construirCuerpoPR(
+  handoff: HandoffIA,
+  moderadas: AccionManualRequerida[]
+): string {
+  const prerequisitos = handoff.guia_pruebas_manual.prerequisitos.length
+    ? `**Prerequisitos**:\n${handoff.guia_pruebas_manual.prerequisitos.map((p) => `- ${p}`).join("\n")}\n\n`
+    : "";
+  const pasosPrueba = handoff.guia_pruebas_manual.pasos
+    .map((p, i) => `${i + 1}. ${p}`)
+    .join("\n");
+  const re = handoff.guia_pruebas_manual.resultadoEsperado;
+  const resultadoLineas = [
+    `- ${re.descripcion}`,
+    re.mensajeVisible ? `- Mensaje visible: ${re.mensajeVisible}` : null,
+    re.dondeVerificar ? `- Dónde verificar: ${re.dondeVerificar}` : null,
+    re.codigoHttpEsperado
+      ? `- Código HTTP esperado: ${re.codigoHttpEsperado}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const pendiente =
+    moderadas.length > 0
+      ? `\n## Pendiente (no bloquea)\n${moderadas.map((a) => `- ${a.descripcion}`).join("\n")}\n`
+      : "";
+
+  const desvios =
+    handoff.desvios_del_plan.length > 0
+      ? `\n## ⚠️ Decisiones que difieren del ticket\n${handoff.desvios_del_plan
+          .map(
+            (d) =>
+              `- **Pedía**: ${d.loQuePediaElTicket}\n  **Se hizo**: ${d.loQueSeHizo}\n  **Motivo**: ${d.motivo}`
+          )
+          .join("\n")}\n`
+      : "";
+
+  const archivoPrueba = handoff.archivo_prueba_creado
+    ? `\n**Guía de pruebas detallada**: \`${handoff.archivo_prueba_creado}\`\n`
+    : "";
+
+  return `## Resumen técnico
+${handoff.resumen_tecnico}
+
+## Qué se resolvió (en simple)
+${handoff.resumen_negocio}
+${desvios}
+## Cómo probarlo
+${prerequisitos}${pasosPrueba}
+${handoff.guia_pruebas_manual.datosPrueba ? `\n**Datos de prueba**: ${handoff.guia_pruebas_manual.datosPrueba}\n` : ""}
+**Resultado esperado**:
+${resultadoLineas}
+${archivoPrueba}${pendiente}
+---
+Generado por el runner de automatización de MateCode 2.0 · build, lint y tests unitarios pasaron antes de este PR · pendiente de verificación manual por el desarrollador antes de mergear.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)`;
 }
 
 function parseJsonArraySeguro(raw: string | null | undefined): string[] {

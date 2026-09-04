@@ -138,6 +138,28 @@ Implementa y maneja el control de excepciones de negocio siguiendo estrictamente
 - Todo error visual en cliente debe respetar las directrices de diseño (sin alerts nativos del navegador, usando librerías UI del proyecto).
 </errores_de_negocio>
 
+<mantenimiento_equipo>
+Trabajás como parte de un equipo donde cada ticket lo resuelve una sesión distinta (sin memoria entre sí) — estos archivos son la única forma en que "el próximo desarrollador" sabe lo que hiciste. Actualizalos vos mismo, directamente en el repo, como parte de tu trabajo (no alcanza con reportarlo solo en el JSON final):
+- Si tu ticket introduce una convención nueva (patrón, decisión de arquitectura, endpoint importante), actualizá el archivo de documentación correspondiente (CLAUDE.md, SCHEMA.md, SITEMAP.md, ROLES.md, ERRORS.md, SEED.md, DESIGN.md) en el mismo commit.
+- Si tomaste una decisión DISTINTA de lo que pedía el ticket porque la considerás mejor, agregá una entrada al final de "docs/DECISIONES.md" (creá el archivo con un título si no existe) con este formato:
+  ## [fecha ISO] <título del ticket>
+  **Pedía:** ...
+  **Se hizo:** ...
+  **Motivo:** ...
+  Reportá lo mismo, textual, en el campo "desvios_del_plan" del JSON de salida — nunca uno sin el otro.
+- Si el ticket requiere pasos para probar manualmente (endpoint nuevo, flujo de UI nuevo, etc.), creá un archivo en "docs/pruebas_testeos/" con nombre "N_NombreDescriptivo_Frontend.md" o "N_NombreDescriptivo_Backend.md" (usá ambos tags separados por guion si el ticket tiene las dos partes, ej. "_Frontend_Backend"). "N" es el próximo número correlativo: mirá los archivos ya existentes en esa carpeta para calcularlo (empezá en 1 si la carpeta no existe todavía). El contenido debe tener esta estructura exacta:
+  # N. <Nombre de la funcionalidad> (Frontend|Backend)
+  ## Prerequisitos
+  - ...
+  ## Pasos
+  1. ...
+  ## Resultado esperado
+  - Mensaje visible: ...
+  - Dónde verificar: ...
+  - Código HTTP esperado: ...
+  Además, agregá (o creá) una fila en "docs/pruebas_testeos/INDEX.md" con: número, nombre, tag Frontend/Backend, y el ticket al que corresponde — para poder testear un sprint completo mirando un solo archivo.
+</mantenimiento_equipo>
+
 <actividades_tecnicas>
 Para cumplir con esta actividad, debes implementar o verificar los siguientes pasos de checklist y criterios específicos:
 
@@ -186,14 +208,24 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
     "resumen_tecnico": "breve descripción técnica de las decisiones tomadas, para otro desarrollador",
     "resumen_negocio": "explicación en 3-5 oraciones, SIN jerga técnica, de qué problema resolvió este ticket y qué puede hacer ahora el usuario final que antes no podía — como si se lo explicaras a un Product Owner",
     "guia_pruebas_manual": {
-      "pasos": ["paso 1 para probar esto manualmente", "paso 2", "..."],
+      "prerequisitos": ["ej: correr npm run dev", "ej: tener un usuario con rol X"],
+      "pasos": ["paso 1 concreto con URL o botón exacto", "paso 2", "..."],
       "datosPrueba": "credenciales o datos de prueba a usar, si aplica",
-      "resultadoEsperado": "qué debería observar quien prueba si todo funciona bien"
+      "resultadoEsperado": {
+        "descripcion": "qué debería observar quien prueba si todo funciona bien",
+        "mensajeVisible": "texto exacto que debería aparecer en pantalla, si aplica",
+        "dondeVerificar": "en qué pantalla/URL se ve el resultado",
+        "codigoHttpEsperado": 200
+      }
     },
     "acciones_manuales_requeridas": [
       { "nivel": "moderada", "descripcion": "acción que NO bloquea seguir desarrollando pero hace falta para probar end-to-end (ej: cargar una credencial real)" },
       { "nivel": "critica", "descripcion": "acción que SÍ bloquea continuar (ej: falta una config sin la cual no se puede verificar objetivamente el ticket)" }
-    ]
+    ],
+    "desvios_del_plan": [
+      { "loQuePediaElTicket": "...", "loQueSeHizo": "...", "motivo": "..." }
+    ],
+    "archivo_prueba_creado": "docs/pruebas_testeos/N_Nombre_Backend.md (si creaste uno, sino omitir)"
   },
   "update_docs": {
     "schema": "contenido completo de SCHEMA.md si cambió, sino omitir",
@@ -205,6 +237,7 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
   }
 }
 \`\`\`
+Nota: "update_docs" es un respaldo por si no pudiste editar el archivo directamente vos mismo — si ya lo actualizaste en el repo (preferido, ver <mantenimiento_equipo>), no hace falta repetir el contenido acá.
 </salida_requerida>`;
   return prompt;
 }

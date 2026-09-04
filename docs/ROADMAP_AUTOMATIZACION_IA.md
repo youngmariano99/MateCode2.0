@@ -146,13 +146,56 @@ para revisar / verificado`), panel de revisión con resumen técnico + resumen d
     [`checkpoint-pull.service.ts`](../src/offline/services/checkpoint-pull.service.ts),
     con polling cada 10s mientras el tablero está abierto, para que la UI vea el progreso
     del runner casi en vivo.
-    **Verificado**: typecheck y lint limpios en todo lo nuevo; el runner sigue arrancando
-    correctamente end-to-end. **No verificado todavía** (requiere un proyecto real con
-    Claude Code instalado): el ciclo completo botón → runner → verificación → revisión
-    humana corriendo de punta a punta — es el primer paso lógico de prueba antes de seguir
-    a la Fase 4.
-- **Fase 4 — Git/PR automation**: commit de checkpoint antes de empezar, push y creación
-  de PR al completar, rollback (`git reset --hard`) accesible desde la UI.
+    **Verificado con un ticket real de punta a punta** (2026-09-04, proyecto "Patitas en
+    alerta", ticket "CRUD de disponibilidad_veterinario y generación de turnos propios"):
+    17.4 min, $3.12 USD, 66.8k tokens de salida, build/lint/test unitarios pasaron, 0
+    reintentos. Primer dato real de costo/tiempo por ticket (insumo para la Fase 5).
+    Durante esta prueba se encontraron y corrigieron 5 bugs reales: prompt por argv
+    superaba el límite de línea de comando de Windows (se pasa por stdin), shim `.cmd`
+    de npm no resoluble por `spawn` con `shell:false` en Windows (se habilita shell solo
+    en win32, seguro porque el prompt ya no va por argv), extractor de JSON tomaba el
+    primer bloque ```json en vez del último, Claude Code headless deniega Write/Edit sin
+    `--permission-mode acceptEdits` explícito, y el pull automático no comparaba fechas
+    para checkpoints (una acción local podía "volver atrás" si el poll caía a mitad de
+    un push) — los cuatro últimos corregidos en runner/claude-code.ts,
+    runner/extraer-json.ts y checkpoint-pull.service.ts.
+- **Fase 4 — Git/PR automation** ✅ _completa_: [`runner/git-pr.ts`](../runner/git-pr.ts)
+  hace commit + push + `gh pr create` automático al llegar a `COMPLETED_HANDOFF` sin
+  acciones críticas pendientes, usando el resumen técnico/negocio y la guía de pruebas
+  del handoff como cuerpo del PR (mismo formato validado a mano en el PR real
+  [PatitasEnAlerta#42](https://github.com/youngmariano99/PatitasEnAlerta/pull/42)). Un
+  fallo de git/gh (push rechazado, `gh` no autenticado) no bloquea el ticket — queda
+  registrado en `prEstado: "fallido"` con el detalle, y el diff sigue en el repo local
+  para aplicar a mano (mismo principio de equivalente manual en cada paso). El link al PR
+  se muestra en el panel de revisión de `EjecucionIAControl`. Rollback (`git reset
+--hard`) accesible desde la UI queda pendiente para una vuelta futura.
+- **Fase 4.1 — Mejoras de equipo/tester** ✅ _completa_: pensada explícitamente como "cómo
+  se coordina un equipo real, no solo un modelo aislado".
+  - **Memoria de equipo real, no solo reportada**: el prompt (`<mantenimiento_equipo>` en
+    `generar-prompt-actividad.ts`) instruye al agente a actualizar CLAUDE.md/SCHEMA.md/etc.
+    directamente en el repo cuando introduce una convención — `update_docs` queda como
+    respaldo, no como vía principal.
+  - **`docs/DECISIONES.md`** (nuevo, por convención): registro append-only de desvíos del
+    plan, que el propio agente mantiene.
+  - **Contrato de handoff extendido**: `desvios_del_plan` (qué pedía el ticket vs. qué se
+    hizo y por qué, separado de la prosa técnica — nunca queda ambiguo) y
+    `archivo_prueba_creado`.
+  - **Guía de pruebas ya no es prosa libre**: `guia_pruebas_manual` pasa a tener
+    `prerequisitos[]`, `pasos[]` concretos (URL/botón exacto) y `resultadoEsperado`
+    desglosado en `descripcion`/`mensajeVisible`/`dondeVerificar`/`codigoHttpEsperado` —
+    formato "receta", no interpretación.
+  - **`docs/pruebas_testeos/N_Nombre_Frontend|Backend.md`**: un archivo por ticket con esa
+    receta, numerado y taggeado, más `docs/pruebas_testeos/INDEX.md` para poder testear un
+    sprint entero sin ir ticket por ticket.
+  - **Gate de CI post-PR** ([`runner/ci-gate.ts`](../runner/ci-gate.ts)): si el repo tiene
+    `.github/workflows`, el runner espera los checks del PR (`gh pr checks --watch`) y, si
+    fallan, le pide un fix al mismo agente (misma sesión) y lo pushea, acotado a
+    `maxRetriesLinter` intentos — no bloquea si el repo no tiene CI configurado.
+  - **Fix de UX**: el resumen ya no empuja la tarjeta del Kanban hacia abajo — vista
+    compacta truncada + botón "Ver detalle completo" con modal (`EjecucionIAControl`).
+  - **Verificado**: typecheck y lint limpios, runner arranca correctamente. **No
+    verificado con un ticket real todavía** — el gate de CI en particular no se probó
+    contra un repo con GitHub Actions real; revisar el primer caso con atención.
 - **Fase 5 — Métricas y dashboard de eficiencia**: tiempo/tokens/iteraciones por ticket y
   por sprint, para detectar qué tipo de ticket es sistemáticamente más caro o iterativo.
 - **Fase 6 — Auto-planificación**: aplicar el mismo motor a la generación de

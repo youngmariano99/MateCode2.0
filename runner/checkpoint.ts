@@ -12,6 +12,7 @@ import { db, schema } from "./db";
 import type {
   AccionManualRequerida,
   CodigoError,
+  DesvioPlan,
   EstadoCheckpoint,
   GuiaPruebasManual,
 } from "../src/domain/entidades/automatizacion-ia.entity";
@@ -84,6 +85,13 @@ export async function actualizarCheckpoint(
     accionesManualesCriticas: AccionManualRequerida[];
     resumenNegocio: string;
     guiaPruebasManual: GuiaPruebasManual;
+    prUrl: string;
+    prEstado: "creado" | "fallido";
+    prError: string;
+    desviosDelPlan: DesvioPlan[];
+    archivoPruebaPath: string;
+    ciEstado: "paso" | "fallo" | "sin_ci";
+    ciDetalle: string;
   }>
 ): Promise<void> {
   const payload: Record<string, unknown> = {
@@ -99,6 +107,9 @@ export async function actualizarCheckpoint(
     payload.accionesManualesCriticas = JSON.stringify(
       cambios.accionesManualesCriticas
     );
+  }
+  if (cambios.desviosDelPlan) {
+    payload.desviosDelPlan = JSON.stringify(cambios.desviosDelPlan);
   }
   if (cambios.guiaPruebasManual) {
     payload.guiaPruebasManual = JSON.stringify(cambios.guiaPruebasManual);

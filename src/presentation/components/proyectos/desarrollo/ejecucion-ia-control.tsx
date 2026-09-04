@@ -42,6 +42,7 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
   const { mostrarToast } = useToast();
   const [iterarInput, setIterarInput] = useState("");
   const [mostrarIterar, setMostrarIterar] = useState(false);
+  const [mostrarDetalle, setMostrarDetalle] = useState(false);
 
   const checkpointId = `chk_${actividad.id}`;
   const taskExecutionId = `execution_act_${actividad.id}`;
@@ -312,62 +313,56 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
 
       {estado === "COMPLETED_HANDOFF" && (
         <>
-          {resumenTecnico && (
-            <div className="rounded bg-black/30 p-1.5">
-              <span className="block font-mono text-[7px] font-bold text-zinc-500 uppercase">
-                Resumen técnico
+          <div className="flex items-center gap-1.5">
+            {checkpoint.prEstado === "creado" && checkpoint.prUrl && (
+              <a
+                href={checkpoint.prUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 truncate rounded border border-emerald-500/25 bg-emerald-500/10 py-1 text-center font-mono text-[8px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+              >
+                🔗 Ver PR
+              </a>
+            )}
+            {checkpoint.ciEstado === "paso" && (
+              <span className="rounded border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-1 font-mono text-[7px] font-bold text-emerald-400 uppercase">
+                CI ✓
               </span>
-              <p className="font-mono text-[8px] text-zinc-300">
-                {resumenTecnico}
-              </p>
-            </div>
-          )}
-          {checkpoint.resumenNegocio && (
-            <div className="rounded bg-black/30 p-1.5">
-              <span className="block font-mono text-[7px] font-bold text-zinc-500 uppercase">
-                Qué se resolvió (en simple)
+            )}
+            {checkpoint.ciEstado === "fallo" && (
+              <span className="rounded border border-red-500/25 bg-red-500/10 px-1.5 py-1 font-mono text-[7px] font-bold text-red-400 uppercase">
+                CI ✗
               </span>
-              <p className="font-mono text-[8px] text-zinc-300">
-                {checkpoint.resumenNegocio}
-              </p>
-            </div>
-          )}
-          {checkpoint.guiaPruebasManual && (
-            <div className="rounded bg-black/30 p-1.5">
-              <span className="block font-mono text-[7px] font-bold text-zinc-500 uppercase">
-                Cómo probarlo
-              </span>
-              <ol className="ml-3 list-decimal font-mono text-[8px] text-zinc-300">
-                {checkpoint.guiaPruebasManual.pasos?.map(
-                  (p: string, i: number) => (
-                    <li key={i}>{p}</li>
-                  )
-                )}
-              </ol>
-              {checkpoint.guiaPruebasManual.datosPrueba && (
-                <p className="mt-1 font-mono text-[7px] text-zinc-400">
-                  Datos de prueba: {checkpoint.guiaPruebasManual.datosPrueba}
-                </p>
-              )}
-            </div>
-          )}
-          {(checkpoint.accionesManualesModeradas || []).length > 0 && (
+            )}
+          </div>
+
+          {checkpoint.prEstado === "fallido" && (
             <div className="rounded bg-amber-500/5 p-1.5">
               <span className="block font-mono text-[7px] font-bold text-amber-400 uppercase">
-                Pendiente (no bloquea)
+                No se pudo crear el PR automáticamente
               </span>
-              {checkpoint.accionesManualesModeradas.map(
-                (a: AccionManualRequerida, idx: number) => (
-                  <span
-                    key={idx}
-                    className="block font-mono text-[7px] text-amber-300"
-                  >
-                    • {a.descripcion}
-                  </span>
-                )
-              )}
+              <p className="font-mono text-[7px] text-amber-300">
+                {checkpoint.prError || "Error desconocido."} El diff sigue en el
+                repo local para commitear/pushear a mano.
+              </p>
             </div>
           )}
+
+          {/* Vista compacta: 1 línea truncada + botón para el detalle completo,
+              para que un resumen largo no empuje la tarjeta del Kanban hacia abajo. */}
+          {resumenTecnico && (
+            <p className="line-clamp-2 font-mono text-[8px] leading-snug text-zinc-400">
+              {resumenTecnico}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setMostrarDetalle(true)}
+            className="rounded border border-zinc-700 bg-zinc-900 py-1 font-mono text-[8px] font-bold text-zinc-300 uppercase hover:bg-zinc-800"
+          >
+            🔎 Ver detalle completo
+          </button>
 
           <div className="flex gap-1.5">
             <button
@@ -405,6 +400,219 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
             </div>
           )}
         </>
+      )}
+
+      {mostrarDetalle && (
+        <div
+          className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm duration-200"
+          onClick={() => setMostrarDetalle(false)}
+        >
+          <div
+            className="max-h-[85vh] w-[560px] max-w-full overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-950 p-5 font-mono shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
+              <span className="text-[10px] font-bold text-zinc-200 uppercase">
+                {actividad.titulo}
+              </span>
+              <button
+                onClick={() => setMostrarDetalle(false)}
+                className="text-[9px] text-zinc-500 uppercase hover:text-zinc-300"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {checkpoint.prUrl && (
+                <a
+                  href={checkpoint.prUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded border border-emerald-500/25 bg-emerald-500/10 py-1.5 text-center text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+                >
+                  🔗 Ver Pull Request
+                </a>
+              )}
+
+              {(checkpoint.desviosDelPlan || []).length > 0 && (
+                <div className="rounded border border-amber-500/20 bg-amber-500/5 p-2">
+                  <span className="mb-1 block text-[8px] font-bold text-amber-400 uppercase">
+                    ⚠️ Decisiones que difieren del ticket
+                  </span>
+                  {checkpoint.desviosDelPlan.map((d: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className="mb-1.5 border-b border-amber-500/10 pb-1.5 text-[9px] leading-relaxed text-amber-200 last:mb-0 last:border-none last:pb-0"
+                    >
+                      <p>
+                        <span className="text-amber-400">Pedía:</span>{" "}
+                        {d.loQuePediaElTicket}
+                      </p>
+                      <p>
+                        <span className="text-amber-400">Se hizo:</span>{" "}
+                        {d.loQueSeHizo}
+                      </p>
+                      <p>
+                        <span className="text-amber-400">Motivo:</span>{" "}
+                        {d.motivo}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {resumenTecnico && (
+                <div>
+                  <span className="mb-1 block text-[8px] font-bold text-zinc-500 uppercase">
+                    Resumen técnico
+                  </span>
+                  <p className="text-[9px] leading-relaxed text-zinc-300">
+                    {resumenTecnico}
+                  </p>
+                </div>
+              )}
+
+              {checkpoint.resumenNegocio && (
+                <div>
+                  <span className="mb-1 block text-[8px] font-bold text-zinc-500 uppercase">
+                    Qué se resolvió (en simple)
+                  </span>
+                  <p className="text-[9px] leading-relaxed text-zinc-300">
+                    {checkpoint.resumenNegocio}
+                  </p>
+                </div>
+              )}
+
+              {checkpoint.guiaPruebasManual && (
+                <div className="rounded border border-zinc-900 bg-black/30 p-2">
+                  <span className="mb-1 block text-[8px] font-bold text-zinc-500 uppercase">
+                    Cómo probarlo
+                  </span>
+                  {(checkpoint.guiaPruebasManual.prerequisitos || []).length >
+                    0 && (
+                    <div className="mb-1.5">
+                      <span className="text-[8px] font-bold text-zinc-400 uppercase">
+                        Prerequisitos
+                      </span>
+                      <ul className="ml-3 list-disc text-[9px] text-zinc-300">
+                        {checkpoint.guiaPruebasManual.prerequisitos.map(
+                          (p: string, i: number) => (
+                            <li key={i}>{p}</li>
+                          )
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                  <span className="text-[8px] font-bold text-zinc-400 uppercase">
+                    Pasos
+                  </span>
+                  <ol className="ml-3 list-decimal text-[9px] text-zinc-300">
+                    {checkpoint.guiaPruebasManual.pasos?.map(
+                      (p: string, i: number) => (
+                        <li key={i}>{p}</li>
+                      )
+                    )}
+                  </ol>
+                  {checkpoint.guiaPruebasManual.datosPrueba && (
+                    <p className="mt-1.5 text-[8px] text-zinc-400">
+                      <span className="font-bold uppercase">
+                        Datos de prueba:
+                      </span>{" "}
+                      {checkpoint.guiaPruebasManual.datosPrueba}
+                    </p>
+                  )}
+                  {checkpoint.guiaPruebasManual.resultadoEsperado && (
+                    <div className="mt-1.5 rounded bg-emerald-500/5 p-1.5">
+                      <span className="block text-[8px] font-bold text-emerald-400 uppercase">
+                        Resultado esperado
+                      </span>
+                      <p className="text-[9px] text-zinc-300">
+                        {
+                          checkpoint.guiaPruebasManual.resultadoEsperado
+                            .descripcion
+                        }
+                      </p>
+                      {checkpoint.guiaPruebasManual.resultadoEsperado
+                        .mensajeVisible && (
+                        <p className="text-[8px] text-zinc-400">
+                          Mensaje visible: &quot;
+                          {
+                            checkpoint.guiaPruebasManual.resultadoEsperado
+                              .mensajeVisible
+                          }
+                          &quot;
+                        </p>
+                      )}
+                      {checkpoint.guiaPruebasManual.resultadoEsperado
+                        .dondeVerificar && (
+                        <p className="text-[8px] text-zinc-400">
+                          Dónde verificar:{" "}
+                          {
+                            checkpoint.guiaPruebasManual.resultadoEsperado
+                              .dondeVerificar
+                          }
+                        </p>
+                      )}
+                      {checkpoint.guiaPruebasManual.resultadoEsperado
+                        .codigoHttpEsperado && (
+                        <p className="text-[8px] text-zinc-400">
+                          Código HTTP esperado:{" "}
+                          {
+                            checkpoint.guiaPruebasManual.resultadoEsperado
+                              .codigoHttpEsperado
+                          }
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {checkpoint.archivoPruebaPath && (
+                <p className="text-[8px] text-zinc-400">
+                  📄 Guía de pruebas detallada en el repo:{" "}
+                  <code className="text-zinc-300">
+                    {checkpoint.archivoPruebaPath}
+                  </code>
+                </p>
+              )}
+
+              {(checkpoint.accionesManualesModeradas || []).length > 0 && (
+                <div className="rounded border border-amber-500/20 bg-amber-500/5 p-2">
+                  <span className="mb-1 block text-[8px] font-bold text-amber-400 uppercase">
+                    Pendiente (no bloquea)
+                  </span>
+                  {checkpoint.accionesManualesModeradas.map(
+                    (a: AccionManualRequerida, idx: number) => (
+                      <span
+                        key={idx}
+                        className="block text-[9px] text-amber-300"
+                      >
+                        • {a.descripcion}
+                      </span>
+                    )
+                  )}
+                </div>
+              )}
+
+              {checkpoint.ciEstado && checkpoint.ciEstado !== "sin_ci" && (
+                <div>
+                  <span className="mb-1 block text-[8px] font-bold text-zinc-500 uppercase">
+                    Estado de CI
+                  </span>
+                  <p
+                    className={`text-[9px] ${checkpoint.ciEstado === "paso" ? "text-emerald-400" : "text-red-400"}`}
+                  >
+                    {checkpoint.ciEstado === "paso"
+                      ? "✓ Los checks del PR pasaron."
+                      : `✗ Los checks del PR no pasaron. ${checkpoint.ciDetalle || ""}`}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

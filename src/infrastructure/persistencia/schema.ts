@@ -741,5 +741,14 @@ export const taskExecutionCheckpoints = pgTable("task_execution_checkpoints", {
   // Guía de pruebas manuales estandarizada (punto 6): pasos, datos de prueba,
   // resultado esperado.
   guiaPruebasManual: text("guia_pruebas_manual"), // JSON
+  // Fase 4: commit + push + PR automático al terminar el ticket.
+  prUrl: varchar("pr_url", { length: 500 }),
+  prEstado: varchar("pr_estado", { length: 20 }), // "creado" | "fallido" | null (no se intentó)
+  prError: text("pr_error"),
+  // Fase 4.1: desvíos del plan, archivo de pruebas, gate de CI post-PR.
+  desviosDelPlan: text("desvios_del_plan"), // JSON[]
+  archivoPruebaPath: varchar("archivo_prueba_path", { length: 500 }),
+  ciEstado: varchar("ci_estado", { length: 20 }), // "paso" | "fallo" | "sin_ci"
+  ciDetalle: text("ci_detalle"),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
 });

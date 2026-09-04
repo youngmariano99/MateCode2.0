@@ -120,14 +120,36 @@ export const accionManualSchema = z.object({
 export type AccionManualRequerida = z.infer<typeof accionManualSchema>;
 
 // ============================================================================
-// Guía de pruebas manuales estandarizada
+// Guía de pruebas manuales estandarizada — estructurada, no prosa libre, para
+// que testear un ticket sea "seguir la receta" en vez de interpretar texto.
 // ============================================================================
+export const resultadoEsperadoSchema = z.object({
+  descripcion: z.string().min(1),
+  mensajeVisible: z.string().optional(),
+  dondeVerificar: z.string().optional(),
+  codigoHttpEsperado: z.number().optional(),
+});
+export type ResultadoEsperado = z.infer<typeof resultadoEsperadoSchema>;
+
 export const guiaPruebasManualSchema = z.object({
+  prerequisitos: z.array(z.string()).default([]),
   pasos: z.array(z.string().min(1)).min(1),
   datosPrueba: z.string().optional(),
-  resultadoEsperado: z.string().min(1),
+  resultadoEsperado: resultadoEsperadoSchema,
 });
 export type GuiaPruebasManual = z.infer<typeof guiaPruebasManualSchema>;
+
+// ============================================================================
+// Desvíos del plan — cuando el agente hace algo distinto de lo que pedía el
+// ticket porque considera que es mejor. Separado de la prosa del resumen
+// técnico para que sea imposible que pase desapercibido en la revisión.
+// ============================================================================
+export const desvioPlanSchema = z.object({
+  loQuePediaElTicket: z.string().min(1),
+  loQueSeHizo: z.string().min(1),
+  motivo: z.string().min(1),
+});
+export type DesvioPlan = z.infer<typeof desvioPlanSchema>;
 
 // ============================================================================
 // Contrato de Handoff — lo que el runner exige a Claude Code al cerrar un ticket.
@@ -142,6 +164,9 @@ export const handoffIASchema = z.object({
     .min(1, "Falta el resumen en lenguaje no técnico (Product Owner)."),
   guia_pruebas_manual: guiaPruebasManualSchema,
   acciones_manuales_requeridas: z.array(accionManualSchema).default([]),
+  desvios_del_plan: z.array(desvioPlanSchema).default([]),
+  /** Ruta del archivo creado en docs/pruebas_testeos/, si aplicaba crear uno. */
+  archivo_prueba_creado: z.string().optional(),
   update_docs: z
     .object({
       schema: z.string().optional(),
@@ -214,6 +239,15 @@ export interface TaskExecutionCheckpoint {
   accionesManualesCriticas: AccionManualRequerida[];
   resumenNegocio?: string;
   guiaPruebasManual?: GuiaPruebasManual;
+  // Fase 4: commit + push + PR automático al terminar el ticket.
+  prUrl?: string;
+  prEstado?: "creado" | "fallido";
+  prError?: string;
+  // Fase 4.1: desvíos del plan, archivo de pruebas, y gate de CI post-PR.
+  desviosDelPlan?: DesvioPlan[];
+  archivoPruebaPath?: string;
+  ciEstado?: "paso" | "fallo" | "sin_ci";
+  ciDetalle?: string;
   actualizadoEn: number;
 }
 
