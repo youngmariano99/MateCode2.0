@@ -193,11 +193,25 @@ para revisar / verificado`), panel de revisión con resumen técnico + resumen d
     `maxRetriesLinter` intentos — no bloquea si el repo no tiene CI configurado.
   - **Fix de UX**: el resumen ya no empuja la tarjeta del Kanban hacia abajo — vista
     compacta truncada + botón "Ver detalle completo" con modal (`EjecucionIAControl`).
-  - **Verificado**: typecheck y lint limpios, runner arranca correctamente. **No
-    verificado con un ticket real todavía** — el gate de CI en particular no se probó
-    contra un repo con GitHub Actions real; revisar el primer caso con atención.
-- **Fase 5 — Métricas y dashboard de eficiencia**: tiempo/tokens/iteraciones por ticket y
-  por sprint, para detectar qué tipo de ticket es sistemáticamente más caro o iterativo.
+  - **Verificado con un ticket real** (2026-09-05, ticket "Endpoint de agenda propia del
+    veterinario"): PR #43, el gate de CI falló una vez, el agente lo corrigió solo y el CI
+    pasó — funcionó de punta a punta. Se encontraron y arreglaron 2 bugs más en el camino:
+    `desviosDelPlan` llegaba al navegador como string JSON sin parsear (`.map is not a
+function`), y `comenzarConIA` no fijaba `actualizadoEn` en sus escrituras (mismo bug de
+    carrera que "Verificado" pero al arrancar el ticket) — ambos corregidos.
+  - **Fix adicional de UX**: el panel de detalle (resumen, guía de pruebas, PR) quedaba
+    invisible apenas se marcaba "Verificado" — ahora se mantiene visible en
+    `VERIFICADO_HUMANO`, solo se ocultan los botones de acción ya usados.
+- **Fase 5 — Métricas y dashboard de eficiencia** ✅ _completa_: nueva pestaña
+  "📊 Métricas IA" dentro de `DesarrolloWorkspace`
+  ([`metricas-ia-tab.tsx`](../src/presentation/components/proyectos/desarrollo/metricas-ia-tab.tsx)),
+  sin tablas nuevas — lee directo de `task_execution_checkpoints` (ya sincronizado por el
+  pull de la Fase 3). Muestra: costo total/promedio, tiempo total/promedio, reintentos
+  promedio y tokens totales del proyecto; costo/tiempo/reintentos promedio **agrupado por
+  rol** (para detectar qué tipo de ticket sale sistemáticamente más caro, tal como se
+  buscaba desde el principio); y una tabla por ticket con estado, tiempo, costo,
+  reintentos, resultado de CI y link al PR. Verificado con los 2 tickets reales corridos
+  hasta ahora (Full Stack: $3.12/17.4min: Backend: $1.45/12.6min).
 - **Fase 6 — Auto-planificación**: aplicar el mismo motor a la generación de
   épicas/historias/actividades/sprints desde un relevamiento inicial.
 - **Fase 7 — Automatización de sprint completo**: orquestación secuencial de todos los

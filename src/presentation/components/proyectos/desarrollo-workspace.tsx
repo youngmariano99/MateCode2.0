@@ -15,6 +15,7 @@ import { ConsolaAuditoriaTab } from "./desarrollo/consola-auditoria-tab";
 import { BugHotfixModal } from "./desarrollo/bug-hotfix-modal";
 import { ImportDesvioModal } from "./desarrollo/import-desvio-modal";
 import { ConveyorBeltFocusView } from "./desarrollo/conveyor-belt-focus-view";
+import { MetricasIATab } from "./desarrollo/metricas-ia-tab";
 import { PROMPT_DESVIO_SPRINT } from "./constants/prompts";
 import { generarPromptActividadTicket as generarPromptActividadTicketPuro } from "../../../domain/prompts/generar-prompt-actividad";
 import { parseHandoffIA } from "../../../domain/entidades/automatizacion-ia.entity";
@@ -58,7 +59,7 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
     (proyecto?.tipo as string)?.toLowerCase().includes("institucional");
 
   const [activeTabMode, setActiveTabMode] = useState<
-    "secciones" | "tickets" | "auditoria"
+    "secciones" | "tickets" | "auditoria" | "metricas"
   >(isLandingType ? "secciones" : "tickets");
 
   useEffect(() => {
@@ -1581,6 +1582,16 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
         >
           📋 Historial & Auditoría
         </button>
+        <button
+          onClick={() => setActiveTabMode("metricas")}
+          className={`rounded-lg px-3 py-1.5 font-mono text-[10px] font-bold uppercase transition-all ${
+            activeTabMode === "metricas"
+              ? "bg-emerald-500 text-zinc-950 shadow"
+              : "border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+          }`}
+        >
+          📊 Métricas IA
+        </button>
       </div>
 
       {/* Main Grid Layout */}
@@ -1593,6 +1604,8 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
           auditFilterType={auditFilterType}
           setAuditFilterType={setAuditFilterType}
         />
+      ) : activeTabMode === "metricas" ? (
+        <MetricasIATab proyectoId={proyectoId} tareas={tareas} />
       ) : (
         <div className="flex w-full flex-col gap-6">
           {activeTabMode === "secciones" ? (
