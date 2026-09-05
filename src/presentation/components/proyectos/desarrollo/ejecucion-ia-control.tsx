@@ -67,6 +67,14 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
 
   const comenzarConIA = async () => {
     try {
+      // actualizadoEn se fija acá A PROPÓSITO en cada escritura (tareas y
+      // task_executions incluidos): el pull automático compara esta fecha
+      // contra la de Supabase para no pisar una acción local recién hecha
+      // con un estado remoto todavía viejo. Sin esto en TODAS las escrituras
+      // (no solo en Verificado/Reintentar), el ticket vuelve atrás un
+      // instante después de arrancar — mismo bug, otro punto de entrada.
+      const actualizadoEn = Date.now();
+
       const existingExec = await db.task_executions.get(taskExecutionId);
       if (!existingExec) {
         const nuevaExecucion = {
@@ -77,6 +85,7 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
           estado: "IN_PROGRESS",
           fechaInicio: Date.now(),
           metadata: { handoffs: {}, iterations: [], bugs: [] },
+          actualizadoEn,
         };
         await db.task_executions.put(nuevaExecucion);
         await QueueService.encolar(
@@ -86,10 +95,14 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
           nuevaExecucion
         );
       }
-      await db.tareas.update(actividad.id, { estado: "in_progress" });
+      await db.tareas.update(actividad.id, {
+        estado: "in_progress",
+        actualizadoEn,
+      });
       await QueueService.encolar("tareas", "editar", actividad.id, {
         id: actividad.id,
         estado: "in_progress",
+        actualizadoEn,
       });
 
       const nuevoCheckpoint = {
@@ -311,7 +324,7 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
         </>
       )}
 
-      {estado === "COMPLETED_HANDOFF" && (
+      {(estado === "COMPLETED_HANDOFF" || estado === "VERIFICADO_HUMANO") && (
         <>
           <div className="flex items-center gap-1.5">
             {checkpoint.prEstado === "creado" && checkpoint.prUrl && (
@@ -364,22 +377,30 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
             🔎 Ver detalle completo
           </button>
 
-          <div className="flex gap-1.5">
-            <button
-              type="button"
-              onClick={marcarVerificado}
-              className="flex-1 rounded border border-emerald-500/25 bg-emerald-500/10 py-1 font-mono text-[8px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
-            >
-              ✅ Verificado
-            </button>
-            <button
-              type="button"
-              onClick={() => setMostrarIterar((v) => !v)}
-              className="flex-1 rounded border border-sky-500/25 bg-sky-500/10 py-1 font-mono text-[8px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
-            >
-              🔁 Iterar con IA
-            </button>
-          </div>
+          {estado === "COMPLETED_HANDOFF" && (
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={marcarVerificado}
+                className="flex-1 rounded border border-emerald-500/25 bg-emerald-500/10 py-1 font-mono text-[8px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+              >
+                ✅ Verificado
+              </button>
+              <button
+                type="button"
+                onClick={() => setMostrarIterar((v) => !v)}
+                className="flex-1 rounded border border-sky-500/25 bg-sky-500/10 py-1 font-mono text-[8px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
+              >
+                🔁 Iterar con IA
+              </button>
+            </div>
+          )}
+
+          {estado === "VERIFICADO_HUMANO" && (
+            <span className="rounded border border-emerald-500/25 bg-emerald-500/10 py-1 text-center font-mono text-[8px] font-bold text-emerald-500 uppercase">
+              ✔️ Ya verificado
+            </span>
+          )}
 
           {mostrarIterar && (
             <div className="flex flex-col gap-1">
