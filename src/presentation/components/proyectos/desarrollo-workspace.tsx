@@ -1605,7 +1605,12 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
           setAuditFilterType={setAuditFilterType}
         />
       ) : activeTabMode === "metricas" ? (
-        <MetricasIATab proyectoId={proyectoId} tareas={tareas} />
+        <MetricasIATab
+          proyectoId={proyectoId}
+          tareas={tareas}
+          tareasSprintActual={actividadesSprint}
+          nombreSprintActual={focusedSprint?.nombre}
+        />
       ) : (
         <div className="flex w-full flex-col gap-6">
           {activeTabMode === "secciones" ? (

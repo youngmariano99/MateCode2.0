@@ -90,6 +90,22 @@ export const CATALOGO_ERRORES_SEED = [
       "No se pudo ejecutar el proceso de Claude Code (binario no encontrado, crash, timeout). Revisar claudeExecutable en runner.config.json y que el proceso pueda correr en esa ruta.",
   },
   {
+    codigo: "ESTANDAR_LINEAS_EXCEDIDO",
+    categoria: "estandares",
+    severidad: "media",
+    esRecuperable: true,
+    accionSugerida:
+      "Reintentar pidiendo modularizar el/los archivo(s) que superan el máximo de líneas configurado para el proyecto.",
+  },
+  {
+    codigo: "CREDENCIAL_EXPUESTA",
+    categoria: "seguridad",
+    severidad: "critica",
+    esRecuperable: true,
+    accionSugerida:
+      "Reintentar pidiendo reemplazar el valor hardcodeado por una variable de entorno (con su entrada de ejemplo en .env.example) antes de continuar.",
+  },
+  {
     codigo: "MERGE_CONFLICT",
     categoria: "git",
     severidad: "alta",
@@ -248,6 +264,8 @@ export interface TaskExecutionCheckpoint {
   archivoPruebaPath?: string;
   ciEstado?: "paso" | "fallo" | "sin_ci";
   ciDetalle?: string;
+  // Fase 4.2: prompt real enviado a la IA, para auditar cumplimiento vs handoff.
+  promptEnviado?: string;
   actualizadoEn: number;
 }
 

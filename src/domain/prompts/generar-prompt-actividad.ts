@@ -48,6 +48,28 @@ export interface GenerarPromptActividadInput {
     archivos: string[];
     firmas: string[];
   }[];
+  /** Máximo de líneas por archivo del proyecto (proyecto_config_automatizacion). Se repite en el prompt para que no se pierda en sesiones largas. */
+  maxLineasPorArchivo?: number;
+}
+
+/**
+ * Bloque de reglas duras, pensado para repetirse en CADA turno que se le
+ * pida código al agente (desarrollo inicial, reintentos, fix de CI) — no solo
+ * al principio. En sesiones largas el modelo deja de priorizar instrucciones
+ * dadas muchos turnos atrás; repetirlo es la única forma confiable de que no
+ * se "olvide" a mitad de ticket.
+ */
+export function bloqueEstandaresNoNegociables(
+  maxLineasPorArchivo?: number
+): string {
+  return `<estandares_no_negociables>
+Estas reglas son innegociables y aplican en TODO momento del desarrollo, no solo al empezar:
+1. Los archivos de especificación del proyecto (CLAUDE.md y todo lo que exista en /docs: Backlog, Design, Errors, Requerimientos, Roles, Schema, SEED, Setup, Sitemap, Sprints) son la fuente de verdad — es OBLIGATORIO leerlos con tus herramientas antes de escribir la primera línea de código, no es opcional. Tenés PROHIBIDO tomar decisiones que los contradigan.
+2. Si la planificación no cubre un caso puntual, podés completar el detalle faltante vos mismo, pero siempre a favor de lo ya definido en esos archivos y nunca comprometiendo la integridad del sistema o los datos de usuarios. Reportalo como "desvío del plan" igual.
+3. Límite de líneas por archivo: ${maxLineasPorArchivo ?? "el configurado para este proyecto"}. Ningún archivo que crees o modifiques puede superarlo. Si un archivo se está acercando al límite, modularizalo DURANTE el desarrollo (dividiendo en archivos más chicos), no al final — corregirlo después cuesta más tokens que hacerlo bien desde el principio.
+4. Seguridad de credenciales: prohibido hardcodear passwords, API keys, tokens o connection strings con credenciales reales en el código, incluso "de prueba". Usá variables de entorno y agregá la entrada correspondiente (con valor de ejemplo, nunca real) en ".env.example" para que el usuario cargue el valor real después.
+5. Economía de tokens: reutilizá código/patrones ya existentes en el repo en vez de reescribirlos, y mantenete enfocado en el alcance del ticket — no refactorices ni "mejores" código que no forma parte de esta actividad.
+</estandares_no_negociables>`;
 }
 
 export function generarPromptActividadTicket({
@@ -57,6 +79,7 @@ export function generarPromptActividadTicket({
   iteraciones = [],
   bugActivo,
   contextoSprintActual = [],
+  maxLineasPorArchivo,
 }: GenerarPromptActividadInput): string {
   const storyTitle = historiaPadre ? historiaPadre.titulo : "General";
   const priority = historiaPadre ? historiaPadre.prioridad : "Media";
@@ -124,8 +147,9 @@ Tu objetivo es resolver el ticket de la actividad de manera ejecutiva, escribien
   - Ruta de Destino: ${actividad.ruta || "No especificada"}
   - Módulo: ${actividad.modulo || "No especificado"}
   - Criterios de Aceptación: Ver detalle abajo en actividades_tecnicas.
-  - Instrucción local: "Consulta los archivos de especificación local en tu repositorio si tienes dudas (CLAUDE.md, SCHEMA.md, DESIGN.md, SITEMAP.md, ROLES.md, ERRORS.md, SEED.md). No los necesitas de antemano: leelos vos mismo con tus herramientas solo si la tarea lo requiere, para no gastar contexto de más."
+  - Instrucción local: "Antes de escribir código, leé con tus herramientas CLAUDE.md y todo lo que exista en /docs de este repositorio (Backlog, Design, Errors, Requerimientos, Roles, Schema, SEED, Setup, Sitemap, Sprints). Es un paso obligatorio, no opcional — ver <estandares_no_negociables> abajo."
 </ticket_context>
+${bloqueEstandaresNoNegociables(maxLineasPorArchivo)}
 ${contextoSprintStr}
 <handoff_estacion_anterior>
 No hay handoff previo (estación inicial).

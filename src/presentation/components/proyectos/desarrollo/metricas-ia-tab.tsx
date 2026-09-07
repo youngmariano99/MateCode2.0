@@ -8,6 +8,9 @@ import { db } from "../../../../offline/dexie/db";
 interface MetricasIATabProps {
   proyectoId: string;
   tareas: any[];
+  /** Tareas del sprint actualmente enfocado en el workspace, para poder acotar la descarga de handoffs a ese sprint. */
+  tareasSprintActual?: any[];
+  nombreSprintActual?: string;
 }
 
 interface FilaMetrica {
@@ -48,9 +51,85 @@ function formatMin(n: number | null): string {
   return `${n.toFixed(1)} min`;
 }
 
+/** Arma el bloque Markdown de un ticket: lo pedido (prompt) + lo devuelto (handoff completo). */
+function construirSeccionHandoff(
+  tarea: any,
+  cp: any,
+  handoffCompleto: Record<string, any> | null
+): string {
+  const titulo = tarea?.titulo || cp.actividadId;
+  const lineas: string[] = [`## ${titulo}`, ""];
+  lineas.push(`- Estado: ${cp.estadoCheckpoint}`);
+  lineas.push(`- Rol: ${tarea?.rol || "Sin rol"}`);
+  lineas.push(`- Reintentos: ${cp.reintentosFallidos || 0}`);
+  lineas.push(`- CI: ${cp.ciEstado || "—"}`);
+  lineas.push(`- PR: ${cp.prUrl || "—"}`);
+  lineas.push("");
+
+  lineas.push("### Lo que se le pidió (prompt enviado)");
+  lineas.push("```");
+  lineas.push(
+    cp.promptEnviado || "(no disponible — ticket previo a esta función)"
+  );
+  lineas.push("```");
+  lineas.push("");
+
+  lineas.push("### Lo que devolvió (handoff)");
+  if (!handoffCompleto) {
+    lineas.push("(sin handoff registrado en task_executions)");
+  } else {
+    lineas.push(
+      `**Resumen técnico**: ${handoffCompleto.resumen_tecnico || "—"}`
+    );
+    lineas.push("");
+    lineas.push(
+      `**Resumen de negocio**: ${handoffCompleto.resumen_negocio || "—"}`
+    );
+    lineas.push("");
+    const archivos: string[] =
+      handoffCompleto.archivos_creados_o_modificados || [];
+    lineas.push(
+      `**Archivos tocados**: ${archivos.length ? archivos.join(", ") : "—"}`
+    );
+    const firmas: string[] =
+      handoffCompleto.firmas_o_contratos_exportados || [];
+    lineas.push(
+      `**Firmas/contratos exportados**: ${firmas.length ? firmas.join(", ") : "—"}`
+    );
+    lineas.push("");
+    const desvios = handoffCompleto.desvios_del_plan || [];
+    if (Array.isArray(desvios) && desvios.length > 0) {
+      lineas.push("**Desvíos del plan**:");
+      for (const d of desvios) {
+        lineas.push(
+          `- Pedía: ${d.loQuePediaElTicket} / Se hizo: ${d.loQueSeHizo} / Motivo: ${d.motivo}`
+        );
+      }
+      lineas.push("");
+    }
+    const acciones = handoffCompleto.acciones_manuales_requeridas || [];
+    if (Array.isArray(acciones) && acciones.length > 0) {
+      lineas.push("**Acciones manuales requeridas**:");
+      for (const a of acciones) {
+        lineas.push(`- [${a.nivel}] ${a.descripcion}`);
+      }
+      lineas.push("");
+    }
+    if (handoffCompleto.archivo_prueba_creado) {
+      lineas.push(
+        `**Archivo de pruebas creado**: ${handoffCompleto.archivo_prueba_creado}`
+      );
+    }
+  }
+
+  return lineas.join("\n");
+}
+
 export const MetricasIATab: React.FC<MetricasIATabProps> = ({
   proyectoId,
   tareas,
+  tareasSprintActual,
+  nombreSprintActual,
 }) => {
   const checkpointsQuery = useLiveQuery(
     () =>
@@ -110,13 +189,20 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
       costoPromedio: terminados.length ? costoTotal / terminados.length : 0,
       minutosPromedio: terminados.length ? minutosTotal / terminados.length : 0,
       reintentosPromedio: filas.length ? reintentosTotal / filas.length : 0,
+      tokensPromedio: filas.length ? tokensTotal / filas.length : 0,
     };
   }, [filas]);
 
   const porRol = useMemo(() => {
     const grupos = new Map<
       string,
-      { cantidad: number; costo: number; minutos: number; reintentos: number }
+      {
+        cantidad: number;
+        costo: number;
+        minutos: number;
+        reintentos: number;
+        tokens: number;
+      }
     >();
     for (const f of filas) {
       const g = grupos.get(f.rol) || {
@@ -124,11 +210,13 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
         costo: 0,
         minutos: 0,
         reintentos: 0,
+        tokens: 0,
       };
       g.cantidad += 1;
       g.costo += f.costoUsd;
       g.minutos += f.minutos || 0;
       g.reintentos += f.reintentos;
+      g.tokens += f.tokensInput + f.tokensOutput;
       grupos.set(f.rol, g);
     }
     return Array.from(grupos.entries())
@@ -138,9 +226,57 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
         costoPromedio: g.costo / g.cantidad,
         minutosPromedio: g.minutos / g.cantidad,
         reintentosPromedio: g.reintentos / g.cantidad,
+        tokensPromedio: Math.round(g.tokens / g.cantidad),
       }))
       .sort((a, b) => b.costoPromedio - a.costoPromedio);
   }, [filas]);
+
+  const descargarHandoffsSprint = async () => {
+    const idsSprint = new Set((tareasSprintActual || []).map((t) => t.id));
+    const checkpointsSprint = checkpoints.filter((cp) =>
+      idsSprint.has(cp.actividadId)
+    );
+    if (checkpointsSprint.length === 0) return;
+
+    const taskExecutionIds = checkpointsSprint.map((cp) => cp.taskExecutionId);
+    const executions = await db.task_executions
+      .where("id")
+      .anyOf(taskExecutionIds)
+      .toArray();
+    const execById = new Map(executions.map((e: any) => [e.id, e]));
+
+    const secciones = checkpointsSprint.map((cp) => {
+      const tarea = tareas.find((t) => t.id === cp.actividadId);
+      const exec = execById.get(cp.taskExecutionId) as any;
+      let handoffCompleto: Record<string, any> | null = null;
+      try {
+        const meta = exec?.metadata ? JSON.parse(exec.metadata) : null;
+        handoffCompleto = meta?.handoffs?.default ?? null;
+      } catch {
+        handoffCompleto = null;
+      }
+      return construirSeccionHandoff(tarea, cp, handoffCompleto);
+    });
+
+    const nombre = nombreSprintActual || "sprint";
+    const contenido = `# Handoffs — ${nombre}\n\nGenerado: ${new Date().toLocaleString()}\nProyecto: ${proyectoId}\nTickets incluidos: ${checkpointsSprint.length}\n\n---\n\n${secciones.join("\n\n---\n\n")}\n`;
+
+    const blob = new Blob([contenido], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `handoffs-${nombre.replace(/[^a-zA-Z0-9]+/g, "-")}-${new Date().toISOString().slice(0, 10)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const hayTicketsDelSprintConCheckpoint =
+    (tareasSprintActual || []).length > 0 &&
+    checkpoints.some((cp) =>
+      (tareasSprintActual || []).some((t) => t.id === cp.actividadId)
+    );
 
   if (filas.length === 0) {
     return (
@@ -153,8 +289,23 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
 
   return (
     <div className="flex flex-col gap-5">
+      {hayTicketsDelSprintConCheckpoint && (
+        <div className="flex items-center justify-between rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
+          <span className="font-mono text-[8px] text-zinc-500">
+            Handoffs de &quot;{nombreSprintActual || "este sprint"}&quot; — para
+            auditar cumplimiento vs. lo pedido.
+          </span>
+          <button
+            onClick={descargarHandoffsSprint}
+            className="rounded-lg border border-violet-900/60 bg-violet-950/30 px-3 py-1.5 font-mono text-[8px] font-bold text-violet-300 uppercase hover:bg-violet-950/60"
+          >
+            📥 Descargar handoffs del sprint
+          </button>
+        </div>
+      )}
+
       {/* Cards de totales */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         <div className="rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
           <span className="block font-mono text-[7px] font-bold text-zinc-500 uppercase">
             Tickets con IA
@@ -187,6 +338,17 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
         </div>
         <div className="rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
           <span className="block font-mono text-[7px] font-bold text-zinc-500 uppercase">
+            Tokens totales
+          </span>
+          <span className="block font-mono text-[16px] font-bold text-violet-400">
+            {totales.tokensTotal.toLocaleString()}
+          </span>
+          <span className="block font-mono text-[7px] text-zinc-600">
+            Prom: {Math.round(totales.tokensPromedio).toLocaleString()}/ticket
+          </span>
+        </div>
+        <div className="rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
+          <span className="block font-mono text-[7px] font-bold text-zinc-500 uppercase">
             Reintentos promedio
           </span>
           <span
@@ -197,9 +359,6 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
             }`}
           >
             {totales.reintentosPromedio.toFixed(1)}
-          </span>
-          <span className="block font-mono text-[7px] text-zinc-600">
-            {totales.tokensTotal.toLocaleString()} tokens totales
           </span>
         </div>
       </div>
@@ -218,6 +377,7 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
                   <th className="py-1 text-right">Tickets</th>
                   <th className="py-1 text-right">Costo prom.</th>
                   <th className="py-1 text-right">Tiempo prom.</th>
+                  <th className="py-1 text-right">Tokens prom.</th>
                   <th className="py-1 text-right">Reintentos prom.</th>
                 </tr>
               </thead>
@@ -231,6 +391,9 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
                     </td>
                     <td className="py-1 text-right text-sky-400">
                       {formatMin(g.minutosPromedio)}
+                    </td>
+                    <td className="py-1 text-right text-violet-400">
+                      {g.tokensPromedio.toLocaleString()}
                     </td>
                     <td
                       className={`py-1 text-right ${g.reintentosPromedio > 1 ? "text-amber-400" : ""}`}
@@ -259,6 +422,7 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
                 <th className="py-1 text-left">Estado</th>
                 <th className="py-1 text-right">Tiempo</th>
                 <th className="py-1 text-right">Costo</th>
+                <th className="py-1 text-right">Tokens</th>
                 <th className="py-1 text-right">Reint.</th>
                 <th className="py-1 text-center">CI</th>
                 <th className="py-1 text-center">PR</th>
@@ -280,6 +444,9 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
                   <td className="py-1 text-right">{formatMin(f.minutos)}</td>
                   <td className="py-1 text-right text-emerald-400">
                     {formatUsd(f.costoUsd)}
+                  </td>
+                  <td className="py-1 text-right text-violet-400">
+                    {(f.tokensInput + f.tokensOutput).toLocaleString()}
                   </td>
                   <td
                     className={`py-1 text-right ${f.reintentos > 1 ? "text-amber-400" : ""}`}

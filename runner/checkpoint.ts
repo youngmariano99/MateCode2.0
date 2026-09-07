@@ -25,6 +25,12 @@ export interface CheckpointRow {
   estadoCheckpoint: string;
   reintentosFallidos: number;
   claudeSessionId: string | null;
+  // Acumulados de intentos previos (reintentos, huérfanos retomados): hay
+  // que sumarles lo que consuma este intento, no reemplazarlos — si no, el
+  // costo/tokens de los intentos anteriores desaparece del total.
+  tokensInput: number | null;
+  tokensOutput: number | null;
+  costoUsd: number | null;
 }
 
 /** Busca checkpoints en estado IDLE: tickets marcados por la UI para correr con IA. */
@@ -92,6 +98,7 @@ export async function actualizarCheckpoint(
     archivoPruebaPath: string;
     ciEstado: "paso" | "fallo" | "sin_ci";
     ciDetalle: string;
+    promptEnviado: string;
   }>
 ): Promise<void> {
   const payload: Record<string, unknown> = {

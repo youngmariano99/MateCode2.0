@@ -750,5 +750,9 @@ export const taskExecutionCheckpoints = pgTable("task_execution_checkpoints", {
   archivoPruebaPath: varchar("archivo_prueba_path", { length: 500 }),
   ciEstado: varchar("ci_estado", { length: 20 }), // "paso" | "fallo" | "sin_ci"
   ciDetalle: text("ci_detalle"),
+  // Fase 4.2: prompt real enviado a la IA para esta actividad, para poder
+  // comparar "lo que se pidió" vs "lo que devolvió" (handoff) en la auditoría
+  // de fin de sprint.
+  promptEnviado: text("prompt_enviado"),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
 });

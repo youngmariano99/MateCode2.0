@@ -1,6 +1,7 @@
 import { loadRunnerConfig, getProjectConfig } from "./config";
 import { invocarClaudeCode } from "./claude-code";
 import { correrVerificacion, type PasoVerificacion } from "./verificacion";
+import { verificarEstandares } from "./estandares";
 import { escribirCorralito } from "./corralito";
 import { extraerBloqueJson } from "./extraer-json";
 import { crearCommitYPR, commitYPushFix } from "./git-pr";
@@ -23,7 +24,10 @@ import {
   type CheckpointRow,
 } from "./checkpoint";
 import { parseHandoffIA } from "../src/domain/entidades/automatizacion-ia.entity";
-import { generarPromptActividadTicket } from "../src/domain/prompts/generar-prompt-actividad";
+import {
+  generarPromptActividadTicket,
+  bloqueEstandaresNoNegociables,
+} from "../src/domain/prompts/generar-prompt-actividad";
 import { db, schema } from "./db";
 import { eq } from "drizzle-orm";
 
@@ -148,15 +152,24 @@ async function procesarCheckpoint(
     contextoSprintActual: contextoSprint,
     iteraciones,
     bugActivo,
+    maxLineasPorArchivo: configAuto?.maxLineasPorArchivo,
   });
 
   // Si es un reintento, el prompt base se complementa con el log del error
   // anterior: el agente recibe exactamente lo que falló, sin repetir contexto.
+  // Se repite también el bloque de reglas duras: es justo en un reintento
+  // (turno N de una sesión larga) donde más se pierde de vista el límite de
+  // líneas o la lectura de los docs del proyecto.
   const prompt =
     checkpoint.reintentosFallidos > 0 &&
     checkpoint.estadoCheckpoint === "QA_RETRYING"
-      ? `${promptBase}\n\n<correccion_requerida>\nEl intento anterior falló la verificación automática con este log, corregilo:\n${await ultimoErrorLogsDe(checkpoint.id)}\n</correccion_requerida>`
+      ? `${promptBase}\n\n<correccion_requerida>\nEl intento anterior falló la verificación automática con este log, corregilo:\n${await ultimoErrorLogsDe(checkpoint.id)}\n</correccion_requerida>\n\n${bloqueEstandaresNoNegociables(configAuto?.maxLineasPorArchivo)}`
       : promptBase;
+
+  // Se guarda "lo que se le pidió" ANTES de invocar, para poder auditar
+  // después cumplimiento vs. handoff incluso si el ticket termina fallando o
+  // pausado (no solo en el camino feliz).
+  await actualizarCheckpoint(checkpoint.id, { promptEnviado: prompt });
 
   const resultado = await invocarClaudeCode({
     prompt,
@@ -165,11 +178,16 @@ async function procesarCheckpoint(
     resumeSessionId: checkpoint.claudeSessionId ?? undefined,
   });
 
-  // Acumuladores de métricas: si hace falta un segundo turno para pedir el
-  // handoff, sus tokens/costo se suman acá antes de persistir al final.
-  let tokensInputTotal = resultado.tokensInput ?? 0;
-  let tokensOutputTotal = resultado.tokensOutput ?? 0;
-  let costoUsdTotal = resultado.costoUsd ?? 0;
+  // Acumuladores de métricas: arrancan desde lo que YA estaba persistido en
+  // el checkpoint (intentos anteriores — reintentos, huérfanos retomados),
+  // no desde cero. Sin esto, cada reintento pisaba el costo/tokens del
+  // intento previo en vez de sumarlo, subestimando el costo real de
+  // cualquier ticket que necesitó más de un intento.
+  let tokensInputTotal =
+    (checkpoint.tokensInput ?? 0) + (resultado.tokensInput ?? 0);
+  let tokensOutputTotal =
+    (checkpoint.tokensOutput ?? 0) + (resultado.tokensOutput ?? 0);
+  let costoUsdTotal = (checkpoint.costoUsd ?? 0) + (resultado.costoUsd ?? 0);
 
   await actualizarCheckpoint(checkpoint.id, {
     claudeSessionId:
@@ -193,6 +211,10 @@ async function procesarCheckpoint(
     estadoCheckpoint: "QA_VALIDATING",
   });
 
+  // Pack completo de tests configurado para el proyecto: se corren todas las
+  // capas que tengan comando definido (no solo unitarios), tal como se
+  // configuró en proyecto_config_automatizacion — nivel de desarrollo local
+  // antes de siquiera pensar en subir nada.
   const pasos: PasoVerificacion[] = [
     { nombre: "build", comando: configAuto?.buildCmd },
     { nombre: "lint", comando: configAuto?.lintCmd },
@@ -201,6 +223,15 @@ async function procesarCheckpoint(
       comando: configAuto?.testUnitCmd ?? configAuto?.testCmd,
     },
   ];
+  if (configAuto?.testIntegrationCmd) {
+    pasos.push({
+      nombre: "testIntegration",
+      comando: configAuto.testIntegrationCmd,
+    });
+  }
+  if (configAuto?.testE2eCmd) {
+    pasos.push({ nombre: "testE2e", comando: configAuto.testE2eCmd });
+  }
   const verificacion = await correrVerificacion(
     proyectoCfg.rutaLocalRepo,
     pasos
@@ -211,6 +242,23 @@ async function procesarCheckpoint(
       checkpoint,
       verificacion.codigoError || "VERIFICACION_INCONCLUSA",
       `Falló "${verificacion.pasoFallido}":\n${verificacion.logs}`,
+      configAuto
+    );
+    return;
+  }
+
+  // Gate objetivo de estándares (límite de líneas, credenciales hardcodeadas):
+  // corre sobre el working tree, antes del commit, para no depender de que la
+  // IA se haya acordado de las reglas del prompt en un turno largo.
+  const estandares = await verificarEstandares(
+    proyectoCfg.rutaLocalRepo,
+    configAuto?.maxLineasPorArchivo
+  );
+  if (!estandares.ok) {
+    await fallarOReintentar(
+      checkpoint,
+      estandares.codigoError || "VERIFICACION_INCONCLUSA",
+      estandares.logs || "Gate de estándares falló sin detalle.",
       configAuto
     );
     return;
@@ -299,10 +347,12 @@ async function procesarCheckpoint(
     (a) => a.nivel === "moderada"
   );
 
+  // tiempoFin todavía NO se fija acá: si el ticket sigue con PR + gate de CI
+  // (más abajo), ese tiempo también cuenta como parte del trabajo real del
+  // ticket — se cierra el cronómetro recién al final de esa rama.
   await actualizarCheckpoint(checkpoint.id, {
     estadoCheckpoint:
       criticas.length > 0 ? "BLOQUEADO_ACCION_CRITICA" : "COMPLETED_HANDOFF",
-    tiempoFin: new Date(),
     resumenNegocio: handoff.resumen_negocio,
     guiaPruebasManual: handoff.guia_pruebas_manual,
     accionesManualesCriticas: criticas,
@@ -343,11 +393,18 @@ async function procesarCheckpoint(
         proyectoCfg.rutaLocalRepo,
         configAuto?.maxRetriesLinter ?? 3,
         proyectoCfg.claudeExecutable,
-        resultado.sessionId ?? checkpoint.claudeSessionId ?? undefined
+        resultado.sessionId ?? checkpoint.claudeSessionId ?? undefined,
+        configAuto?.maxLineasPorArchivo
       );
+      tokensInputTotal += ciResultado.tokensInput;
+      tokensOutputTotal += ciResultado.tokensOutput;
+      costoUsdTotal += ciResultado.costoUsd;
       await actualizarCheckpoint(checkpoint.id, {
         ciEstado: ciResultado.ciEstado,
         ciDetalle: ciResultado.detalle,
+        tokensInput: tokensInputTotal,
+        tokensOutput: tokensOutputTotal,
+        costoUsd: costoUsdTotal,
       });
       if (ciResultado.ciEstado === "fallo") {
         console.log(
@@ -368,10 +425,12 @@ async function procesarCheckpoint(
       );
     }
 
+    await actualizarCheckpoint(checkpoint.id, { tiempoFin: new Date() });
     console.log(
       `[runner] Ticket ${checkpoint.actividadId} listo para revisión humana.`
     );
   } else {
+    await actualizarCheckpoint(checkpoint.id, { tiempoFin: new Date() });
     console.log(
       `[runner] Ticket ${checkpoint.actividadId} bloqueado: requiere acción manual crítica antes de seguir.\n` +
         criticas.map((c) => `  - ${c.descripcion}`).join("\n")
@@ -451,37 +510,60 @@ async function guardarHandoffEnTaskExecution(
  * en juego si el repo tiene CI configurado (`esperarChecksCI` devuelve
  * "sin_ci" de inmediato si no).
  */
+interface CorrerGateCIResultado extends CiGateResultado {
+  tokensInput: number;
+  tokensOutput: number;
+  costoUsd: number;
+}
+
 async function correrGateCI(
   rutaRepo: string,
   maxIntentos: number,
   claudeExecutable: string | undefined,
-  sessionIdInicial: string | undefined
-): Promise<CiGateResultado> {
+  sessionIdInicial: string | undefined,
+  maxLineasPorArchivo: number | undefined
+): Promise<CorrerGateCIResultado> {
   let sesion = sessionIdInicial;
   let intento = 0;
+  // Cada fix que el agente hace para arreglar el CI consume tokens reales —
+  // sin acumularlos acá, el costo mostrado en el dashboard queda incompleto
+  // para cualquier ticket cuyo CI falló al menos una vez.
+  let tokensInput = 0;
+  let tokensOutput = 0;
+  let costoUsd = 0;
 
   while (intento < maxIntentos) {
     const resultado = await esperarChecksCI(rutaRepo);
-    if (resultado.ciEstado !== "fallo") return resultado;
+    if (resultado.ciEstado !== "fallo") {
+      return { ...resultado, tokensInput, tokensOutput, costoUsd };
+    }
 
     intento++;
-    if (intento >= maxIntentos) return resultado;
+    if (intento >= maxIntentos) {
+      return { ...resultado, tokensInput, tokensOutput, costoUsd };
+    }
 
     console.log(
       `[runner] CI falló (intento ${intento}/${maxIntentos}), pidiendo un fix al agente...`
     );
     const fix = await invocarClaudeCode({
-      prompt: `El PR que acabás de abrir falló los checks de CI. Corregí el problema y dejá el fix listo para pushear. Log de CI:\n${resultado.detalle}`,
+      prompt: `El PR que acabás de abrir falló los checks de CI. Corregí el problema y dejá el fix listo para pushear. Log de CI:\n${resultado.detalle}\n\n${bloqueEstandaresNoNegociables(maxLineasPorArchivo)}`,
       rutaRepo,
       claudeExecutable,
       resumeSessionId: sesion,
       timeoutMs: 10 * 60 * 1000,
     });
     sesion = fix.sessionId ?? sesion;
+    tokensInput += fix.tokensInput ?? 0;
+    tokensOutput += fix.tokensOutput ?? 0;
+    costoUsd += fix.costoUsd ?? 0;
     if (!fix.ok) {
       return {
         ciEstado: "fallo",
         detalle: `No se pudo pedir el fix al agente: ${fix.errorMensaje}`,
+        tokensInput,
+        tokensOutput,
+        costoUsd,
       };
     }
 
@@ -493,11 +575,20 @@ async function correrGateCI(
       return {
         ciEstado: "fallo",
         detalle: `El agente respondió pero no se pudo pushear el fix: ${pushFix.error}`,
+        tokensInput,
+        tokensOutput,
+        costoUsd,
       };
     }
   }
 
-  return { ciEstado: "fallo", detalle: "Se agotaron los reintentos de CI." };
+  return {
+    ciEstado: "fallo",
+    detalle: "Se agotaron los reintentos de CI.",
+    tokensInput,
+    tokensOutput,
+    costoUsd,
+  };
 }
 
 function construirCuerpoPR(
