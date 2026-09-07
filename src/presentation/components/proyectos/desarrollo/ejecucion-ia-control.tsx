@@ -263,6 +263,7 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
   const resumenTecnico =
     taskExecution?.metadata?.handoffs?.default?.resumen_tecnico;
   const estado: EstadoCheckpoint | undefined = checkpoint?.estadoCheckpoint;
+  const engine = taskExecution?.metadata?.engine || "claude";
 
   if (!checkpoint) {
     return (
@@ -314,13 +315,21 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
               </span>
             )
           )}
-          <button
-            type="button"
-            onClick={reintentarConIA}
-            className="rounded border border-amber-500/25 bg-amber-500/10 py-1 font-mono text-[8px] font-bold text-amber-400 uppercase hover:bg-amber-500/20"
-          >
-            ⚠️ Reintentar con IA
-          </button>
+          {engine === "antigravity" ? (
+            <span className="rounded bg-zinc-900/50 px-2 py-1.5 font-mono text-[8px] text-zinc-400">
+              💡 Para reintentar con Antigravity, abre la vista de Enfoque
+              Activo (Cinta) y haz clic en &quot;Iniciar Ejecución
+              Automática&quot; nuevamente.
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={reintentarConIA}
+              className="rounded border border-amber-500/25 bg-amber-500/10 py-1 font-mono text-[8px] font-bold text-amber-400 uppercase hover:bg-amber-500/20"
+            >
+              ⚠️ Reintentar con IA
+            </button>
+          )}
         </>
       )}
 

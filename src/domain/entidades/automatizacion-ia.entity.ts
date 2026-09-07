@@ -284,6 +284,11 @@ export interface ProyectoConfigAutomatizacion {
   maxLineasPorArchivo: number;
   allowedTools?: string[];
   deniedPaths?: string[];
+  // Fase 4.2: modelo por defecto y overrides por rol, para bajar el consumo
+  // de uso del plan en tickets de bajo riesgo sin tocar el resto. Sin
+  // configurar, se usa el default de la CLI de Claude Code (Sonnet 5).
+  modeloPorDefecto?: string;
+  modelosPorRol?: Record<string, string>;
   creadoEn: number;
   actualizadoEn: number;
 }

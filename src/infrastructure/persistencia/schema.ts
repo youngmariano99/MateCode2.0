@@ -690,6 +690,11 @@ export const proyectoConfigAutomatizacion = pgTable(
     // Corralito de seguridad del runner (Claude Code): listas en JSON.
     allowedTools: text("allowed_tools"),
     deniedPaths: text("denied_paths"),
+    // Fase 4.2: estandarización de modelos por rol de ticket. Sin valor =
+    // se usa el default de la CLI de Claude Code (comportamiento actual, sin
+    // cambios) hasta que el usuario decida bajar algún rol puntual.
+    modeloPorDefecto: varchar("modelo_por_defecto", { length: 100 }),
+    modelosPorRol: text("modelos_por_rol"), // JSON: { "Documentación": "claude-haiku-4-5-20251001" }
     creadoEn: timestamp("creado_en").defaultNow().notNull(),
     actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   }

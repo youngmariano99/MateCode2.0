@@ -2,6 +2,7 @@
 "use client";
 
 import React from "react";
+import { db } from "../../../../offline/dexie/db";
 
 interface ConveyorBeltFocusViewProps {
   isOpen: boolean;
@@ -67,6 +68,11 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
   isCicdModalOpen,
   setIsCicdModalOpen,
 }) => {
+  const [aiEngine, setAiEngine] = React.useState<
+    "claude_manual" | "antigravity_auto"
+  >("claude_manual");
+  const [isExecuting, setIsExecuting] = React.useState(false);
+
   if (!isOpen) return null;
   if (!selectedHistoriaCinta && !selectedActividadCinta) return null;
   if (!activeCintaExecution) return null;
@@ -205,24 +211,174 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
 
           {/* Handoff Submission Box */}
           <div className="flex flex-col gap-3 rounded-xl border border-zinc-900 bg-zinc-950/60 p-4">
-            <div>
-              <span className="font-mono text-[10px] font-bold text-zinc-200 uppercase">
-                📥 Registrar Handoff {isActividadMode ? "" : "& Avanzar"}
-              </span>
-              <p className="mt-0.5 font-mono text-[8px] text-zinc-500">
-                {isActividadMode
-                  ? "Pega la salida JSON entregada por la IA para poner la actividad en revisión."
-                  : "Pega la salida JSON entregada por la IA para pasar el contexto a la siguiente estación."}
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="font-mono text-[10px] font-bold text-zinc-200 uppercase">
+                  📥 Registrar Handoff {isActividadMode ? "" : "& Avanzar"}
+                </span>
+                <p className="mt-0.5 font-mono text-[8px] text-zinc-500">
+                  {isActividadMode
+                    ? "Pega la salida JSON o automatiza la entrega."
+                    : "Pega la salida JSON o automatiza el avance a la siguiente estación."}
+                </p>
+              </div>
+              <div className="flex gap-1 rounded border border-zinc-800 bg-zinc-900 p-1">
+                <button
+                  onClick={() => setAiEngine("claude_manual")}
+                  className={`rounded px-3 py-1 font-mono text-[8px] font-bold uppercase transition-all ${
+                    aiEngine === "claude_manual"
+                      ? "bg-zinc-800 text-zinc-200"
+                      : "text-zinc-500 hover:text-zinc-400"
+                  }`}
+                >
+                  Claude (Manual)
+                </button>
+                <button
+                  onClick={() => setAiEngine("antigravity_auto")}
+                  className={`rounded px-3 py-1 font-mono text-[8px] font-bold uppercase transition-all ${
+                    aiEngine === "antigravity_auto"
+                      ? "bg-emerald-500/20 text-emerald-400"
+                      : "text-zinc-500 hover:text-zinc-400"
+                  }`}
+                >
+                  Antigravity SDK
+                </button>
+              </div>
             </div>
 
-            <textarea
-              value={cintaHandoffInput}
-              onChange={(e) => setCintaHandoffInput(e.target.value)}
-              placeholder='Ej: {"handoff": {"archivos_creados_o_modificados": [...], "firmas_o_contratos_exportados": [...], "resumen_tecnico": "..."}}'
-              rows={4}
-              className="w-full rounded border border-zinc-900 bg-zinc-900 p-2 font-mono text-[10px] text-zinc-300 outline-none focus:border-emerald-500/40"
-            />
+            {aiEngine === "claude_manual" ? (
+              <textarea
+                value={cintaHandoffInput}
+                onChange={(e) => setCintaHandoffInput(e.target.value)}
+                placeholder='Ej: {"handoff": {"archivos_creados_o_modificados": [...], "firmas_o_contratos_exportados": [...], "resumen_tecnico": "..."}}'
+                rows={4}
+                className="w-full rounded border border-zinc-900 bg-zinc-900 p-2 font-mono text-[10px] text-zinc-300 outline-none focus:border-emerald-500/40"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-3 rounded border border-emerald-500/20 bg-emerald-500/5 p-6">
+                <span className="text-center font-mono text-[10px] font-bold text-emerald-400 uppercase">
+                  Automatización Headless con Antigravity
+                </span>
+                <p className="max-w-sm text-center font-mono text-[8px] text-emerald-500/70">
+                  Al ejecutar, el agente tomará el control total: codificará,
+                  pasará los tests y entregará el handoff sin intervención
+                  manual. Si hay errores, se registrarán en el carril de Bugs.
+                </p>
+                <button
+                  onClick={async () => {
+                    setIsExecuting(true);
+                    mostrarToast(
+                      "Antigravity ha comenzado la ejecución. La UI del tablero se actualizará.",
+                      "info"
+                    );
+
+                    const isActividad = !!selectedActividadCinta;
+                    const checkpointId = isActividad
+                      ? `chk_${selectedActividadCinta.id}`
+                      : `chk_${selectedHistoriaCinta.id}`;
+
+                    try {
+                      // Marcar motor como antigravity en la metadata
+                      const meta = activeCintaExecution.metadata || {};
+                      await db.task_executions.update(activeCintaExecution.id, {
+                        metadata: { ...meta, engine: "antigravity" },
+                      });
+
+                      // Actualizar o crear checkpoint para que ejecucion-ia-control reaccione
+                      const checkpointBase = {
+                        id: checkpointId,
+                        taskExecutionId: activeCintaExecution.id,
+                        actividadId: isActividad
+                          ? selectedActividadCinta.id
+                          : undefined,
+                        proyectoId: activeCintaExecution.proyectoId,
+                        reintentosFallidos: 0,
+                        accionesManualesModeradas: [],
+                        accionesManualesCriticas: [],
+                      };
+                      await db.task_execution_checkpoints.put({
+                        ...checkpointBase,
+                        estadoCheckpoint: "IN_PROGRESS_AI",
+                        actualizadoEn: Date.now(),
+                      } as any);
+
+                      const res = await fetch("/api/ai/execute", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ prompt: promptMagro }),
+                      });
+                      const data = await res.json();
+                      if (data.success) {
+                        mostrarToast(
+                          `Ejecución exitosa (${data.metrics?.duration_seconds || 0}s, ${data.metrics?.tokens_out || 0} tokens)`,
+                          "exito"
+                        );
+                        let finalHandoff = data.text;
+                        const match = finalHandoff.match(/\{[\s\S]*\}/);
+                        if (match) finalHandoff = match[0];
+
+                        await db.task_execution_checkpoints.update(
+                          checkpointId,
+                          {
+                            estadoCheckpoint: "COMPLETED_HANDOFF",
+                            actualizadoEn: Date.now(),
+                          } as any
+                        );
+
+                        avanzarEstacionCinta(activeStation, finalHandoff);
+                      } else {
+                        mostrarToast(
+                          "La ejecución de Antigravity reportó un error.",
+                          "error"
+                        );
+
+                        await db.task_execution_checkpoints.update(
+                          checkpointId,
+                          {
+                            estadoCheckpoint: "PAUSED_CHECKPOINT",
+                            ultimoErrorLogs: data.logs || "Error desconocido",
+                            actualizadoEn: Date.now(),
+                          } as any
+                        );
+
+                        registrarBugEstacion(
+                          activeStation,
+                          data.logs || "Error desconocido",
+                          "Ejecución exitosa y pruebas en verde.",
+                          "El agente falló o los tests no pasaron."
+                        );
+                      }
+                    } catch (e: any) {
+                      mostrarToast(
+                        `Error de red al conectar con Antigravity: ${e.message}`,
+                        "error"
+                      );
+
+                      await db.task_execution_checkpoints.update(checkpointId, {
+                        estadoCheckpoint: "PAUSED_CHECKPOINT",
+                        ultimoErrorLogs: e.message,
+                        actualizadoEn: Date.now(),
+                      } as any);
+
+                      registrarBugEstacion(
+                        activeStation,
+                        e.message,
+                        "Conexión exitosa al backend.",
+                        "Falló la llamada a la API local."
+                      );
+                    } finally {
+                      setIsExecuting(false);
+                    }
+                  }}
+                  disabled={isExecuting}
+                  className="rounded bg-emerald-500 px-6 py-2 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400 disabled:opacity-50"
+                >
+                  {isExecuting
+                    ? "🤖 Trabajando (No cierres esta ventana)..."
+                    : "🚀 Iniciar Ejecución Automática"}
+                </button>
+              </div>
+            )}
 
             {detectedDocUpdates && (
               <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3 font-mono">
@@ -247,48 +403,52 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
               </div>
             )}
 
-            <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <span className="text-zinc-650 font-mono text-[8px]">
-                * El JSON se usará para auditar la entrega y registrar los
-                cambios técnicos de la actividad.
-              </span>
+            {aiEngine === "claude_manual" && (
+              <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-zinc-650 font-mono text-[8px]">
+                  * El JSON se usará para auditar la entrega y registrar los
+                  cambios técnicos de la actividad.
+                </span>
 
-              {isActividadMode ? (
-                <div className="flex flex-wrap gap-2">
+                {isActividadMode ? (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => {
+                        avanzarEstacionCinta("default", cintaHandoffInput);
+                        setCintaHandoffInput("");
+                      }}
+                      disabled={!cintaHandoffInput.trim()}
+                      className="rounded bg-emerald-500 px-4 py-2 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400 disabled:opacity-40"
+                    >
+                      💾 Guardar Handoff
+                    </button>
+                    {completarCerrarActividad &&
+                      (currentItem.estado === "in_revision" ||
+                        currentItem.estado === "review") && (
+                        <button
+                          onClick={() =>
+                            completarCerrarActividad(currentItem.id)
+                          }
+                          className="rounded bg-sky-500 px-4 py-2 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-sky-400"
+                        >
+                          🏁 Completar y Cerrar Ticket
+                        </button>
+                      )}
+                  </div>
+                ) : (
                   <button
                     onClick={() => {
-                      avanzarEstacionCinta("default", cintaHandoffInput);
+                      avanzarEstacionCinta(activeStation, cintaHandoffInput);
                       setCintaHandoffInput("");
                     }}
                     disabled={!cintaHandoffInput.trim()}
                     className="rounded bg-emerald-500 px-4 py-2 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400 disabled:opacity-40"
                   >
-                    💾 Guardar Handoff
+                    Sincronizar y Avanzar ➔
                   </button>
-                  {completarCerrarActividad &&
-                    (currentItem.estado === "in_revision" ||
-                      currentItem.estado === "review") && (
-                      <button
-                        onClick={() => completarCerrarActividad(currentItem.id)}
-                        className="rounded bg-sky-500 px-4 py-2 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-sky-400"
-                      >
-                        🏁 Completar y Cerrar Ticket
-                      </button>
-                    )}
-                </div>
-              ) : (
-                <button
-                  onClick={() => {
-                    avanzarEstacionCinta(activeStation, cintaHandoffInput);
-                    setCintaHandoffInput("");
-                  }}
-                  disabled={!cintaHandoffInput.trim()}
-                  className="rounded bg-emerald-500 px-4 py-2 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400 disabled:opacity-40"
-                >
-                  Sincronizar y Avanzar ➔
-                </button>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Git Flow of closing (Only if QA or in activity in-revision/completado) */}

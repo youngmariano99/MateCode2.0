@@ -18,6 +18,13 @@ export interface InvocarClaudeCodeOptions {
   /** Para retomar una sesión previa sin reconstruir contexto (ver Fase 0, punto 7). */
   resumeSessionId?: string;
   timeoutMs?: number;
+  /**
+   * Modelo a usar (id o alias que acepte la CLI, ej. "sonnet", "haiku",
+   * "claude-haiku-4-5-20251001"). Sin especificar, la CLI usa su propio
+   * default (Fase 4.2: estandarización de modelos por rol de ticket) — debe
+   * mantenerse igual en todos los --resume de una misma sesión.
+   */
+  modelo?: string;
 }
 
 /**
@@ -36,6 +43,7 @@ export function invocarClaudeCode({
   claudeExecutable = "claude",
   resumeSessionId,
   timeoutMs = 30 * 60 * 1000, // 30 min: dejar tiempo real para un ticket completo
+  modelo,
 }: InvocarClaudeCodeOptions): Promise<InvocacionClaudeCodeResult> {
   // El prompt va por stdin, no como argumento de línea de comandos: en
   // Windows, CreateProcess tiene un límite de ~32K caracteres para el
@@ -57,6 +65,9 @@ export function invocarClaudeCode({
   ];
   if (resumeSessionId) {
     args.push("--resume", resumeSessionId);
+  }
+  if (modelo) {
+    args.push("--model", modelo);
   }
 
   return new Promise((resolve) => {

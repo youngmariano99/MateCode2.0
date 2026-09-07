@@ -175,11 +175,16 @@ export const BacklogBoard: React.FC<BacklogBoardProps> = ({ proyectoId }) => {
   // Load custom templates saved in IndexedDB
   const plantillasCustomRaw =
     useLiveQuery(() => db.plantillas_backlog.toArray()) || [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const plantillasCustom = plantillasCustomRaw as unknown as {
     id: string;
     nombre: string;
-    tareas: any[];
+    tareas: {
+      titulo: string;
+      descripcion?: string;
+      prioridad?: string;
+      estimacion?: number;
+    }[];
   }[];
   const todasLasPlantillas = [...PLANTILLAS_PREDEFINIDAS, ...plantillasCustom];
 

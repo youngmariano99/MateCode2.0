@@ -136,6 +136,17 @@ async function procesarCheckpoint(
     parseJsonArraySeguro(configAuto?.deniedPaths)
   );
 
+  // Modelo para TODA la sesión de este ticket (desarrollo + reintentos +
+  // handoff + fix de CI): se resuelve una sola vez acá porque todos esos
+  // pasos son --resume de la misma sesión, no invocaciones independientes —
+  // cambiar de modelo a mitad de una sesión resumida no es seguro. Prioridad:
+  // override por rol > default del proyecto > default de la CLI (sin flag).
+  const modelosPorRol = parseJsonObjetoSeguro(configAuto?.modelosPorRol);
+  const modelo =
+    (actividad.rol && modelosPorRol[actividad.rol]) ||
+    configAuto?.modeloPorDefecto ||
+    undefined;
+
   const promptBase = generarPromptActividadTicket({
     actividad: {
       id: actividad.id,
@@ -176,6 +187,7 @@ async function procesarCheckpoint(
     rutaRepo: proyectoCfg.rutaLocalRepo,
     claudeExecutable: proyectoCfg.claudeExecutable,
     resumeSessionId: checkpoint.claudeSessionId ?? undefined,
+    modelo,
   });
 
   // Acumuladores de métricas: arrancan desde lo que YA estaba persistido en
@@ -280,6 +292,7 @@ async function procesarCheckpoint(
       resumeSessionId:
         resultado.sessionId ?? checkpoint.claudeSessionId ?? undefined,
       timeoutMs: 5 * 60 * 1000,
+      modelo,
     });
     tokensInputTotal += resultadoHandoff.tokensInput ?? 0;
     tokensOutputTotal += resultadoHandoff.tokensOutput ?? 0;
@@ -394,7 +407,8 @@ async function procesarCheckpoint(
         configAuto?.maxRetriesLinter ?? 3,
         proyectoCfg.claudeExecutable,
         resultado.sessionId ?? checkpoint.claudeSessionId ?? undefined,
-        configAuto?.maxLineasPorArchivo
+        configAuto?.maxLineasPorArchivo,
+        modelo
       );
       tokensInputTotal += ciResultado.tokensInput;
       tokensOutputTotal += ciResultado.tokensOutput;
@@ -521,7 +535,8 @@ async function correrGateCI(
   maxIntentos: number,
   claudeExecutable: string | undefined,
   sessionIdInicial: string | undefined,
-  maxLineasPorArchivo: number | undefined
+  maxLineasPorArchivo: number | undefined,
+  modelo: string | undefined
 ): Promise<CorrerGateCIResultado> {
   let sesion = sessionIdInicial;
   let intento = 0;
@@ -552,6 +567,7 @@ async function correrGateCI(
       claudeExecutable,
       resumeSessionId: sesion,
       timeoutMs: 10 * 60 * 1000,
+      modelo,
     });
     sesion = fix.sessionId ?? sesion;
     tokensInput += fix.tokensInput ?? 0;
@@ -657,6 +673,20 @@ function parseJsonArraySeguro(raw: string | null | undefined): string[] {
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
+  }
+}
+
+function parseJsonObjetoSeguro(
+  raw: string | null | undefined
+): Record<string, string> {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed
+      : {};
+  } catch {
+    return {};
   }
 }
 

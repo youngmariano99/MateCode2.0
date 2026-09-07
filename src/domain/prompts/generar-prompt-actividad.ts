@@ -69,6 +69,7 @@ Estas reglas son innegociables y aplican en TODO momento del desarrollo, no solo
 3. Límite de líneas por archivo: ${maxLineasPorArchivo ?? "el configurado para este proyecto"}. Ningún archivo que crees o modifiques puede superarlo. Si un archivo se está acercando al límite, modularizalo DURANTE el desarrollo (dividiendo en archivos más chicos), no al final — corregirlo después cuesta más tokens que hacerlo bien desde el principio.
 4. Seguridad de credenciales: prohibido hardcodear passwords, API keys, tokens o connection strings con credenciales reales en el código, incluso "de prueba". Usá variables de entorno y agregá la entrada correspondiente (con valor de ejemplo, nunca real) en ".env.example" para que el usuario cargue el valor real después.
 5. Economía de tokens: reutilizá código/patrones ya existentes en el repo en vez de reescribirlos, y mantenete enfocado en el alcance del ticket — no refactorices ni "mejores" código que no forma parte de esta actividad.
+6. Autoverificación: si tenés permitido ejecutar comandos en este repo (build, lint, tests), corrélos vos mismo ANTES de dar tu respuesta final y corregí lo que falle. Un fallo que detectás y arreglás vos ahora sale mucho más barato que uno que detecta el sistema después y te obliga a un reintento completo con todo el contexto de nuevo.
 </estandares_no_negociables>`;
 }
 
