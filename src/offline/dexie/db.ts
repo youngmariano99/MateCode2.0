@@ -3,6 +3,7 @@ import type {
   ProyectoConfigAutomatizacion,
   TaskExecutionCheckpoint,
 } from "../../domain/entidades/automatizacion-ia.entity";
+import { CATALOGO_ERRORES_SEED } from "../../domain/entidades/automatizacion-ia.entity";
 import type {
   EtiquetaCatalogo,
   FichaDigital,
@@ -664,18 +665,18 @@ export class MateCodeDB extends Dexie {
           "Facebook",
           "Presencial",
         ];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        /* eslint-disable @typescript-eslint/no-explicit-any -- migración
+           lee la tabla vieja sin schema (Record<string, unknown>), tipar
+           cada campo acá sería más ruido que valor para código que corre
+           una sola vez por instalación. */
         const viejos = (await tx
           .table("potenciales_clientes")
           .toArray()) as any[];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const nuevosPotenciales: any[] = [];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const nuevasFichasDigitales: any[] = [];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const nuevasFichasFisicas: any[] = [];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const nuevosIntentos: any[] = [];
+        /* eslint-enable @typescript-eslint/no-explicit-any */
 
         for (const p of viejos) {
           const fueContactadoDigital =
@@ -798,11 +799,15 @@ export class MateCodeDB extends Dexie {
 
     // Corre en cada apertura (nuevas instalaciones y upgrades de usuarios
     // existentes), a diferencia de "populate" que solo corre en DB nueva.
+    // Import estático de CATALOGO_ERRORES_SEED (no dinámico): un `await
+    // import()` en medio de este hook le hace perder a Dexie el contexto
+    // interno que usa para saber que la operación siguiente todavía
+    // pertenece a la secuencia de apertura — la deja esperando a que la
+    // base termine de abrirse mientras la base espera a que este hook
+    // termine, y se traba para siempre (confirmado con logs de diagnóstico).
     this.on("ready", async () => {
       const count = await this.table("catalogo_errores").count();
       if (count === 0) {
-        const { CATALOGO_ERRORES_SEED } =
-          await import("../../domain/entidades/automatizacion-ia.entity");
         await this.table("catalogo_errores").bulkPut(
           CATALOGO_ERRORES_SEED.map((e) => ({ ...e, creadoEn: Date.now() }))
         );

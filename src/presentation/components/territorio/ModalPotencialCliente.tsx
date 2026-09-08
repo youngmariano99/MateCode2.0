@@ -8,10 +8,11 @@ import { db } from "../../../offline/dexie/db";
 import { OpenStreetMapGeocodificacionStrategy } from "../../../application/services/territorio/geocodificacion.strategy";
 
 /**
- * Prospecto para la prospección física (mapa/ruteo): solo datos propios de
- * esta estación — nombre, rubro, prioridad y dirección. Los datos digitales
- * (redes, dolores detectados) viven aparte, en Contacto en Frío, y se
- * agregan ahí solo si corresponde — no se piden acá.
+ * Prospecto para la prospección física (mapa/ruteo): el núcleo es nombre,
+ * rubro, prioridad y dirección. Las redes sociales son opcionales acá —
+ * la ficha digital completa (dolores, señales) sigue viviendo en Contacto
+ * en Frío, pero un link de Instagram/WhatsApp es útil tenerlo a mano para
+ * abrir el perfil con un click antes de ir a visitar.
  */
 export interface PotencialCliente {
   id: string;
@@ -33,6 +34,10 @@ export interface PotencialCliente {
   creadoEn: number;
   actualizadoEn: number;
   prioridad?: "Alta" | "Media" | "Baja";
+  whatsapp?: string;
+  instagram?: string;
+  facebook?: string;
+  email?: string;
 }
 
 interface ModalPotencialClienteProps {
@@ -53,6 +58,12 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
   const [prioridad, setPrioridad] = useState<"Alta" | "Media" | "Baja">(
     "Media"
   );
+
+  // Redes sociales — opcionales, solo para tener el link a mano.
+  const [whatsapp, setWhatsapp] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [facebook, setFacebook] = useState("");
+  const [email, setEmail] = useState("");
 
   // Address fields
   const [calle, setCalle] = useState("");
@@ -114,6 +125,11 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
         setRubro(prospectoEdicion.rubro || "");
         setPrioridad(prospectoEdicion.prioridad || "Media");
 
+        setWhatsapp(prospectoEdicion.whatsapp || "");
+        setInstagram(prospectoEdicion.instagram || "");
+        setFacebook(prospectoEdicion.facebook || "");
+        setEmail(prospectoEdicion.email || "");
+
         setCalle(prospectoEdicion.direccionCalle || "");
         setCodigoPostal(prospectoEdicion.direccionCodigoPostal || "");
         setCiudad(prospectoEdicion.direccionCiudad || "");
@@ -123,6 +139,11 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
         setNombre("");
         setRubro("");
         setPrioridad("Media");
+
+        setWhatsapp("");
+        setInstagram("");
+        setFacebook("");
+        setEmail("");
 
         setCalle("");
         setCodigoPostal("");
@@ -214,6 +235,10 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
       nombre: nombre.trim(),
       rubro: rubro.trim(),
       prioridad,
+      whatsapp: whatsapp.trim(),
+      instagram: instagram.trim(),
+      facebook: facebook.trim(),
+      email: email.trim(),
       direccion: direccionCompleta,
       direccionCalle: calle.trim(),
       direccionCodigoPostal: codigoPostal.trim(),
@@ -281,6 +306,44 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
               <option value="Media">Media (Estándar)</option>
               <option value="Baja">Baja (De Paso / Secundario)</option>
             </select>
+          </div>
+
+          {/* Redes sociales — opcional */}
+          <div className="flex flex-col gap-2 border-t border-[#2A2A2E]/40 pt-3 sm:col-span-2">
+            <label className="font-mono text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+              Redes sociales (opcional)
+            </label>
+            <p className="-mt-1 text-[10px] text-zinc-500">
+              Solo para tener el link a mano y abrirlo con un click. No hace
+              falta completarlo.
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Input
+                label="Instagram (usuario o URL)"
+                value={instagram}
+                onChange={(e) => setInstagram(e.target.value)}
+                placeholder="Ej. @negocio o link al perfil"
+              />
+              <Input
+                label="WhatsApp"
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(e.target.value)}
+                placeholder="Ej. +5492914123456"
+              />
+              <Input
+                label="Facebook (enlace)"
+                value={facebook}
+                onChange={(e) => setFacebook(e.target.value)}
+                placeholder="Ej. https://facebook.com/pagina"
+              />
+              <Input
+                label="Email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Ej. contacto@negocio.com"
+              />
+            </div>
           </div>
 
           {/* Structured Address */}

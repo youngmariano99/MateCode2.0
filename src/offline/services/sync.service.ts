@@ -105,7 +105,7 @@ export const SyncService = {
 
     if (onProgress) onProgress("Subiendo respaldo a la nube...");
 
-    await HttpClient.post("/sync/bulk", {
+    const datasets = {
       proyectos,
       epicas,
       sprints,
@@ -121,8 +121,22 @@ export const SyncService = {
       contactos,
       contratos,
       pagos,
-    });
+    };
 
-    if (onProgress) onProgress("Respaldo completado.");
+    let count = 0;
+    const total = Object.keys(datasets).length;
+    for (const [table, records] of Object.entries(datasets)) {
+      count++;
+      if (!records || records.length === 0) continue;
+      if (onProgress)
+        onProgress(`Sincronizando tabla ${table} (${count}/${total})...`);
+
+      // Enviar de a una tabla a la vez para evitar timeouts por payloads masivos
+      await HttpClient.post("/sync/bulk", {
+        [table]: records,
+      });
+    }
+
+    if (onProgress) onProgress("Respaldo completado exitosamente.");
   },
 };

@@ -1,6 +1,38 @@
 import React from "react";
 import type { PotencialCliente } from "./ModalPotencialCliente";
 
+/** Links directos para abrir el perfil/chat del prospecto con un click. */
+function enlacesRedes(p: PotencialCliente): { label: string; href: string }[] {
+  const links: { label: string; href: string }[] = [];
+  if (p.instagram) {
+    const usuario = p.instagram.replace(/^@/, "");
+    links.push({
+      label: "IG",
+      href: usuario.startsWith("http")
+        ? usuario
+        : `https://instagram.com/${usuario}`,
+    });
+  }
+  if (p.whatsapp) {
+    links.push({
+      label: "WA",
+      href: `https://wa.me/${p.whatsapp.replace(/[^0-9]/g, "")}`,
+    });
+  }
+  if (p.facebook) {
+    links.push({
+      label: "FB",
+      href: p.facebook.startsWith("http")
+        ? p.facebook
+        : `https://facebook.com/${p.facebook}`,
+    });
+  }
+  if (p.email) {
+    links.push({ label: "Mail", href: `mailto:${p.email}` });
+  }
+  return links;
+}
+
 interface TerritorioTablaProps {
   prospectos: PotencialCliente[];
   totalFiltrados: number;
@@ -99,6 +131,21 @@ export const TerritorioTabla: React.FC<TerritorioTablaProps> = ({
                     <span className="w-fit rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[8px] font-bold text-emerald-400 uppercase">
                       Activo
                     </span>
+                  )}
+                  {enlacesRedes(p).length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {enlacesRedes(p).map((link) => (
+                        <a
+                          key={link.label}
+                          href={link.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.5 font-mono text-[8px] font-bold text-sky-400 hover:bg-sky-500 hover:text-black"
+                        >
+                          {link.label}
+                        </a>
+                      ))}
+                    </div>
                   )}
                 </div>
               </td>

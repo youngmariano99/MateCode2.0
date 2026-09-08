@@ -54,6 +54,7 @@ export const ModalProyecto: React.FC<ModalProyectoProps> = ({
   const [urlProduccion, setUrlProduccion] = useState("");
   const [urlDesarrollo, setUrlDesarrollo] = useState("");
   const [observaciones, setObservaciones] = useState("");
+  const [rutaLocalRepo, setRutaLocalRepo] = useState("");
 
   useEffect(() => {
     Promise.resolve().then(() => {
@@ -81,6 +82,21 @@ export const ModalProyecto: React.FC<ModalProyectoProps> = ({
         setUrlProduccion("");
         setUrlDesarrollo("");
         setObservaciones("");
+        setRutaLocalRepo("");
+      }
+
+      // Load AI runner config if editing
+      if (proyectoEdicion && abierto) {
+        fetch("/api/runner/config")
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.proyectos && data.proyectos[proyectoEdicion.id]) {
+              setRutaLocalRepo(
+                data.proyectos[proyectoEdicion.id].rutaLocalRepo || ""
+              );
+            }
+          })
+          .catch((err) => console.error("Error loading runner config:", err));
       }
     });
   }, [proyectoEdicion, abierto, clientes]);
@@ -113,6 +129,18 @@ export const ModalProyecto: React.FC<ModalProyectoProps> = ({
       urlDesarrollo,
       observaciones,
     });
+
+    // Save AI runner config if it's an existing project
+    if (proyectoEdicion && rutaLocalRepo) {
+      fetch("/api/runner/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          proyectoId: proyectoEdicion.id,
+          rutaLocalRepo,
+        }),
+      }).catch((err) => console.error("Error saving runner config:", err));
+    }
   };
 
   return (

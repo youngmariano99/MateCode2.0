@@ -35,7 +35,9 @@ describe("Contacto en Frío: prospección física + digital + conversión", () =
     assert.strictEqual(visita.ok, true);
 
     const prospecto = await db.potencial_cliente.get(id);
-    assert.strictEqual(prospecto?.estado, "Contactado");
+    // La visita exitosa se registra con resultado "Respondió", así que el
+    // embudo avanza directo a "En Conversación", no se queda en "Contactado".
+    assert.strictEqual(prospecto?.estado, "En Conversación");
 
     const intentos = await db.intento_contacto
       .where("potencialClienteId")
