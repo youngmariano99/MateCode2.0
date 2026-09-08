@@ -1,5 +1,6 @@
 import { loadRunnerConfig, getProjectConfig } from "./config";
 import { invocarClaudeCode } from "./claude-code";
+import { invocarAntigravity } from "./antigravity";
 import { correrVerificacion, type PasoVerificacion } from "./verificacion";
 import { verificarEstandares } from "./estandares";
 import { escribirCorralito } from "./corralito";
@@ -182,13 +183,27 @@ async function procesarCheckpoint(
   // pausado (no solo en el camino feliz).
   await actualizarCheckpoint(checkpoint.id, { promptEnviado: prompt });
 
-  const resultado = await invocarClaudeCode({
-    prompt,
-    rutaRepo: proyectoCfg.rutaLocalRepo,
-    claudeExecutable: proyectoCfg.claudeExecutable,
-    resumeSessionId: checkpoint.claudeSessionId ?? undefined,
-    modelo,
-  });
+  let resultado;
+  if (checkpoint.motorIA === "antigravity") {
+    console.log(
+      `[runner] Usando motor Antigravity (Gemini) para este turno...`
+    );
+    resultado = await invocarAntigravity({
+      prompt,
+      rutaRepo: proyectoCfg.rutaLocalRepo,
+      claudeExecutable: proyectoCfg.claudeExecutable,
+      resumeSessionId: checkpoint.claudeSessionId ?? undefined,
+      modelo: modelo || "gemini-2.5-flash",
+    });
+  } else {
+    resultado = await invocarClaudeCode({
+      prompt,
+      rutaRepo: proyectoCfg.rutaLocalRepo,
+      claudeExecutable: proyectoCfg.claudeExecutable,
+      resumeSessionId: checkpoint.claudeSessionId ?? undefined,
+      modelo,
+    });
+  }
 
   // Acumuladores de métricas: arrancan desde lo que YA estaba persistido en
   // el checkpoint (intentos anteriores — reintentos, huérfanos retomados),
@@ -285,15 +300,28 @@ async function procesarCheckpoint(
     console.log(
       `[runner] Checkpoint ${checkpoint.id}: el turno de desarrollo no trajo el JSON de handoff, pidiéndolo en un segundo turno...`
     );
-    const resultadoHandoff = await invocarClaudeCode({
-      prompt: PROMPT_SOLO_HANDOFF,
-      rutaRepo: proyectoCfg.rutaLocalRepo,
-      claudeExecutable: proyectoCfg.claudeExecutable,
-      resumeSessionId:
-        resultado.sessionId ?? checkpoint.claudeSessionId ?? undefined,
-      timeoutMs: 5 * 60 * 1000,
-      modelo,
-    });
+    let resultadoHandoff;
+    if (checkpoint.motorIA === "antigravity") {
+      resultadoHandoff = await invocarAntigravity({
+        prompt: PROMPT_SOLO_HANDOFF,
+        rutaRepo: proyectoCfg.rutaLocalRepo,
+        claudeExecutable: proyectoCfg.claudeExecutable,
+        resumeSessionId:
+          resultado.sessionId ?? checkpoint.claudeSessionId ?? undefined,
+        timeoutMs: 5 * 60 * 1000,
+        modelo: modelo || "gemini-2.5-flash",
+      });
+    } else {
+      resultadoHandoff = await invocarClaudeCode({
+        prompt: PROMPT_SOLO_HANDOFF,
+        rutaRepo: proyectoCfg.rutaLocalRepo,
+        claudeExecutable: proyectoCfg.claudeExecutable,
+        resumeSessionId:
+          resultado.sessionId ?? checkpoint.claudeSessionId ?? undefined,
+        timeoutMs: 5 * 60 * 1000,
+        modelo,
+      });
+    }
     tokensInputTotal += resultadoHandoff.tokensInput ?? 0;
     tokensOutputTotal += resultadoHandoff.tokensOutput ?? 0;
     costoUsdTotal += resultadoHandoff.costoUsd ?? 0;
@@ -408,7 +436,8 @@ async function procesarCheckpoint(
         proyectoCfg.claudeExecutable,
         resultado.sessionId ?? checkpoint.claudeSessionId ?? undefined,
         configAuto?.maxLineasPorArchivo,
-        modelo
+        modelo,
+        checkpoint.motorIA
       );
       tokensInputTotal += ciResultado.tokensInput;
       tokensOutputTotal += ciResultado.tokensOutput;
@@ -536,7 +565,8 @@ async function correrGateCI(
   claudeExecutable: string | undefined,
   sessionIdInicial: string | undefined,
   maxLineasPorArchivo: number | undefined,
-  modelo: string | undefined
+  modelo: string | undefined,
+  motorIA: string | undefined
 ): Promise<CorrerGateCIResultado> {
   let sesion = sessionIdInicial;
   let intento = 0;
@@ -561,14 +591,26 @@ async function correrGateCI(
     console.log(
       `[runner] CI falló (intento ${intento}/${maxIntentos}), pidiendo un fix al agente...`
     );
-    const fix = await invocarClaudeCode({
-      prompt: `El PR que acabás de abrir falló los checks de CI. Corregí el problema y dejá el fix listo para pushear. Log de CI:\n${resultado.detalle}\n\n${bloqueEstandaresNoNegociables(maxLineasPorArchivo)}`,
-      rutaRepo,
-      claudeExecutable,
-      resumeSessionId: sesion,
-      timeoutMs: 10 * 60 * 1000,
-      modelo,
-    });
+    let fix;
+    if (motorIA === "antigravity") {
+      fix = await invocarAntigravity({
+        prompt: `El PR que acabás de abrir falló los checks de CI. Corregí el problema y dejá el fix listo para pushear. Log de CI:\n${resultado.detalle}\n\n${bloqueEstandaresNoNegociables(maxLineasPorArchivo)}`,
+        rutaRepo,
+        claudeExecutable,
+        resumeSessionId: sesion,
+        timeoutMs: 10 * 60 * 1000,
+        modelo: modelo || "gemini-2.5-flash",
+      });
+    } else {
+      fix = await invocarClaudeCode({
+        prompt: `El PR que acabás de abrir falló los checks de CI. Corregí el problema y dejá el fix listo para pushear. Log de CI:\n${resultado.detalle}\n\n${bloqueEstandaresNoNegociables(maxLineasPorArchivo)}`,
+        rutaRepo,
+        claudeExecutable,
+        resumeSessionId: sesion,
+        timeoutMs: 10 * 60 * 1000,
+        modelo,
+      });
+    }
     sesion = fix.sessionId ?? sesion;
     tokensInput += fix.tokensInput ?? 0;
     tokensOutput += fix.tokensOutput ?? 0;

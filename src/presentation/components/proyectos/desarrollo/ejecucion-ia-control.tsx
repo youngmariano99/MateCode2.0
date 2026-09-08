@@ -43,6 +43,7 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
   const [iterarInput, setIterarInput] = useState("");
   const [mostrarIterar, setMostrarIterar] = useState(false);
   const [mostrarDetalle, setMostrarDetalle] = useState(false);
+  const [motorIA, setMotorIA] = useState<"claude" | "antigravity">("claude");
 
   const checkpointId = `chk_${actividad.id}`;
   const taskExecutionId = `execution_act_${actividad.id}`;
@@ -111,6 +112,7 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
         actividadId: actividad.id,
         proyectoId,
         estadoCheckpoint: "IDLE" as EstadoCheckpoint,
+        motorIA,
         reintentosFallidos: 0,
         accionesManualesModeradas: [] as AccionManualRequerida[],
         accionesManualesCriticas: [] as AccionManualRequerida[],
@@ -267,13 +269,25 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
 
   if (!checkpoint) {
     return (
-      <button
-        type="button"
-        onClick={comenzarConIA}
-        className="mt-1 flex items-center justify-center gap-1 rounded border border-violet-500/25 bg-violet-500/10 py-1 font-mono text-[8px] font-bold text-violet-400 uppercase transition-all hover:bg-violet-500/20"
-      >
-        🚀 Comenzar ticket con IA
-      </button>
+      <div className="mt-1 flex flex-col gap-1 rounded border border-zinc-800 bg-zinc-950/60 p-2">
+        <select
+          value={motorIA}
+          onChange={(e) =>
+            setMotorIA(e.target.value as "claude" | "antigravity")
+          }
+          className="rounded border border-zinc-800 bg-zinc-900 p-1 font-mono text-[8px] text-zinc-300 focus:outline-none"
+        >
+          <option value="claude">🤖 Claude Code (Anthropic)</option>
+          <option value="antigravity">🚀 Antigravity (Gemini Flash)</option>
+        </select>
+        <button
+          type="button"
+          onClick={comenzarConIA}
+          className="flex items-center justify-center gap-1 rounded border border-violet-500/25 bg-violet-500/10 py-1 font-mono text-[8px] font-bold text-violet-400 uppercase transition-all hover:bg-violet-500/20"
+        >
+          Comenzar ticket con IA
+        </button>
+      </div>
     );
   }
 

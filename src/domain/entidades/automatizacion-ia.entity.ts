@@ -239,6 +239,7 @@ export interface TaskExecutionCheckpoint {
   actividadId: string;
   proyectoId: string;
   estadoCheckpoint: EstadoCheckpoint;
+  motorIA?: "claude" | "antigravity";
   ultimoErrorLogs?: string;
   ultimoPromptRefinamiento?: string;
   reintentosFallidos: number;

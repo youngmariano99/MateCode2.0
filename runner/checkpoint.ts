@@ -23,6 +23,7 @@ export interface CheckpointRow {
   actividadId: string;
   proyectoId: string;
   estadoCheckpoint: string;
+  motorIA?: "claude" | "antigravity";
   reintentosFallidos: number;
   claudeSessionId: string | null;
   // Acumulados de intentos previos (reintentos, huérfanos retomados): hay
