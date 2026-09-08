@@ -268,7 +268,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                   onClick={async () => {
                     setIsExecuting(true);
                     mostrarToast(
-                      "Antigravity ha comenzado la ejecución. La UI del tablero se actualizará.",
+                      `Iniciando ejecución automática con el motor: Antigravity (Gemini).`,
                       "info"
                     );
 
@@ -292,6 +292,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                           ? selectedActividadCinta.id
                           : undefined,
                         proyectoId: activeCintaExecution.proyectoId,
+                        motorIA: "antigravity", // ¡Fuga corregida!
                         reintentosFallidos: 0,
                         accionesManualesModeradas: [],
                         accionesManualesCriticas: [],

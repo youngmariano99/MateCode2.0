@@ -245,6 +245,9 @@ async function procesarCheckpoint(
       onPaso,
     });
   } else {
+    console.log(
+      `[runner] Usando motor Claude Code (Anthropic) para este turno...`
+    );
     resultado = await invocarClaudeCode({
       prompt,
       rutaRepo: proyectoCfg.rutaLocalRepo,
