@@ -169,6 +169,32 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
     }
   };
 
+  const cancelarCola = async () => {
+    try {
+      const actualizadoEn = Date.now();
+      await db.task_execution_checkpoints.delete(checkpointId);
+      await QueueService.encolar(
+        "task_execution_checkpoints",
+        "eliminar",
+        checkpointId,
+        { id: checkpointId }
+      );
+      await db.tareas.update(actividad.id, {
+        estado: "pending",
+        actualizadoEn,
+      });
+      await QueueService.encolar("tareas", "editar", actividad.id, {
+        id: actividad.id,
+        estado: "pending",
+        actualizadoEn,
+      });
+      await forzarSyncSilencioso();
+      mostrarToast("Ejecución cancelada, ticket devuelto a pendiente.", "info");
+    } catch (err: any) {
+      mostrarToast(`Error al cancelar: ${err.message}`, "error");
+    }
+  };
+
   const marcarVerificado = async () => {
     try {
       const actualizadoEn = Date.now();
@@ -312,6 +338,16 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
         <span className="font-mono text-[7px] text-zinc-500">
           Reintentos: {checkpoint.reintentosFallidos ?? 0}
         </span>
+      )}
+
+      {estado === "IDLE" && (
+        <button
+          type="button"
+          onClick={cancelarCola}
+          className="rounded border border-red-500/25 bg-red-500/10 py-1 font-mono text-[8px] font-bold text-red-400 uppercase hover:bg-red-500/20"
+        >
+          ❌ Cancelar Ejecución
+        </button>
       )}
 
       {(estado === "PAUSED_CHECKPOINT" ||
