@@ -180,12 +180,12 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
         { id: checkpointId }
       );
       await db.tareas.update(actividad.id, {
-        estado: "pending",
+        estado: "todo",
         actualizadoEn,
       });
       await QueueService.encolar("tareas", "editar", actividad.id, {
         id: actividad.id,
-        estado: "pending",
+        estado: "todo",
         actualizadoEn,
       });
       await forzarSyncSilencioso();

@@ -32,6 +32,11 @@ const tableMapper: Record<string, any> = {
   etiquetas: schema.etiquetas,
   cliente_etiquetas: schema.clienteEtiquetas,
   estados_cliente: schema.estadosCliente,
+  potencial_cliente: schema.potencialCliente,
+  ficha_digital: schema.fichaDigital,
+  ficha_fisica: schema.fichaFisica,
+  intento_contacto: schema.intentoContacto,
+  catalogo_etiquetas: schema.catalogoEtiquetas,
 };
 
 export async function POST(req: NextRequest) {
@@ -51,10 +56,13 @@ export async function POST(req: NextRequest) {
           "proyecto_estado_tecnico",
           "proyecto_config_automatizacion",
         ].includes(table);
+        const isFichaTable = ["ficha_digital", "ficha_fisica"].includes(table);
 
         const conflictTarget = isProjectConfigTable
           ? tableSchema.proyectoId
-          : tableSchema.id;
+          : isFichaTable
+            ? tableSchema.potencialClienteId
+            : tableSchema.id;
 
         for (const record of records) {
           const dbPayload = { ...record };
@@ -76,6 +84,10 @@ export async function POST(req: NextRequest) {
             "expiracion",
             "tiempoInicio",
             "tiempoFin",
+            "fechaUltimoContacto",
+            "fecha",
+            "volverFecha",
+            "proximoSeguimientoFecha",
           ];
           for (const field of dateFields) {
             const val = dbPayload[field];
@@ -118,6 +130,8 @@ export async function POST(req: NextRequest) {
             "accionesManualesModeradas",
             "accionesManualesCriticas",
             "guiaPruebasManual",
+            "dolorTags",
+            "tagsResultado",
           ];
           for (const field of jsonFields) {
             if (

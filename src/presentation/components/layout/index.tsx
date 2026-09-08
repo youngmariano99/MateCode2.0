@@ -75,8 +75,8 @@ export const Sidebar: React.FC<{
       icono: Icono.Calendario,
     },
     {
-      label: "Taller de Contacto",
-      href: "/dashboard/taller-contacto",
+      label: "Contacto en Frío",
+      href: "/dashboard/contacto-frio",
       icono: Icono.Contactos,
     },
     { label: "IA", href: "/dashboard/ia", icono: Icono.IA },
@@ -259,8 +259,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       icono: Icono.Calendario,
     },
     {
-      label: "Taller de Contacto",
-      href: "/dashboard/taller-contacto",
+      label: "Contacto en Frío",
+      href: "/dashboard/contacto-frio",
       icono: Icono.Contactos,
     },
     { label: "IA", href: "/dashboard/ia", icono: Icono.IA },

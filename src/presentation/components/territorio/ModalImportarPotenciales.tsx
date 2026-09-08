@@ -5,11 +5,19 @@ import { Icono } from "../icons";
 import { OpenStreetMapGeocodificacionStrategy } from "../../../application/services/territorio/geocodificacion.strategy";
 import { PotencialCliente } from "./ModalPotencialCliente";
 
+/**
+ * Físico (PotencialCliente) + redes opcionales — el import en lote puede
+ * traer ambos; quien reciba esto decide si arma también una ficha digital.
+ */
+export interface ItemImportadoPotencial extends Partial<PotencialCliente> {
+  whatsapp?: string;
+  email?: string;
+  instagram?: string;
+  facebook?: string;
+}
+
 interface ImportItem {
   nombre: string;
-  contacto?: string;
-  tipoServicio?: string;
-  pitch?: string;
   rubro?: string;
   direccionCalle: string;
   direccionCodigoPostal: string;
@@ -36,7 +44,7 @@ interface ImportItem {
 interface ModalImportarPotencialesProps {
   abierto: boolean;
   onCerrar: () => void;
-  onConfirmarImportacion: (potenciales: Partial<PotencialCliente>[]) => void;
+  onConfirmarImportacion: (potenciales: ItemImportadoPotencial[]) => void;
 }
 
 export const ModalImportarPotenciales: React.FC<
@@ -63,7 +71,6 @@ export const ModalImportarPotenciales: React.FC<
       direccionCiudad: "Bahía Blanca",
       direccionProvincia: "Buenos Aires",
       direccionPais: "Argentina",
-      tipoServicio: "Página Web y Menú QR",
     },
     {
       nombre: "Gimnasio Estilo",
@@ -76,7 +83,6 @@ export const ModalImportarPotenciales: React.FC<
       direccionCiudad: "Bahía Blanca",
       direccionProvincia: "Buenos Aires",
       direccionPais: "Argentina",
-      tipoServicio: "PWA de Reservas",
     },
   ];
 
@@ -85,13 +91,10 @@ export const ModalImportarPotenciales: React.FC<
       nombre: "Panadería Colón",
       rubro: "Gastronomía",
       prioridad: "Alta",
-      contacto: "Roberto (Dueño)",
       whatsapp: "+5492914123456",
       email: "roberto@colon.com",
       instagram: "https://instagram.com/panaderiacolon",
       facebook: "https://facebook.com/panaderiacolon",
-      tipoServicio: "Página Web y Menú QR",
-      pitch: "Digitalizar su cartelería física con código QR dinámico",
       direccionCalle: "Av. Colón 450",
       direccionCodigoPostal: "8000",
       direccionCiudad: "Bahía Blanca",
@@ -102,13 +105,10 @@ export const ModalImportarPotenciales: React.FC<
       nombre: "Gimnasio Estilo",
       rubro: "Deportes",
       prioridad: "Baja",
-      contacto: "Gaby (Propietario)",
       whatsapp: "+5492914444555",
       email: "gaby@estilo.com",
       instagram: "https://instagram.com/gimnasioestilo",
       facebook: "",
-      tipoServicio: "PWA de Reservas y Clases",
-      pitch: "Automatizar los cupos de las clases cruzadas",
       direccionCalle: "Vieytes 1020",
       direccionCodigoPostal: "8000",
       direccionCiudad: "Bahía Blanca",
@@ -136,9 +136,6 @@ export const ModalImportarPotenciales: React.FC<
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mapped: ImportItem[] = parsedArray.map((x: any) => ({
         nombre: String(x.nombre || "Prospecto Sin Nombre").trim(),
-        contacto: String(x.contacto || "").trim(),
-        tipoServicio: String(x.tipoServicio || "").trim(),
-        pitch: String(x.pitch || "").trim(),
         rubro: String(x.rubro || "General").trim(),
         direccionCalle: String(x.direccionCalle || "").trim(),
         direccionCodigoPostal: String(x.direccionCodigoPostal || "").trim(),
@@ -283,19 +280,15 @@ export const ModalImportarPotenciales: React.FC<
   };
 
   const handleConfirmarImportar = () => {
-    const listadoFinal: Partial<PotencialCliente>[] = items.map((x) => ({
+    const listadoFinal: ItemImportadoPotencial[] = items.map((x) => ({
       id: `pot_${Date.now()}_${Math.floor(Math.random() * 100000)}`,
       nombre: x.nombre,
-      contacto: x.contacto,
-      tipoServicio: x.tipoServicio,
-      pitch: x.pitch,
       rubro: x.rubro || "General",
       prioridad: x.prioridad || "Media",
       whatsapp: x.whatsapp,
       email: x.email,
       instagram: x.instagram,
       facebook: x.facebook,
-      estadoContacto: "Pendiente",
       direccion: [
         x.direccionCalle,
         x.direccionCodigoPostal,

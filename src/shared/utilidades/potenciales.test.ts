@@ -1,109 +1,114 @@
 import "fake-indexeddb/auto";
-import { test, describe } from "node:test";
+import { test, describe, beforeEach } from "node:test";
 import assert from "node:assert";
 import { db } from "../../offline/dexie/db";
+import { GestionarContactoFrioUseCase } from "../../application/use-cases/crm/gestionar-contacto-frio.use-case";
 
-describe("Módulo de Potenciales Clientes (Prospección, Digital y Conversión)", () => {
-  test("Debería registrar, visitar, contactar digitalmente y convertir un prospecto con éxito", async () => {
-    await db.potenciales_clientes.clear();
+const useCase = new GestionarContactoFrioUseCase();
+
+describe("Contacto en Frío: prospección física + digital + conversión", () => {
+  beforeEach(async () => {
+    await db.potencial_cliente.clear();
+    await db.ficha_digital.clear();
+    await db.ficha_fisica.clear();
+    await db.intento_contacto.clear();
     await db.clientes.clear();
+  });
 
-    const prospectoId = "pot_test_123";
-
-    // 1. Creation with digital fields
-    const testProspecto = {
-      id: prospectoId,
+  test("Alta física → visita exitosa → conversión a CRM", async () => {
+    const alta = await useCase.crearProspecto({
       nombre: "Panadería Colón",
-      contacto: "Roberto (Dueño)",
-      tipoServicio: "Menú QR",
-      pitch: "Digitalizar carta física",
       rubro: "Gastronomía",
-      whatsapp: "+5492914123456",
-      email: "roberto@colon.com",
-      instagram: "@panaderiacolon",
-      facebook: "",
+      prioridad: "Alta",
+    });
+    assert.strictEqual(alta.ok, true);
+    const id = alta.valor;
+
+    const ficha = await useCase.agregarFichaFisica(id, {
       direccionCalle: "Av. Colón 450",
-      direccionCodigoPostal: "8000",
       direccionCiudad: "Bahía Blanca",
       direccionProvincia: "Buenos Aires",
-      direccionPais: "Argentina",
-      direccion: "Av. Colón 450, 8000, Bahía Blanca, Buenos Aires, Argentina",
-      visitado: false,
-      visitasCount: 0,
-      convertido: false,
-      estadoContacto: "Pendiente",
-      creadoEn: Date.now(),
-      actualizadoEn: Date.now(),
-    };
+    });
+    assert.strictEqual(ficha.ok, true);
 
-    await db.potenciales_clientes.add(testProspecto);
+    const visita = await useCase.registrarVisitaFisica(id, { visitado: true });
+    assert.strictEqual(visita.ok, true);
 
-    const guardado = await db.potenciales_clientes.get(prospectoId);
-    assert.ok(guardado);
-    assert.strictEqual(guardado.nombre, "Panadería Colón");
-    assert.strictEqual(guardado.rubro, "Gastronomía");
-    assert.strictEqual(guardado.whatsapp, "+5492914123456");
-    assert.strictEqual(guardado.email, "roberto@colon.com");
-    assert.strictEqual(guardado.estadoContacto, "Pendiente");
+    const prospecto = await db.potencial_cliente.get(id);
+    assert.strictEqual(prospecto?.estado, "Contactado");
 
-    // 2. Contact update (digital cold outreach log)
-    await db.potenciales_clientes.update(prospectoId, {
-      estadoContacto: "Contactado",
-      ultimoCanalContacto: "whatsapp",
-      notasContacto: "Mensaje enviado con pitch de Menú QR.",
-      fechaUltimoContacto: Date.now(),
-      actualizadoEn: Date.now(),
+    const intentos = await db.intento_contacto
+      .where("potencialClienteId")
+      .equals(id)
+      .toArray();
+    assert.strictEqual(intentos.length, 1);
+    assert.strictEqual(intentos[0].canal, "Presencial");
+
+    await db.clientes.add({
+      id: "cli_test",
+      nombre: "Panadería Colón",
+      correo: "",
+    });
+    const cierre = await useCase.marcarClienteCerrado(id);
+    assert.strictEqual(cierre.ok, true);
+
+    const prospectoFinal = await db.potencial_cliente.get(id);
+    assert.strictEqual(prospectoFinal?.estado, "Cliente Cerrado");
+  });
+
+  test("Alta digital → calificación con etiquetas → intento registrado avanza el embudo", async () => {
+    const alta = await useCase.crearProspecto({
+      nombre: "Gimnasio Estilo",
+      rubro: "Deportes",
+    });
+    const id = alta.valor;
+
+    const calificacion = await useCase.calificarFichaDigital(id, {
+      instagram: "@gimnasio_estilo",
+      dolorTags: ["Responde tarde (+2hs)"],
+      tieneWeb: "no",
+      usaCatalogoNativoWhatsapp: true,
+    });
+    assert.strictEqual(calificacion.ok, true);
+
+    const intento = await useCase.registrarIntento({
+      potencialClienteId: id,
+      canal: "Instagram",
+      mensajeEnviado: "Hola, ¿cómo va?",
+      resultado: "Respondió",
+      tagsResultado: [],
+    });
+    assert.strictEqual(intento.ok, true);
+
+    const prospecto = await db.potencial_cliente.get(id);
+    assert.strictEqual(prospecto?.estado, "En Conversación");
+    assert.ok(prospecto?.fechaUltimoContacto);
+  });
+
+  test("Eliminar un prospecto borra también sus fichas e intentos", async () => {
+    const alta = await useCase.crearProspecto({ nombre: "Local de prueba" });
+    const id = alta.valor;
+    await useCase.agregarFichaFisica(id, { direccionCalle: "Calle Falsa 123" });
+    await useCase.registrarIntento({
+      potencialClienteId: id,
+      canal: "WhatsApp",
+      resultado: "Sin respuesta",
+      tagsResultado: [],
     });
 
-    const contactadoRecord = await db.potenciales_clientes.get(prospectoId);
-    assert.strictEqual(contactadoRecord?.estadoContacto, "Contactado");
-    assert.strictEqual(contactadoRecord?.ultimoCanalContacto, "whatsapp");
+    const eliminacion = await useCase.eliminarProspecto(id);
+    assert.strictEqual(eliminacion.ok, true);
+
+    assert.strictEqual(await db.potencial_cliente.get(id), undefined);
+    assert.strictEqual(await db.ficha_fisica.get(id), undefined);
     assert.strictEqual(
-      contactadoRecord?.notasContacto,
-      "Mensaje enviado con pitch de Menú QR."
+      (
+        await db.intento_contacto
+          .where("potencialClienteId")
+          .equals(id)
+          .toArray()
+      ).length,
+      0
     );
-
-    // 3. Visit logging (territorial field visit)
-    await db.potenciales_clientes.update(prospectoId, {
-      visitado: true,
-      visitasCount: 1,
-      actualizadoEn: Date.now(),
-    });
-
-    const visitadoRecord = await db.potenciales_clientes.get(prospectoId);
-    assert.strictEqual(visitadoRecord?.visitado, true);
-    assert.strictEqual(visitadoRecord?.visitasCount, 1);
-
-    // 4. Conversion to CRM Clientes
-    const clienteId = "cli_test_456";
-    const crmPayload = {
-      id: clienteId,
-      nombre: visitadoRecord?.nombre,
-      direccion: visitadoRecord?.direccion,
-      direccionCalle: visitadoRecord?.direccionCalle,
-      direccionCodigoPostal: visitadoRecord?.direccionCodigoPostal,
-      direccionCiudad: visitadoRecord?.direccionCiudad,
-      direccionProvincia: visitadoRecord?.direccionProvincia,
-      direccionPais: visitadoRecord?.direccionPais,
-      estado: "Lead",
-      observaciones: `Convertido de Prospecto: ${visitadoRecord?.pitch}. Rubro: ${visitadoRecord?.rubro}. WhatsApp: ${visitadoRecord?.whatsapp}`,
-    };
-
-    await db.clientes.add(crmPayload);
-    await db.potenciales_clientes.update(prospectoId, {
-      convertido: true,
-      clienteIdRef: clienteId,
-      actualizadoEn: Date.now(),
-    });
-
-    // Verify CRM Cliente exists
-    const crmCliente = await db.clientes.get(clienteId);
-    assert.ok(crmCliente);
-    assert.strictEqual(crmCliente.nombre, "Panadería Colón");
-
-    // Verify Prospecto is flagged as converted
-    const prospectoFinal = await db.potenciales_clientes.get(prospectoId);
-    assert.strictEqual(prospectoFinal?.convertido, true);
-    assert.strictEqual(prospectoFinal?.clienteIdRef, clienteId);
   });
 });

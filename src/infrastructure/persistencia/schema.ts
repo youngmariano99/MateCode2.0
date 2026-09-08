@@ -441,37 +441,79 @@ export const firmas = pgTable("firmas", {
 // 6. Comercial y Prospección
 // ==========================================
 
-export const contactosFrio = pgTable("contactos_frio", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  agenciaId: uuid("agencia_id")
-    .references(() => agencias.id)
-    .notNull(),
-  nombreEmpresa: varchar("nombre_empresa", { length: 255 }).notNull(),
-  contactoNombre: varchar("contacto_nombre", { length: 255 }),
-  telefono: varchar("telefono", { length: 100 }),
+// Contacto en frío — rediseño (Fase 4.2). Reemplaza los antiguos
+// contactos_frio/seguimientos/llamadas, que nunca tuvieron código real que
+// los usara (la lógica vivía enteramente en Dexie, en potenciales_clientes).
+// IDs varchar generados en cliente (no uuid defaultRandom) para respetar el
+// patrón offline-first del resto del sistema: el id se crea sin roundtrip al
+// servidor y viaja tal cual por la cola de sync.
+export const potencialCliente = pgTable("potencial_cliente", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  nombre: varchar("nombre", { length: 255 }).notNull(),
+  rubro: varchar("rubro", { length: 255 }),
+  prioridad: varchar("prioridad", { length: 20 }).default("Media").notNull(),
+  estado: varchar("estado", { length: 30 }).default("Nuevo").notNull(),
+  fechaUltimoContacto: timestamp("fecha_ultimo_contacto"),
+  esHistoricoLegacy: boolean("es_historico_legacy").default(false).notNull(),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
+
+export const fichaDigital = pgTable("ficha_digital", {
+  potencialClienteId: varchar("potencial_cliente_id", { length: 255 })
+    .primaryKey()
+    .references(() => potencialCliente.id),
+  instagram: varchar("instagram", { length: 255 }),
+  whatsapp: varchar("whatsapp", { length: 100 }),
   email: varchar("email", { length: 255 }),
-  estado: varchar("estado", { length: 50 }).default("frio").notNull(),
-  ...columnasAuditoria,
-});
-
-export const seguimientos = pgTable("seguimientos", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  clienteId: uuid("cliente_id").references(() => clientes.id),
-  contactoFrioId: uuid("contacto_frio_id").references(() => contactosFrio.id),
-  descripcion: text("descripcion").notNull(),
-  fechaSeguimiento: timestamp("fecha_seguimiento").notNull(),
-  estado: varchar("estado", { length: 50 }).default("pendiente").notNull(),
-  ...columnasAuditoria,
-});
-
-export const llamadas = pgTable("llamadas", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  clienteId: uuid("cliente_id")
-    .references(() => clientes.id)
+  facebook: varchar("facebook", { length: 255 }),
+  nombreDueño: varchar("nombre_dueno", { length: 255 }),
+  dolorTags: text("dolor_tags"), // JSON string[]
+  tieneWeb: varchar("tiene_web", { length: 30 }).default("no").notNull(),
+  usaCatalogoNativoWhatsapp: boolean("usa_catalogo_nativo_whatsapp")
+    .default(false)
     .notNull(),
-  descripcion: text("descripcion").notNull(),
-  duracionSegundos: integer("duracion_segundos").notNull(),
-  ...columnasAuditoria,
+  notasExtra: text("notas_extra"),
+  referenciaPosteo: text("referencia_posteo"),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
+
+export const fichaFisica = pgTable("ficha_fisica", {
+  potencialClienteId: varchar("potencial_cliente_id", { length: 255 })
+    .primaryKey()
+    .references(() => potencialCliente.id),
+  direccionCalle: varchar("direccion_calle", { length: 500 }),
+  direccionCiudad: varchar("direccion_ciudad", { length: 255 }),
+  direccionProvincia: varchar("direccion_provincia", { length: 255 }),
+  latitud: doublePrecision("latitud"),
+  longitud: doublePrecision("longitud"),
+  visitado: boolean("visitado").default(false).notNull(),
+  motivoNoVisita: text("motivo_no_visita"),
+  volverFecha: timestamp("volver_fecha"),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
+
+export const intentoContacto = pgTable("intento_contacto", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  potencialClienteId: varchar("potencial_cliente_id", { length: 255 })
+    .references(() => potencialCliente.id)
+    .notNull(),
+  fecha: timestamp("fecha").defaultNow().notNull(),
+  canal: varchar("canal", { length: 30 }).notNull(),
+  mensajeEnviado: text("mensaje_enviado"),
+  resultado: varchar("resultado", { length: 30 }).notNull(),
+  respuestaTexto: text("respuesta_texto"),
+  tagsResultado: text("tags_resultado"), // JSON string[]
+  proximoSeguimientoFecha: timestamp("proximo_seguimiento_fecha"),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+});
+
+export const catalogoEtiquetas = pgTable("catalogo_etiquetas", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  etiqueta: varchar("etiqueta", { length: 255 }).notNull(),
+  categoria: varchar("categoria", { length: 30 }).notNull(),
+  esDelUsuario: boolean("es_del_usuario").default(false).notNull(),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
 });
 
 export const visitas = pgTable("visitas", {

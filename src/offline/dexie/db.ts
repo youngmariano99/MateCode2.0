@@ -3,6 +3,17 @@ import type {
   ProyectoConfigAutomatizacion,
   TaskExecutionCheckpoint,
 } from "../../domain/entidades/automatizacion-ia.entity";
+import type {
+  EtiquetaCatalogo,
+  FichaDigital,
+  FichaFisica,
+  IntentoContacto,
+  PotencialCliente,
+} from "../../domain/entidades/contacto-frio.entity";
+import {
+  ETIQUETAS_DOLOR_DEFAULT,
+  ETIQUETAS_RECHAZO_DEFAULT,
+} from "../../domain/entidades/contacto-frio.entity";
 
 export interface CatalogoErrorRow {
   codigo: string;
@@ -74,11 +85,6 @@ export class MateCodeDB extends Dexie {
   public task_comments!: Table<Record<string, unknown>, string>;
   public actas_auditoria!: Table<Record<string, unknown>, number>;
 
-  // Outbound CRM tables (Version 11)
-  public contacto_sesiones!: Table<Record<string, unknown>, string>;
-  public servicios_agencia!: Table<Record<string, unknown>, string>;
-  public reuniones_contacto!: Table<Record<string, unknown>, string>;
-
   // Automatización de ejecución con IA (Fase 0/1)
   public proyecto_config_automatizacion!: Table<
     ProyectoConfigAutomatizacion,
@@ -86,6 +92,13 @@ export class MateCodeDB extends Dexie {
   >;
   public task_execution_checkpoints!: Table<TaskExecutionCheckpoint, string>;
   public catalogo_errores!: Table<CatalogoErrorRow, string>;
+
+  // Contacto en frío — rediseño (Fase 4.2): reemplaza potenciales_clientes.
+  public potencial_cliente!: Table<PotencialCliente, string>;
+  public ficha_digital!: Table<FichaDigital, string>;
+  public ficha_fisica!: Table<FichaFisica, string>;
+  public intento_contacto!: Table<IntentoContacto, string>;
+  public catalogo_etiquetas!: Table<EtiquetaCatalogo, string>;
 
   constructor() {
     super("MateCodeLocalDB");
@@ -622,37 +635,165 @@ export class MateCodeDB extends Dexie {
       catalogo_errores: "codigo, categoria, severidad",
     });
 
+    // Version 16: rediseño de Contacto en Frío (Fase 4.2). Reemplaza el
+    // "cajón de sastre" potenciales_clientes (~40 campos sin schema, 3
+    // sistemas paralelos con vocabularios de estado distintos) por un modelo
+    // único: núcleo mínimo + fichas opcionales (digital/física) + historial
+    // real de intentos de contacto. potenciales_clientes se conserva sin
+    // tocar hasta confirmar que la migración salió bien.
+    this.version(16)
+      .stores({
+        potencial_cliente: "id, estado, rubro, fechaUltimoContacto, creadoEn",
+        ficha_digital: "potencialClienteId",
+        ficha_fisica: "potencialClienteId, visitado",
+        intento_contacto: "id, potencialClienteId, fecha",
+        catalogo_etiquetas: "id, categoria",
+      })
+      .upgrade(async (tx) => {
+        const ahora = Date.now();
+        const etiquetasSeed = [
+          ...ETIQUETAS_DOLOR_DEFAULT,
+          ...ETIQUETAS_RECHAZO_DEFAULT,
+        ].map((e) => ({ ...e, creadoEn: ahora }));
+        await tx.table("catalogo_etiquetas").bulkPut(etiquetasSeed);
+
+        const canalesValidos = [
+          "Instagram",
+          "WhatsApp",
+          "Email",
+          "Facebook",
+          "Presencial",
+        ];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const viejos = (await tx
+          .table("potenciales_clientes")
+          .toArray()) as any[];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const nuevosPotenciales: any[] = [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const nuevasFichasDigitales: any[] = [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const nuevasFichasFisicas: any[] = [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const nuevosIntentos: any[] = [];
+
+        for (const p of viejos) {
+          const fueContactadoDigital =
+            !!p.estadoOutbound && p.estadoOutbound !== "Por Contactar";
+          const fueContactadoTerritorio =
+            !!p.estadoContacto && p.estadoContacto !== "Pendiente";
+          const esHistoricoLegacy =
+            fueContactadoDigital || fueContactadoTerritorio;
+
+          let estado = "Nuevo";
+          if (
+            p.estadoOutbound === "Rechazado" ||
+            p.estadoContacto === "Sin Interés"
+          ) {
+            estado = "Rechazado";
+          } else if (p.estadoOutbound === "Aceptado") {
+            estado = "Cliente Cerrado";
+          } else if (p.estadoOutbound === "Reunión / Loom") {
+            estado = "Demo Enviada";
+          } else if (esHistoricoLegacy) {
+            estado = "Contactado";
+          }
+
+          nuevosPotenciales.push({
+            id: p.id,
+            nombre: p.nombre,
+            rubro: p.rubro || p.nombreNegocio || undefined,
+            prioridad: p.prioridad || "Media",
+            estado,
+            fechaUltimoContacto: p.fechaUltimoContacto || undefined,
+            esHistoricoLegacy,
+            creadoEn: p.creadoEn || ahora,
+            actualizadoEn: p.actualizadoEn || ahora,
+          });
+
+          if (
+            p.instagram ||
+            p.whatsapp ||
+            p.email ||
+            p.facebook ||
+            p.dolorDetectado ||
+            p.ganchoEmpatico
+          ) {
+            nuevasFichasDigitales.push({
+              potencialClienteId: p.id,
+              instagram: p.instagram || "",
+              whatsapp: p.whatsapp || "",
+              email: p.email || "",
+              facebook: p.facebook || "",
+              nombreDueño: "",
+              dolorTags: [],
+              tieneWeb: "no",
+              usaCatalogoNativoWhatsapp: false,
+              notasExtra: [
+                p.dolorDetectado,
+                p.ganchoEmpatico,
+                p.canalVentaActual,
+              ]
+                .filter(Boolean)
+                .join(" | "),
+              referenciaPosteo: "",
+              actualizadoEn: p.actualizadoEn || ahora,
+            });
+          }
+
+          if (p.direccionCalle || p.latitud || p.visitado) {
+            nuevasFichasFisicas.push({
+              potencialClienteId: p.id,
+              direccionCalle: p.direccionCalle || "",
+              direccionCiudad: p.direccionCiudad || "",
+              direccionProvincia: p.direccionProvincia || "",
+              latitud: p.latitud,
+              longitud: p.longitud,
+              visitado: !!p.visitado,
+              motivoNoVisita: p.motivoNoVisita || "",
+              volverFecha: p.volverFecha || undefined,
+              actualizadoEn: p.actualizadoEn || ahora,
+            });
+          }
+
+          if (esHistoricoLegacy) {
+            nuevosIntentos.push({
+              id: `int_legacy_${p.id}`,
+              potencialClienteId: p.id,
+              fecha: p.fechaUltimoContacto || p.actualizadoEn || ahora,
+              canal: canalesValidos.includes(p.ultimoCanalContacto)
+                ? p.ultimoCanalContacto
+                : "Instagram",
+              mensajeEnviado: p.pitch || "",
+              resultado: estado === "Rechazado" ? "Rechazó" : "Sin respuesta",
+              respuestaTexto: p.notasContacto || p.motivoRechazo || "",
+              tagsResultado: [],
+              creadoEn: ahora,
+            });
+          }
+        }
+
+        if (nuevosPotenciales.length)
+          await tx.table("potencial_cliente").bulkPut(nuevosPotenciales);
+        if (nuevasFichasDigitales.length)
+          await tx.table("ficha_digital").bulkPut(nuevasFichasDigitales);
+        if (nuevasFichasFisicas.length)
+          await tx.table("ficha_fisica").bulkPut(nuevasFichasFisicas);
+        if (nuevosIntentos.length)
+          await tx.table("intento_contacto").bulkPut(nuevosIntentos);
+      });
+
     this.on("populate", async () => {
+      const ahoraPopulate = Date.now();
+      await this.table("catalogo_etiquetas").bulkPut(
+        [...ETIQUETAS_DOLOR_DEFAULT, ...ETIQUETAS_RECHAZO_DEFAULT].map((e) => ({
+          ...e,
+          creadoEn: ahoraPopulate,
+        }))
+      );
       await this.table("prompt_templates").bulkPut(defaultTemplates);
       await this.table("workflow_templates").bulkPut(defaultWorkflows);
       await this.table("workflow_steps").bulkPut(defaultSteps);
-      const defaultServices = [
-        {
-          id: "serv_web_corp",
-          nombre: "Sitio Web Corporativo",
-          precio: 1200,
-          descripcion: "Sitio institucional premium",
-        },
-        {
-          id: "serv_ecommerce",
-          nombre: "Tienda Online / E-Commerce",
-          precio: 2200,
-          descripcion: "Tienda integrada con pasarela de pagos",
-        },
-        {
-          id: "serv_pwa",
-          nombre: "PWA Custom App",
-          precio: 3500,
-          descripcion: "Aplicación Web Progresiva a medida",
-        },
-        {
-          id: "serv_landing",
-          nombre: "Landing Page de Alta Conversión",
-          precio: 600,
-          descripcion: "Diseño brutalista enfocado a ventas",
-        },
-      ];
-      await this.table("servicios_agencia").bulkPut(defaultServices);
     });
 
     // Corre en cada apertura (nuevas instalaciones y upgrades de usuarios

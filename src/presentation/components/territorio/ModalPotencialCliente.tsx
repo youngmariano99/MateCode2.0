@@ -7,12 +7,15 @@ import { Icono } from "../icons";
 import { db } from "../../../offline/dexie/db";
 import { OpenStreetMapGeocodificacionStrategy } from "../../../application/services/territorio/geocodificacion.strategy";
 
+/**
+ * Prospecto para la prospección física (mapa/ruteo): solo datos propios de
+ * esta estación — nombre, rubro, prioridad y dirección. Los datos digitales
+ * (redes, dolores detectados) viven aparte, en Contacto en Frío, y se
+ * agregan ahí solo si corresponde — no se piden acá.
+ */
 export interface PotencialCliente {
   id: string;
   nombre: string;
-  contacto?: string;
-  tipoServicio?: string;
-  pitch?: string;
   rubro?: string;
   direccion?: string;
   direccionCalle?: string;
@@ -25,21 +28,10 @@ export interface PotencialCliente {
   motivoNoVisita?: string;
   volverFecha?: string;
   convertido: boolean;
-  clienteIdRef?: string;
   latitud?: number;
   longitud?: number;
   creadoEn: number;
   actualizadoEn: number;
-
-  // Digital cold outreach properties
-  whatsapp?: string;
-  email?: string;
-  instagram?: string;
-  facebook?: string;
-  estadoContacto?: "Pendiente" | "Contactado" | "Respondido" | "Sin Interés";
-  ultimoCanalContacto?: "whatsapp" | "email" | "instagram" | "facebook";
-  notasContacto?: string;
-  fechaUltimoContacto?: number;
   prioridad?: "Alta" | "Media" | "Baja";
 }
 
@@ -57,19 +49,10 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
   onConfirmar,
 }) => {
   const [nombre, setNombre] = useState("");
-  const [contacto, setContacto] = useState("");
-  const [tipoServicio, setTipoServicio] = useState("");
-  const [pitch, setPitch] = useState("");
   const [rubro, setRubro] = useState("");
   const [prioridad, setPrioridad] = useState<"Alta" | "Media" | "Baja">(
     "Media"
   );
-
-  // Digital properties
-  const [whatsapp, setWhatsapp] = useState("");
-  const [email, setEmail] = useState("");
-  const [instagram, setInstagram] = useState("");
-  const [facebook, setFacebook] = useState("");
 
   // Address fields
   const [calle, setCalle] = useState("");
@@ -98,21 +81,18 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
   useEffect(() => {
     const loadSuggestions = async () => {
       try {
-        const list = await db.potenciales_clientes.toArray();
+        const [potenciales, fichas] = await Promise.all([
+          db.potencial_cliente.toArray(),
+          db.ficha_fisica.toArray(),
+        ]);
         const cities = Array.from(
-          new Set(
-            list.map((c) => (c.direccionCiudad as string) || "").filter(Boolean)
-          )
+          new Set(fichas.map((f) => f.direccionCiudad || "").filter(Boolean))
         );
         const states = Array.from(
-          new Set(
-            list
-              .map((c) => (c.direccionProvincia as string) || "")
-              .filter(Boolean)
-          )
+          new Set(fichas.map((f) => f.direccionProvincia || "").filter(Boolean))
         );
         const rubros = Array.from(
-          new Set(list.map((c) => (c.rubro as string) || "").filter(Boolean))
+          new Set(potenciales.map((p) => p.rubro || "").filter(Boolean))
         );
         setCiudadesExistentes(cities);
         setProvinciasExistentes(states);
@@ -131,16 +111,8 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
       setTestResult(null);
       if (prospectoEdicion) {
         setNombre(prospectoEdicion.nombre || "");
-        setContacto(prospectoEdicion.contacto || "");
-        setTipoServicio(prospectoEdicion.tipoServicio || "");
-        setPitch(prospectoEdicion.pitch || "");
         setRubro(prospectoEdicion.rubro || "");
         setPrioridad(prospectoEdicion.prioridad || "Media");
-
-        setWhatsapp(prospectoEdicion.whatsapp || "");
-        setEmail(prospectoEdicion.email || "");
-        setInstagram(prospectoEdicion.instagram || "");
-        setFacebook(prospectoEdicion.facebook || "");
 
         setCalle(prospectoEdicion.direccionCalle || "");
         setCodigoPostal(prospectoEdicion.direccionCodigoPostal || "");
@@ -149,16 +121,8 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
         setPais(prospectoEdicion.direccionPais || "Argentina");
       } else {
         setNombre("");
-        setContacto("");
-        setTipoServicio("");
-        setPitch("");
         setRubro("");
         setPrioridad("Media");
-
-        setWhatsapp("");
-        setEmail("");
-        setInstagram("");
-        setFacebook("");
 
         setCalle("");
         setCodigoPostal("");
@@ -248,15 +212,8 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
 
     onConfirmar({
       nombre: nombre.trim(),
-      contacto: contacto.trim(),
-      tipoServicio: tipoServicio.trim(),
-      pitch: pitch.trim(),
       rubro: rubro.trim(),
       prioridad,
-      whatsapp: whatsapp.trim(),
-      email: email.trim(),
-      instagram: instagram.trim(),
-      facebook: facebook.trim(),
       direccion: direccionCompleta,
       direccionCalle: calle.trim(),
       direccionCodigoPostal: codigoPostal.trim(),
@@ -276,7 +233,7 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
           <h3 className="font-mono text-base font-extrabold tracking-tight text-white">
             {prospectoEdicion
               ? "Modificar Prospecto"
-              : "Nuevo Potencial Cliente (Prospecto)"}
+              : "Nuevo Potencial Cliente (Prospección Física)"}
           </h3>
           <button
             onClick={onCerrar}
@@ -320,67 +277,10 @@ export const ModalPotencialCliente: React.FC<ModalPotencialClienteProps> = ({
               }
               className="w-full rounded-xl border border-zinc-800 bg-[#18181B] p-2.5 font-mono text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none"
             >
-              <option value="Alta">🔴 Alta (Visitar Primero / Crítico)</option>
-              <option value="Media">🟡 Media (Estándar)</option>
-              <option value="Baja">🔵 Baja (De Paso / Secundario)</option>
+              <option value="Alta">Alta (Visitar Primero / Crítico)</option>
+              <option value="Media">Media (Estándar)</option>
+              <option value="Baja">Baja (De Paso / Secundario)</option>
             </select>
-          </div>
-
-          <Input
-            label="Persona de Contacto (Opcional)"
-            value={contacto}
-            onChange={(e) => setContacto(e.target.value)}
-            placeholder="Ej. Carlos (Dueño)"
-          />
-
-          <Input
-            label="Servicio a ofrecer"
-            value={tipoServicio}
-            onChange={(e) => setTipoServicio(e.target.value)}
-            placeholder="Ej. Desarrollo de Web y PWA"
-          />
-
-          <div className="sm:col-span-2">
-            <Input
-              label="Pitch Elevator / Argumento de ventas (Opcional)"
-              value={pitch}
-              onChange={(e) => setPitch(e.target.value)}
-              placeholder="Ej. Ofrecerle digitalización de su menú impreso..."
-            />
-          </div>
-
-          {/* Contacto Digital (WhatsApp y Redes) */}
-          <div className="flex flex-col gap-2 border-t border-[#2A2A2E]/40 pt-3 sm:col-span-2">
-            <label className="font-mono text-xs font-semibold tracking-wider text-zinc-400 uppercase">
-              Contacto Digital & Canales
-            </label>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Input
-                label="WhatsApp / Celular"
-                value={whatsapp}
-                onChange={(e) => setWhatsapp(e.target.value)}
-                placeholder="Ej. +5492914123456"
-              />
-              <Input
-                label="Email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Ej. contacto@empresa.com"
-              />
-              <Input
-                label="Instagram (Usuario o URL)"
-                value={instagram}
-                onChange={(e) => setInstagram(e.target.value)}
-                placeholder="Ej. @negocio o link al perfil"
-              />
-              <Input
-                label="Facebook (Enlace)"
-                value={facebook}
-                onChange={(e) => setFacebook(e.target.value)}
-                placeholder="Ej. https://facebook.com/pagina"
-              />
-            </div>
           </div>
 
           {/* Structured Address */}

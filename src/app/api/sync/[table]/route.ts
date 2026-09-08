@@ -28,6 +28,11 @@ const tableMapper: Record<string, any> = {
   etiquetas: schema.etiquetas,
   cliente_etiquetas: schema.clienteEtiquetas,
   estados_cliente: schema.estadosCliente,
+  potencial_cliente: schema.potencialCliente,
+  ficha_digital: schema.fichaDigital,
+  ficha_fisica: schema.fichaFisica,
+  intento_contacto: schema.intentoContacto,
+  catalogo_etiquetas: schema.catalogoEtiquetas,
 };
 
 export async function POST(
@@ -52,10 +57,13 @@ export async function POST(
       "proyecto_estado_tecnico",
       "proyecto_config_automatizacion",
     ].includes(table);
+    const isFichaTable = ["ficha_digital", "ficha_fisica"].includes(table);
 
     const conflictTarget = isProjectConfigTable
       ? tableSchema.proyectoId
-      : tableSchema.id;
+      : isFichaTable
+        ? tableSchema.potencialClienteId
+        : tableSchema.id;
 
     if (accion === "eliminar") {
       await db.delete(tableSchema).where(eq(conflictTarget, registroId));
@@ -83,6 +91,10 @@ export async function POST(
       "expiracion",
       "tiempoInicio",
       "tiempoFin",
+      "fechaUltimoContacto",
+      "fecha",
+      "volverFecha",
+      "proximoSeguimientoFecha",
     ];
     for (const field of dateFields) {
       const val = dbPayload[field];
@@ -124,6 +136,8 @@ export async function POST(
       "accionesManualesModeradas",
       "accionesManualesCriticas",
       "guiaPruebasManual",
+      "dolorTags",
+      "tagsResultado",
     ];
     for (const field of jsonFields) {
       if (
