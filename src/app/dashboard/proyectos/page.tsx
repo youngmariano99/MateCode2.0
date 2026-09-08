@@ -961,6 +961,17 @@ export default function ProyectosPage() {
             </Drawer>
           </div>
         </div>
+
+        <ModalProyecto
+          abierto={modalAbierto}
+          proyectoEdicion={proyectoEdicion}
+          onCerrar={() => setModalAbierto(false)}
+          onConfirmar={guardarProyecto}
+          onEliminar={borrarProyecto}
+          estados={ESTADOS_PROYECTO}
+          tipos={TIPOS_PROYECTO}
+          clientes={clientes}
+        />
       </MainLayout>
     );
   }

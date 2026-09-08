@@ -240,6 +240,15 @@ export const ModalProyecto: React.FC<ModalProyectoProps> = ({
               onChange={(e) => setObservaciones(e.target.value)}
             />
           </div>
+
+          <div className="mt-2 border-t border-[#2A2A2E] pt-4 md:col-span-2">
+            <Input
+              label="Ruta local PC (Para IA Runner) Ej: C:/Users/.../proyecto"
+              value={rutaLocalRepo}
+              onChange={(e) => setRutaLocalRepo(e.target.value)}
+              placeholder="Opcional. Necesario para procesar tickets con Inteligencia Artificial."
+            />
+          </div>
         </div>
 
         <div className="mt-6 flex items-center justify-between border-t border-[#2A2A2E] pt-4">
