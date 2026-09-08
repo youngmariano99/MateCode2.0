@@ -8,6 +8,7 @@ import {
   boolean,
   numeric,
   doublePrecision,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 // --- Columnas de Auditoría y Tenant ---
@@ -512,6 +513,63 @@ export const catalogoEtiquetas = pgTable("catalogo_etiquetas", {
   id: varchar("id", { length: 255 }).primaryKey(),
   etiqueta: varchar("etiqueta", { length: 255 }).notNull(),
   categoria: varchar("categoria", { length: 30 }).notNull(),
+  esDelUsuario: boolean("es_del_usuario").default(false).notNull(),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+});
+
+// Planificador de Contenido — rediseño (Fase 5.1). IDs varchar generados en
+// cliente, mismo patrón offline-first que contacto en frío. `secciones`,
+// `guion`, `metricas` y `tareas_pendientes` son JSONB — estructura flexible
+// sin comprometer la normalización (ver NODEXA_MASTER_MANUAL.md, 7.4).
+export const cicloSemanal = pgTable("ciclo_semanal", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  fechaInicio: timestamp("fecha_inicio").notNull(),
+  objetivoVideos: integer("objetivo_videos").default(6).notNull(),
+  estado: varchar("estado", { length: 20 }).default("activo").notNull(),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+});
+
+export const ideaContenido = pgTable("idea_contenido", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  texto: text("texto").notNull(),
+  dolorSemana: varchar("dolor_semana", { length: 255 }),
+  estado: varchar("estado", { length: 20 }).default("Backlog").notNull(),
+  cicloId: varchar("ciclo_id", { length: 255 }),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+});
+
+export const plantillaGuion = pgTable("plantilla_guion", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  nombre: varchar("nombre", { length: 255 }).notNull(),
+  secciones: jsonb("secciones").notNull(),
+  activa: boolean("activa").default(false).notNull(),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+});
+
+export const contenido = pgTable("contenido", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  ideaId: varchar("idea_id", { length: 255 }),
+  cicloId: varchar("ciclo_id", { length: 255 }),
+  titulo: varchar("titulo", { length: 500 }).notNull(),
+  tipoContenido: varchar("tipo_contenido", { length: 20 }).notNull(),
+  canales: text("canales"), // JSON string[]
+  estado: varchar("estado", { length: 20 }).default("Guion").notNull(),
+  guion: jsonb("guion").notNull(),
+  plantillaGuionId: varchar("plantilla_guion_id", { length: 255 }),
+  diaEstimado: varchar("dia_estimado", { length: 100 }),
+  tareasPendientes: jsonb("tareas_pendientes"),
+  fechaPublicacion: timestamp("fecha_publicacion"),
+  metricas: jsonb("metricas"),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
+
+export const catalogoKpiContenido = pgTable("catalogo_kpi_contenido", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  nombre: varchar("nombre", { length: 255 }).notNull(),
+  descripcion: text("descripcion"),
+  meta: doublePrecision("meta"),
+  unidad: varchar("unidad", { length: 50 }),
   esDelUsuario: boolean("es_del_usuario").default(false).notNull(),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
 });

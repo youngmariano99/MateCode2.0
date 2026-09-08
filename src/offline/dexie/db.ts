@@ -15,6 +15,17 @@ import {
   ETIQUETAS_DOLOR_DEFAULT,
   ETIQUETAS_RECHAZO_DEFAULT,
 } from "../../domain/entidades/contacto-frio.entity";
+import type {
+  CatalogoKpiContenido,
+  CicloSemanal,
+  Contenido,
+  IdeaContenido,
+  PlantillaGuion,
+} from "../../domain/entidades/contenido.entity";
+import {
+  KPIS_CONTENIDO_DEFAULT,
+  SECCIONES_GUION_DEFAULT,
+} from "../../domain/entidades/contenido.entity";
 
 export interface CatalogoErrorRow {
   codigo: string;
@@ -62,7 +73,7 @@ export class MateCodeDB extends Dexie {
 
   public potenciales_clientes!: Table<Record<string, unknown>, string>;
 
-  // Content planner tables
+  // Content planner tables (histórico, ver contenido/idea_contenido/ciclo_semanal)
   public planificaciones_contenido!: Table<Record<string, unknown>, string>;
   public contenidos!: Table<Record<string, unknown>, string>;
 
@@ -100,6 +111,14 @@ export class MateCodeDB extends Dexie {
   public ficha_fisica!: Table<FichaFisica, string>;
   public intento_contacto!: Table<IntentoContacto, string>;
   public catalogo_etiquetas!: Table<EtiquetaCatalogo, string>;
+
+  // Planificador de Contenido — rediseño (Fase 5.1): reemplaza
+  // planificaciones_contenido/contenidos.
+  public ciclo_semanal!: Table<CicloSemanal, string>;
+  public idea_contenido!: Table<IdeaContenido, string>;
+  public plantilla_guion!: Table<PlantillaGuion, string>;
+  public contenido!: Table<Contenido, string>;
+  public catalogo_kpi_contenido!: Table<CatalogoKpiContenido, string>;
 
   constructor() {
     super("MateCodeLocalDB");
@@ -784,6 +803,140 @@ export class MateCodeDB extends Dexie {
           await tx.table("intento_contacto").bulkPut(nuevosIntentos);
       });
 
+    // Version 17: rediseño del Planificador de Contenido (Fase 5.1).
+    // Reemplaza planificaciones_contenido/contenidos (ideas embebidas en un
+    // array del plan, sin capa de dominio) por: ciclo_semanal, idea_contenido
+    // (tabla propia, ya no huérfana si el plan se cierra), plantilla_guion
+    // (estructura de secciones dinámica vía JSON/JSONB) y contenido.
+    this.version(17)
+      .stores({
+        ciclo_semanal: "id, fechaInicio, estado",
+        idea_contenido: "id, estado, cicloId",
+        plantilla_guion: "id, activa",
+        contenido: "id, cicloId, estado, tipoContenido",
+        catalogo_kpi_contenido: "id, esDelUsuario",
+      })
+      .upgrade(async (tx) => {
+        const ahora = Date.now();
+
+        await tx.table("plantilla_guion").add({
+          id: "plantilla_default",
+          nombre: "Estructura estándar",
+          secciones: SECCIONES_GUION_DEFAULT,
+          activa: true,
+          creadoEn: ahora,
+        });
+        await tx
+          .table("catalogo_kpi_contenido")
+          .bulkPut(
+            KPIS_CONTENIDO_DEFAULT.map((k) => ({ ...k, creadoEn: ahora }))
+          );
+
+        const tipoValido = (t: string): string =>
+          ["Video", "Post", "Carrusel", "Historia"].includes(t) ? t : "Video";
+        const estadoNuevo = (e: string): string =>
+          e === "Subido"
+            ? "Publicado"
+            : e === "Grabado" || e === "Editado"
+              ? "Producción"
+              : "Guion";
+        const aEpoch = (fecha: string): number | undefined => {
+          if (!fecha) return undefined;
+          const t = new Date(fecha).getTime();
+          return isNaN(t) ? undefined : t;
+        };
+
+        /* eslint-disable @typescript-eslint/no-explicit-any -- migración lee
+           las tablas viejas sin schema (Record<string, unknown>). */
+        const planesViejos = (await tx
+          .table("planificaciones_contenido")
+          .toArray()) as any[];
+        const contenidosViejos = (await tx
+          .table("contenidos")
+          .toArray()) as any[];
+
+        const nuevosCiclos: any[] = [];
+        const nuevasIdeas: any[] = [];
+        for (const plan of planesViejos) {
+          nuevosCiclos.push({
+            id: plan.id,
+            fechaInicio: aEpoch(plan.fechaInicio) || ahora,
+            objetivoVideos: 6,
+            estado: "cerrado",
+            creadoEn: plan.creadoEn || ahora,
+          });
+          for (const idea of plan.ideas || []) {
+            nuevasIdeas.push({
+              id: idea.id,
+              texto: idea.texto || "",
+              estado: "Backlog",
+              cicloId: plan.id,
+              creadoEn: plan.creadoEn || ahora,
+            });
+          }
+        }
+
+        const nuevosContenidos: any[] = (contenidosViejos as any[]).map(
+          (c) => ({
+            id: c.id,
+            ideaId: c.ideaId || undefined,
+            cicloId:
+              c.planificacionId && c.planificacionId !== "backlog"
+                ? c.planificacionId
+                : undefined,
+            titulo: c.titulo || "",
+            tipoContenido: tipoValido((c.tipos && c.tipos[0]) || "Video"),
+            canales: c.canales || [],
+            estado: estadoNuevo(c.estado || "Planificado"),
+            guion: {
+              gancho: c.gancho || "",
+              desarrollo: c.desarrollo || "",
+              cierre_cta: c.cta || "",
+              descripcion: c.descripcionVideo || "",
+              gancho_visual: c.ganchoVisual || "",
+            },
+            plantillaGuionId: "plantilla_default",
+            tareasPendientes: (c.pasos || []).map(
+              (texto: string, i: number) => ({
+                id: `tarea_legacy_${c.id}_${i}`,
+                texto,
+                hecha: false,
+              })
+            ),
+            fechaPublicacion:
+              c.estado === "Subido" ? aEpoch(c.fecha) : undefined,
+            metricas: {},
+            creadoEn: c.creadoEn || ahora,
+            actualizadoEn: c.creadoEn || ahora,
+          })
+        );
+        /* eslint-enable @typescript-eslint/no-explicit-any */
+
+        if (nuevosCiclos.length)
+          await tx.table("ciclo_semanal").bulkPut(nuevosCiclos);
+        if (nuevasIdeas.length)
+          await tx.table("idea_contenido").bulkPut(nuevasIdeas);
+        if (nuevosContenidos.length)
+          await tx.table("contenido").bulkPut(nuevosContenidos);
+
+        // Config del planificador viejo, ahora reemplazada por tablas tipadas.
+        const tiposViejosAgenciaConfig = [
+          "historico_objetivos",
+          "historico_kpis",
+          "canales_contenido",
+          "tipos_contenido",
+          "pasos_contenido_default",
+        ];
+        const configVieja = (await tx
+          .table("agencia_config")
+          .where("tipo")
+          .anyOf(tiposViejosAgenciaConfig)
+          .toArray()) as { id: string }[];
+        for (const row of configVieja) {
+          await tx.table("agencia_config").delete(row.id);
+        }
+      });
+
     this.on("populate", async () => {
       const ahoraPopulate = Date.now();
       await this.table("catalogo_etiquetas").bulkPut(
@@ -795,6 +948,16 @@ export class MateCodeDB extends Dexie {
       await this.table("prompt_templates").bulkPut(defaultTemplates);
       await this.table("workflow_templates").bulkPut(defaultWorkflows);
       await this.table("workflow_steps").bulkPut(defaultSteps);
+      await this.table("plantilla_guion").add({
+        id: "plantilla_default",
+        nombre: "Estructura estándar",
+        secciones: SECCIONES_GUION_DEFAULT,
+        activa: true,
+        creadoEn: ahoraPopulate,
+      });
+      await this.table("catalogo_kpi_contenido").bulkPut(
+        KPIS_CONTENIDO_DEFAULT.map((k) => ({ ...k, creadoEn: ahoraPopulate }))
+      );
     });
 
     // Corre en cada apertura (nuevas instalaciones y upgrades de usuarios

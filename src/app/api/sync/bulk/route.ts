@@ -37,6 +37,11 @@ const tableMapper: Record<string, any> = {
   ficha_fisica: schema.fichaFisica,
   intento_contacto: schema.intentoContacto,
   catalogo_etiquetas: schema.catalogoEtiquetas,
+  ciclo_semanal: schema.cicloSemanal,
+  idea_contenido: schema.ideaContenido,
+  plantilla_guion: schema.plantillaGuion,
+  contenido: schema.contenido,
+  catalogo_kpi_contenido: schema.catalogoKpiContenido,
 };
 
 export async function POST(req: NextRequest) {
@@ -88,6 +93,7 @@ export async function POST(req: NextRequest) {
             "fecha",
             "volverFecha",
             "proximoSeguimientoFecha",
+            "fechaPublicacion",
           ];
           for (const field of dateFields) {
             const val = dbPayload[field];
@@ -132,6 +138,7 @@ export async function POST(req: NextRequest) {
             "guiaPruebasManual",
             "dolorTags",
             "tagsResultado",
+            "canales",
           ];
           for (const field of jsonFields) {
             if (
