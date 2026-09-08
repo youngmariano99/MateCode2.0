@@ -859,5 +859,8 @@ export const taskExecutionCheckpoints = pgTable("task_execution_checkpoints", {
   // comparar "lo que se pidió" vs "lo que devolvió" (handoff) en la auditoría
   // de fin de sprint.
   promptEnviado: text("prompt_enviado"),
+  // Log acotado de los últimos pasos en vivo del ticket en curso — ver
+  // MAX_PASOS_LOG/agregarPasoLog en automatizacion-ia.entity.ts.
+  pasosLog: text("pasos_log"), // JSON PasoLog[]
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
 });

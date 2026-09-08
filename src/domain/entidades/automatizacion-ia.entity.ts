@@ -231,6 +231,45 @@ export function parseHandoffIA(
 }
 
 // ============================================================================
+// Log de pasos en vivo (task_execution_checkpoints.pasosLog)
+// ============================================================================
+// Cuánto guardamos de "qué está haciendo la IA ahora mismo" mientras corre un
+// ticket. Los dos números de acá abajo son el techo duro de almacenamiento
+// por ticket, sin importar cuántos pasos reales tenga la corrida: un ticket
+// que hace 20 pasos o uno que por algún problema hace 2000 terminan pesando
+// lo mismo en la fila del checkpoint, porque agregarPasoLog() descarta lo
+// viejo en vez de dejar crecer el array.
+export const MAX_PASOS_LOG = 40;
+export const MAX_LARGO_PASO_TEXTO = 160;
+
+export interface PasoLog {
+  ts: number; // epoch ms
+  texto: string;
+}
+
+/**
+ * Agrega un paso al log respetando el techo de tamaño (función pura, la
+ * usan tanto el runner de Claude Code como el de Antigravity para no
+ * duplicar la lógica de recorte).
+ */
+export function agregarPasoLog(
+  logActual: PasoLog[] | undefined,
+  texto: string
+): PasoLog[] {
+  const textoRecortado =
+    texto.length > MAX_LARGO_PASO_TEXTO
+      ? texto.slice(0, MAX_LARGO_PASO_TEXTO - 1) + "…"
+      : texto;
+  const nuevo = [
+    ...(logActual || []),
+    { ts: Date.now(), texto: textoRecortado },
+  ];
+  return nuevo.length > MAX_PASOS_LOG
+    ? nuevo.slice(nuevo.length - MAX_PASOS_LOG)
+    : nuevo;
+}
+
+// ============================================================================
 // Checkpoint tipado (task_execution_checkpoints)
 // ============================================================================
 export interface TaskExecutionCheckpoint {
@@ -267,6 +306,9 @@ export interface TaskExecutionCheckpoint {
   ciDetalle?: string;
   // Fase 4.2: prompt real enviado a la IA, para auditar cumplimiento vs handoff.
   promptEnviado?: string;
+  // Últimos pasos en vivo ("Editando src/foo.ts...", "Corriendo tests..."),
+  // tamaño acotado — ver MAX_PASOS_LOG.
+  pasosLog?: PasoLog[];
   actualizadoEn: number;
 }
 

@@ -102,10 +102,28 @@ const functions: Record<
   },
 };
 
+/** Arma una línea corta y legible a partir de una function call de Gemini. */
+function resumirFunctionCall(
+  nombre: string,
+  args: Record<string, string>
+): string {
+  switch (nombre) {
+    case "readFile":
+      return `Leyendo ${args.path || ""}`;
+    case "writeFile":
+      return `Escribiendo ${args.path || ""}`;
+    case "runCommand":
+      return `Ejecutando: ${(args.command || "").slice(0, 100)}`;
+    default:
+      return `Usando herramienta ${nombre}`;
+  }
+}
+
 export async function invocarAntigravity({
   prompt,
   rutaRepo,
   modelo = "gemini-2.5-flash",
+  onPaso,
 }: InvocarClaudeCodeOptions): Promise<InvocacionClaudeCodeResult> {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -150,6 +168,9 @@ export async function invocarAntigravity({
       for (const call of calls) {
         const fn = functions[call.name];
         if (fn) {
+          onPaso?.(
+            resumirFunctionCall(call.name, call.args as Record<string, string>)
+          );
           const fnResult = await fn(
             call.args as Record<string, string>,
             rutaRepo

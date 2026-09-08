@@ -15,6 +15,7 @@ import type {
   DesvioPlan,
   EstadoCheckpoint,
   GuiaPruebasManual,
+  PasoLog,
 } from "../src/domain/entidades/automatizacion-ia.entity";
 
 export interface CheckpointRow {
@@ -32,6 +33,7 @@ export interface CheckpointRow {
   tokensInput: number | null;
   tokensOutput: number | null;
   costoUsd: number | null;
+  pasosLog: string | null; // JSON PasoLog[], parsear antes de usar
 }
 
 /** Busca checkpoints en estado IDLE: tickets marcados por la UI para correr con IA. */
@@ -100,12 +102,16 @@ export async function actualizarCheckpoint(
     ciEstado: "paso" | "fallo" | "sin_ci";
     ciDetalle: string;
     promptEnviado: string;
+    pasosLog: PasoLog[];
   }>
 ): Promise<void> {
   const payload: Record<string, unknown> = {
     ...cambios,
     actualizadoEn: new Date(),
   };
+  if (cambios.pasosLog) {
+    payload.pasosLog = JSON.stringify(cambios.pasosLog);
+  }
   if (cambios.accionesManualesModeradas) {
     payload.accionesManualesModeradas = JSON.stringify(
       cambios.accionesManualesModeradas

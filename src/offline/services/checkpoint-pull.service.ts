@@ -66,6 +66,7 @@ export const CheckpointPullService = {
         ),
         desviosDelPlan:
           parseJsonSafe((cp as Record<string, unknown>).desviosDelPlan) || [],
+        pasosLog: parseJsonSafe((cp as Record<string, unknown>).pasosLog) || [],
       } as never);
     }
 

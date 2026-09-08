@@ -10,7 +10,9 @@ import { esperarChecksCI, type CiGateResultado } from "./ci-gate";
 import type {
   AccionManualRequerida,
   HandoffIA,
+  PasoLog,
 } from "../src/domain/entidades/automatizacion-ia.entity";
+import { agregarPasoLog } from "../src/domain/entidades/automatizacion-ia.entity";
 import {
   buscarCheckpointsListos,
   buscarCheckpointsParaRetomar,
@@ -68,6 +70,50 @@ const PROMPT_SOLO_HANDOFF = `Ya terminaste el desarrollo de este ticket en tu re
 \`\`\`
 
 Si alguna sección no aplica, igual incluí la clave con un valor vacío ([] o ""), no la omitas.`;
+
+// Techo al ritmo de escritura del log de pasos en vivo: sin importar cuán
+// seguido el agente use herramientas (un ticket "malo" puede encadenar
+// decenas por segundo), nunca se escribe a Supabase más de una vez cada
+// tantos ms. Junto con el techo de tamaño de agregarPasoLog(), esto acota el
+// peor caso de tráfico/escrituras por ticket sin importar cuánto crezca.
+const UMBRAL_MS_ENTRE_ESCRITURAS_LOG = 4000;
+
+/**
+ * Arma el callback `onPaso` que le pasamos a los dos motores (Claude Code y
+ * Antigravity) para reflejar en vivo qué está haciendo la IA. Mantiene el
+ * log en memoria y lo persiste acotado por tiempo, no por cada paso — el
+ * método `flush` fuerza una escritura inmediata para no perder los últimos
+ * pasos cuando el turno termina justo después de una escritura throttleada.
+ */
+function crearOnPaso(checkpoint: CheckpointRow) {
+  let logActual: PasoLog[] = [];
+  try {
+    logActual = checkpoint.pasosLog ? JSON.parse(checkpoint.pasosLog) : [];
+  } catch {
+    logActual = [];
+  }
+  let ultimaEscritura = 0;
+
+  const escribir = () => {
+    ultimaEscritura = Date.now();
+    return actualizarCheckpoint(checkpoint.id, { pasosLog: logActual }).catch(
+      () => {
+        // Best-effort: perder una actualización del paso actual no es
+        // crítico, el próximo paso (o el flush final) la termina reflejando.
+      }
+    );
+  };
+
+  const onPaso = (texto: string) => {
+    logActual = agregarPasoLog(logActual, texto);
+    if (Date.now() - ultimaEscritura < UMBRAL_MS_ENTRE_ESCRITURAS_LOG) return;
+    void escribir();
+  };
+
+  const flush = () => escribir();
+
+  return { onPaso, flush };
+}
 
 let detenido = false;
 process.on("SIGINT", () => {
@@ -183,6 +229,8 @@ async function procesarCheckpoint(
   // pausado (no solo en el camino feliz).
   await actualizarCheckpoint(checkpoint.id, { promptEnviado: prompt });
 
+  const { onPaso, flush } = crearOnPaso(checkpoint);
+
   let resultado;
   if (checkpoint.motorIA === "antigravity") {
     console.log(
@@ -194,6 +242,7 @@ async function procesarCheckpoint(
       claudeExecutable: proyectoCfg.claudeExecutable,
       resumeSessionId: checkpoint.claudeSessionId ?? undefined,
       modelo: modelo || "gemini-2.5-flash",
+      onPaso,
     });
   } else {
     resultado = await invocarClaudeCode({
@@ -202,8 +251,10 @@ async function procesarCheckpoint(
       claudeExecutable: proyectoCfg.claudeExecutable,
       resumeSessionId: checkpoint.claudeSessionId ?? undefined,
       modelo,
+      onPaso,
     });
   }
+  await flush();
 
   // Acumuladores de métricas: arrancan desde lo que YA estaba persistido en
   // el checkpoint (intentos anteriores — reintentos, huérfanos retomados),
@@ -310,6 +361,7 @@ async function procesarCheckpoint(
           resultado.sessionId ?? checkpoint.claudeSessionId ?? undefined,
         timeoutMs: 5 * 60 * 1000,
         modelo: modelo || "gemini-2.5-flash",
+        onPaso,
       });
     } else {
       resultadoHandoff = await invocarClaudeCode({
@@ -320,8 +372,10 @@ async function procesarCheckpoint(
           resultado.sessionId ?? checkpoint.claudeSessionId ?? undefined,
         timeoutMs: 5 * 60 * 1000,
         modelo,
+        onPaso,
       });
     }
+    await flush();
     tokensInputTotal += resultadoHandoff.tokensInput ?? 0;
     tokensOutputTotal += resultadoHandoff.tokensOutput ?? 0;
     costoUsdTotal += resultadoHandoff.costoUsd ?? 0;
@@ -437,8 +491,10 @@ async function procesarCheckpoint(
         resultado.sessionId ?? checkpoint.claudeSessionId ?? undefined,
         configAuto?.maxLineasPorArchivo,
         modelo,
-        checkpoint.motorIA
+        checkpoint.motorIA,
+        onPaso
       );
+      await flush();
       tokensInputTotal += ciResultado.tokensInput;
       tokensOutputTotal += ciResultado.tokensOutput;
       costoUsdTotal += ciResultado.costoUsd;
@@ -566,7 +622,8 @@ async function correrGateCI(
   sessionIdInicial: string | undefined,
   maxLineasPorArchivo: number | undefined,
   modelo: string | undefined,
-  motorIA: string | undefined
+  motorIA: string | undefined,
+  onPaso: (texto: string) => void
 ): Promise<CorrerGateCIResultado> {
   let sesion = sessionIdInicial;
   let intento = 0;
@@ -600,6 +657,7 @@ async function correrGateCI(
         resumeSessionId: sesion,
         timeoutMs: 10 * 60 * 1000,
         modelo: modelo || "gemini-2.5-flash",
+        onPaso,
       });
     } else {
       fix = await invocarClaudeCode({
@@ -609,6 +667,7 @@ async function correrGateCI(
         resumeSessionId: sesion,
         timeoutMs: 10 * 60 * 1000,
         modelo,
+        onPaso,
       });
     }
     sesion = fix.sessionId ?? sesion;

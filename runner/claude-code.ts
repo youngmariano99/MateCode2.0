@@ -25,6 +25,14 @@ export interface InvocarClaudeCodeOptions {
    * mantenerse igual en todos los --resume de una misma sesión.
    */
   modelo?: string;
+  /**
+   * Se llama con una descripción corta cada vez que el agente arranca una
+   * herramienta (leer/editar un archivo, correr un comando...) — para dar
+   * visibilidad en vivo de en qué parte del proceso va. No debe asumirse
+   * que se llama con moderación: quien lo use debe acotar cuánto guarda y
+   * con qué frecuencia escribe (ver agregarPasoLog en el dominio).
+   */
+  onPaso?: (texto: string) => void;
 }
 
 /**
@@ -37,6 +45,32 @@ export interface InvocarClaudeCodeOptions {
  * dejaron accesos defensivos para no romper todo el runner por un campo
  * renombrado.
  */
+/** Arma una línea corta y legible a partir de un bloque tool_use del stream. */
+function resumirToolUse(bloque: {
+  name?: string;
+  input?: Record<string, unknown>;
+}): string {
+  const nombre = bloque.name || "herramienta";
+  const input = bloque.input || {};
+  switch (nombre) {
+    case "Read":
+      return `Leyendo ${input.file_path || ""}`;
+    case "Write":
+      return `Escribiendo ${input.file_path || ""}`;
+    case "Edit":
+      return `Editando ${input.file_path || ""}`;
+    case "Bash":
+      return `Ejecutando: ${String(input.command || "").slice(0, 100)}`;
+    case "Glob":
+    case "Grep":
+      return `Buscando: ${input.pattern || ""}`;
+    case "TodoWrite":
+      return "Actualizando el plan de tareas";
+    default:
+      return `Usando herramienta ${nombre}`;
+  }
+}
+
 export function invocarClaudeCode({
   prompt,
   rutaRepo,
@@ -44,6 +78,7 @@ export function invocarClaudeCode({
   resumeSessionId,
   timeoutMs = 30 * 60 * 1000, // 30 min: dejar tiempo real para un ticket completo
   modelo,
+  onPaso,
 }: InvocarClaudeCodeOptions): Promise<InvocacionClaudeCodeResult> {
   // El prompt va por stdin, no como argumento de línea de comandos: en
   // Windows, CreateProcess tiene un límite de ~32K caracteres para el
@@ -56,10 +91,17 @@ export function invocarClaudeCode({
   // termina "simulando" el trabajo sin aplicarlo. acceptEdits habilita las
   // ediciones de archivo automáticamente; Bash sigue regido por las reglas
   // allow/deny del corralito (escribirCorralito), no queda todo abierto.
+  // stream-json (en vez de json a secas): la CLI emite un objeto NDJSON por
+  // cada paso (mensajes del agente, uso de herramientas) a medida que ocurre,
+  // en lugar de un único bloque al terminar los 30 min. No cambia qué hace el
+  // agente ni gasta tokens de más — es la misma corrida, solo que ahora se
+  // puede ver en vivo. --verbose es requerido por la CLI junto con
+  // --output-format stream-json en modo -p.
   const args = [
     "-p",
     "--output-format",
-    "json",
+    "stream-json",
+    "--verbose",
     "--permission-mode",
     "acceptEdits",
   ];
@@ -81,8 +123,11 @@ export function invocarClaudeCode({
       shell: process.platform === "win32",
     });
 
-    let stdout = "";
+    let stdoutCrudo = "";
     let stderr = "";
+    let lineaPendiente = "";
+    let resultadoFinal: Record<string, unknown> | undefined;
+    let textoResultadoAcumulado = "";
     const timer = setTimeout(() => {
       child.kill("SIGTERM");
     }, timeoutMs);
@@ -95,7 +140,45 @@ export function invocarClaudeCode({
     child.stdin.end();
 
     child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
+      const texto = chunk.toString();
+      stdoutCrudo += texto;
+      lineaPendiente += texto;
+      const lineas = lineaPendiente.split("\n");
+      lineaPendiente = lineas.pop() || "";
+      for (const linea of lineas) {
+        if (!linea.trim()) continue;
+        let evento: Record<string, unknown>;
+        try {
+          evento = JSON.parse(linea);
+        } catch {
+          continue; // línea no-JSON (ruido/parcial), se ignora
+        }
+        if (evento.type === "result") {
+          resultadoFinal = evento;
+        } else if (evento.type === "assistant" && onPaso) {
+          const contenido = (
+            evento.message as { content?: unknown } | undefined
+          )?.content;
+          if (Array.isArray(contenido)) {
+            for (const bloque of contenido) {
+              if (
+                bloque &&
+                typeof bloque === "object" &&
+                (bloque as { type?: string }).type === "tool_use"
+              ) {
+                onPaso(
+                  resumirToolUse(
+                    bloque as { name?: string; input?: Record<string, unknown> }
+                  )
+                );
+              }
+            }
+          }
+        }
+        if (typeof evento.result === "string") {
+          textoResultadoAcumulado = evento.result;
+        }
+      }
     });
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
@@ -104,18 +187,14 @@ export function invocarClaudeCode({
     child.on("close", (code) => {
       clearTimeout(timer);
       if (code !== 0) {
-        // El error real suele venir en el JSON de stdout (ej. "Not logged in"),
+        // El error real suele venir en el evento "result" (ej. "Not logged in"),
         // no en stderr — probamos ahí primero antes de caer al mensaje genérico.
-        let mensajeDesdeStdout: string | undefined;
-        try {
-          const parsed = JSON.parse(stdout);
-          mensajeDesdeStdout = parsed.result || parsed.error;
-        } catch {
-          // stdout no era JSON, seguimos con stderr/mensaje genérico.
-        }
+        const mensajeDesdeStdout =
+          (resultadoFinal?.result as string | undefined) ||
+          (resultadoFinal?.error as string | undefined);
         resolve({
           ok: false,
-          textoResultado: stdout,
+          textoResultado: stdoutCrudo,
           errorMensaje:
             mensajeDesdeStdout ||
             stderr ||
@@ -123,22 +202,28 @@ export function invocarClaudeCode({
         });
         return;
       }
-      try {
-        const parsed = JSON.parse(stdout);
+      if (resultadoFinal) {
+        const usage = resultadoFinal.usage as
+          { input_tokens?: number; output_tokens?: number } | undefined;
         resolve({
           ok: true,
-          textoResultado: parsed.result ?? stdout,
-          sessionId: parsed.session_id,
-          tokensInput: parsed.usage?.input_tokens,
-          tokensOutput: parsed.usage?.output_tokens,
-          costoUsd: parsed.total_cost_usd ?? parsed.cost_usd,
+          textoResultado:
+            (resultadoFinal.result as string | undefined) ??
+            textoResultadoAcumulado ??
+            stdoutCrudo,
+          sessionId: resultadoFinal.session_id as string | undefined,
+          tokensInput: usage?.input_tokens,
+          tokensOutput: usage?.output_tokens,
+          costoUsd:
+            (resultadoFinal.total_cost_usd as number | undefined) ??
+            (resultadoFinal.cost_usd as number | undefined),
         });
-      } catch {
-        // La CLI no devolvió JSON parseable: igual entregamos el texto crudo
-        // para no perder el trabajo, marcando que el parseo de metadata falló.
+      } else {
+        // No llegó un evento "result" parseable: igual entregamos el texto
+        // crudo para no perder el trabajo, marcando que falló la metadata.
         resolve({
           ok: true,
-          textoResultado: stdout,
+          textoResultado: textoResultadoAcumulado || stdoutCrudo,
           errorMensaje:
             "No se pudo parsear la salida JSON de Claude Code (metadata de tokens/costo no disponible).",
         });

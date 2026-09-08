@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../../../offline/dexie/db";
 import { QueueService } from "../../../../offline/services/queue.service";
@@ -10,6 +10,7 @@ import { useToast } from "../../../hooks/useToast";
 import type {
   AccionManualRequerida,
   EstadoCheckpoint,
+  PasoLog,
 } from "../../../../domain/entidades/automatizacion-ia.entity";
 
 interface EjecucionIAControlProps {
@@ -335,9 +336,12 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
       </span>
 
       {estado && ESTADOS_EN_CURSO.includes(estado) && (
-        <span className="font-mono text-[7px] text-zinc-500">
-          Reintentos: {checkpoint.reintentosFallidos ?? 0}
-        </span>
+        <>
+          <span className="font-mono text-[7px] text-zinc-500">
+            Reintentos: {checkpoint.reintentosFallidos ?? 0}
+          </span>
+          <PasosEnVivo pasosLog={checkpoint.pasosLog} />
+        </>
       )}
 
       {estado === "IDLE" && (
@@ -695,6 +699,43 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+function formatearHaceSegundos(ts: number, ahora: number): string {
+  const segundos = Math.max(0, Math.round((ahora - ts) / 1000));
+  if (segundos < 60) return `hace ${segundos}s`;
+  return `hace ${Math.round(segundos / 60)}m`;
+}
+
+/**
+ * Últimos pasos que el runner fue reportando en vivo (el mismo log acotado
+ * que persiste el runner — ver MAX_PASOS_LOG/agregarPasoLog en el dominio).
+ * Se muestran los más recientes primero, con hace cuánto pasaron, para poder
+ * distinguir "está trabajando" de "se colgó" sin adivinar.
+ */
+const PasosEnVivo: React.FC<{ pasosLog?: PasoLog[] }> = ({ pasosLog }) => {
+  const [ahora, setAhora] = useState(() => new Date().getTime());
+  useEffect(() => {
+    const id = setInterval(() => setAhora(new Date().getTime()), 5000);
+    return () => clearInterval(id);
+  }, []);
+  if (!pasosLog || pasosLog.length === 0) return null;
+  const ultimos = [...pasosLog].slice(-8).reverse();
+  return (
+    <div className="flex max-h-24 flex-col gap-0.5 overflow-y-auto rounded bg-black/30 p-1.5">
+      {ultimos.map((paso, idx) => (
+        <div
+          key={`${paso.ts}-${idx}`}
+          className="flex items-baseline gap-1.5 font-mono text-[7px] text-zinc-400"
+        >
+          <span className="shrink-0 text-zinc-600">
+            {formatearHaceSegundos(paso.ts, ahora)}
+          </span>
+          <span className="truncate">{paso.texto}</span>
+        </div>
+      ))}
     </div>
   );
 };
