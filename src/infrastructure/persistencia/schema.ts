@@ -817,6 +817,7 @@ export const taskExecutionCheckpoints = pgTable("task_execution_checkpoints", {
   actividadId: varchar("actividad_id", { length: 255 }).notNull(),
   proyectoId: varchar("proyecto_id", { length: 255 }).notNull(),
   estadoCheckpoint: varchar("estado_checkpoint", { length: 50 }).notNull(),
+  motorIA: varchar("motor_ia", { length: 20 }),
   ultimoErrorLogs: text("ultimo_error_logs"),
   ultimoPromptRefinamiento: text("ultimo_prompt_refinamiento"),
   reintentosFallidos: integer("reintentos_fallidos").default(0).notNull(),
