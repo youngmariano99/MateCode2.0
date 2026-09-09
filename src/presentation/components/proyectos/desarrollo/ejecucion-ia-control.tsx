@@ -7,6 +7,7 @@ import { db } from "../../../../offline/dexie/db";
 import { QueueService } from "../../../../offline/services/queue.service";
 import { SyncService } from "../../../../offline/services/sync.service";
 import { useToast } from "../../../hooks/useToast";
+import { iniciarTicketConIA } from "../../../../application/use-cases/proyecto/iniciar-ticket-ia.use-case";
 import type {
   AccionManualRequerida,
   EstadoCheckpoint,
@@ -69,64 +70,7 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
 
   const comenzarConIA = async () => {
     try {
-      // actualizadoEn se fija acá A PROPÓSITO en cada escritura (tareas y
-      // task_executions incluidos): el pull automático compara esta fecha
-      // contra la de Supabase para no pisar una acción local recién hecha
-      // con un estado remoto todavía viejo. Sin esto en TODAS las escrituras
-      // (no solo en Verificado/Reintentar), el ticket vuelve atrás un
-      // instante después de arrancar — mismo bug, otro punto de entrada.
-      const actualizadoEn = Date.now();
-
-      const existingExec = await db.task_executions.get(taskExecutionId);
-      if (!existingExec) {
-        const nuevaExecucion = {
-          id: taskExecutionId,
-          proyectoId,
-          actividadId: actividad.id,
-          titulo: actividad.titulo,
-          estado: "IN_PROGRESS",
-          fechaInicio: Date.now(),
-          metadata: { handoffs: {}, iterations: [], bugs: [] },
-          actualizadoEn,
-        };
-        await db.task_executions.put(nuevaExecucion);
-        await QueueService.encolar(
-          "task_executions",
-          "crear",
-          taskExecutionId,
-          nuevaExecucion
-        );
-      }
-      await db.tareas.update(actividad.id, {
-        estado: "in_progress",
-        actualizadoEn,
-      });
-      await QueueService.encolar("tareas", "editar", actividad.id, {
-        id: actividad.id,
-        estado: "in_progress",
-        actualizadoEn,
-      });
-
-      const nuevoCheckpoint = {
-        id: checkpointId,
-        taskExecutionId,
-        actividadId: actividad.id,
-        proyectoId,
-        estadoCheckpoint: "IDLE" as EstadoCheckpoint,
-        motorIA,
-        reintentosFallidos: 0,
-        accionesManualesModeradas: [] as AccionManualRequerida[],
-        accionesManualesCriticas: [] as AccionManualRequerida[],
-        actualizadoEn: Date.now(),
-      };
-      await db.task_execution_checkpoints.put(nuevoCheckpoint as any);
-      await QueueService.encolar(
-        "task_execution_checkpoints",
-        "crear",
-        checkpointId,
-        nuevoCheckpoint
-      );
-
+      await iniciarTicketConIA({ proyectoId, actividad, motorIA });
       await forzarSyncSilencioso();
       mostrarToast(
         `Ticket enviado a la IA. El runner local lo va a recoger en su próximo ciclo.`,

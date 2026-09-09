@@ -5,9 +5,11 @@ import React, { useState, useEffect } from "react";
 import { Card } from "../../card";
 import { db } from "../../../../offline/dexie/db";
 import { QueueService } from "../../../../offline/services/queue.service";
+import { SyncService } from "../../../../offline/services/sync.service";
 import { useToast } from "../../../hooks/useToast";
 import { EjecucionIAControl } from "./ejecucion-ia-control";
 import { CheckpointPullService } from "../../../../offline/services/checkpoint-pull.service";
+import { iniciarTicketConIA } from "../../../../application/use-cases/proyecto/iniciar-ticket-ia.use-case";
 
 interface SprintEnfoqueTabProps {
   proyecto: any;
@@ -836,6 +838,71 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
     setViewMode("kanban");
   };
 
+  // "Sprint Automático": encola de una todos los tickets pendientes del
+  // sprint (columna "Por Hacer"). No los corre en paralelo — los deja en
+  // IDLE y el runner (que ya procesa un ticket a la vez, ver
+  // cicloDeTrabajo() en runner/index.ts) los va tomando de a uno, en el
+  // mismo orden en que están acá. Un click reemplaza abrir cada ticket a
+  // mano uno por uno.
+  const [motorIASprint, setMotorIASprint] = useState<"claude" | "antigravity">(
+    "claude"
+  );
+  const [encolandoSprintIA, setEncolandoSprintIA] = useState(false);
+
+  const handleIniciarSprintAutomatico = async () => {
+    if (!proyecto || !focusedSprint) return;
+    const pendientes = actividadesSprint.filter(
+      (t) => (t.estado || "todo") === "todo"
+    );
+    if (pendientes.length === 0) {
+      mostrarToast("No hay tickets pendientes en este sprint.", "info");
+      return;
+    }
+    if (
+      !confirm(
+        `Se van a encolar ${pendientes.length} tickets para que el runner los procese uno por uno con ${
+          motorIASprint === "antigravity"
+            ? "Antigravity (Gemini)"
+            : "Claude Code"
+        }. ¿Continuar?`
+      )
+    ) {
+      return;
+    }
+    setEncolandoSprintIA(true);
+    try {
+      let encolados = 0;
+      for (const t of pendientes) {
+        // Si el ticket ya tiene un checkpoint (ej. se había arrancado y
+        // cancelado a mano), no lo pisamos acá — que el usuario lo revise
+        // desde su propia tarjeta.
+        const yaTieneCheckpoint = await db.task_execution_checkpoints.get(
+          `chk_${t.id}`
+        );
+        if (yaTieneCheckpoint) continue;
+        await iniciarTicketConIA({
+          proyectoId: proyecto.id,
+          actividad: { id: t.id, titulo: t.titulo },
+          motorIA: motorIASprint,
+        });
+        encolados++;
+      }
+      await SyncService.sincronizar().catch(() => {
+        // Si falla, los eventos quedan en cola y se sincronizan solos.
+      });
+      mostrarToast(
+        encolados > 0
+          ? `${encolados} tickets encolados. El runner los va a ir tomando de a uno en su próximo ciclo.`
+          : "Todos los tickets pendientes ya estaban encolados.",
+        "exito"
+      );
+    } catch (err: any) {
+      mostrarToast(`Error al encolar el sprint: ${err.message}`, "error");
+    } finally {
+      setEncolandoSprintIA(false);
+    }
+  };
+
   return (
     <Card>
       {/* View Switcher Top Bar */}
@@ -916,6 +983,25 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
             focusedSprint &&
             focusedSprint.estado === "activo" && (
               <>
+                <select
+                  value={motorIASprint}
+                  onChange={(e) =>
+                    setMotorIASprint(e.target.value as "claude" | "antigravity")
+                  }
+                  className="rounded border border-zinc-800 bg-zinc-900 px-2 py-1.5 font-mono text-[9px] text-zinc-300 focus:outline-none"
+                  title="Motor de IA para los tickets que se encolen"
+                >
+                  <option value="claude">🤖 Claude Code</option>
+                  <option value="antigravity">🚀 Antigravity (Gemini)</option>
+                </select>
+                <button
+                  onClick={handleIniciarSprintAutomatico}
+                  disabled={encolandoSprintIA}
+                  className="rounded border border-violet-500/25 bg-violet-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-violet-400 uppercase transition-all hover:bg-violet-500/20 disabled:opacity-50"
+                  title="Encola todos los tickets pendientes del sprint para que el runner los procese uno por uno"
+                >
+                  {encolandoSprintIA ? "Encolando..." : "🤖 Sprint Automático"}
+                </button>
                 <button
                   onClick={() => setIsCancelModalOpen(true)}
                   className="rounded border border-red-500/20 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase transition-all hover:bg-red-500/20"

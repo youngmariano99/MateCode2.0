@@ -1,8 +1,4 @@
-import {
-  GoogleGenerativeAI,
-  SchemaType,
-  type Tool,
-} from "@google/generative-ai";
+import { SchemaType, type Tool } from "@google/generative-ai";
 import { exec } from "child_process";
 import { promisify } from "util";
 import * as fs from "fs";
@@ -122,7 +118,7 @@ function resumirFunctionCall(
 export async function invocarAntigravity({
   prompt,
   rutaRepo,
-  modelo = "gemini-2.5-flash",
+  modelo = "gemini-3.6-flash",
   onPaso,
 }: InvocarClaudeCodeOptions): Promise<InvocacionClaudeCodeResult> {
   try {
@@ -136,55 +132,85 @@ export async function invocarAntigravity({
       };
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const aiModel = genAI.getGenerativeModel({
-      model: modelo,
-      tools: tools,
-      systemInstruction:
-        "Eres un agente desarrollador experto (Antigravity). Tu misión es resolver el ticket. Tienes herramientas para leer archivos, escribir archivos y ejecutar comandos. Utiliza las herramientas para inspeccionar el código, hacer los cambios necesarios, y verificar que no hay errores corriendo linters o pruebas. IMPORTANTE: Cuando hayas terminado con los cambios y las pruebas, y el ticket esté resuelto, tu ULTIMO mensaje debe ser UNICAMENTE un bloque JSON válido (Handoff JSON) que comience con { y termine con }.",
-    });
+    const systemInstruction =
+      "Eres un agente desarrollador experto (Antigravity). Tu misión es resolver el ticket. Tienes herramientas para leer archivos, escribir archivos y ejecutar comandos. Utiliza las herramientas para inspeccionar el código, hacer los cambios necesarios, y verificar que no hay errores corriendo linters o pruebas. IMPORTANTE: Cuando hayas terminado con los cambios y las pruebas, y el ticket esté resuelto, tu ULTIMO mensaje debe ser UNICAMENTE un bloque JSON válido (Handoff JSON) que comience con { y termine con }.";
 
-    const chat = aiModel.startChat();
-    let result = await chat.sendMessage(prompt);
-
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const history: any[] = [{ role: "user", parts: [{ text: prompt }] }];
     let maxIterations = 20;
     let finalOutput = "";
 
-    // Simplistic token tracking mapping per iteration
     let tokensInput = 0;
     let tokensOutput = 0;
 
     while (maxIterations > 0) {
-      tokensInput += result.response.usageMetadata?.promptTokenCount || 0;
-      tokensOutput += result.response.usageMetadata?.candidatesTokenCount || 0;
+      const payload = {
+        contents: history,
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        tools: tools,
+      };
 
-      const calls = result.response.functionCalls();
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Google API Error (${res.status}): ${errorText}`);
+      }
+
+      const data = await res.json();
+
+      if (data.usageMetadata) {
+        tokensInput += data.usageMetadata.promptTokenCount || 0;
+        tokensOutput += data.usageMetadata.candidatesTokenCount || 0;
+      }
+
+      const candidate = data.candidates?.[0];
+      if (!candidate || !candidate.content) {
+        finalOutput = "No se recibió respuesta válida del modelo.";
+        break;
+      }
+
+      const responseContent = candidate.content;
+      history.push(responseContent); // Agregamos la respuesta del modelo
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const calls = responseContent.parts
+        ?.filter((p: any) => p.functionCall)
+        ?.map((p: any) => p.functionCall);
+
       if (!calls || calls.length === 0) {
-        finalOutput = result.response.text();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        finalOutput =
+          responseContent.parts?.map((p: any) => p.text).join("\n") || "";
         break;
       }
 
       const toolResponses = [];
       for (const call of calls) {
-        const fn = functions[call.name];
+        const fnName = call.name;
+        const args = call.args;
+        const fn = functions[fnName as keyof typeof functions];
         if (fn) {
-          onPaso?.(
-            resumirFunctionCall(call.name, call.args as Record<string, string>)
-          );
-          const fnResult = await fn(
-            call.args as Record<string, string>,
-            rutaRepo
-          );
+          onPaso?.(resumirFunctionCall(fnName, args));
+          const fnResult = await fn(args, rutaRepo);
           toolResponses.push({
             functionResponse: {
-              name: call.name,
+              name: fnName,
               response: { result: fnResult },
             },
           });
         }
       }
 
-      result = await chat.sendMessage(toolResponses);
+      // Pasamos los resultados como "user", ya que "function" da 400 Bad Request en la API nueva.
+      history.push({ role: "user", parts: toolResponses });
       maxIterations--;
     }
 
@@ -203,7 +229,7 @@ export async function invocarAntigravity({
       tokensInput,
       tokensOutput,
       costoUsd:
-        (tokensInput * 0.075) / 1_000_000 + (tokensOutput * 0.3) / 1_000_000, // Approx pricing for flash
+        (tokensInput * 0.075) / 1_000_000 + (tokensOutput * 0.3) / 1_000_000,
       sessionId: `antigravity-${Date.now()}`,
     };
   } catch (error: unknown) {

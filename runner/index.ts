@@ -241,7 +241,7 @@ async function procesarCheckpoint(
       rutaRepo: proyectoCfg.rutaLocalRepo,
       claudeExecutable: proyectoCfg.claudeExecutable,
       resumeSessionId: checkpoint.claudeSessionId ?? undefined,
-      modelo: modelo || "gemini-2.5-flash",
+      modelo: modelo || "gemini-3.6-flash",
       onPaso,
     });
   } else {
@@ -363,7 +363,7 @@ async function procesarCheckpoint(
         resumeSessionId:
           resultado.sessionId ?? checkpoint.claudeSessionId ?? undefined,
         timeoutMs: 5 * 60 * 1000,
-        modelo: modelo || "gemini-2.5-flash",
+        modelo: modelo || "gemini-3.6-flash",
         onPaso,
       });
     } else {
@@ -659,7 +659,7 @@ async function correrGateCI(
         claudeExecutable,
         resumeSessionId: sesion,
         timeoutMs: 10 * 60 * 1000,
-        modelo: modelo || "gemini-2.5-flash",
+        modelo: modelo || "gemini-3.6-flash",
         onPaso,
       });
     } else {
