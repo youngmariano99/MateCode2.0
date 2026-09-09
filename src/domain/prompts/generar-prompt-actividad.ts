@@ -222,7 +222,7 @@ ${bugsStr}
 </instrucciones_git>
 
 <salida_requerida>
-Devuelve el código limpio completo que deba ser creado o modificado.
+Aplicá los cambios directamente en el repositorio con tus herramientas (crear/editar archivos) — NO pegues el código completo como texto en tu respuesta, ya quedó escrito en disco y repetirlo ahí es puro gasto de tokens sin ningún beneficio. Tu respuesta de texto debe limitarse a lo estrictamente necesario para el handoff.
 Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estructura exacta para realizar el handoff. Si alguna sección no aplica, igual incluí la clave con un valor vacío ([] o ""), no la omitas:
 
 \`\`\`json

@@ -204,7 +204,24 @@ export function invocarClaudeCode({
       }
       if (resultadoFinal) {
         const usage = resultadoFinal.usage as
-          { input_tokens?: number; output_tokens?: number } | undefined;
+          | {
+              input_tokens?: number;
+              output_tokens?: number;
+              cache_creation_input_tokens?: number;
+              cache_read_input_tokens?: number;
+            }
+          | undefined;
+        // El "tokens_input" que veíamos en el dashboard quedaba en 2-3 dígitos
+        // por turno — absurdo para una sesión que relee todo el proyecto —
+        // porque solo tomábamos `input_tokens`, que con --resume y prompt
+        // caching es casi todo el input REAL de ese turno (viene servido por
+        // caché). Sumamos también los tokens de creación/lectura de caché
+        // para que el número mostrado refleje el consumo real, no solo la
+        // porción "fresca" de cada turno.
+        const tokensInputTotal =
+          (usage?.input_tokens ?? 0) +
+          (usage?.cache_creation_input_tokens ?? 0) +
+          (usage?.cache_read_input_tokens ?? 0);
         resolve({
           ok: true,
           textoResultado:
@@ -212,7 +229,7 @@ export function invocarClaudeCode({
             textoResultadoAcumulado ??
             stdoutCrudo,
           sessionId: resultadoFinal.session_id as string | undefined,
-          tokensInput: usage?.input_tokens,
+          tokensInput: usage ? tokensInputTotal : undefined,
           tokensOutput: usage?.output_tokens,
           costoUsd:
             (resultadoFinal.total_cost_usd as number | undefined) ??
