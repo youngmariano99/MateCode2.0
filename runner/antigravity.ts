@@ -118,7 +118,7 @@ function resumirFunctionCall(
 export async function invocarAntigravity({
   prompt,
   rutaRepo,
-  modelo = "gemini-3.6-flash",
+  modelo = "gemini-3.8-flash",
   onPaso,
 }: InvocarClaudeCodeOptions): Promise<InvocacionClaudeCodeResult> {
   try {
@@ -180,15 +180,15 @@ export async function invocarAntigravity({
       const responseContent = candidate.content;
       history.push(responseContent); // Agregamos la respuesta del modelo
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const calls = responseContent.parts
-        ?.filter((p: any) => p.functionCall)
-        ?.map((p: any) => p.functionCall);
+        ?.filter((p: { functionCall?: unknown }) => p.functionCall)
+        ?.map((p: { functionCall?: unknown }) => p.functionCall);
 
       if (!calls || calls.length === 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         finalOutput =
-          responseContent.parts?.map((p: any) => p.text).join("\n") || "";
+          responseContent.parts
+            ?.map((p: { text?: string }) => p.text)
+            .join("\n") || "";
         break;
       }
 
