@@ -42,6 +42,16 @@ const tableMapper: Record<string, any> = {
   plantilla_guion: schema.plantillaGuion,
   contenido: schema.contenido,
   catalogo_kpi_contenido: schema.catalogoKpiContenido,
+  inbox_item: schema.inboxItem,
+  tarea_diaria: schema.tareaDiaria,
+  tarea_pendiente: schema.tareaPendiente,
+  objetivo_cuantificable: schema.objetivoCuantificable,
+  habito_definicion: schema.habitoDefinicion,
+  habito_registro: schema.habitoRegistro,
+  catalogo_ejercicio: schema.catalogoEjercicio,
+  plantilla_rutina: schema.plantillaRutina,
+  bloque_entrenamiento: schema.bloqueEntrenamiento,
+  registro_actividad: schema.registroActividad,
 };
 
 export async function POST(req: NextRequest) {

@@ -865,3 +865,135 @@ export const taskExecutionCheckpoints = pgTable("task_execution_checkpoints", {
   pasosLog: text("pasos_log"), // JSON PasoLog[]
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
 });
+
+// ==========================================
+// Segundo Cerebro (área Personal) — Bloque A
+// ==========================================
+
+export const inboxItem = pgTable("inbox_item", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  texto: text("texto").notNull(),
+  estado: varchar("estado", { length: 20 }).notNull(), // pendiente | promovido | descartado
+  promovidoATipo: varchar("promovido_a_tipo", { length: 30 }),
+  promovidoAId: varchar("promovido_a_id", { length: 255 }),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
+
+export const tareaDiaria = pgTable("tarea_diaria", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  // "diaTarea" y no "fecha": la ruta de sync trata cualquier campo llamado
+  // "fecha" como timestamp automáticamente (dateFields) — acá es un string
+  // YYYY-MM-DD plano.
+  diaTarea: varchar("dia_tarea", { length: 10 }).notNull(),
+  tipo: varchar("tipo", { length: 20 }).notNull(), // enfoque | mantenimiento
+  descripcion: text("descripcion").notNull(),
+  estado: varchar("estado", { length: 20 }).notNull(), // pendiente | completada | migrada | cancelada
+  fechaMigradaDesde: varchar("fecha_migrada_desde", { length: 10 }),
+  origenInboxId: varchar("origen_inbox_id", { length: 255 }),
+  origenPendienteId: varchar("origen_pendiente_id", { length: 255 }),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
+
+export const tareaPendiente = pgTable("tarea_pendiente", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  descripcion: text("descripcion").notNull(),
+  prioridad: varchar("prioridad", { length: 20 }).notNull(), // urgente | importante | puede_esperar
+  area: varchar("area", { length: 20 }).notNull(), // profesional | personal | ambas
+  estado: varchar("estado", { length: 20 }).notNull(), // pendiente | promovida | completada | descartada
+  origenInboxId: varchar("origen_inbox_id", { length: 255 }),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
+
+export const habitoDefinicion = pgTable("habito_definicion", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  nombre: varchar("nombre", { length: 255 }).notNull(),
+  descripcionMin: text("descripcion_min").notNull(),
+  descripcionMed: text("descripcion_med").notNull(),
+  descripcionMax: text("descripcion_max").notNull(),
+  area: varchar("area", { length: 20 }).notNull(), // profesional | personal | ambas
+  activo: boolean("activo").default(true).notNull(),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
+
+export const habitoRegistro = pgTable("habito_registro", {
+  id: varchar("id", { length: 255 }).primaryKey(), // determinístico: habitoId_diaTarea
+  habitoId: varchar("habito_id", { length: 255 }).notNull(),
+  // "diaTarea" y no "fecha": ver nota en tarea_diaria — evita que la ruta
+  // de sync lo trate como timestamp automáticamente.
+  diaTarea: varchar("dia_tarea", { length: 10 }).notNull(),
+  nivelEjecutado: varchar("nivel_ejecutado", { length: 10 }).notNull(), // MIN | MED | MAX
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+});
+
+export const catalogoEjercicio = pgTable("catalogo_ejercicio", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  patron: varchar("patron", { length: 50 }).notNull(),
+  nombre: varchar("nombre", { length: 255 }).notNull(),
+  tipoConteo: varchar("tipo_conteo", { length: 20 }).notNull(),
+  modoConteo: varchar("modo_conteo", { length: 20 }).notNull(),
+  equipamiento: jsonb("equipamiento").notNull(), // string[]
+  esPausaActiva: boolean("es_pausa_activa").default(false).notNull(),
+  esNeat: boolean("es_neat").default(false).notNull(),
+  permiteCarga: boolean("permite_carga").default(false).notNull(),
+  niveles: jsonb("niveles").notNull(), // NivelEjercicio[]
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+});
+
+export const plantillaRutina = pgTable("plantilla_rutina", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  nombre: varchar("nombre", { length: 255 }).notNull(),
+  formato: varchar("formato", { length: 30 }).notNull(),
+  tipoEstructura: varchar("tipo_estructura", { length: 20 }).notNull(),
+  estructura: jsonb("estructura").notNull(),
+  eliminado: boolean("eliminado").default(false).notNull(),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
+
+export const bloqueEntrenamiento = pgTable("bloque_entrenamiento", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  nombre: varchar("nombre", { length: 255 }).notNull(),
+  // "diaInicio"/"diaFin" y no "fechaInicio"/"fechaFin": ver nota en
+  // tarea_diaria — evita que la ruta de sync los trate como timestamp.
+  diaInicio: varchar("dia_inicio", { length: 10 }).notNull(),
+  diaFin: varchar("dia_fin", { length: 10 }).notNull(),
+  ejeProgresionDefault: varchar("eje_progresion_default", {
+    length: 20,
+  }).notNull(),
+  estado: varchar("estado", { length: 20 }).notNull(), // activo | cerrado
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
+
+export const registroActividad = pgTable("registro_actividad", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  plantillaId: varchar("plantilla_id", { length: 255 }).notNull(),
+  bloqueId: varchar("bloque_id", { length: 255 }),
+  diaTarea: varchar("dia_tarea", { length: 10 }).notNull(),
+  comoPlanificado: boolean("como_planificado").notNull(),
+  resultados: jsonb("resultados").notNull(), // ResultadoEjercicio[]
+  notas: text("notas"),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+});
+
+export const objetivoCuantificable = pgTable("objetivo_cuantificable", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  titulo: varchar("titulo", { length: 255 }).notNull(),
+  unidad: varchar("unidad", { length: 50 }).notNull(),
+  cantidadObjetivo: doublePrecision("cantidad_objetivo").notNull(),
+  progresoActual: doublePrecision("progreso_actual").default(0).notNull(),
+  // "diaInicio"/"diaLimite" y no "fechaInicio"/"fechaLimite": la ruta de
+  // sync trata "fechaInicio" como timestamp automáticamente (dateFields) —
+  // acá son strings YYYY-MM-DD planos.
+  diaInicio: varchar("dia_inicio", { length: 10 }).notNull(),
+  diaLimite: varchar("dia_limite", { length: 10 }).notNull(),
+  area: varchar("area", { length: 20 }).notNull(), // profesional | personal | ambas
+  estado: varchar("estado", { length: 20 }).notNull(), // activo | cumplido | vencido | archivado
+  origenModulo: varchar("origen_modulo", { length: 50 }),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});

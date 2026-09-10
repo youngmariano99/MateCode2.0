@@ -8,6 +8,7 @@ import { StockProspectos } from "../../../presentation/components/contacto-frio/
 import { SeleccionContacto } from "../../../presentation/components/contacto-frio/seleccion-contacto";
 import { SeguimientoPendiente } from "../../../presentation/components/contacto-frio/seguimiento-pendiente";
 import { CintaDiaria } from "../../../presentation/components/contacto-frio/cinta-diaria";
+import { WidgetObjetivo } from "../../../presentation/components/personal/widget-objetivo";
 
 type Estacion = "hoy" | "registro" | "contacto" | "seguimiento" | "stock";
 
@@ -37,6 +38,13 @@ export default function ContactoFrioPage() {
             Prospección digital — procedimiento NODEXA-SOP-02.
           </p>
         </div>
+
+        <WidgetObjetivo
+          origenModulo="contacto_frio"
+          area="profesional"
+          tituloSugerido="Contactos en frío"
+          unidadSugerida="contactos"
+        />
 
         <div className="flex gap-1 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-1">
           {ESTACIONES.map((e) => {

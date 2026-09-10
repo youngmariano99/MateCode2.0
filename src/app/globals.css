@@ -1,9 +1,13 @@
+/* Los @import de URL externa van primero: el bundler expande "tailwindcss"
+   inline en miles de líneas de reglas, y un @import que quede después de
+   esas reglas expandidas rompe la validación CSS ("@import rules must
+   precede all rules"). */
+@import url("https://api.fontshare.com/v2/css?f[]=satoshi@500,700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap");
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-
-@import url("https://api.fontshare.com/v2/css?f[]=satoshi@500,700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap");
 
 @custom-variant dark (&:is(.dark *));
 

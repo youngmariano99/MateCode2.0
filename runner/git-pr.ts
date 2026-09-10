@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import { writeFile, unlink } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import { ARCHIVO_CONTEXTO_SPRINT } from "./contexto-sprint";
 
 const execFileAsync = promisify(execFile);
 
@@ -72,6 +73,13 @@ export async function crearCommitYPR({
     try {
       await writeFile(commitMsgFile, mensajeCommit, "utf-8");
       await execFileAsync("git", ["add", "-A"], { cwd: rutaRepo });
+      // docs/SPRINT_CONTEXTO.md es un artefacto del runner para que el
+      // agente lo lea (ver contexto-sprint.ts), no parte del ticket — lo
+      // desestageamos para que nunca termine en el commit/PR. Si el archivo
+      // no existe o no estaba staged, el reset es un no-op silencioso.
+      await execFileAsync("git", ["reset", "--", ARCHIVO_CONTEXTO_SPRINT], {
+        cwd: rutaRepo,
+      }).catch(() => {});
       await execFileAsync("git", ["commit", "-F", commitMsgFile], {
         cwd: rutaRepo,
       });
@@ -130,6 +138,13 @@ export async function commitYPushFix(
     try {
       await writeFile(commitMsgFile, mensajeCommit, "utf-8");
       await execFileAsync("git", ["add", "-A"], { cwd: rutaRepo });
+      // docs/SPRINT_CONTEXTO.md es un artefacto del runner para que el
+      // agente lo lea (ver contexto-sprint.ts), no parte del ticket — lo
+      // desestageamos para que nunca termine en el commit/PR. Si el archivo
+      // no existe o no estaba staged, el reset es un no-op silencioso.
+      await execFileAsync("git", ["reset", "--", ARCHIVO_CONTEXTO_SPRINT], {
+        cwd: rutaRepo,
+      }).catch(() => {});
       await execFileAsync("git", ["commit", "-F", commitMsgFile], {
         cwd: rutaRepo,
       });

@@ -43,4 +43,12 @@ export const Icono = {
   Mail: Lucide.Mail,
   MapPin: Lucide.MapPin,
   Lock: Lucide.Lock,
+  Briefcase: Lucide.Briefcase,
+  Sunrise: Lucide.Sunrise,
+  Inbox: Lucide.Inbox,
+  ListTodo: Lucide.ListTodo,
+  Target: Lucide.Target,
+  ArrowRight: Lucide.ArrowRight,
+  Dumbbell: Lucide.Dumbbell,
+  Flame: Lucide.Flame,
 };

@@ -26,6 +26,27 @@ export interface InvocarClaudeCodeOptions {
    */
   modelo?: string;
   /**
+   * Presupuesto de razonamiento de la sesión ("low" | "medium" | "high" |
+   * "xhigh" | "max"). Sin especificar, la CLI usa su propio default (alto).
+   * Pensado para turnos puramente mecánicos (ej. re-formatear un handoff ya
+   * generado como JSON) donde razonamiento profundo no agrega nada y sí
+   * infla los tokens de salida — el pensamiento latente se factura igual
+   * que la salida visible.
+   */
+  effort?: "low" | "medium" | "high" | "xhigh" | "max";
+  /**
+   * Ruta absoluta a un archivo de settings de Claude Code (`--settings`).
+   * Usado para activar el hook de filtrado de salida de build/lint/test sin
+   * tocar el repo del proyecto destino — ver hooks-verificacion.ts.
+   */
+  settingsPath?: string;
+  /**
+   * JSON de definición de subagentes (`--agents`), inline, sin necesidad de
+   * archivos en `.claude/agents/` del repo destino — ver el subagente
+   * "verificador" en runner/index.ts (Estrategia 3.1 de economía de tokens).
+   */
+  agentsJson?: string;
+  /**
    * Se llama con una descripción corta cada vez que el agente arranca una
    * herramienta (leer/editar un archivo, correr un comando...) — para dar
    * visibilidad en vivo de en qué parte del proceso va. No debe asumirse
@@ -78,6 +99,9 @@ export function invocarClaudeCode({
   resumeSessionId,
   timeoutMs = 30 * 60 * 1000, // 30 min: dejar tiempo real para un ticket completo
   modelo,
+  effort,
+  settingsPath,
+  agentsJson,
   onPaso,
 }: InvocarClaudeCodeOptions): Promise<InvocacionClaudeCodeResult> {
   // El prompt va por stdin, no como argumento de línea de comandos: en
@@ -110,6 +134,15 @@ export function invocarClaudeCode({
   }
   if (modelo) {
     args.push("--model", modelo);
+  }
+  if (effort) {
+    args.push("--effort", effort);
+  }
+  if (settingsPath) {
+    args.push("--settings", settingsPath);
+  }
+  if (agentsJson) {
+    args.push("--agents", agentsJson);
   }
 
   return new Promise((resolve) => {

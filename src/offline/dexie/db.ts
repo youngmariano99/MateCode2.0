@@ -26,6 +26,23 @@ import {
   KPIS_CONTENIDO_DEFAULT,
   SECCIONES_GUION_DEFAULT,
 } from "../../domain/entidades/contenido.entity";
+import type {
+  InboxItem,
+  TareaDiaria,
+  TareaPendiente,
+} from "../../domain/entidades/personal.entity";
+import type { ObjetivoCuantificable } from "../../domain/entidades/objetivo-cuantificable.entity";
+import type {
+  HabitoDefinicion,
+  HabitoRegistro,
+} from "../../domain/entidades/habitos.entity";
+import type { CatalogoEjercicio } from "../../domain/entidades/ejercicio.entity";
+import { CATALOGO_EJERCICIOS_SEED } from "../../domain/entidades/ejercicio-catalogo-seed";
+import type {
+  PlantillaRutina,
+  BloqueEntrenamiento,
+} from "../../domain/entidades/rutina.entity";
+import type { RegistroActividad } from "../../domain/entidades/registro-actividad.entity";
 
 export interface CatalogoErrorRow {
   codigo: string;
@@ -119,6 +136,18 @@ export class MateCodeDB extends Dexie {
   public plantilla_guion!: Table<PlantillaGuion, string>;
   public contenido!: Table<Contenido, string>;
   public catalogo_kpi_contenido!: Table<CatalogoKpiContenido, string>;
+
+  // Segundo Cerebro (área Personal) — Bloque A
+  public inbox_item!: Table<InboxItem, string>;
+  public tarea_diaria!: Table<TareaDiaria, string>;
+  public tarea_pendiente!: Table<TareaPendiente, string>;
+  public objetivo_cuantificable!: Table<ObjetivoCuantificable, string>;
+  public habito_definicion!: Table<HabitoDefinicion, string>;
+  public habito_registro!: Table<HabitoRegistro, string>;
+  public catalogo_ejercicio!: Table<CatalogoEjercicio, string>;
+  public plantilla_rutina!: Table<PlantillaRutina, string>;
+  public bloque_entrenamiento!: Table<BloqueEntrenamiento, string>;
+  public registro_actividad!: Table<RegistroActividad, string>;
 
   constructor() {
     super("MateCodeLocalDB");
@@ -937,6 +966,47 @@ export class MateCodeDB extends Dexie {
         }
       });
 
+    // Version 18: Segundo Cerebro (área Personal) — Bloque A. Tablas nuevas,
+    // sin datos previos que migrar.
+    this.version(18).stores({
+      inbox_item: "id, estado, creadoEn",
+      tarea_diaria: "id, diaTarea, tipo, estado",
+      tarea_pendiente: "id, estado, prioridad, area",
+    });
+
+    // Version 19: Segundo Cerebro — Bloque B (objetivos cuantitativos).
+    this.version(19).stores({
+      objetivo_cuantificable: "id, estado, area, origenModulo",
+    });
+
+    // Version 20: Segundo Cerebro — Bloque C (Hábitos, El Acordeón).
+    // "activo" no se indexa: es boolean, y boolean no es una clave válida
+    // de IndexedDB — se filtra en memoria (el listado de hábitos es chico).
+    this.version(20).stores({
+      habito_definicion: "id",
+      habito_registro: "id, habitoId, diaTarea",
+    });
+
+    // Version 21: Segundo Cerebro — Bienestar y Entrenamiento. "eliminado" no
+    // se indexa por el mismo motivo que "activo" en hábitos (boolean).
+    this.version(21)
+      .stores({
+        catalogo_ejercicio: "id, patron",
+        plantilla_rutina: "id",
+        bloque_entrenamiento: "id, estado",
+        registro_actividad: "id, plantillaId, bloqueId, diaTarea",
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table("catalogo_ejercicio")
+          .bulkPut(
+            CATALOGO_EJERCICIOS_SEED.map((e) => ({
+              ...e,
+              creadoEn: Date.now(),
+            }))
+          );
+      });
+
     this.on("populate", async () => {
       const ahoraPopulate = Date.now();
       await this.table("catalogo_etiquetas").bulkPut(
@@ -957,6 +1027,9 @@ export class MateCodeDB extends Dexie {
       });
       await this.table("catalogo_kpi_contenido").bulkPut(
         KPIS_CONTENIDO_DEFAULT.map((k) => ({ ...k, creadoEn: ahoraPopulate }))
+      );
+      await this.table("catalogo_ejercicio").bulkPut(
+        CATALOGO_EJERCICIOS_SEED.map((e) => ({ ...e, creadoEn: ahoraPopulate }))
       );
     });
 

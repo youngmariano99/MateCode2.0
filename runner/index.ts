@@ -33,6 +33,29 @@ import {
 } from "../src/domain/prompts/generar-prompt-actividad";
 import { db, schema } from "./db";
 import { eq } from "drizzle-orm";
+import { escribirContextoSprint } from "./contexto-sprint";
+// obtenerSettingsFiltroVerificacion (hooks-verificacion.ts) queda sin usar
+// A PROPÓSITO: se verificó empíricamente que los hooks PreToolUse no se
+// aplican en modo headless (`claude -p`) en la versión actual de la CLI —
+// bug conocido (anthropics/claude-code#92675). El archivo y los scripts del
+// hook quedan en el repo, listos para reactivar el día que Anthropic lo
+// arregle — no borrar por las dudas de "código sin usar".
+
+// Subagente opcional (Estrategia 3.1 de economía de tokens): corre en un
+// contexto aislado propio con un modelo barato, así el agente principal no
+// tiene por qué cargar en su propio hilo la salida completa de build/lint/
+// test. Es solo una invitación — el agente principal decide si delega o
+// verifica él mismo (ver el punto 6 de bloqueEstandaresNoNegociables).
+const AGENTE_VERIFICADOR_JSON = JSON.stringify({
+  verificador: {
+    description:
+      "Corre comandos de build, lint o test del proyecto y devuelve solo las líneas relevantes de error/fallo, nunca el log completo.",
+    prompt:
+      "Sos un verificador técnico. Ejecutá exactamente el comando que te pidan y respondé SOLO con las líneas de error o fallo relevantes (o 'OK, sin errores' si no hubo ninguna) — nunca pegues el log completo si es extenso.",
+    tools: ["Bash"],
+    model: "haiku",
+  },
+});
 
 // Pedido explícito de handoff en un segundo turno, cuando el turno de
 // desarrollo no lo incluyó al final de su propia respuesta (ver punto 3 del
@@ -183,6 +206,14 @@ async function procesarCheckpoint(
     parseJsonArraySeguro(configAuto?.deniedPaths)
   );
 
+  // Estrategia 7.1 de economía de tokens: en vez de pegar el contexto del
+  // sprint entero (y creciente) en el prompt, se deja documentado en un
+  // archivo del propio repo — el agente lo lee él mismo si lo necesita.
+  const contextoSprintArchivo = escribirContextoSprint(
+    proyectoCfg.rutaLocalRepo,
+    contextoSprint
+  );
+
   // Modelo para TODA la sesión de este ticket (desarrollo + reintentos +
   // handoff + fix de CI): se resuelve una sola vez acá porque todos esos
   // pasos son --resume de la misma sesión, no invocaciones independientes —
@@ -207,7 +238,7 @@ async function procesarCheckpoint(
     historiaPadre: historia
       ? { titulo: historia.titulo, prioridad: historia.prioridad }
       : undefined,
-    contextoSprintActual: contextoSprint,
+    contextoSprintArchivo,
     iteraciones,
     bugActivo,
     maxLineasPorArchivo: configAuto?.maxLineasPorArchivo,
@@ -254,6 +285,7 @@ async function procesarCheckpoint(
       claudeExecutable: proyectoCfg.claudeExecutable,
       resumeSessionId: checkpoint.claudeSessionId ?? undefined,
       modelo,
+      agentsJson: AGENTE_VERIFICADOR_JSON,
       onPaso,
     });
   }
@@ -375,6 +407,10 @@ async function procesarCheckpoint(
           resultado.sessionId ?? checkpoint.claudeSessionId ?? undefined,
         timeoutMs: 5 * 60 * 1000,
         modelo,
+        // Turno puramente mecánico (reformatear como JSON algo que ya se
+        // generó en el turno anterior) — no necesita razonamiento profundo,
+        // y el pensamiento latente se factura igual que la salida visible.
+        effort: "low",
         onPaso,
       });
     }
@@ -670,6 +706,7 @@ async function correrGateCI(
         resumeSessionId: sesion,
         timeoutMs: 10 * 60 * 1000,
         modelo,
+        agentsJson: AGENTE_VERIFICADOR_JSON,
         onPaso,
       });
     }

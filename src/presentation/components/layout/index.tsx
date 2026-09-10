@@ -7,6 +7,8 @@ import { useAuth } from "../../providers/AuthProvider";
 import { Icono } from "../icons";
 import { SyncIndicator } from "./SyncIndicator";
 import { BannerOffline } from "./BannerOffline";
+import { MENU_POR_AREA, type AreaMateCode } from "./menu-items";
+import { useAreaActiva } from "../../hooks/useAreaActiva";
 
 interface BreadcrumbItem {
   label: string;
@@ -43,49 +45,60 @@ export const Breadcrumb: React.FC<{ items: BreadcrumbItem[] }> = ({
   );
 };
 
+/**
+ * Toggle Profesional/Personal — separa la navegación en dos mundos sin
+ * mezclar todo en un único menú largo. En modo colapsado se reduce a los
+ * dos íconos apilados.
+ */
+const AreaSwitcher: React.FC<{
+  area: AreaMateCode;
+  setArea: (a: AreaMateCode) => void;
+  colapsado: boolean;
+}> = ({ area, setArea, colapsado }) => {
+  const opciones: {
+    valor: AreaMateCode;
+    label: string;
+    icono: typeof Icono.Briefcase;
+  }[] = [
+    { valor: "profesional", label: "Profesional", icono: Icono.Briefcase },
+    { valor: "personal", label: "Personal", icono: Icono.Sunrise },
+  ];
+
+  return (
+    <div
+      className={`flex gap-1 p-3.5 pb-0 ${colapsado ? "flex-col" : "flex-row"}`}
+    >
+      {opciones.map((op) => {
+        const OpIcon = op.icono;
+        const activo = area === op.valor;
+        return (
+          <button
+            key={op.valor}
+            onClick={() => setArea(op.valor)}
+            title={op.label}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-bold transition-all select-none ${
+              activo
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                : "border-[#2A2A2E] text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            <OpIcon className="h-3.5 w-3.5 flex-shrink-0" />
+            {!colapsado && <span>{op.label}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
 export const Sidebar: React.FC<{
   colapsado: boolean;
   setColapsado: (val: boolean) => void;
 }> = ({ colapsado, setColapsado }) => {
   const pathname = usePathname();
   const { cerrarSesion } = useAuth();
-
-  const menuItems = [
-    { label: "Inicio", href: "/dashboard", icono: Icono.Inicio },
-    { label: "Clientes", href: "/dashboard/clientes", icono: Icono.Clientes },
-    {
-      label: "Proyectos",
-      href: "/dashboard/proyectos",
-      icono: Icono.Proyectos,
-    },
-    { label: "Pagos", href: "/dashboard/pagos", icono: Icono.Pagos },
-    {
-      label: "Contratos",
-      href: "/dashboard/contratos",
-      icono: Icono.Contratos,
-    },
-    {
-      label: "Potenciales Clientes",
-      href: "/dashboard/territorio",
-      icono: Icono.MapPin,
-    },
-    {
-      label: "Planificador de Contenidos",
-      href: "/dashboard/planificador-contenido",
-      icono: Icono.Calendario,
-    },
-    {
-      label: "Contacto en Frío",
-      href: "/dashboard/contacto-frio",
-      icono: Icono.Contactos,
-    },
-    { label: "IA", href: "/dashboard/ia", icono: Icono.IA },
-    {
-      label: "Configuración",
-      href: "/dashboard/agencia",
-      icono: Icono.Configuracion,
-    },
-  ];
+  const [area, setArea] = useAreaActiva();
+  const menuItems = MENU_POR_AREA[area];
 
   return (
     <aside
@@ -109,6 +122,8 @@ export const Sidebar: React.FC<{
             <Icono.Menu className="h-4 w-4" />
           </button>
         </div>
+
+        <AreaSwitcher area={area} setArea={setArea} colapsado={colapsado} />
 
         <nav className="space-y-1.5 p-3.5">
           {menuItems.map((item) => {
@@ -231,45 +246,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const [colapsado, setColapsado] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  const [area, setArea] = useAreaActiva();
+  const menuItems = MENU_POR_AREA[area];
 
   useEffect(() => {
     Promise.resolve().then(() => {
       setMobileOpen(false);
     });
   }, [pathname]);
-
-  const menuItems = [
-    { label: "Inicio", href: "/dashboard", icono: Icono.Inicio },
-    { label: "Clientes", href: "/dashboard/clientes", icono: Icono.Clientes },
-    {
-      label: "Proyectos",
-      href: "/dashboard/proyectos",
-      icono: Icono.Proyectos,
-    },
-    { label: "Pagos", href: "/dashboard/pagos", icono: Icono.Pagos },
-    {
-      label: "Contratos",
-      href: "/dashboard/contratos",
-      icono: Icono.Contratos,
-    },
-    { label: "Territorio", href: "/dashboard/territorio", icono: Icono.MapPin },
-    {
-      label: "Planificador de Contenidos",
-      href: "/dashboard/planificador-contenido",
-      icono: Icono.Calendario,
-    },
-    {
-      label: "Contacto en Frío",
-      href: "/dashboard/contacto-frio",
-      icono: Icono.Contactos,
-    },
-    { label: "IA", href: "/dashboard/ia", icono: Icono.IA },
-    {
-      label: "Configuración",
-      href: "/dashboard/agencia",
-      icono: Icono.Configuracion,
-    },
-  ];
 
   return (
     <div className="flex min-h-screen bg-[#09090B] text-zinc-100">
@@ -294,6 +278,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
                   <Icono.Close className="h-5 w-5" />
                 </button>
               </div>
+              <AreaSwitcher area={area} setArea={setArea} colapsado={false} />
               <nav className="space-y-1.5 p-3.5">
                 {menuItems.map((item) => {
                   const ItemIcon = item.icono;
