@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "../../../../infrastructure/persistencia/drizzle-db";
 import * as schema from "../../../../infrastructure/persistencia/schema";
-import { eq } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { servidorTieneVersionMasNueva } from "../../../../shared/utilidades/resolucion-conflictos";
 
 // El respaldo completo hace muchas inserciones secuenciales dentro de una
@@ -167,26 +167,57 @@ export async function POST(req: NextRequest) {
 
       try {
         await db.transaction(async (tx) => {
-          for (const record of records as Record<string, unknown>[]) {
-            const dbPayload = normalizarPayload(record);
+          const normalizados = (records as Record<string, unknown>[]).map(
+            (record) => normalizarPayload(record)
+          );
 
-            // Resolución de conflictos (last-write-wins por actualizadoEn):
-            // el respaldo completo no debe pisar una versión más nueva ya
-            // sincronizada desde otro dispositivo.
-            if (tableSchema.actualizadoEn && dbPayload.actualizadoEn) {
+          // Resolución de conflictos (last-write-wins por actualizadoEn): una
+          // sola consulta trayendo todos los `actualizadoEn` existentes del
+          // lote, en vez de una consulta por registro (N+1) — con lotes
+          // grandes esa cantidad de viajes a la base podía tardar más que el
+          // límite de la función serverless y el cliente terminaba viendo
+          // "no pudimos conectar" (timeout de red, no un error real de la API).
+          let existentesMap: Map<unknown, unknown> | null = null;
+          if (tableSchema.actualizadoEn) {
+            const identificadores = normalizados
+              .map((dbPayload) =>
+                isProjectConfigTable
+                  ? dbPayload.proyectoId
+                  : isFichaTable
+                    ? dbPayload.potencialClienteId
+                    : dbPayload.id
+              )
+              .filter((v): v is string => typeof v === "string");
+
+            const existentes =
+              identificadores.length > 0
+                ? await tx
+                    .select({
+                      id: conflictTarget,
+                      actualizadoEn: tableSchema.actualizadoEn,
+                    })
+                    .from(tableSchema)
+                    .where(inArray(conflictTarget, identificadores))
+                : [];
+            existentesMap = new Map(
+              existentes.map((e) => [e.id, e.actualizadoEn])
+            );
+          }
+
+          for (const dbPayload of normalizados) {
+            if (
+              tableSchema.actualizadoEn &&
+              dbPayload.actualizadoEn &&
+              existentesMap
+            ) {
               const identificador = isProjectConfigTable
                 ? dbPayload.proyectoId
                 : isFichaTable
                   ? dbPayload.potencialClienteId
                   : dbPayload.id;
-              const existente = await tx
-                .select({ actualizadoEn: tableSchema.actualizadoEn })
-                .from(tableSchema)
-                .where(eq(conflictTarget, identificador))
-                .limit(1);
               if (
                 servidorTieneVersionMasNueva(
-                  existente[0]?.actualizadoEn,
+                  existentesMap.get(identificador),
                   dbPayload.actualizadoEn
                 )
               ) {
