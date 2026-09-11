@@ -350,6 +350,8 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
         },
       };
 
+      const ahora = Date.now();
+
       if (isActividad && selectedActividadCinta) {
         await db.task_executions.update(activeCintaExecution.id, {
           estado: "IN_REVISION",
@@ -357,10 +359,33 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
             ...meta,
             handoffs: updatedHandoffs,
           },
+          actualizadoEn: ahora,
         });
+        await QueueService.encolar(
+          "task_executions",
+          "editar",
+          activeCintaExecution.id,
+          {
+            id: activeCintaExecution.id,
+            estado: "IN_REVISION",
+            metadata: { ...meta, handoffs: updatedHandoffs },
+            actualizadoEn: ahora,
+          }
+        );
         await db.tareas.update(selectedActividadCinta.id, {
           estado: "in_revision",
+          actualizadoEn: ahora,
         });
+        await QueueService.encolar(
+          "tareas",
+          "editar",
+          selectedActividadCinta.id,
+          {
+            id: selectedActividadCinta.id,
+            estado: "in_revision",
+            actualizadoEn: ahora,
+          }
+        );
 
         setSelectedActividadCinta((prev: any) => ({
           ...prev,
@@ -378,15 +403,39 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
         if (activeIdx >= pipeline.length - 1) {
           await db.task_executions.update(activeCintaExecution.id, {
             estado: "COMPLETED",
-            fechaFin: Date.now(),
+            fechaFin: ahora,
             metadata: {
               ...meta,
               handoffs: updatedHandoffs,
             },
+            actualizadoEn: ahora,
           });
+          await QueueService.encolar(
+            "task_executions",
+            "editar",
+            activeCintaExecution.id,
+            {
+              id: activeCintaExecution.id,
+              estado: "COMPLETED",
+              fechaFin: ahora,
+              metadata: { ...meta, handoffs: updatedHandoffs },
+              actualizadoEn: ahora,
+            }
+          );
           await db.historias.update(selectedHistoriaCinta.id, {
             estado: "done",
+            actualizadoEn: ahora,
           });
+          await QueueService.encolar(
+            "historias",
+            "editar",
+            selectedHistoriaCinta.id,
+            {
+              id: selectedHistoriaCinta.id,
+              estado: "done",
+              actualizadoEn: ahora,
+            }
+          );
           setIsFocusMode(false);
           setSelectedHistoriaCinta(null);
           mostrarToast(
@@ -400,7 +449,22 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
               activeStationIndex: activeIdx + 1,
               handoffs: updatedHandoffs,
             },
+            actualizadoEn: ahora,
           });
+          await QueueService.encolar(
+            "task_executions",
+            "editar",
+            activeCintaExecution.id,
+            {
+              id: activeCintaExecution.id,
+              metadata: {
+                ...meta,
+                activeStationIndex: activeIdx + 1,
+                handoffs: updatedHandoffs,
+              },
+              actualizadoEn: ahora,
+            }
+          );
           mostrarToast(
             `Estación ${estacion} completada. Avanzando...`,
             "exito"
@@ -434,15 +498,28 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
         feedback: feedback.trim(),
       };
 
-      await db.task_executions.update(activeCintaExecution.id, {
-        metadata: {
-          ...meta,
-          iterations: {
-            ...currentIterations,
-            [estacion]: [...stationIterations, newIt],
-          },
+      const ahoraIteracion = Date.now();
+      const metadataIteracion = {
+        ...meta,
+        iterations: {
+          ...currentIterations,
+          [estacion]: [...stationIterations, newIt],
         },
+      };
+      await db.task_executions.update(activeCintaExecution.id, {
+        metadata: metadataIteracion,
+        actualizadoEn: ahoraIteracion,
       });
+      await QueueService.encolar(
+        "task_executions",
+        "editar",
+        activeCintaExecution.id,
+        {
+          id: activeCintaExecution.id,
+          metadata: metadataIteracion,
+          actualizadoEn: ahoraIteracion,
+        }
+      );
       mostrarToast("Iteración registrada con éxito.", "exito");
     } catch (err: any) {
       mostrarToast(`Error al registrar iteración: ${err.message}`, "error");
@@ -476,15 +553,28 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
         fecha: new Date().toLocaleTimeString(),
       };
 
-      await db.task_executions.update(activeCintaExecution.id, {
-        metadata: {
-          ...meta,
-          bugs: {
-            ...currentBugs,
-            [estacion]: [...stationBugs, newBug],
-          },
+      const ahoraBug = Date.now();
+      const metadataBug = {
+        ...meta,
+        bugs: {
+          ...currentBugs,
+          [estacion]: [...stationBugs, newBug],
         },
+      };
+      await db.task_executions.update(activeCintaExecution.id, {
+        metadata: metadataBug,
+        actualizadoEn: ahoraBug,
       });
+      await QueueService.encolar(
+        "task_executions",
+        "editar",
+        activeCintaExecution.id,
+        {
+          id: activeCintaExecution.id,
+          metadata: metadataBug,
+          actualizadoEn: ahoraBug,
+        }
+      );
       mostrarToast(
         "Bug reportado en la estación. Revisa el prompt de depuración.",
         "info"
@@ -508,15 +598,28 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
         return b;
       });
 
-      await db.task_executions.update(activeCintaExecution.id, {
-        metadata: {
-          ...meta,
-          bugs: {
-            ...currentBugs,
-            [estacion]: updated,
-          },
+      const ahoraResuelto = Date.now();
+      const metadataResuelto = {
+        ...meta,
+        bugs: {
+          ...currentBugs,
+          [estacion]: updated,
         },
+      };
+      await db.task_executions.update(activeCintaExecution.id, {
+        metadata: metadataResuelto,
+        actualizadoEn: ahoraResuelto,
       });
+      await QueueService.encolar(
+        "task_executions",
+        "editar",
+        activeCintaExecution.id,
+        {
+          id: activeCintaExecution.id,
+          metadata: metadataResuelto,
+          actualizadoEn: ahoraResuelto,
+        }
+      );
       mostrarToast("¡Bug marcado como resuelto!", "exito");
     } catch (err: any) {
       mostrarToast(`Error al resolver bug: ${err.message}`, "error");
@@ -589,14 +692,36 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
 
   const completarCerrarActividad = async (actividadId: string) => {
     try {
+      const ahora = Date.now();
+      const execId = `execution_act_${actividadId}`;
       await db.transaction(
         "rw",
-        [db.tareas, db.task_executions, db.proyecto_estado_tecnico],
+        [
+          db.tareas,
+          db.task_executions,
+          db.proyecto_estado_tecnico,
+          db.cola_eventos,
+        ],
         async () => {
-          await db.tareas.update(actividadId, { estado: "completado" });
-          await db.task_executions.update(`execution_act_${actividadId}`, {
+          await db.tareas.update(actividadId, {
+            estado: "completado",
+            actualizadoEn: ahora,
+          });
+          await QueueService.encolar("tareas", "editar", actividadId, {
+            id: actividadId,
+            estado: "completado",
+            actualizadoEn: ahora,
+          });
+          await db.task_executions.update(execId, {
             estado: "COMPLETED",
-            fechaFin: Date.now(),
+            fechaFin: ahora,
+            actualizadoEn: ahora,
+          });
+          await QueueService.encolar("task_executions", "editar", execId, {
+            id: execId,
+            estado: "COMPLETED",
+            fechaFin: ahora,
+            actualizadoEn: ahora,
           });
           await db.proyecto_estado_tecnico.update(proyectoId, {
             activeActivityFocusId: null,
@@ -616,23 +741,41 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
 
   const iniciarCintaProduccionActividad = async (actividad: any) => {
     try {
-      await db.tareas.update(actividad.id, { estado: "in_progress" });
+      const ahora = Date.now();
+      await db.tareas.update(actividad.id, {
+        estado: "in_progress",
+        actualizadoEn: ahora,
+      });
+      await QueueService.encolar("tareas", "editar", actividad.id, {
+        id: actividad.id,
+        estado: "in_progress",
+        actualizadoEn: ahora,
+      });
+
       const execId = `execution_act_${actividad.id}`;
       const existing = await db.task_executions.get(execId);
       if (!existing) {
-        await db.task_executions.put({
+        const execucionPayload = {
           id: execId,
           proyectoId,
           actividadId: actividad.id,
           titulo: actividad.titulo,
           estado: "IN_PROGRESS",
-          fechaInicio: Date.now(),
+          fechaInicio: ahora,
+          actualizadoEn: ahora,
           metadata: {
             handoffs: {},
             iterations: [],
             bugs: [],
           },
-        });
+        };
+        await db.task_executions.put(execucionPayload);
+        await QueueService.encolar(
+          "task_executions",
+          "crear",
+          execId,
+          execucionPayload
+        );
       }
       await db.proyecto_estado_tecnico.put({
         proyectoId,
@@ -906,7 +1049,13 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
 
   const handleUpdateActividadEstado = async (id: string, estado: string) => {
     try {
-      await db.tareas.update(id, { estado });
+      const actualizadoEn = Date.now();
+      await db.tareas.update(id, { estado, actualizadoEn });
+      await QueueService.encolar("tareas", "editar", id, {
+        id,
+        estado,
+        actualizadoEn,
+      });
       mostrarToast("Estado de actividad actualizado.", "exito");
     } catch (err: any) {
       mostrarToast(`Error al actualizar estado: ${err.message}`, "error");
