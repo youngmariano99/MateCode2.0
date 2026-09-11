@@ -1,4 +1,4 @@
-const CACHE_NAME = "matecode-v2";
+const CACHE_NAME = "matecode-v3";
 const ASSETS = [
   "/",
   "/dashboard",
@@ -48,19 +48,20 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
+  // Navegaciones (HTML) y el resto de los assets: red primero, para no
+  // servir nunca un shell viejo que pida chunks JS de un build anterior ya
+  // borrado del servidor (eso rompía la hidratación después de cada
+  // deploy). El caché queda solo como respaldo para cuando no hay red.
   e.respondWith(
-    caches.match(e.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        fetch(e.request).then((networkResponse) => {
-          if (networkResponse.status === 200) {
-            caches
-              .open(CACHE_NAME)
-              .then((cache) => cache.put(e.request, networkResponse));
-          }
-        });
-        return cachedResponse;
-      }
-      return fetch(e.request);
-    })
+    fetch(e.request)
+      .then((networkResponse) => {
+        if (networkResponse.status === 200) {
+          caches
+            .open(CACHE_NAME)
+            .then((cache) => cache.put(e.request, networkResponse.clone()));
+        }
+        return networkResponse;
+      })
+      .catch(() => caches.match(e.request))
   );
 });
