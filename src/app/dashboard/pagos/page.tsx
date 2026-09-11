@@ -8,6 +8,7 @@ import { Input } from "../../../presentation/components/input";
 import { Select } from "../../../presentation/components/select";
 import { useToast } from "../../../presentation/hooks/useToast";
 import { db } from "../../../offline/dexie/db";
+import { QueueService } from "../../../offline/services/queue.service";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Icono } from "../../../presentation/components/icons";
 
@@ -119,7 +120,10 @@ export default function PagosPage() {
   const handleEliminarPago = async (id: string) => {
     if (confirm("¿Estás seguro de eliminar este registro de pago?")) {
       try {
-        await db.pagos.delete(id);
+        await db.transaction("rw", [db.pagos, db.cola_eventos], async () => {
+          await db.pagos.delete(id);
+          await QueueService.encolar("pagos", "eliminar", id, {});
+        });
         await db.logs_sincronizacion.add({
           tipo: "exito",
           mensaje: `Pagos: Pago ${id} eliminado`,

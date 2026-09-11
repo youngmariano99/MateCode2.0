@@ -389,7 +389,7 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
                   onClick={handleCopiarTemplate}
                   className="rounded-lg border border-[#2A2A2E] bg-zinc-900 px-2.5 py-1 font-mono text-[10px] text-emerald-400 transition-all hover:bg-zinc-800"
                 >
-                  {copiado ? "✓ Copiado" : "Copiar Plantilla"}
+                  {copiado ? "Copiado" : "Copiar Plantilla"}
                 </button>
               </div>
               <p className="mt-2 font-mono text-[10px] leading-normal text-zinc-500">
@@ -440,7 +440,7 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
         ) : (
           <div className="flex flex-col gap-4">
             <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 font-mono text-[10px] text-emerald-400">
-              ✓ JSON cargado con éxito. Se está realizando la comprobación de
+              JSON cargado con éxito. Se está realizando la comprobación de
               direcciones geográficas mediante Nominatim. Puedes editar
               directamente cualquier fila errónea e intentar re-testear.
             </div>
@@ -535,14 +535,14 @@ export const ModalImportarClientes: React.FC<ModalImportarClientesProps> = ({
                           </span>
                         ) : item.error ? (
                           <span className="font-bold text-red-400">
-                            ✗ {item.error}
+                            {item.error}
                           </span>
                         ) : item.latitud ? (
                           <span
                             className="font-bold text-emerald-400"
                             title={item.direccionFormateada}
                           >
-                            ✓ OK ({item.latitud.toFixed(4)},{" "}
+                            OK ({item.latitud.toFixed(4)},{" "}
                             {item.longitud?.toFixed(4)})
                           </span>
                         ) : (

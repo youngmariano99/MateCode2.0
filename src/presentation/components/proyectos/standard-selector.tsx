@@ -1,10 +1,9 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import React, { useState, useEffect } from "react";
 import { Card } from "../card";
 import { Button } from "../button";
-import { Input } from "../input";
 import { db } from "../../../offline/dexie/db";
 import { useToast } from "../../hooks/useToast";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -20,10 +19,22 @@ interface StandardSelectorProps {
     robustez?: string[];
     devops?: string[];
     coberturaMinima?: number;
-    // Backward compatibility & custom keys
+    // Backward compatibility & custom keys — cualquier estructura vieja
+    // guardada en Dexie puede traer claves extra que no están en este tipo.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     [key: string]: any;
   };
   onSave: (estandares: Record<string, unknown>) => void;
+}
+
+interface StandardPreset {
+  id: string;
+  nombre: string;
+  data?: {
+    customCategories?: Record<string, string>;
+    estandares?: Record<string, string[]>;
+    coberturaMinima?: number;
+  };
 }
 
 const CATEGORIES: Record<string, string> = {
@@ -111,11 +122,12 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
 
   // Load custom presets from DB
   const customPresets =
-    (useLiveQuery(() =>
-      db.agencia_config
-        .filter((item: any) => item.tipo === "preset_estandar")
-        .toArray()
-    ) as any[] | undefined) || [];
+    useLiveQuery(
+      () =>
+        db.agencia_config
+          .filter((item) => item.tipo === "preset_estandar")
+          .toArray() as unknown as Promise<StandardPreset[]>
+    ) || [];
 
   const safeInitial = initialEstandares || {};
 
@@ -379,15 +391,16 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
       setJsonText("");
       setShowJsonArea(false);
       mostrarToast("JSON importado y estándares actualizados.", "exito");
-    } catch (err: any) {
-      mostrarToast(`JSON Inválido: ${err.message}`, "error");
+    } catch (err: unknown) {
+      const mensaje = err instanceof Error ? err.message : String(err);
+      mostrarToast(`JSON Inválido: ${mensaje}`, "error");
     }
   };
 
   const descargarEspecificacionCompleta = async () => {
     try {
       const proj = await db.proyectos.get(proyectoId);
-      const stackData = proj?.stack as any;
+      const stackData = proj?.stack as Record<string, string[]> | undefined;
 
       let md = `# Especificación Técnica del Proyecto: ${
         proj?.nombre || "Detalles del Sistema"
@@ -397,7 +410,7 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
       md += `## 1. Stack Tecnológico Seleccionado\n\n`;
 
       if (stackData) {
-        Object.entries(stackData).forEach(([layer, list]: [string, any]) => {
+        Object.entries(stackData).forEach(([layer, list]) => {
           if (Array.isArray(list) && list.length > 0) {
             md += `### ${layer.toUpperCase()}\n`;
             list.forEach((t) => {
@@ -441,8 +454,9 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
       document.body.removeChild(link);
 
       mostrarToast("Descargando especificación técnica .md...", "info");
-    } catch (err: any) {
-      mostrarToast(`Error al exportar: ${err.message}`, "error");
+    } catch (err: unknown) {
+      const mensaje = err instanceof Error ? err.message : String(err);
+      mostrarToast(`Error al exportar: ${mensaje}`, "error");
     }
   };
 
@@ -481,7 +495,7 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
             onClick={descargarEspecificacionCompleta}
             className="rounded border border-sky-500/20 bg-sky-500/10 px-2 py-1 font-mono text-[9px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
           >
-            📥 Exportar .md
+            Exportar .md
           </button>
         </div>
       </div>

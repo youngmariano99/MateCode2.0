@@ -2,8 +2,10 @@
 
 import React, { useState } from "react";
 import { Card } from "../card";
+import { Icono } from "../icons";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../../offline/dexie/db";
+import { QueueService } from "../../../offline/services/queue.service";
 import { useToast } from "../../hooks/useToast";
 
 interface SprintPlannerProps {
@@ -108,7 +110,7 @@ export const SprintPlanner: React.FC<SprintPlannerProps> = ({ proyectoId }) => {
     const end = start + duracionSemanas * 7 * 24 * 60 * 60 * 1000;
 
     try {
-      await db.sprints.add({
+      const payload = {
         id: newSprintId,
         proyectoId,
         nombre: nombreSprint,
@@ -118,6 +120,10 @@ export const SprintPlanner: React.FC<SprintPlannerProps> = ({ proyectoId }) => {
         objetivo: objetivoSprint,
         capacidad: capacidadSprint,
         estado: "planificacion",
+      };
+      await db.transaction("rw", [db.sprints, db.cola_eventos], async () => {
+        await db.sprints.add(payload);
+        await QueueService.encolar("sprints", "crear", newSprintId, payload);
       });
       setNombreSprint("");
       setObjetivoSprint("");
@@ -137,7 +143,13 @@ export const SprintPlanner: React.FC<SprintPlannerProps> = ({ proyectoId }) => {
       return;
     }
     try {
-      await db.sprints.update(sprintId, { estado: "activo" });
+      await db.transaction("rw", [db.sprints, db.cola_eventos], async () => {
+        await db.sprints.update(sprintId, { estado: "activo" });
+        await QueueService.encolar("sprints", "editar", sprintId, {
+          id: sprintId,
+          estado: "activo",
+        });
+      });
       mostrarToast(
         "Sprint iniciado con éxito. Las actividades ya están en el tablero Kanban.",
         "exito"
@@ -150,7 +162,14 @@ export const SprintPlanner: React.FC<SprintPlannerProps> = ({ proyectoId }) => {
   // Reassign story to another sprint or backlog
   const reasignarHistoria = async (storyId: string, sprintId: string) => {
     try {
-      await db.historias.update(storyId, { sprintId: sprintId || "" });
+      const cambios = { sprintId: sprintId || "" };
+      await db.transaction("rw", [db.historias, db.cola_eventos], async () => {
+        await db.historias.update(storyId, cambios);
+        await QueueService.encolar("historias", "editar", storyId, {
+          id: storyId,
+          ...cambios,
+        });
+      });
       mostrarToast("Historia reasignada correctamente.", "info");
     } catch {
       mostrarToast("Error al reasignar la historia.", "error");
@@ -182,12 +201,14 @@ export const SprintPlanner: React.FC<SprintPlannerProps> = ({ proyectoId }) => {
     try {
       await db.transaction(
         "rw",
-        [db.sprints, db.historias, db.tareas],
+        [db.sprints, db.historias, db.tareas, db.cola_eventos],
         async () => {
           // 1. Mark sprint as finished
-          await db.sprints.update(sprintCerrandoId, {
-            estado: "finalizado",
-            fechaFin: Date.now(),
+          const cierreSprint = { estado: "finalizado", fechaFin: Date.now() };
+          await db.sprints.update(sprintCerrandoId, cierreSprint);
+          await QueueService.encolar("sprints", "editar", sprintCerrandoId, {
+            id: sprintCerrandoId,
+            ...cierreSprint,
           });
 
           const historiasSprint = historias.filter(
@@ -200,20 +221,34 @@ export const SprintPlanner: React.FC<SprintPlannerProps> = ({ proyectoId }) => {
             // If no rollover action defined (meaning it was fully completed), keep it in this finished sprint and set estado to "Done"
             if (!accion) {
               await db.historias.update(h.id, { estado: "Done" });
+              await QueueService.encolar("historias", "editar", h.id, {
+                id: h.id,
+                estado: "Done",
+              });
               continue;
             }
 
             if (accion.tipo === "backlog") {
-              await db.historias.update(h.id, { sprintId: "", estado: "Todo" });
+              const cambios = { sprintId: "", estado: "Todo" };
+              await db.historias.update(h.id, cambios);
+              await QueueService.encolar("historias", "editar", h.id, {
+                id: h.id,
+                ...cambios,
+              });
             } else if (accion.tipo === "sprint" && accion.destinoSprintId) {
-              await db.historias.update(h.id, {
+              const cambios = {
                 sprintId: accion.destinoSprintId,
                 estado: "Todo",
+              };
+              await db.historias.update(h.id, cambios);
+              await QueueService.encolar("historias", "editar", h.id, {
+                id: h.id,
+                ...cambios,
               });
             } else if (accion.tipo === "nuevo") {
               // Create a new planned sprint on the fly
               const newSprintId = `spr_auto_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`;
-              await db.sprints.add({
+              const nuevoSprintPayload = {
                 id: newSprintId,
                 proyectoId,
                 nombre: `Sprint Planificado Rollover`,
@@ -224,14 +259,31 @@ export const SprintPlanner: React.FC<SprintPlannerProps> = ({ proyectoId }) => {
                   "Completar entregables pendientes del sprint anterior",
                 capacidad: 15,
                 estado: "planificacion",
-              });
-              await db.historias.update(h.id, {
-                sprintId: newSprintId,
-                estado: "Todo",
+              };
+              await db.sprints.add(nuevoSprintPayload);
+              await QueueService.encolar(
+                "sprints",
+                "crear",
+                newSprintId,
+                nuevoSprintPayload
+              );
+              const cambios = { sprintId: newSprintId, estado: "Todo" };
+              await db.historias.update(h.id, cambios);
+              await QueueService.encolar("historias", "editar", h.id, {
+                id: h.id,
+                ...cambios,
               });
             } else if (accion.tipo === "eliminar") {
               await db.historias.delete(h.id);
+              await QueueService.encolar("historias", "eliminar", h.id, {});
+              const tareasDeHistoria = (await db.tareas
+                .where("historiaId")
+                .equals(h.id)
+                .toArray()) as unknown as Tarea[];
               await db.tareas.where("historiaId").equals(h.id).delete();
+              for (const t of tareasDeHistoria) {
+                await QueueService.encolar("tareas", "eliminar", t.id, {});
+              }
             }
           }
         }
@@ -272,7 +324,7 @@ export const SprintPlanner: React.FC<SprintPlannerProps> = ({ proyectoId }) => {
         <Card>
           <div className="flex flex-col gap-4 font-mono text-xs text-zinc-300">
             <span className="font-bold text-white uppercase">
-              📋 Crear Nuevo Sprint
+              Crear Nuevo Sprint
             </span>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1">
@@ -340,7 +392,7 @@ export const SprintPlanner: React.FC<SprintPlannerProps> = ({ proyectoId }) => {
         <div className="flex flex-col gap-3 lg:col-span-1">
           <div className="border-b border-zinc-900 pb-2">
             <h4 className="font-mono text-xs font-bold text-white uppercase">
-              🗃️ Backlog del Proyecto
+              Backlog del Proyecto
             </h4>
             <p className="font-mono text-[9px] text-zinc-500">
               Historias sin asignar a ningún Sprint ({backlogStories.length})
@@ -542,13 +594,14 @@ export const SprintPlanner: React.FC<SprintPlannerProps> = ({ proyectoId }) => {
           <div className="relative z-10 flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-zinc-800 bg-[#121214] p-6 font-mono text-xs shadow-2xl">
             <div className="flex shrink-0 items-center justify-between border-b border-zinc-900 pb-3">
               <h4 className="font-bold text-white uppercase">
-                🏁 Retrospectiva y Rollover del Sprint
+                Retrospectiva y Rollover del Sprint
               </h4>
               <button
                 onClick={() => setSprintCerrandoId(null)}
-                className="font-mono text-zinc-500 hover:text-zinc-200"
+                title="Cerrar"
+                className="flex min-h-11 min-w-11 items-center justify-center text-zinc-500 hover:text-zinc-200"
               >
-                ✕
+                <Icono.Close className="h-4 w-4" />
               </button>
             </div>
 

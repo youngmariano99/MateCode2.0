@@ -39,6 +39,14 @@ export async function middleware(request: NextRequest) {
   );
   const isAuthPage = isLoginPage || isRecoverPage;
   const isProtectedPage = request.nextUrl.pathname.startsWith("/dashboard");
+  const isProtectedApi = request.nextUrl.pathname.startsWith("/api");
+
+  if (isProtectedApi && !user) {
+    return NextResponse.json(
+      { success: false, error: "No autenticado." },
+      { status: 401 }
+    );
+  }
 
   if (isProtectedPage && !user) {
     return NextResponse.redirect(new URL("/login", request.url));
@@ -52,5 +60,10 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login", "/recuperar-password"],
+  matcher: [
+    "/dashboard/:path*",
+    "/login",
+    "/recuperar-password",
+    "/api/:path*",
+  ],
 };

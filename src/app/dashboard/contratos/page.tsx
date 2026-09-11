@@ -9,6 +9,7 @@ import { Icono } from "../../../presentation/components/icons";
 import { db } from "../../../offline/dexie/db";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CrearDocumentoUseCase } from "../../../application/use-cases/documento/crear-documento.use-case";
+import { QueueService } from "../../../offline/services/queue.service";
 
 // Subcomponents
 import { EditorDocumento } from "../../../presentation/components/documentos/editor-documento";
@@ -116,7 +117,10 @@ export default function ContratosPage() {
   const eliminarDocumento = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm("¿Estás seguro de eliminar este documento inteligente?")) {
-      await db.documentos.delete(id);
+      await db.transaction("rw", [db.documentos, db.cola_eventos], async () => {
+        await db.documentos.delete(id);
+        await QueueService.encolar("documentos", "eliminar", id, {});
+      });
       mostrarToast("Documento eliminado correctamente.", "exito");
     }
   };

@@ -10,27 +10,35 @@ export class CrearAgenciaUseCase {
 
   public async ejecutar(agencia: Agencia): Promise<Resultado<void>> {
     const online = useConexionStore.getState().online;
+    const payload = agencia as unknown as Record<string, unknown>;
 
-    await db.clientes.put({
-      ...agencia,
-    });
+    if (!online) {
+      await db.transaction("rw", [db.clientes, db.cola_eventos], async () => {
+        await db.clientes.put({ ...agencia });
+        await QueueService.encolar("agencias", "crear", agencia.id, payload);
+      });
+      await db.logs_sincronizacion.add({
+        tipo: "exito",
+        mensaje: `Agencia creada localmente: ${agencia.nombreComercial}`,
+        fecha: Date.now(),
+      });
+      return Resultado.exito(undefined);
+    }
 
+    await db.clientes.put({ ...agencia });
     await db.logs_sincronizacion.add({
       tipo: "exito",
       mensaje: `Agencia creada localmente: ${agencia.nombreComercial}`,
       fecha: Date.now(),
     });
 
-    if (!online) {
-      await QueueService.encolar(
-        "agencias",
-        "crear",
-        agencia.id,
-        agencia as unknown as Record<string, unknown>
-      );
+    const resultado = await this.repo.guardar(agencia);
+    if (!resultado.ok) {
+      // El escritor directo falló pese a estar "online" (hiccup de red) —
+      // no perder el alta, queda pendiente de reintento por la cola.
+      await QueueService.encolar("agencias", "crear", agencia.id, payload);
       return Resultado.exito(undefined);
     }
-
-    return await this.repo.guardar(agencia);
+    return resultado;
   }
 }

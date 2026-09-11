@@ -356,6 +356,90 @@ Devuelve ÚNICAMENTE un archivo Markdown completo (SEED.md) sin saludos ni concl
 ## 3. Script / Configuración de Siembra (con código sintácticamente correcto en el lenguaje de inserción, SQL, ORM o script del motor técnico del proyecto)
 </output_requerido>`;
 
+export const PROMPT_SPRINTS_CONTINUACION = `<rol>
+Actúa como Scrum Master y Tech Lead Senior.
+Tu objetivo es planificar nuevos Sprints correctivos o de extensión para desarrollar funcionalidades faltantes o nuevas, basándote en la situación actual del Backlog del proyecto.
+</rol>
+
+<contexto>
+  - Proyecto: {{nombre_proyecto}}
+  - Descripción: {{descripcion_proyecto}}
+  - Stack Técnico y Estándares:
+{{CLAUDE_MD}}
+
+  - Sitemap / Mapa del Sitio actual:
+{{sitemap}}
+
+  - Backlog de Épicas e Historias Existentes:
+{{backlog_historias}}
+</contexto>
+
+<instrucciones_de_usuario>
+El usuario indica lo siguiente sobre lo que se necesita desarrollar a continuación:
+"{{instrucciones_usuario}}"
+</instrucciones_de_usuario>
+
+<reglas_de_generacion>
+1. COHERENCIA LOGÍSTICA: Si se trata de desarrollar algo que faltó de sprints anteriores, asocia las nuevas historias/actividades a las Épicas existentes. Si son nuevas funcionalidades, crea las Épicas y las Historias de Usuario correspondientes.
+2. DETALLE TÉCNICO COMPLETO: Para cada nueva historia de usuario o actividad técnica que agregues, debes especificar:
+   - Las actividades técnicas individuales (desglose de tareas).
+   - Para cada actividad, define:
+     - "rol": El rol técnico idóneo (BD, Backend, Frontend, QA, etc.).
+     - "componente": El nombre del archivo o componente a crear o modificar.
+     - "ruta": La ruta de archivos sugerida dentro del repositorio.
+     - "modulo": El nombre del módulo del sistema.
+     - "etiquetas": Array de tecnologías/keywords.
+     - "pasos": Checklist detallado de pasos de implementación.
+     - "criteriosAceptacion": Criterios de aceptación técnicos que validen la tarea.
+     - "seed": (Opcional) Directrices de datos semilla si la actividad requiere sembrar base de datos.
+3. ESTADO INICIAL: Todo nuevo sprint, historia y actividad que se cree debe inicializarse con estado planificado/pendiente ("todo" / "planificado").
+</reglas_de_generacion>
+
+<output_requerido>
+Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin texto explicativo, sin bloques de código markdown extra (solo el JSON crudo):
+[
+  {
+    "sprintNombre": "Sprint X: [Breve título descriptivo del sprint]",
+    "sprintObjetivo": "[Objetivo principal del sprint]",
+    "sprintDuracionSemanas": 2,
+    "sprintCapacidad": 20,
+    "historias": [
+      {
+        "epicaNombre": "[Nombre de Épica existente o una nueva si es funcionalidad nueva]",
+        "epicaDescripcion": "[Descripción de la épica si es nueva, o vacío/omitido si ya existe]",
+        "titulo": "[Título descriptivo de la Historia de Usuario]",
+        "descripcion": "[Como usuario quiero... para... (Criterios de aceptación generales)]",
+        "prioridad": "Alta" | "Media" | "Baja",
+        "estimacion": 5,
+        "actividades": [
+          {
+            "titulo": "[Título de la actividad técnica]",
+            "rol": "Backend" | "Frontend" | "BD" | "QA" | "Devops",
+            "componente": "[Nombre de componente/archivo]",
+            "ruta": "[Ruta sugerida]",
+            "modulo": "[Nombre del módulo]",
+            "etiquetas": ["etiqueta1", "etiqueta2"],
+            "pasos": [
+              "Paso 1...",
+              "Paso 2..."
+            ],
+            "criteriosAceptacion": [
+              "Criterio 1...",
+              "Criterio 2..."
+            ],
+            "seed": {
+              "modelo": "[Nombre de tabla/entidad si requiere datos semilla, sino omitir]",
+              "volumen": 10,
+              "indicaciones": "[Directrices de datos de prueba]"
+            }
+          }
+        ]
+      }
+    ]
+  }
+]
+</output_requerido>`;
+
 export const PROMPT_DESVIO_SPRINT = `<rol>
 Actúa como Tech Lead y Scrum Master Senior.
 </rol>

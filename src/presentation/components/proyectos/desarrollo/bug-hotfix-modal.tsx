@@ -1,7 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React from "react";
+
+interface TicketExecutionResumen {
+  id: string;
+  titulo: string;
+}
 
 interface BugHotfixModalProps {
   isOpen: boolean;
@@ -12,7 +16,7 @@ interface BugHotfixModalProps {
   setBugType: (type: "bugfix" | "hotfix") => void;
   linkedTicketId: string;
   setLinkedTicketId: (id: string) => void;
-  ticketExecutions: any[];
+  ticketExecutions: TicketExecutionResumen[];
   bugLogs: string;
   setBugLogs: (logs: string) => void;
   iniciarBugTicket: () => void;
@@ -39,7 +43,7 @@ export const BugHotfixModal: React.FC<BugHotfixModalProps> = ({
       <div className="border-zinc-850 w-[500px] rounded-xl border bg-zinc-950 p-5 shadow-2xl">
         <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-3">
           <span className="font-mono text-xs font-bold text-red-400 uppercase">
-            🐛 Registrar Bug / Hotfix
+            Registrar Bug / Hotfix
           </span>
           <button
             onClick={onClose}
@@ -70,7 +74,9 @@ export const BugHotfixModal: React.FC<BugHotfixModalProps> = ({
               </label>
               <select
                 value={bugType}
-                onChange={(e) => setBugType(e.target.value as any)}
+                onChange={(e) =>
+                  setBugType(e.target.value as "bugfix" | "hotfix")
+                }
                 className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
               >
                 <option value="bugfix">Bugfix (Normal - Staging)</option>

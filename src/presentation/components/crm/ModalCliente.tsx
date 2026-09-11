@@ -525,14 +525,12 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
                 </span>
               )}
               {testResult.error && (
-                <span className="text-red-400">
-                  ✗ Error: {testResult.error}
-                </span>
+                <span className="text-red-400">Error: {testResult.error}</span>
               )}
               {testResult.latitud !== undefined && (
                 <div className="flex flex-col gap-1">
                   <span className="font-bold text-emerald-400">
-                    ✓ Coordenadas Encontradas con Éxito (Se guardarán al
+                    Coordenadas Encontradas con Éxito (Se guardarán al
                     confirmar)
                   </span>
                   <span className="text-zinc-300">

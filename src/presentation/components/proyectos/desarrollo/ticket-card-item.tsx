@@ -1,15 +1,76 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../../../offline/dexie/db";
+import { QueueService } from "../../../../offline/services/queue.service";
+
+export interface IteracionRefinamiento {
+  fecha: string;
+  consideraciones: string;
+}
+
+export interface BugRegistrado {
+  resuelto: boolean;
+  [key: string]: unknown;
+}
+
+export interface HandoffEstacion {
+  resumen_tecnico?: string;
+  [key: string]: unknown;
+}
+
+// El ticket guarda un blob de metadata heterogéneo a propósito (distinto
+// según sea feature/bug/hotfix) — mismo patrón de JSONB flexible que el
+// resto del proyecto, tipado con los campos que este componente sí lee.
+export interface TicketMetadata {
+  rol?: string;
+  seccionNombre?: string;
+  seccionDescripcion?: string;
+  extraContext?: string;
+  criterioAceptacion?: string;
+  logs?: string;
+  iterations?: IteracionRefinamiento[];
+  aiSummary?: string;
+  actividadId?: string;
+  bugs?: BugRegistrado[];
+  handoffs?: Record<string, HandoffEstacion>;
+  [key: string]: unknown;
+}
+
+export interface TicketExecution {
+  id: string;
+  titulo: string;
+  estado: string;
+  usuarioAsignadoId?: string;
+  metadata?: TicketMetadata;
+}
+
+export interface ProyectoResumen {
+  stack?: Record<string, string[]>;
+  estandares?: Record<string, string[] | string>;
+}
+
+export interface ContextoResumen {
+  linksInspiracion?: string[];
+}
+
+export interface DesignSystemResumen {
+  arquetipo?: string;
+  reglaColor?: string;
+}
+
+interface StepState {
+  id: string;
+  titulo: string;
+  completado: boolean;
+}
 
 interface TicketCardItemProps {
-  ticket: any;
-  proyecto: any;
-  contexto: any;
-  ds: any;
+  ticket: TicketExecution;
+  proyecto: ProyectoResumen | undefined;
+  contexto: ContextoResumen | undefined;
+  ds: DesignSystemResumen | undefined;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onDeleteTicket: () => void;
@@ -27,10 +88,15 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
   mostrarToast,
 }) => {
   // Load steps for this specific ticket
-  const stepStates = (useLiveQuery(
-    () => db.task_step_states.where("executionId").equals(ticket.id).toArray(),
-    [ticket.id]
-  ) || []) as any[];
+  const stepStates: StepState[] =
+    useLiveQuery(
+      () =>
+        db.task_step_states
+          .where("executionId")
+          .equals(ticket.id)
+          .toArray() as unknown as Promise<StepState[]>,
+      [ticket.id]
+    ) || [];
 
   // Local form states
   const [refinamientoInput, setRefinamientoInput] = useState("");
@@ -42,8 +108,9 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
   const toggleStepCompleted = async (stepStateId: string, current: boolean) => {
     try {
       await db.task_step_states.update(stepStateId, { completado: !current });
-    } catch (err: any) {
-      mostrarToast(`Error al actualizar paso: ${err.message}`, "error");
+    } catch (err: unknown) {
+      const mensaje = err instanceof Error ? err.message : String(err);
+      mostrarToast(`Error al actualizar paso: ${mensaje}`, "error");
     }
   };
 
@@ -173,17 +240,29 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
         consideraciones: refinamientoInput.trim(),
       };
 
-      await db.task_executions.update(ticket.id, {
-        metadata: {
-          ...currentMeta,
-          iterations: [...prevIterations, newIteration],
-        },
-      });
+      const metadataActualizada = {
+        ...currentMeta,
+        iterations: [...prevIterations, newIteration],
+      };
+      await db.transaction(
+        "rw",
+        [db.task_executions, db.cola_eventos],
+        async () => {
+          await db.task_executions.update(ticket.id, {
+            metadata: metadataActualizada,
+          });
+          await QueueService.encolar("task_executions", "editar", ticket.id, {
+            id: ticket.id,
+            metadata: metadataActualizada,
+          });
+        }
+      );
 
       setRefinamientoInput("");
       mostrarToast("Iteración registrada en el historial del ticket.", "exito");
-    } catch (err: any) {
-      mostrarToast(`Error al registrar iteración: ${err.message}`, "error");
+    } catch (err: unknown) {
+      const mensaje = err instanceof Error ? err.message : String(err);
+      mostrarToast(`Error al registrar iteración: ${mensaje}`, "error");
     }
   };
 
@@ -228,19 +307,31 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
       if (parsed.resumen_ia) {
         setAiSummaryInput(parsed.resumen_ia);
         const currentMeta = ticket.metadata || {};
-        await db.task_executions.update(ticket.id, {
-          metadata: {
-            ...currentMeta,
-            aiSummary: parsed.resumen_ia,
-          },
-        });
+        const metadataActualizada = {
+          ...currentMeta,
+          aiSummary: parsed.resumen_ia,
+        };
+        await db.transaction(
+          "rw",
+          [db.task_executions, db.cola_eventos],
+          async () => {
+            await db.task_executions.update(ticket.id, {
+              metadata: metadataActualizada,
+            });
+            await QueueService.encolar("task_executions", "editar", ticket.id, {
+              id: ticket.id,
+              metadata: metadataActualizada,
+            });
+          }
+        );
       }
 
       setChecklistJsonInput("");
       mostrarToast("Checklist e historial sincronizados desde la IA.", "exito");
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const mensaje = err instanceof Error ? err.message : String(err);
       mostrarToast(
-        `JSON no válido: ${err.message}. Asegúrate de pegar el objeto JSON devuelto por la IA.`,
+        `JSON no válido: ${mensaje}. Asegúrate de pegar el objeto JSON devuelto por la IA.`,
         "error"
       );
     }
@@ -248,28 +339,44 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
 
   const finalizarTicket = async () => {
     try {
-      await db.transaction("rw", [db.task_executions, db.tareas], async () => {
-        const metadata = ticket.metadata || {};
-        await db.task_executions.update(ticket.id, {
-          estado: "COMPLETED",
-          fechaFin: Date.now(),
-          metadata: {
-            ...metadata,
-            aiSummary: aiSummaryInput,
-          },
-        });
+      await db.transaction(
+        "rw",
+        [db.task_executions, db.tareas, db.cola_eventos],
+        async () => {
+          const metadata = ticket.metadata || {};
+          const cambios = {
+            estado: "COMPLETED",
+            fechaFin: Date.now(),
+            metadata: {
+              ...metadata,
+              aiSummary: aiSummaryInput,
+            },
+          };
+          await db.task_executions.update(ticket.id, cambios);
+          await QueueService.encolar("task_executions", "editar", ticket.id, {
+            id: ticket.id,
+            ...cambios,
+          });
 
-        if (metadata.actividadId) {
-          await db.tareas.update(metadata.actividadId, { estado: "done" });
+          if (metadata.actividadId) {
+            await db.tareas.update(metadata.actividadId, { estado: "done" });
+            await QueueService.encolar(
+              "tareas",
+              "editar",
+              metadata.actividadId,
+              { id: metadata.actividadId, estado: "done" }
+            );
+          }
         }
-      });
+      );
 
       mostrarToast(
         "Ticket cerrado con éxito. Registro de auditoría completado.",
         "exito"
       );
-    } catch (err: any) {
-      mostrarToast(`Error al cerrar ticket: ${err.message}`, "error");
+    } catch (err: unknown) {
+      const mensaje = err instanceof Error ? err.message : String(err);
+      mostrarToast(`Error al cerrar ticket: ${mensaje}`, "error");
     }
   };
 
@@ -310,7 +417,7 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
             onClick={copiarPromptTicket}
             className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 font-mono text-[8px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
           >
-            📋 Prompt Base
+            Prompt Base
           </button>
           <button
             type="button"
@@ -331,7 +438,7 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
           {/* Steps Checklist */}
           <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
             <span className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
-              📋 Pasos de Implementación
+              Pasos de Implementación
             </span>
             <div className="mt-1 flex flex-col gap-2">
               {stepStates.map((st, idx) => (
@@ -368,7 +475,7 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
               <div className="flex items-center justify-between rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
                 <div>
                   <span className="block font-mono text-[9px] font-bold text-zinc-400 uppercase">
-                    🚀 1. Prompt Base para la IA
+                    1. Prompt Base para la IA
                   </span>
                   <span className="mt-0.5 block text-[8px] text-zinc-500">
                     Plantilla limpia estructurada con DS, Estándares y
@@ -387,7 +494,7 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
               {/* Refinement Console */}
               <div className="flex flex-col gap-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3">
                 <span className="font-mono text-[9px] font-bold text-sky-400 uppercase">
-                  🔄 2. Refinamiento & Ajustes Iterativos
+                  2. Refinamiento & Ajustes Iterativos
                 </span>
                 <textarea
                   value={refinamientoInput}
@@ -423,7 +530,7 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
                       </span>
                       <div className="flex max-h-[90px] flex-col gap-1 overflow-y-auto">
                         {ticket.metadata.iterations.map(
-                          (it: any, idx: number) => (
+                          (it: IteracionRefinamiento, idx: number) => (
                             <div
                               key={idx}
                               className="border-zinc-850 rounded border bg-zinc-950/60 p-1.5 font-mono text-[8px] text-zinc-300"
@@ -443,7 +550,7 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
               {/* JSON Checklist Auto Sync */}
               <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950/20 p-3">
                 <span className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
-                  📥 Sincronizar Checklist desde la IA (JSON)
+                  Sincronizar Checklist desde la IA (JSON)
                 </span>
                 <textarea
                   value={checklistJsonInput}
@@ -487,7 +594,7 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
           {ticket.metadata?.aiSummary && (
             <div className="mt-1 rounded-xl border border-zinc-900 bg-zinc-950 p-3">
               <span className="mb-1 block font-mono text-[9px] font-bold text-zinc-500 uppercase">
-                💾 Resumen Técnico Guardado:
+                Resumen Técnico Guardado:
               </span>
               <p className="font-mono text-[10px] leading-relaxed text-zinc-300">
                 {ticket.metadata.aiSummary}

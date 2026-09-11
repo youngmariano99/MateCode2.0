@@ -28,7 +28,7 @@ export const SeedsTab: React.FC<SeedsTabProps> = ({
           onClick={copiarPromptSeedData}
           className="shrink-0 rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
         >
-          📋 Copiar Prompt Seeds
+          Copiar Prompt Seeds
         </button>
       </div>
 

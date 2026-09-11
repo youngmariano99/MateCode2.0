@@ -1,5 +1,5 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import React, { useState, useEffect } from "react";
 import { Card } from "../card";
@@ -21,6 +21,12 @@ interface StackSelectorProps {
     comandos?: string[];
   };
   onSave: (stack: Record<string, string[]>) => void;
+}
+
+interface StackPreset {
+  id: string;
+  nombre: string;
+  data?: { stack?: Record<string, string[]> };
 }
 
 const PRESETS = {
@@ -173,11 +179,12 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
 
   // Load custom stack presets from database
   const customPresets =
-    (useLiveQuery(() =>
-      db.agencia_config
-        .filter((item: any) => item.tipo === "preset_stack")
-        .toArray()
-    ) as any[] | undefined) || [];
+    useLiveQuery(
+      () =>
+        db.agencia_config
+          .filter((item) => item.tipo === "preset_stack")
+          .toArray() as unknown as Promise<StackPreset[]>
+    ) || [];
 
   const safeInitial = initialStack || {};
 
@@ -342,7 +349,7 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
     setSelectedPresetId(presetId);
     const found = customPresets.find((p) => p.id === presetId);
     if (found && found.data) {
-      const next = found.data.stack || {};
+      const next: Record<string, string[]> = found.data.stack || {};
       setStack({
         frontend: next.frontend || [],
         backend: next.backend || [],
@@ -381,8 +388,9 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
       setShowJsonArea(false);
       setJsonText("");
       mostrarToast("JSON importado y stack actualizado.", "exito");
-    } catch (err: any) {
-      mostrarToast(`JSON Inválido: ${err.message}`, "error");
+    } catch (err: unknown) {
+      const mensaje = err instanceof Error ? err.message : String(err);
+      mostrarToast(`JSON Inválido: ${mensaje}`, "error");
     }
   };
 
@@ -599,7 +607,7 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
                       className="rounded border border-emerald-950/20 bg-emerald-950/10 px-1.5 py-0.5 font-mono text-[8px] font-bold text-emerald-500 transition-all hover:bg-emerald-900 hover:text-zinc-100"
                       title="Usado en otros proyectos"
                     >
-                      ★ {otherTech}
+                      {otherTech}
                     </button>
                   ))}
               </div>

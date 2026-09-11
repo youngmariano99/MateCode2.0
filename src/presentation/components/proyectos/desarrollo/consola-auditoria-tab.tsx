@@ -1,11 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React from "react";
 import { Card } from "../../card";
+import type { TicketExecution } from "./ticket-card-item";
 
 interface ConsolaAuditoriaTabProps {
-  ticketExecutions: any[];
+  ticketExecutions: TicketExecution[];
   descargarContextoCompleto: () => void;
   auditSearchQuery: string;
   setAuditSearchQuery: (query: string) => void;
@@ -37,7 +37,7 @@ export const ConsolaAuditoriaTab: React.FC<ConsolaAuditoriaTabProps> = ({
           onClick={descargarContextoCompleto}
           className="rounded bg-emerald-500 px-3.5 py-1.5 text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
         >
-          📥 Exportar Contexto de Sesión (.md)
+          Exportar Contexto de Sesión (.md)
         </button>
       </div>
 
@@ -65,7 +65,7 @@ export const ConsolaAuditoriaTab: React.FC<ConsolaAuditoriaTabProps> = ({
 
       {/* Ticket Executions list */}
       {(() => {
-        const filtered = ticketExecutions.filter((t: any) => {
+        const filtered = ticketExecutions.filter((t) => {
           const matchesSearch =
             (t.titulo || "")
               .toLowerCase()
@@ -106,10 +106,10 @@ export const ConsolaAuditoriaTab: React.FC<ConsolaAuditoriaTabProps> = ({
 
         return (
           <div className="flex max-h-[60vh] flex-col gap-4 overflow-y-auto pr-1">
-            {filtered.map((t: any) => {
+            {filtered.map((t) => {
               const bugsCount = t.metadata?.bugs?.length || 0;
               const activeBugsCount =
-                t.metadata?.bugs?.filter((b: any) => !b.resuelto).length || 0;
+                t.metadata?.bugs?.filter((b) => !b.resuelto).length || 0;
               const iterationsCount = t.metadata?.iterations?.length || 0;
               const hasHandoffs =
                 t.metadata?.handoffs &&
@@ -153,7 +153,7 @@ export const ConsolaAuditoriaTab: React.FC<ConsolaAuditoriaTabProps> = ({
                       )}
                       {iterationsCount > 0 && (
                         <span className="rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-bold text-amber-400">
-                          🔄 {iterationsCount}{" "}
+                          {iterationsCount}{" "}
                           {iterationsCount === 1 ? "Iteración" : "Iteraciones"}
                         </span>
                       )}
@@ -163,7 +163,7 @@ export const ConsolaAuditoriaTab: React.FC<ConsolaAuditoriaTabProps> = ({
                   {t.metadata?.aiSummary && (
                     <div className="rounded border border-zinc-900 bg-zinc-950 p-2.5">
                       <span className="mb-1 block text-[8px] font-bold text-zinc-500 uppercase">
-                        💾 Resumen Técnico Guardado:
+                        Resumen Técnico Guardado:
                       </span>
                       <p className="text-[10px] leading-relaxed text-zinc-300">
                         {t.metadata.aiSummary}
@@ -177,8 +177,8 @@ export const ConsolaAuditoriaTab: React.FC<ConsolaAuditoriaTabProps> = ({
                         Handoffs Registrados por Estación:
                       </span>
                       <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-4">
-                        {Object.entries(t.metadata.handoffs).map(
-                          ([station, handoff]: [string, any]) => (
+                        {Object.entries(t.metadata?.handoffs || {}).map(
+                          ([station, handoff]) => (
                             <div
                               key={station}
                               className="rounded border border-zinc-900 bg-zinc-950/60 p-2 text-[9px]"

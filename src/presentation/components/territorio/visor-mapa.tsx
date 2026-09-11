@@ -277,7 +277,7 @@ export const VisorMapa: React.FC<VisorMapaProps> = ({
 
             {rutaPuntos.length > 0 && (
               <div className="absolute top-3 right-3 z-20 rounded-lg border border-emerald-500/20 bg-[#18181B]/90 p-2 font-mono text-[9px] font-bold text-emerald-400 backdrop-blur-sm">
-                ✓ Ruta Activa: {rutaPuntos.length} paradas optimizadas
+                Ruta Activa: {rutaPuntos.length} paradas optimizadas
               </div>
             )}
           </>

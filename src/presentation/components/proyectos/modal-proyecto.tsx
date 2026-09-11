@@ -170,7 +170,7 @@ export const ModalProyecto: React.FC<ModalProyectoProps> = ({
           <Select
             label="Cliente asociado"
             options={[
-              { value: "", label: "💡 Sin Cliente / Idea Propia" },
+              { value: "", label: "Sin Cliente / Idea Propia" },
               ...clientes.map((c) => ({ value: c.id, label: c.nombre })),
             ]}
             value={clienteId}

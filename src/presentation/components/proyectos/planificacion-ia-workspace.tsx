@@ -5,6 +5,7 @@ import React, { useState, useEffect } from "react";
 import { Card } from "../card";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../../offline/dexie/db";
+import { QueueService } from "../../../offline/services/queue.service";
 import { useToast } from "../../hooks/useToast";
 
 import { RequisitosTab } from "./planificacion/requisitos-tab";
@@ -33,6 +34,12 @@ import {
 } from "./constants/prompts";
 
 import { descargarArchivo, descargarZipDocumentos } from "./utils/file-helpers";
+import { generarClaudeMdConGuia } from "../../../domain/prompts/generar-prompt-desarrollo";
+import {
+  generarBacklogMarkdown as generarBacklogMarkdownPuro,
+  generarSprintsMarkdown as generarSprintsMarkdownPuro,
+  generarAuditoriaMarkdown,
+} from "./planificacion/generar-markdown-planificacion";
 
 interface PlanificacionIAWorkspaceProps {
   proyectoId: string;
@@ -149,7 +156,7 @@ export const PlanificacionIAWorkspace: React.FC<
           (typeof t.criterioAceptacion === "string" &&
             t.criterioAceptacion.trim().length > 0)
       );
-    }, [proyectoId]) || [];
+    }, [proyectoId]) || ([] as any[]);
 
   // Count tech configs configured (where custom steps, rol, or path is configured)
   const configCount =
@@ -623,13 +630,26 @@ Formato JSON esperado:
         seccionesSitemap: customSecciones || seccionesSitemap,
       };
 
-      await db.proyecto_contexto.put(dataToSave);
+      await db.transaction(
+        "rw",
+        [db.proyecto_contexto, db.cola_eventos],
+        async () => {
+          await db.proyecto_contexto.put(dataToSave);
+          await QueueService.encolar(
+            "proyecto_contexto",
+            "editar",
+            proyectoId,
+            dataToSave
+          );
+        }
+      );
       mostrarToast(
         "Especificación guardada correctamente en IndexedDB.",
         "exito"
       );
-    } catch (err: any) {
-      mostrarToast(`Error al guardar en IndexedDB: ${err.message}`, "error");
+    } catch (err: unknown) {
+      const mensaje = err instanceof Error ? err.message : String(err);
+      mostrarToast(`Error al guardar en IndexedDB: ${mensaje}`, "error");
     }
   };
 
@@ -705,7 +725,19 @@ Formato JSON esperado:
           proyectoId,
         };
         currentDs.designSystemMarkdown = docEditContent;
-        await db.proyecto_design_system.put(currentDs);
+        await db.transaction(
+          "rw",
+          [db.proyecto_design_system, db.cola_eventos],
+          async () => {
+            await db.proyecto_design_system.put(currentDs);
+            await QueueService.encolar(
+              "proyecto_design_system",
+              "editar",
+              proyectoId,
+              currentDs
+            );
+          }
+        );
       } else if (selectedDocName === "SITEMAP.md") {
         currentCtx.sitemapSystemMarkdown = docEditContent;
         setSitemapSystemMarkdown(docEditContent);
@@ -723,83 +755,31 @@ Formato JSON esperado:
         setSetupMarkdown(docEditContent);
       }
 
-      await db.proyecto_contexto.put(currentCtx);
+      await db.transaction(
+        "rw",
+        [db.proyecto_contexto, db.cola_eventos],
+        async () => {
+          await db.proyecto_contexto.put(currentCtx);
+          await QueueService.encolar(
+            "proyecto_contexto",
+            "editar",
+            proyectoId,
+            currentCtx
+          );
+        }
+      );
       mostrarToast(
         `Cambios guardados en IndexedDB para ${selectedDocName}.`,
         "exito"
       );
-    } catch (err: any) {
-      mostrarToast(`Error al guardar: ${err.message}`, "error");
+    } catch (err: unknown) {
+      const mensaje = err instanceof Error ? err.message : String(err);
+      mostrarToast(`Error al guardar: ${mensaje}`, "error");
     }
   };
 
-  const generarClaudeMd = (incluirGuia = true): string => {
-    let md = `# CLAUDE.md - Resumen Ejecutivo del Proyecto\n\n`;
-    md += `## 1. Información General del Proyecto\n`;
-    md += `- **Nombre:** ${proyecto?.nombre || "No especificado"}\n`;
-    md += `- **Descripción:** ${proyecto?.descripcion || "No especificado"}\n`;
-    md += `- **Idioma Principal:** Español (Latinoamérica) para variables, funciones, parámetros y comentarios.\n`;
-
-    const stackList: string[] = [];
-    if (proyecto?.stack) {
-      Object.entries(proyecto.stack).forEach(([layer, techs]) => {
-        if (layer !== "comandos" && Array.isArray(techs) && techs.length > 0) {
-          const catName =
-            layer === "baseDatos"
-              ? "Base de Datos"
-              : layer.charAt(0).toUpperCase() + layer.slice(1);
-          stackList.push(`  - **${catName}:** ${techs.join(", ")}`);
-        }
-      });
-    }
-    if (stackList.length > 0) {
-      md += `\n## 2. Stack Tecnológico Elegido\n${stackList.join("\n")}\n`;
-    }
-
-    md += `\n## 3. Comandos Frecuentes\n`;
-    const cmds = (proyecto?.stack as any)?.comandos;
-    if (Array.isArray(cmds) && cmds.length > 0) {
-      cmds.forEach((cmd: string) => {
-        const parts = cmd.split(":");
-        if (parts.length > 1) {
-          md += `- \`${parts[0].trim()}\`: ${parts.slice(1).join(":").trim()}\n`;
-        } else {
-          md += `- \`${cmd.trim()}\`\n`;
-        }
-      });
-    } else {
-      md += `- \`npm run dev\`: Inicia el servidor de desarrollo.\n`;
-      md += `- \`npm run build\`: Construcción de producción.\n`;
-      md += `- \`npm run test\`: Ejecución de pruebas unitarias e integración.\n`;
-    }
-
-    if (proyecto?.estandares && Object.keys(proyecto.estandares).length > 0) {
-      md += `\n## 4. Reglas Críticas e Innegociables\n`;
-      Object.entries(proyecto.estandares).forEach(([cat, rules]) => {
-        if (Array.isArray(rules) && rules.length > 0) {
-          md += `- **${cat}:**\n  * ${rules.join("\n  * ")}\n`;
-        }
-      });
-    }
-
-    md += `\n## 5. Índice de Documentación (Leer Bajo Demanda)\n`;
-    md += `Antes de planificar o ejecutar una tarea compleja, lee el documento correspondiente en la carpeta \`docs/\`:\n`;
-    md += `- **Base de Datos y Entidades:** Para crear tablas, modificar migraciones o consultar el modelo físico, lee \`docs/SCHEMA.md\`.\n`;
-    md += `- **Rutas, Navegación y Flujos:** Para agregar vistas, controladores o consultar el mapa de rutas del sitio, lee \`docs/SITEMAP.md\`.\n`;
-    md += `- **Roles, Accesos y RLS:** Para chequear permisos y políticas RLS de base de datos, lee \`docs/ROLES.md\`.\n`;
-    md += `- **Estrategia de Datos Semilla:** Para sembrar fixtures o mock de pruebas locales, lee \`docs/SEED.md\`.\n`;
-    md += `- **Diccionario de Excepciones:** Para verificar códigos de error estandarizados, lee \`docs/ERRORS.md\`.\n`;
-    md += `- **Inicialización y CI/CD:** Para revisar pipelines, tsconfig, docker y scripts DevOps de inicio, lee \`docs/SETUP.md\`.\n`;
-
-    if (incluirGuia) {
-      md += `\n## 6. Guía de Comportamiento e Instrucciones de Handoff\n`;
-      md += `1. **Cero Placeholders:** Todos los componentes generados deben incluir el código completo listo para producción.\n`;
-      md += `2. **Estructura Modular:** Sigue rigurosamente la arquitectura limpia y convenciones descritas.\n`;
-      md += `3. **Flujo de Handoff:** Al finalizar una tarea, responde con el resumen técnico y el checklist auto-tildado en el formato JSON requerido.\n`;
-    }
-
-    return md;
-  };
+  const generarClaudeMd = (incluirGuia = true): string =>
+    generarClaudeMdConGuia(proyecto, incluirGuia);
 
   const descargarClaudeMdCompleto = () => {
     const claude = generarClaudeMd(true);
@@ -868,135 +848,11 @@ Formato JSON esperado:
     mostrarToast("¡Archivo SETUP.md descargado!", "exito");
   };
 
-  const generarBacklogMarkdown = async (): Promise<string> => {
-    const projectEpicas = await db.epicas
-      .where("proyectoId")
-      .equals(proyectoId)
-      .toArray();
-    const projectStories = await db.historias
-      .where("proyectoId")
-      .equals(proyectoId)
-      .toArray();
-    const projectTareas = await db.tareas
-      .where("proyectoId")
-      .equals(proyectoId)
-      .toArray();
+  const generarBacklogMarkdown = (): Promise<string> =>
+    generarBacklogMarkdownPuro(proyectoId, proyecto);
 
-    const getEpicNumber = (name: unknown): number => {
-      const strName = typeof name === "string" ? name : "";
-      const match = strName.match(/(?:Épica|Epic|Epica)\s*(\d+)/i);
-      return match ? parseInt(match[1], 10) : 999;
-    };
-    projectEpicas.sort((a, b) => {
-      const nameA = a["nombre"];
-      const nameB = b["nombre"];
-      return getEpicNumber(nameA) - getEpicNumber(nameB);
-    });
-
-    let md = `# Backlog Completo de Ingeniería - ${proyecto?.nombre || "Proyecto"}\n\n`;
-    md += `Este documento contiene el desglose jerárquico de Épicas, Historias de Usuario y Actividades Técnicas detalladas con sus respectivos archivos, rutas, pasos de checklist y criterios de aceptación.\n\n`;
-
-    if (projectEpicas.length === 0) {
-      md += `*No hay épicas ni backlog registrado.*\n`;
-      return md;
-    }
-
-    for (const ep of projectEpicas) {
-      md += `## 📁 Épica: ${ep.nombre}\n`;
-      if (ep.descripcion) md += `*Descripción:* ${ep.descripcion}\n`;
-      md += `\n`;
-
-      const storiesEp = projectStories.filter((h) => h.epicaId === ep.id);
-      if (storiesEp.length === 0) {
-        md += `*Sin historias registradas en esta épica.*\n\n`;
-        continue;
-      }
-
-      for (const h of storiesEp) {
-        md += `### 💡 Historia: ${h.titulo}\n`;
-        md += `- **Prioridad:** ${h.prioridad || "Media"}\n`;
-        md += `- **Estimación:** ${h.estimacion || 3} SP\n`;
-        if (h.descripcion)
-          md += `- **Descripción / CA Funcionales:** ${h.descripcion}\n`;
-        md += `\n`;
-
-        const tareasStory = projectTareas.filter((t) => t.historiaId === h.id);
-        if (tareasStory.length > 0) {
-          md += `#### Actividades Técnicas Desglosadas:\n`;
-          tareasStory.forEach((t: any, idx: number) => {
-            md += `##### ${idx + 1}. ${t.titulo}\n`;
-            if (t.rol) md += `- **Rol:** ${t.rol}\n`;
-            if (t.componente)
-              md += `- **Componente/Archivo:** \`${t.componente}\` en la ruta \`${t.ruta || ""}\`\n`;
-            if (t.modulo) md += `- **Módulo:** ${t.modulo}\n`;
-            if (Array.isArray(t.etiquetas) && t.etiquetas.length > 0) {
-              md += `- **Etiquetas:** ${t.etiquetas.join(", ")}\n`;
-            }
-            if (Array.isArray(t.pasos) && t.pasos.length > 0) {
-              md += `- **Checklist de Implementación:**\n`;
-              t.pasos.forEach((p: string) => {
-                md += `  - [ ] ${p}\n`;
-              });
-            }
-            if (
-              Array.isArray(t.criteriosAceptacion) &&
-              t.criteriosAceptacion.length > 0
-            ) {
-              md += `- **Criterios de Aceptación (BDD):**\n`;
-              t.criteriosAceptacion.forEach((crit: string) => {
-                md += `  - ${crit}\n`;
-              });
-            }
-            md += `\n`;
-          });
-        } else {
-          md += `*Sin actividades técnicas desglosadas.*\n\n`;
-        }
-      }
-      md += `---\n\n`;
-    }
-
-    return md;
-  };
-
-  const generarSprintsMarkdown = async (): Promise<string> => {
-    const projectSprints = (
-      await db.sprints.where("proyectoId").equals(proyectoId).toArray()
-    ).filter((s: any) => !s.eliminado);
-    const projectStories = await db.historias
-      .where("proyectoId")
-      .equals(proyectoId)
-      .toArray();
-
-    let md = `# Planificación de Sprints - ${proyecto?.nombre || "Proyecto"}\n\n`;
-    md += `Distribución temporal de Historias de Usuario organizadas en iteraciones de desarrollo.\n\n`;
-
-    if (projectSprints.length === 0) {
-      md += `*No hay sprints planificados.*\n`;
-      return md;
-    }
-
-    projectSprints.forEach((sp) => {
-      md += `## 🏃 ${sp.nombre}\n`;
-      md += `- **Objetivo:** ${sp.objetivo || "Sin objetivo definido."}\n`;
-      md += `- **Duración:** ${sp.duracionSemanas || 2} semanas\n`;
-      md += `- **Capacidad:** ${sp.capacidad || 20} SP\n`;
-      md += `\n### Historias asignadas:\n`;
-
-      const storiesSp = projectStories.filter((h) => h.sprintId === sp.id);
-      if (storiesSp.length > 0) {
-        storiesSp.forEach((h) => {
-          md += `- **${h.titulo}** (${h.estimacion || 3} SP) - Prioridad: ${h.prioridad || "Media"}\n`;
-          if (h.descripcion) md += `  *Descripción:* ${h.descripcion}\n`;
-        });
-      } else {
-        md += `*Ninguna historia asignada a este sprint.*\n`;
-      }
-      md += `\n---\n\n`;
-    });
-
-    return md;
-  };
+  const generarSprintsMarkdown = (): Promise<string> =>
+    generarSprintsMarkdownPuro(proyectoId, proyecto);
 
   const descargarBacklogMd = async () => {
     const backlogContent = await generarBacklogMarkdown();
@@ -1108,110 +964,11 @@ Formato JSON esperado:
 
   const copiarAuditoriaCompletaParaIA = async () => {
     try {
-      const epicas = (await db.epicas
-        .where("proyectoId")
-        .equals(proyectoId)
-        .toArray()) as any[];
-      const historias = (await db.historias
-        .where("proyectoId")
-        .equals(proyectoId)
-        .toArray()) as any[];
-      const tareas = (await db.tareas
-        .where("proyectoId")
-        .equals(proyectoId)
-        .toArray()) as any[];
-
-      const getEpicNumber = (name: string): number => {
-        const match = name.match(/(?:Épica|Epic|Epica)\s*(\d+)/i);
-        return match ? parseInt(match[1], 10) : 999;
-      };
-      epicas.sort((a, b) => getEpicNumber(a.nombre) - getEpicNumber(b.nombre));
-
-      let md = `# AUDITORÍA DE PLANIFICACIÓN - ${String(proyecto?.nombre || "PROYECTO").toUpperCase()}\n\n`;
-      md += `## 1. Información General del Proyecto\n`;
-      md += `- **Nombre:** ${proyecto?.nombre || "No especificado"}\n`;
-      md += `- **Descripción:** ${proyecto?.descripcion || "No especificado"}\n\n`;
-
-      md += `## 2. Stack Tecnológico Elegido\n`;
-      const stackList: string[] = [];
-      if (proyecto?.stack) {
-        Object.entries(proyecto.stack).forEach(([layer, techs]) => {
-          if (
-            layer !== "comandos" &&
-            Array.isArray(techs) &&
-            techs.length > 0
-          ) {
-            const catName =
-              layer === "baseDatos"
-                ? "Base de Datos"
-                : layer.charAt(0).toUpperCase() + layer.slice(1);
-            stackList.push(`- **${catName}:** ${techs.join(", ")}`);
-          }
-        });
-      }
-      md +=
-        stackList.length > 0
-          ? stackList.join("\n") + "\n\n"
-          : "*No configurado*\n\n";
-
-      md += `## 3. Modelo Físico de Base de Datos (SCHEMA.md)\n`;
-      md += `\`\`\`sql\n${entidades || "-- No configurado."}\n\`\`\`\n\n`;
-
-      md += `## 4. Desglose del Backlog Completo\n\n`;
-      if (epicas.length === 0) {
-        md += `*No hay épicas configuradas en el backlog.*\n`;
-      } else {
-        epicas.forEach((epica) => {
-          md += `### Épica: ${epica.nombre}\n`;
-          md += `*Descripción:* ${epica.descripcion || "Sin descripción"}\n\n`;
-
-          const epicaStories = historias.filter(
-            (h) =>
-              h.epicaId === epica.id ||
-              String(h.epicNombre || "")
-                .toLowerCase()
-                .trim() === String(epica.nombre).toLowerCase().trim()
-          );
-
-          if (epicaStories.length === 0) {
-            md += `  *Sin historias de usuario registradas para esta épica.*\n\n`;
-          } else {
-            epicaStories.forEach((story) => {
-              md += `#### Historia de Usuario: ${story.titulo}\n`;
-              md += `- **Descripción:** ${story.descripcion || "Sin descripción"}\n`;
-              md += `- **Prioridad:** ${story.prioridad || "Media"}\n`;
-              md += `- **Estimación:** ${story.estimacion || 0} pts\n\n`;
-
-              const storyTareas = tareas.filter(
-                (t) => t.historiaId === story.id
-              );
-              if (storyTareas.length === 0) {
-                md += `  *Sin actividades técnicas desglosadas aún.*\n\n`;
-              } else {
-                md += `##### Actividades Técnicas Desglosadas:\n`;
-                storyTareas.forEach((t, idx) => {
-                  md += `${idx + 1}. **${t.titulo}** (Estado: ${t.estado?.toUpperCase() || "TODO"})\n`;
-                  if (t.descripcion) {
-                    md += `   - *Descripción:* ${t.descripcion}\n`;
-                  }
-                  if (
-                    Array.isArray(t.criteriosAceptacion) &&
-                    t.criteriosAceptacion.length > 0
-                  ) {
-                    md += `   - *Criterios de Aceptación (QA/BDD):*\n`;
-                    t.criteriosAceptacion.forEach((crit: any) => {
-                      md += `     * ${crit}\n`;
-                    });
-                  }
-                });
-                md += `\n`;
-              }
-            });
-          }
-          md += `---\n\n`;
-        });
-      }
-
+      const md = await generarAuditoriaMarkdown(
+        proyectoId,
+        proyecto,
+        entidades
+      );
       navigator.clipboard.writeText(md);
       mostrarToast(
         "Auditoría de planificación copiada al portapapeles.",
@@ -1231,17 +988,19 @@ Formato JSON esperado:
 
       for (const epica of parsed) {
         const epicaId = `epica_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-        await db.epicas.put({
+        const epicaPayload = {
           id: epicaId,
           proyectoId,
           nombre: epica.nombre,
           descripcion: epica.descripcion || "",
-        });
+        };
+        await db.epicas.put(epicaPayload);
+        await QueueService.encolar("epicas", "crear", epicaId, epicaPayload);
 
         if (Array.isArray(epica.historias)) {
           for (const historia of epica.historias) {
             const historiaId = `historia_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-            await db.historias.put({
+            const historiaPayload = {
               id: historiaId,
               proyectoId,
               epicaId,
@@ -1251,19 +1010,33 @@ Formato JSON esperado:
               prioridad: historia.prioridad || "Media",
               estimacion: historia.estimacion || 1,
               estado: "todo",
-            });
+            };
+            await db.historias.put(historiaPayload);
+            await QueueService.encolar(
+              "historias",
+              "crear",
+              historiaId,
+              historiaPayload
+            );
 
             if (Array.isArray(historia.actividades)) {
               for (const act of historia.actividades) {
                 const actId = `act_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-                await db.tareas.put({
+                const actPayload = {
                   id: actId,
                   proyectoId,
                   historiaId,
                   titulo: act,
                   descripcion: "",
                   estado: "todo",
-                });
+                };
+                await db.tareas.put(actPayload);
+                await QueueService.encolar(
+                  "tareas",
+                  "crear",
+                  actId,
+                  actPayload
+                );
               }
             }
           }
@@ -1286,12 +1059,14 @@ Formato JSON esperado:
 
       for (const ep of parsed) {
         const epicaId = `epica_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-        await db.epicas.put({
+        const epicaPayload = {
           id: epicaId,
           proyectoId,
           nombre: ep.nombre,
           descripcion: ep.descripcion || "",
-        });
+        };
+        await db.epicas.put(epicaPayload);
+        await QueueService.encolar("epicas", "crear", epicaId, epicaPayload);
       }
 
       setEpicasJson("");
@@ -1325,7 +1100,7 @@ Formato JSON esperado:
         const epicaId = matchedEpic ? matchedEpic.id : "general";
 
         const historiaId = `historia_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-        await db.historias.put({
+        const historiaPayload = {
           id: historiaId,
           proyectoId,
           epicaId,
@@ -1335,7 +1110,14 @@ Formato JSON esperado:
           prioridad: h.prioridad || "Media",
           estimacion: h.estimacion || 1,
           estado: "todo",
-        });
+        };
+        await db.historias.put(historiaPayload);
+        await QueueService.encolar(
+          "historias",
+          "crear",
+          historiaId,
+          historiaPayload
+        );
       }
 
       setHistoriasJson("");
@@ -1369,14 +1151,16 @@ Formato JSON esperado:
 
         if (matchedStory) {
           const actId = `act_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-          await db.tareas.put({
+          const actPayload = {
             id: actId,
             proyectoId,
             historiaId: matchedStory.id,
             titulo: act.titulo,
             descripcion: act.descripcion || "",
             estado: "todo",
-          });
+          };
+          await db.tareas.put(actPayload);
+          await QueueService.encolar("tareas", "crear", actId, actPayload);
         }
       }
 
@@ -1413,8 +1197,12 @@ Formato JSON esperado:
         );
 
         if (matched) {
-          await db.tareas.update(matched.id as string, {
-            criteriosAceptacion: item.criterios,
+          const tareaId = matched.id as string;
+          const cambios = { criteriosAceptacion: item.criterios };
+          await db.tareas.update(tareaId, cambios);
+          await QueueService.encolar("tareas", "editar", tareaId, {
+            id: tareaId,
+            ...cambios,
           });
           matchedCount++;
         }
@@ -1445,7 +1233,7 @@ Formato JSON esperado:
 
       for (const sp of parsed) {
         const sprintId = `sprint_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-        await db.sprints.put({
+        const sprintPayload = {
           id: sprintId,
           proyectoId,
           nombre: sp.nombre,
@@ -1453,7 +1241,9 @@ Formato JSON esperado:
           duracionSemanas: sp.duracionSemanas || 2,
           capacidad: sp.capacidad || 20,
           estado: "planificado",
-        });
+        };
+        await db.sprints.put(sprintPayload);
+        await QueueService.encolar("sprints", "crear", sprintId, sprintPayload);
 
         if (Array.isArray(sp.historiasTitulos)) {
           for (const titulo of sp.historiasTitulos) {
@@ -1463,7 +1253,12 @@ Formato JSON esperado:
                 String(titulo).toLowerCase().trim()
             );
             if (matched) {
-              await db.historias.update(matched.id as string, { sprintId });
+              const historiaId = matched.id as string;
+              await db.historias.update(historiaId, { sprintId });
+              await QueueService.encolar("historias", "editar", historiaId, {
+                id: historiaId,
+                sprintId,
+              });
             }
           }
         }
@@ -1499,7 +1294,8 @@ Formato JSON esperado:
         );
 
         if (matched) {
-          await db.tareas.update(matched.id as string, {
+          const tareaId = matched.id as string;
+          const cambios = {
             rol: item.rol,
             componente: item.componente,
             ruta: item.ruta,
@@ -1507,6 +1303,11 @@ Formato JSON esperado:
             etiquetas: item.etiquetas,
             pasos: item.pasos,
             seed: item.seed,
+          };
+          await db.tareas.update(tareaId, cambios);
+          await QueueService.encolar("tareas", "editar", tareaId, {
+            id: tareaId,
+            ...cambios,
           });
           matchedCount++;
         }
@@ -1677,25 +1478,25 @@ Formato JSON esperado:
             onClick={() => handleSave()}
             className="rounded border border-zinc-800 bg-zinc-900 px-3 py-1 font-mono text-[9px] font-bold text-zinc-300 uppercase transition-all hover:bg-zinc-800"
           >
-            💾 Guardar IndexedDB
+            Guardar IndexedDB
           </button>
           <button
             onClick={descargarZipDocumentosCompleto}
             className="rounded bg-sky-500 px-3.5 py-1 font-mono text-[9px] font-black text-zinc-950 uppercase shadow transition-all hover:bg-sky-400"
           >
-            📦 Descargar Documentación (.zip)
+            Descargar Documentación (.zip)
           </button>
           <button
             onClick={descargarTodoMarkdown}
             className="rounded border border-zinc-800 bg-zinc-900 px-3 py-1 font-mono text-[9px] font-bold text-zinc-300 uppercase transition-all hover:bg-zinc-800"
           >
-            📄 Descargar Todo (.md)
+            Descargar Todo (.md)
           </button>
           <button
             onClick={copiarAuditoriaCompletaParaIA}
             className="rounded border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 font-mono text-[9px] font-black text-emerald-400 uppercase transition-all hover:bg-emerald-500/20"
           >
-            🔍 Copiar Auditoría para IA
+            Copiar Auditoría para IA
           </button>
         </div>
       </div>
@@ -1703,14 +1504,14 @@ Formato JSON esperado:
       {/* Tabs list bar navigation */}
       <div className="mb-4 flex flex-wrap gap-1.5 border-b border-zinc-900 pb-2 font-mono">
         {[
-          { key: "requisitos", label: "📋 Requisitos" },
-          { key: "sitemap", label: "🗺️ Sitemap" },
-          { key: "entidades", label: "💾 Entidades 3FN" },
-          { key: "roles", label: "🔑 Seguridad RLS" },
-          { key: "seeds", label: "🌱 Seeds" },
-          { key: "errores", label: "🚫 Errores" },
-          { key: "importador", label: "📥 Ingesta Backlog & Sprints" },
-          { key: "descargas", label: "📝 Centro de Inducción (Descargas)" },
+          { key: "requisitos", label: "Requisitos" },
+          { key: "sitemap", label: " Sitemap" },
+          { key: "entidades", label: "Entidades 3FN" },
+          { key: "roles", label: "Seguridad RLS" },
+          { key: "seeds", label: "Seeds" },
+          { key: "errores", label: "Errores" },
+          { key: "importador", label: "Ingesta Backlog & Sprints" },
+          { key: "descargas", label: "Centro de Inducción (Descargas)" },
         ].map((tab) => (
           <button
             key={tab.key}

@@ -103,28 +103,28 @@ export const CapturaInbox: React.FC = () => {
                 <button
                   onClick={() => void promoverATarea(item.id, "enfoque")}
                   title="Promover a tarea de enfoque de hoy"
-                  className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[10px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+                  className="flex min-h-11 items-center justify-center rounded border border-emerald-500/20 bg-emerald-500/10 px-3 text-[10px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
                 >
                   → Enfoque
                 </button>
                 <button
                   onClick={() => void promoverATarea(item.id, "mantenimiento")}
                   title="Promover a tarea de mantenimiento de hoy"
-                  className="rounded border border-sky-500/20 bg-sky-500/10 px-2 py-1 text-[10px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
+                  className="flex min-h-11 items-center justify-center rounded border border-sky-500/20 bg-sky-500/10 px-3 text-[10px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
                 >
                   → Mantenimiento
                 </button>
                 <button
                   onClick={() => void promoverAPendiente(item.id)}
                   title="Promover a Pendientes (prioridad Importante, se puede ajustar ahí)"
-                  className="rounded border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[10px] font-bold text-amber-400 uppercase hover:bg-amber-500/20"
+                  className="flex min-h-11 items-center justify-center rounded border border-amber-500/20 bg-amber-500/10 px-3 text-[10px] font-bold text-amber-400 uppercase hover:bg-amber-500/20"
                 >
                   → Pendiente
                 </button>
                 <button
                   onClick={() => void descartar(item.id)}
                   title="Descartar"
-                  className="rounded border border-zinc-800 px-2 py-1 text-[10px] font-bold text-zinc-500 uppercase hover:text-red-400"
+                  className="flex min-h-11 items-center justify-center rounded border border-zinc-800 px-3 text-[10px] font-bold text-zinc-500 uppercase hover:text-red-400"
                 >
                   Descartar
                 </button>

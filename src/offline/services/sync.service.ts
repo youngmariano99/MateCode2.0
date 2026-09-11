@@ -132,9 +132,15 @@ export const SyncService = {
         onProgress(`Sincronizando tabla ${table} (${count}/${total})...`);
 
       // Enviar de a una tabla a la vez para evitar timeouts por payloads masivos
-      await HttpClient.post("/sync/bulk", {
+      const res = await HttpClient.post<{
+        success: boolean;
+        message: string;
+      }>("/sync/bulk", {
         [table]: records,
       });
+      if (!res.success) {
+        throw new Error(`Tabla ${table}: ${res.message}`);
+      }
     }
 
     if (onProgress) onProgress("Respaldo completado exitosamente.");

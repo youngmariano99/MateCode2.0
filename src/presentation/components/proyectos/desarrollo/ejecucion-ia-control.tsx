@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -12,6 +11,7 @@ import type {
   AccionManualRequerida,
   EstadoCheckpoint,
   PasoLog,
+  TaskExecutionCheckpoint,
 } from "../../../../domain/entidades/automatizacion-ia.entity";
 
 interface EjecucionIAControlProps {
@@ -19,15 +19,36 @@ interface EjecucionIAControlProps {
   actividad: { id: string; titulo: string };
 }
 
+interface IteracionFeedback {
+  fecha: string;
+  feedback: string;
+}
+
+interface HandoffResumen {
+  resumen_tecnico?: string;
+}
+
+interface TaskExecutionMetadata {
+  iterations?: Record<string, IteracionFeedback[]>;
+  handoffs?: Record<string, HandoffResumen>;
+  engine?: string;
+  [key: string]: unknown;
+}
+
+interface TaskExecutionRow {
+  id: string;
+  metadata?: TaskExecutionMetadata;
+}
+
 const ETIQUETA_ESTADO: Record<EstadoCheckpoint, string> = {
   IDLE: "En cola para IA",
-  IN_PROGRESS_AI: "🤖 Desarrollando...",
-  QA_VALIDATING: "🔍 Verificando (build/lint/test)...",
-  QA_RETRYING: "🔁 Reintentando tras error...",
-  BLOQUEADO_ACCION_CRITICA: "⛔ Bloqueado: requiere acción manual",
-  PAUSED_CHECKPOINT: "⏸️ Pausado por error",
-  COMPLETED_HANDOFF: "✅ Listo para revisar",
-  VERIFICADO_HUMANO: "✔️ Verificado",
+  IN_PROGRESS_AI: "Desarrollando...",
+  QA_VALIDATING: "Verificando (build/lint/test)...",
+  QA_RETRYING: "Reintentando tras error...",
+  BLOQUEADO_ACCION_CRITICA: "Bloqueado: requiere acción manual",
+  PAUSED_CHECKPOINT: "⏸ Pausado por error",
+  COMPLETED_HANDOFF: "Listo para revisar",
+  VERIFICADO_HUMANO: " Verificado",
 };
 
 const ESTADOS_EN_CURSO: EstadoCheckpoint[] = [
@@ -51,14 +72,20 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
   const taskExecutionId = `execution_act_${actividad.id}`;
 
   const checkpoint = useLiveQuery(
-    () => db.task_execution_checkpoints.get(checkpointId),
+    () =>
+      db.task_execution_checkpoints.get(checkpointId) as unknown as Promise<
+        TaskExecutionCheckpoint | undefined
+      >,
     [checkpointId]
-  ) as any;
+  );
 
   const taskExecution = useLiveQuery(
-    () => db.task_executions.get(taskExecutionId),
+    () =>
+      db.task_executions.get(taskExecutionId) as unknown as Promise<
+        TaskExecutionRow | undefined
+      >,
     [taskExecutionId]
-  ) as any;
+  );
 
   const forzarSyncSilencioso = async () => {
     try {
@@ -76,11 +103,9 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
         `Ticket enviado a la IA. El runner local lo va a recoger en su próximo ciclo.`,
         "exito"
       );
-    } catch (err: any) {
-      mostrarToast(
-        `Error al iniciar ejecución con IA: ${err.message}`,
-        "error"
-      );
+    } catch (err: unknown) {
+      const mensaje = err instanceof Error ? err.message : String(err);
+      mostrarToast(`Error al iniciar ejecución con IA: ${mensaje}`, "error");
     }
   };
 
@@ -95,7 +120,7 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
         estadoCheckpoint: "IDLE",
         reintentosFallidos: 0,
         actualizadoEn,
-      } as any);
+      });
       await QueueService.encolar(
         "task_execution_checkpoints",
         "editar",
@@ -109,8 +134,9 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
       );
       await forzarSyncSilencioso();
       mostrarToast("Reintento enviado a la IA.", "exito");
-    } catch (err: any) {
-      mostrarToast(`Error al reintentar: ${err.message}`, "error");
+    } catch (err: unknown) {
+      const mensaje = err instanceof Error ? err.message : String(err);
+      mostrarToast(`Error al reintentar: ${mensaje}`, "error");
     }
   };
 
@@ -135,8 +161,9 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
       });
       await forzarSyncSilencioso();
       mostrarToast("Ejecución cancelada, ticket devuelto a pendiente.", "info");
-    } catch (err: any) {
-      mostrarToast(`Error al cancelar: ${err.message}`, "error");
+    } catch (err: unknown) {
+      const mensaje = err instanceof Error ? err.message : String(err);
+      mostrarToast(`Error al cancelar: ${mensaje}`, "error");
     }
   };
 
@@ -146,7 +173,7 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
       await db.task_execution_checkpoints.update(checkpointId, {
         estadoCheckpoint: "VERIFICADO_HUMANO",
         actualizadoEn,
-      } as any);
+      });
       await db.tareas.update(actividad.id, {
         estado: "completado",
         actualizadoEn,
@@ -171,8 +198,9 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
         `Ticket "${actividad.titulo}" verificado y completado.`,
         "exito"
       );
-    } catch (err: any) {
-      mostrarToast(`Error al marcar verificado: ${err.message}`, "error");
+    } catch (err: unknown) {
+      const mensaje = err instanceof Error ? err.message : String(err);
+      mostrarToast(`Error al marcar verificado: ${mensaje}`, "error");
     }
   };
 
@@ -182,8 +210,9 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
       return;
     }
     try {
-      const exec = await db.task_executions.get(taskExecutionId);
-      const meta = (exec?.metadata as any) || {};
+      const exec = (await db.task_executions.get(taskExecutionId)) as
+        TaskExecutionRow | undefined;
+      const meta: TaskExecutionMetadata = exec?.metadata || {};
       const iteracionesPrevias = meta.iterations?.default || [];
       const metaActualizada = {
         ...meta,
@@ -211,7 +240,7 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
         estadoCheckpoint: "IDLE",
         reintentosFallidos: 0,
         actualizadoEn,
-      } as any);
+      });
       await QueueService.encolar(
         "task_execution_checkpoints",
         "editar",
@@ -228,8 +257,9 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
       setIterarInput("");
       setMostrarIterar(false);
       mostrarToast("Pedido de iteración enviado a la IA.", "exito");
-    } catch (err: any) {
-      mostrarToast(`Error al enviar la iteración: ${err.message}`, "error");
+    } catch (err: unknown) {
+      const mensaje = err instanceof Error ? err.message : String(err);
+      mostrarToast(`Error al enviar la iteración: ${mensaje}`, "error");
     }
   };
 
@@ -248,8 +278,8 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
           }
           className="rounded border border-zinc-800 bg-zinc-900 p-1 font-mono text-[8px] text-zinc-300 focus:outline-none"
         >
-          <option value="claude">🤖 Claude Code (Anthropic)</option>
-          <option value="antigravity">🚀 Antigravity (Gemini Flash)</option>
+          <option value="claude">Claude Code (Anthropic)</option>
+          <option value="antigravity">Antigravity (Gemini Flash)</option>
         </select>
         <button
           type="button"
@@ -294,7 +324,7 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
           onClick={cancelarCola}
           className="rounded border border-red-500/25 bg-red-500/10 py-1 font-mono text-[8px] font-bold text-red-400 uppercase hover:bg-red-500/20"
         >
-          ❌ Cancelar Ejecución
+          Cancelar Ejecución
         </button>
       )}
 
@@ -309,15 +339,15 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
           {(checkpoint.accionesManualesCriticas || []).map(
             (a: AccionManualRequerida, idx: number) => (
               <span key={idx} className="font-mono text-[7px] text-red-300">
-                ⛔ {a.descripcion}
+                {a.descripcion}
               </span>
             )
           )}
           {engine === "antigravity" ? (
             <span className="rounded bg-zinc-900/50 px-2 py-1.5 font-mono text-[8px] text-zinc-400">
-              💡 Para reintentar con Antigravity, abre la vista de Enfoque
-              Activo (Cinta) y haz clic en &quot;Iniciar Ejecución
-              Automática&quot; nuevamente.
+              Para reintentar con Antigravity, abre la vista de Enfoque Activo
+              (Cinta) y haz clic en &quot;Iniciar Ejecución Automática&quot;
+              nuevamente.
             </span>
           ) : (
             <button
@@ -325,7 +355,7 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
               onClick={reintentarConIA}
               className="rounded border border-amber-500/25 bg-amber-500/10 py-1 font-mono text-[8px] font-bold text-amber-400 uppercase hover:bg-amber-500/20"
             >
-              ⚠️ Reintentar con IA
+              Reintentar con IA
             </button>
           )}
         </>
@@ -341,17 +371,17 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
                 rel="noopener noreferrer"
                 className="flex-1 truncate rounded border border-emerald-500/25 bg-emerald-500/10 py-1 text-center font-mono text-[8px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
               >
-                🔗 Ver PR
+                Ver PR
               </a>
             )}
             {checkpoint.ciEstado === "paso" && (
               <span className="rounded border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-1 font-mono text-[7px] font-bold text-emerald-400 uppercase">
-                CI ✓
+                CI
               </span>
             )}
             {checkpoint.ciEstado === "fallo" && (
               <span className="rounded border border-red-500/25 bg-red-500/10 px-1.5 py-1 font-mono text-[7px] font-bold text-red-400 uppercase">
-                CI ✗
+                CI
               </span>
             )}
           </div>
@@ -381,7 +411,7 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
             onClick={() => setMostrarDetalle(true)}
             className="rounded border border-zinc-700 bg-zinc-900 py-1 font-mono text-[8px] font-bold text-zinc-300 uppercase hover:bg-zinc-800"
           >
-            🔎 Ver detalle completo
+            Ver detalle completo
           </button>
 
           {estado === "COMPLETED_HANDOFF" && (
@@ -391,21 +421,21 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
                 onClick={marcarVerificado}
                 className="flex-1 rounded border border-emerald-500/25 bg-emerald-500/10 py-1 font-mono text-[8px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
               >
-                ✅ Verificado
+                Verificado
               </button>
               <button
                 type="button"
                 onClick={() => setMostrarIterar((v) => !v)}
                 className="flex-1 rounded border border-sky-500/25 bg-sky-500/10 py-1 font-mono text-[8px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
               >
-                🔁 Iterar con IA
+                Iterar con IA
               </button>
             </div>
           )}
 
           {estado === "VERIFICADO_HUMANO" && (
             <span className="rounded border border-emerald-500/25 bg-emerald-500/10 py-1 text-center font-mono text-[8px] font-bold text-emerald-500 uppercase">
-              ✔️ Ya verificado
+              Ya verificado
             </span>
           )}
 
@@ -459,7 +489,7 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
                   rel="noopener noreferrer"
                   className="rounded border border-emerald-500/25 bg-emerald-500/10 py-1.5 text-center text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
                 >
-                  🔗 Ver Pull Request
+                  Ver Pull Request
                 </a>
               )}
 
@@ -467,9 +497,9 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
                 checkpoint.desviosDelPlan.length > 0 && (
                   <div className="rounded border border-amber-500/20 bg-amber-500/5 p-2">
                     <span className="mb-1 block text-[8px] font-bold text-amber-400 uppercase">
-                      ⚠️ Decisiones que difieren del ticket
+                      Decisiones que difieren del ticket
                     </span>
-                    {checkpoint.desviosDelPlan.map((d: any, idx: number) => (
+                    {checkpoint.desviosDelPlan.map((d, idx) => (
                       <div
                         key={idx}
                         className="mb-1.5 border-b border-amber-500/10 pb-1.5 text-[9px] leading-relaxed text-amber-200 last:mb-0 last:border-none last:pb-0"
@@ -600,7 +630,7 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
 
               {checkpoint.archivoPruebaPath && (
                 <p className="text-[8px] text-zinc-400">
-                  📄 Guía de pruebas detallada en el repo:{" "}
+                  Guía de pruebas detallada en el repo:{" "}
                   <code className="text-zinc-300">
                     {checkpoint.archivoPruebaPath}
                   </code>
@@ -634,8 +664,8 @@ export const EjecucionIAControl: React.FC<EjecucionIAControlProps> = ({
                     className={`text-[9px] ${checkpoint.ciEstado === "paso" ? "text-emerald-400" : "text-red-400"}`}
                   >
                     {checkpoint.ciEstado === "paso"
-                      ? "✓ Los checks del PR pasaron."
-                      : `✗ Los checks del PR no pasaron. ${checkpoint.ciDetalle || ""}`}
+                      ? "Los checks del PR pasaron."
+                      : `Los checks del PR no pasaron. ${checkpoint.ciDetalle || ""}`}
                   </p>
                 </div>
               )}

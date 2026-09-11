@@ -1,7 +1,6 @@
 import { db } from "../../../offline/dexie/db";
 import { Resultado } from "../../../shared/utilidades/resultado";
 import { QueueService } from "../../../offline/services/queue.service";
-import { useConexionStore } from "../../../presentation/stores/conexion.store";
 
 export class ActualizarDocumentoUseCase {
   public async ejecutar(
@@ -9,8 +8,6 @@ export class ActualizarDocumentoUseCase {
     documento: Record<string, unknown>,
     comentarioCambio?: string
   ): Promise<Resultado<void>> {
-    const online = useConexionStore.getState().online;
-
     const prev = await db.documentos.get(id);
     const versiones = prev?.versiones
       ? [...(prev.versiones as Record<string, unknown>[])]
@@ -36,17 +33,16 @@ export class ActualizarDocumentoUseCase {
       actualizadoEn: Date.now(),
     };
 
-    await db.documentos.put(payload);
+    await db.transaction("rw", [db.documentos, db.cola_eventos], async () => {
+      await db.documentos.put(payload);
+      await QueueService.encolar("documentos", "editar", id, payload);
+    });
 
     await db.logs_sincronizacion.add({
       tipo: "exito",
       mensaje: `Documentos: Documento inteligente actualizado: ${documento.titulo}`,
       fecha: Date.now(),
     });
-
-    if (!online) {
-      await QueueService.encolar("documentos", "editar", id, payload);
-    }
 
     return Resultado.exito(undefined);
   }

@@ -3,7 +3,9 @@
 
 import React, { useState } from "react";
 import { db } from "../../../offline/dexie/db";
+import { QueueService } from "../../../offline/services/queue.service";
 import { useLiveQuery } from "dexie-react-hooks";
+import { Icono } from "../icons";
 
 interface Epica {
   id: string;
@@ -120,12 +122,16 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
     if (!nuevoEpicNombre.trim()) return;
     const newId = `epi_${Date.now()}`;
     try {
-      await db.epicas.add({
+      const payload = {
         id: newId,
         proyectoId,
         nombre: nuevoEpicNombre,
         descripcion: nuevoEpicDesc,
         creadoEn: Date.now(),
+      };
+      await db.transaction("rw", [db.epicas, db.cola_eventos], async () => {
+        await db.epicas.add(payload);
+        await QueueService.encolar("epicas", "crear", newId, payload);
       });
       setNuevoEpicNombre("");
       setNuevoEpicDesc("");
@@ -136,9 +142,16 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
   const guardarEdicionEpic = async (epicId: string) => {
     if (!epicEditandoNombre.trim()) return;
     try {
-      await db.epicas.update(epicId, {
+      const cambios = {
         nombre: epicEditandoNombre,
         descripcion: epicEditandoDesc,
+      };
+      await db.transaction("rw", [db.epicas, db.cola_eventos], async () => {
+        await db.epicas.update(epicId, cambios);
+        await QueueService.encolar("epicas", "editar", epicId, {
+          id: epicId,
+          ...cambios,
+        });
       });
       setEpicEditandoId(null);
     } catch {}
@@ -153,9 +166,10 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
       try {
         await db.transaction(
           "rw",
-          [db.epicas, db.historias, db.tareas],
+          [db.epicas, db.historias, db.tareas, db.cola_eventos],
           async () => {
             await db.epicas.delete(epicId);
+            await QueueService.encolar("epicas", "eliminar", epicId, {});
             const hist = (await db.historias
               .where("epicaId")
               .equals(epicId)
@@ -163,7 +177,15 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
             const histIds = hist.map((h) => h.id);
             await db.historias.where("epicaId").equals(epicId).delete();
             for (const hId of histIds) {
+              await QueueService.encolar("historias", "eliminar", hId, {});
+              const tareasDeHistoria = (await db.tareas
+                .where("historiaId")
+                .equals(hId)
+                .toArray()) as unknown as Tarea[];
               await db.tareas.where("historiaId").equals(hId).delete();
+              for (const t of tareasDeHistoria) {
+                await QueueService.encolar("tareas", "eliminar", t.id, {});
+              }
             }
           }
         );
@@ -176,7 +198,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
     if (!nuevaHistTitulo.trim()) return;
     const newId = `his_${Date.now()}`;
     try {
-      await db.historias.add({
+      const payload = {
         id: newId,
         proyectoId,
         epicaId: epicId,
@@ -187,6 +209,10 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
         estimacion: nuevaHistEst,
         estado: "Todo",
         creadoEn: Date.now(),
+      };
+      await db.transaction("rw", [db.historias, db.cola_eventos], async () => {
+        await db.historias.add(payload);
+        await QueueService.encolar("historias", "crear", newId, payload);
       });
       setNuevaHistTitulo("");
       setNuevaHistDesc("");
@@ -199,11 +225,18 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
   const guardarEdicionHistoria = async (historiaId: string) => {
     if (!historiaEditandoTitulo.trim()) return;
     try {
-      await db.historias.update(historiaId, {
+      const cambios = {
         titulo: historiaEditandoTitulo,
         descripcion: historiaEditandoDesc,
         prioridad: historiaEditandoPrio,
         estimacion: historiaEditandoEst,
+      };
+      await db.transaction("rw", [db.historias, db.cola_eventos], async () => {
+        await db.historias.update(historiaId, cambios);
+        await QueueService.encolar("historias", "editar", historiaId, {
+          id: historiaId,
+          ...cambios,
+        });
       });
       setHistoriaEditandoId(null);
     } catch {}
@@ -216,10 +249,22 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
       )
     ) {
       try {
-        await db.transaction("rw", [db.historias, db.tareas], async () => {
-          await db.historias.delete(historiaId);
-          await db.tareas.where("historiaId").equals(historiaId).delete();
-        });
+        await db.transaction(
+          "rw",
+          [db.historias, db.tareas, db.cola_eventos],
+          async () => {
+            await db.historias.delete(historiaId);
+            await QueueService.encolar("historias", "eliminar", historiaId, {});
+            const tareasDeHistoria = (await db.tareas
+              .where("historiaId")
+              .equals(historiaId)
+              .toArray()) as unknown as Tarea[];
+            await db.tareas.where("historiaId").equals(historiaId).delete();
+            for (const t of tareasDeHistoria) {
+              await QueueService.encolar("tareas", "eliminar", t.id, {});
+            }
+          }
+        );
       } catch {}
     }
   };
@@ -234,7 +279,13 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
     else if (estadoActual === "InProgress") proximoEstado = "Done";
 
     try {
-      await db.historias.update(historiaId, { estado: proximoEstado });
+      await db.transaction("rw", [db.historias, db.cola_eventos], async () => {
+        await db.historias.update(historiaId, { estado: proximoEstado });
+        await QueueService.encolar("historias", "editar", historiaId, {
+          id: historiaId,
+          estado: proximoEstado,
+        });
+      });
     } catch {}
   };
 
@@ -245,7 +296,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
 
     const newId = `tar_${Math.random().toString(36).substring(2, 9)}`;
     try {
-      await db.tareas.add({
+      const payload = {
         id: newId,
         proyectoId,
         historiaId,
@@ -253,6 +304,10 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
         estado: "todo",
         creadoEn: Date.now(),
         actualizadoEn: Date.now(),
+      };
+      await db.transaction("rw", [db.tareas, db.cola_eventos], async () => {
+        await db.tareas.add(payload);
+        await QueueService.encolar("tareas", "crear", newId, payload);
       });
       setNuevaActividadTexto((prev) => ({ ...prev, [historiaId]: "" }));
     } catch {}
@@ -264,9 +319,13 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
   ) => {
     const proximo = estadoActual === "done" ? "todo" : "done";
     try {
-      await db.tareas.update(tareaId, {
-        estado: proximo,
-        actualizadoEn: Date.now(),
+      const cambios = { estado: proximo, actualizadoEn: Date.now() };
+      await db.transaction("rw", [db.tareas, db.cola_eventos], async () => {
+        await db.tareas.update(tareaId, cambios);
+        await QueueService.encolar("tareas", "editar", tareaId, {
+          id: tareaId,
+          ...cambios,
+        });
       });
     } catch {}
   };
@@ -276,9 +335,13 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
     if (!texto) return;
 
     try {
-      await db.tareas.update(tareaId, {
-        titulo: texto,
-        actualizadoEn: Date.now(),
+      const cambios = { titulo: texto, actualizadoEn: Date.now() };
+      await db.transaction("rw", [db.tareas, db.cola_eventos], async () => {
+        await db.tareas.update(tareaId, cambios);
+        await QueueService.encolar("tareas", "editar", tareaId, {
+          id: tareaId,
+          ...cambios,
+        });
       });
       setActividadEditandoId(null);
     } catch {}
@@ -287,7 +350,10 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
   const borrarActividad = async (tareaId: string) => {
     if (confirm("¿Estás seguro de que deseas eliminar esta actividad?")) {
       try {
-        await db.tareas.delete(tareaId);
+        await db.transaction("rw", [db.tareas, db.cola_eventos], async () => {
+          await db.tareas.delete(tareaId);
+          await QueueService.encolar("tareas", "eliminar", tareaId, {});
+        });
       } catch {}
     }
   };
@@ -321,7 +387,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
               onClick={() => setMostrarCrearEpicForm(!mostrarCrearEpicForm)}
               className="rounded-lg bg-emerald-500 px-3 py-1.5 font-mono text-xs font-bold text-zinc-950 transition-all hover:bg-emerald-600 active:scale-95"
             >
-              📁 Nueva Épica
+              Nueva Épica
             </button>
             <span className="pl-2 font-mono text-xl font-black text-emerald-400">
               {progresoGlobal}%
@@ -342,7 +408,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
       {mostrarCrearEpicForm && (
         <div className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5 font-mono text-xs">
           <h4 className="font-bold text-white uppercase">
-            📁 Crear Nueva Épica (Módulo de Negocio)
+            Crear Nueva Épica (Módulo de Negocio)
           </h4>
           <div className="flex flex-col gap-1">
             <span className="text-[10px] text-zinc-500">
@@ -398,7 +464,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                   : "text-zinc-500 hover:text-zinc-300"
               }`}
             >
-              🛠️ Gestión Completa
+              Gestión Completa
             </button>
             <button
               onClick={() => setVistaCompacta(true)}
@@ -408,7 +474,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                   : "text-zinc-500 hover:text-zinc-300"
               }`}
             >
-              📊 Avance Simplificado
+              Avance Simplificado
             </button>
           </div>
         </div>
@@ -420,13 +486,13 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
               onClick={collapseAllEpics}
               className="text-zinc-450 rounded border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-[9px] hover:bg-zinc-900 hover:text-zinc-200"
             >
-              📁 Colapsar Épicas
+              Colapsar Épicas
             </button>
             <button
               onClick={expandAllEpics}
               className="text-zinc-450 rounded border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-[9px] hover:bg-zinc-900 hover:text-zinc-200"
             >
-              📂 Expandir Épicas
+              Expandir Épicas
             </button>
           </div>
         )}
@@ -467,7 +533,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                         {isCollapsed ? "▶" : "▼"}
                       </span>
                       <span className="text-xs font-bold text-white uppercase">
-                        📁 {ep.nombre}
+                        {ep.nombre}
                       </span>
                     </div>
                     <div className="flex items-center gap-3">
@@ -514,7 +580,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                             {/* HU Header */}
                             <div className="flex items-center justify-between gap-3 text-[11px]">
                               <span className="font-bold text-zinc-300">
-                                💡 HU: {h.titulo}
+                                HU: {h.titulo}
                               </span>
                               <div className="flex items-center gap-2">
                                 {totalAct > 0 && (
@@ -652,30 +718,30 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                       <div className="group/epicHead flex items-center gap-3">
                         <div>
                           <h5 className="font-mono text-xs font-bold text-white uppercase">
-                            📁 {ep.nombre}
+                            {ep.nombre}
                           </h5>
                           <p className="mt-0.5 font-mono text-[10px] text-zinc-500">
                             {ep.descripcion || "Sin descripción."}
                           </p>
                         </div>
-                        <div className="flex gap-1.5 opacity-0 transition-opacity group-hover/epicHead:opacity-100">
+                        <div className="flex gap-1 opacity-0 transition-opacity group-hover/epicHead:opacity-100">
                           <button
                             onClick={() => {
                               setEpicEditandoId(ep.id);
                               setEpicEditandoNombre(ep.nombre);
                               setEpicEditandoDesc(ep.descripcion || "");
                             }}
-                            className="text-[10px] text-zinc-500 hover:text-zinc-300"
+                            className="flex min-h-11 min-w-11 items-center justify-center text-zinc-500 hover:text-zinc-300"
                             title="Editar Épica"
                           >
-                            ✏️
+                            <Icono.Edit className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => eliminarEpic(ep.id)}
-                            className="pl-0.5 text-[10px] text-zinc-600 hover:text-rose-400"
+                            className="flex min-h-11 min-w-11 items-center justify-center text-zinc-600 hover:text-rose-400"
                             title="Eliminar Épica"
                           >
-                            ✕
+                            <Icono.Trash className="h-4 w-4" />
                           </button>
                         </div>
                       </div>
@@ -923,17 +989,17 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                                       );
                                       setHistoriaEditandoEst(h.estimacion || 3);
                                     }}
-                                    className="text-[9px] text-zinc-500 hover:text-zinc-300"
+                                    className="flex min-h-11 min-w-11 items-center justify-center text-zinc-500 hover:text-zinc-300"
                                     title="Editar Historia"
                                   >
-                                    ✏️
+                                    <Icono.Edit className="h-3.5 w-3.5" />
                                   </button>
                                   <button
                                     onClick={() => eliminarHistoria(h.id)}
-                                    className="pl-0.5 text-[9px] text-zinc-600 hover:text-rose-400"
+                                    className="flex min-h-11 min-w-11 items-center justify-center text-zinc-600 hover:text-rose-400"
                                     title="Eliminar Historia"
                                   >
-                                    ✕
+                                    <Icono.Trash className="h-3.5 w-3.5" />
                                   </button>
                                 </div>
                               </div>
@@ -1092,22 +1158,20 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                                           (act as any).modulo) && (
                                           <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[8px] text-zinc-500">
                                             {(act as any).modulo && (
-                                              <span>
-                                                📦 {(act as any).modulo}
-                                              </span>
+                                              <span>{(act as any).modulo}</span>
                                             )}
                                             {(act as any).rol && (
-                                              <span>👤 {(act as any).rol}</span>
+                                              <span>{(act as any).rol}</span>
                                             )}
                                             {(act as any).componente && (
                                               <span>
-                                                📄 {(act as any).componente}
+                                                {(act as any).componente}
                                               </span>
                                             )}
                                             {(act as any).pasos &&
                                               (act as any).pasos.length > 0 && (
                                                 <span>
-                                                  📋 {(act as any).pasos.length}{" "}
+                                                  {(act as any).pasos.length}{" "}
                                                   pasos
                                                 </span>
                                               )}
@@ -1132,10 +1196,10 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                                     )}
                                     <button
                                       onClick={() => borrarActividad(act.id)}
-                                      className="text-zinc-750 hover:text-rose-450 font-mono text-[9px]"
+                                      className="text-zinc-750 hover:text-rose-450 flex min-h-11 min-w-11 items-center justify-center font-mono text-[9px]"
                                       title="Borrar"
                                     >
-                                      ✕
+                                      <Icono.Trash className="h-3.5 w-3.5" />
                                     </button>
                                   </div>
                                 </div>

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
+/* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -11,6 +11,47 @@ import { useLiveQuery } from "dexie-react-hooks";
 
 interface PromptGeneratorProps {
   proyectoId: string;
+}
+
+interface PromptTemplate {
+  id: string;
+  contenido: string;
+  fase?: string;
+  titulo?: string;
+}
+
+interface TablaEsquema {
+  descripcion?: string;
+  campos?: string[];
+}
+
+interface EstadoTecnicoRow {
+  dependencias?: string[];
+  esquemaDb?: Record<string, TablaEsquema>;
+}
+
+interface ProyectoContextoRow {
+  doloresCliente?: string;
+  reglasNegocio?: string;
+  publicoObjetivo?: string;
+}
+
+interface DesignSystemRow {
+  arquetipo?: string;
+  metafora?: string;
+  radioBordes?: string;
+  sombras?: string;
+  directrizNegacion?: string;
+  escalaEspaciado?: string;
+  reglaColor?: string;
+  tipografias?: string;
+  estiloAnimaciones?: string;
+}
+
+interface ProyectoRow {
+  productOwner?: { dolor?: string; restricciones?: string; usuarios?: string };
+  stack?: { frontend?: string[]; backend?: string[]; baseDatos?: string[] };
+  estandares?: { arquitectura?: string[]; patrones?: string[] };
 }
 
 export const PromptGenerator: React.FC<PromptGeneratorProps> = ({
@@ -29,8 +70,11 @@ export const PromptGenerator: React.FC<PromptGeneratorProps> = ({
   >("importar");
 
   // Load Prompt Templates
-  const templates = (useLiveQuery(() => db.prompt_templates.toArray()) ||
-    []) as any[];
+  const templates =
+    useLiveQuery(
+      () =>
+        db.prompt_templates.toArray() as unknown as Promise<PromptTemplate[]>
+    ) || [];
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
 
   // Variables parsed from selected template
@@ -41,9 +85,12 @@ export const PromptGenerator: React.FC<PromptGeneratorProps> = ({
 
   // Technical memory state (synced dependencies/schema)
   const technicalState = useLiveQuery(
-    () => db.proyecto_estado_tecnico.get(proyectoId),
+    () =>
+      db.proyecto_estado_tecnico.get(proyectoId) as unknown as Promise<
+        EstadoTecnicoRow | undefined
+      >,
     [proyectoId]
-  ) as any;
+  );
 
   // Auto-populate first template if available
   useEffect(() => {
@@ -74,13 +121,14 @@ export const PromptGenerator: React.FC<PromptGeneratorProps> = ({
 
       // Fetch pre-populated values from DB context
       const poContext = ((await db.proyecto_contexto.get(proyectoId)) ||
-        {}) as any;
+        {}) as ProyectoContextoRow;
       const ds = ((await db.proyecto_design_system.get(proyectoId)) ||
-        {}) as any;
-      const proyecto = (await db.proyectos.get(proyectoId)) as any;
+        {}) as DesignSystemRow;
+      const proyecto = (await db.proyectos.get(proyectoId)) as
+        ProyectoRow | undefined;
 
-      const stack = (proyecto?.stack || {}) as any;
-      const estandares = (proyecto?.estandares || {}) as any;
+      const stack = proyecto?.stack || {};
+      const estandares = proyecto?.estandares || {};
 
       const dbValues: Record<string, string> = {
         dolores_cliente: (
@@ -219,7 +267,7 @@ export const PromptGenerator: React.FC<PromptGeneratorProps> = ({
       <Card className="flex flex-col gap-4">
         <div className="border-b border-[#2A2A2E] pb-3">
           <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
-            🤖 Generador de Prompts Dinámicos e Ingesta
+            Generador de Prompts Dinámicos e Ingesta
           </h3>
           <p className="font-mono text-[10px] text-zinc-500">
             Resuelve placeholders del contexto del proyecto e inyecta contratos
@@ -315,7 +363,7 @@ export const PromptGenerator: React.FC<PromptGeneratorProps> = ({
                 : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
-            📥 Importar Backlog
+            Importar Backlog
           </button>
           <button
             onClick={() => setActivoTabDerecha("sincronizar")}
@@ -325,7 +373,7 @@ export const PromptGenerator: React.FC<PromptGeneratorProps> = ({
                 : "text-zinc-500 hover:text-zinc-300"
             }`}
           >
-            🔄 Sincronizar Estado
+            Sincronizar Estado
           </button>
         </div>
 
@@ -383,7 +431,7 @@ export const PromptGenerator: React.FC<PromptGeneratorProps> = ({
         {technicalState && (
           <div className="mt-1 flex flex-col gap-2 rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
             <span className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
-              🧠 Memoria Técnica Sincronizada (Autocompletado):
+              Memoria Técnica Sincronizada (Autocompletado):
             </span>
             <div className="flex max-h-[100px] flex-col gap-2 overflow-y-auto pr-1">
               {/* Dependencies */}
@@ -393,12 +441,12 @@ export const PromptGenerator: React.FC<PromptGeneratorProps> = ({
                     <span className="mr-1 font-mono text-[8px] font-bold text-zinc-500 uppercase">
                       Librerías:
                     </span>
-                    {technicalState.dependencias.map((dep: any) => (
+                    {technicalState.dependencias.map((dep) => (
                       <span
                         key={dep}
                         className="rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[8px] text-zinc-300"
                       >
-                        📦 {dep}
+                        {dep}
                       </span>
                     ))}
                   </div>
@@ -412,16 +460,16 @@ export const PromptGenerator: React.FC<PromptGeneratorProps> = ({
                     </span>
                     <div className="grid grid-cols-2 gap-1.5">
                       {Object.keys(technicalState.esquemaDb).map((tableKey) => {
-                        const tableObj: any = (technicalState.esquemaDb as any)[
+                        const tableObj = technicalState.esquemaDb?.[
                           tableKey
-                        ];
+                        ] as TablaEsquema;
                         return (
                           <div
                             key={tableKey}
                             className="rounded border border-zinc-800/80 bg-zinc-950 p-1.5 font-mono text-[8px]"
                           >
                             <span className="font-bold text-emerald-400">
-                              🗂️ {tableKey}
+                              {tableKey}
                             </span>
                             <p className="mt-0.5 text-[7px] leading-tight text-zinc-500">
                               {tableObj.descripcion}

@@ -1,5 +1,5 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import React, { useState, useEffect } from "react";
 import { Card } from "../card";
@@ -10,6 +10,21 @@ import { useLiveQuery } from "dexie-react-hooks";
 
 interface DesignSystemFormProps {
   proyectoId: string;
+}
+
+interface DesignSystemRow {
+  proyectoId: string;
+  designSystemMarkdown?: string;
+  arquetipo?: string;
+  metafora?: string;
+  radioBordes?: string;
+  sombras?: string;
+  directrizNegacion?: string;
+  parejaTipografica?: string;
+  escalaEspaciado?: string;
+  reglaColor?: string;
+  estiloAnimaciones?: string;
+  estadoHover?: string;
 }
 
 const DESIGN_SYSTEM_PROMPT = `Eres un Diseñador UI/UX Senior y Especialista en Design Systems. A partir del Relevamiento del Cliente o la Idea de Negocio, debes diseñar un Sistema de Diseño visual premium, técnico y de alta precisión.
@@ -67,7 +82,7 @@ Fondo oscuro profundo (sin usar negro puro #000000 para evitar fatiga por contra
 
 ## 4. Patrones de Interacción & UX Educativa
 - **Placeholders Educativos:** No usar placeholders genéricos. Ejemplo: \`ej. juan.perez@comercio.com\`.
-- **Formularios Fail-Fast:** Validación visual con bordes rojos (\`border-red-500\`), ícono de alerta ⚠️ y mensaje explicativo claro.
+- **Formularios Fail-Fast:** Validación visual con bordes rojos (\`border-red-500\`), ícono de alerta  y mensaje explicativo claro.
 - **Empty States (Estados Vacíos):** Mostrar contenedor con borde discontinuo (\`border-dashed\`), texto explicativo amigable y un botón de Call To Action (CTA) azul principal.
 
 ---
@@ -89,14 +104,20 @@ export const DesignSystemForm: React.FC<DesignSystemFormProps> = ({
   const proyecto = useLiveQuery(() => db.proyectos.get(proyectoId));
 
   // Load design system from DB
-  const dsData = useLiveQuery(() =>
-    db.proyecto_design_system.get(proyectoId)
-  ) as any;
+  const dsData = useLiveQuery(
+    () =>
+      db.proyecto_design_system.get(proyectoId) as Promise<
+        DesignSystemRow | undefined
+      >
+  );
 
   // Load project relevamiento context
-  const contexto = useLiveQuery(() =>
-    db.proyecto_contexto.get(proyectoId)
-  ) as any;
+  const contexto = useLiveQuery(
+    () =>
+      db.proyecto_contexto.get(proyectoId) as Promise<
+        { relevamientoMarkdown?: string } | undefined
+      >
+  );
 
   const [designSystemMarkdown, setDesignSystemMarkdown] = useState("");
 
@@ -108,7 +129,9 @@ export const DesignSystemForm: React.FC<DesignSystemFormProps> = ({
 
   const handleSave = async () => {
     try {
-      const currentDS = (await db.proyecto_design_system.get(proyectoId)) || {
+      const currentDS: DesignSystemRow = ((await db.proyecto_design_system.get(
+        proyectoId
+      )) as DesignSystemRow | undefined) || {
         proyectoId,
       };
 
@@ -147,8 +170,9 @@ export const DesignSystemForm: React.FC<DesignSystemFormProps> = ({
       });
 
       mostrarToast("Sistema de Diseño guardado con éxito.", "exito");
-    } catch (err: any) {
-      mostrarToast(`Error al guardar design system: ${err.message}`, "error");
+    } catch (err: unknown) {
+      const mensaje = err instanceof Error ? err.message : String(err);
+      mostrarToast(`Error al guardar design system: ${mensaje}`, "error");
     }
   };
 
@@ -194,7 +218,7 @@ export const DesignSystemForm: React.FC<DesignSystemFormProps> = ({
       <div className="flex items-center justify-between border-b border-[#2A2A2E] pb-3">
         <div>
           <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
-            🎨 Sistema de Diseño del Proyecto (IA Design System)
+            Sistema de Diseño del Proyecto (IA Design System)
           </h3>
           <p className="text-zinc-550 mt-0.5 font-mono text-[9px]">
             Genera un prompt de diseño visual, pásalo a la IA y guarda las
@@ -207,7 +231,7 @@ export const DesignSystemForm: React.FC<DesignSystemFormProps> = ({
             onClick={descargarDesignSystem}
             className="rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-[9px] font-bold text-sky-400 hover:text-sky-300"
           >
-            📥 Descargar Design System (.md)
+            Descargar Design System (.md)
           </button>
         )}
       </div>
@@ -216,7 +240,7 @@ export const DesignSystemForm: React.FC<DesignSystemFormProps> = ({
         <div className="flex items-center justify-between rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
           <div>
             <span className="block font-mono text-[9px] font-bold text-zinc-400 uppercase">
-              🚀 Generador de Prompt para la IA
+              Generador de Prompt para la IA
             </span>
             <span className="text-zinc-650 mt-0.5 block text-[8px]">
               Une el Relevamiento con instrucciones detalladas para armar el

@@ -97,7 +97,7 @@ export const SitemapTab: React.FC<SitemapTabProps> = ({
               }}
               className="shrink-0 rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
             >
-              📋 Copiar Prompt IA
+              Copiar Prompt IA
             </button>
           </div>
 
@@ -133,7 +133,7 @@ export const SitemapTab: React.FC<SitemapTabProps> = ({
               onClick={copiarPromptSitemapLanding}
               className="shrink-0 rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
             >
-              📋 Copiar Prompt IA Sitemap
+              Copiar Prompt IA Sitemap
             </button>
           </div>
 
@@ -159,7 +159,7 @@ export const SitemapTab: React.FC<SitemapTabProps> = ({
               onClick={handleProcesarMarkup}
               className="self-end rounded bg-sky-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-sky-400"
             >
-              ⚡ Procesar Marcado {"{{SECCION}}"}
+              Procesar Marcado {"{{SECCION}}"}
             </button>
           </div>
 

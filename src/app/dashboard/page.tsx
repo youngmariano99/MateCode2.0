@@ -61,7 +61,7 @@ export default function DashboardPage() {
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-white">
-              ¡Buen día, {usuario?.nombre || "Mariano"}! 👋
+              ¡Buen día, {usuario?.nombre || "Mariano"}!
             </h1>
             <p className="mt-1 font-mono text-xs tracking-wide text-zinc-400 uppercase">
               Workspace activo:{" "}

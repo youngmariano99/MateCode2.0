@@ -1,4 +1,5 @@
 import { db } from "../dexie/db";
+import { servidorTieneVersionMasNueva } from "../../shared/utilidades/resolucion-conflictos";
 
 export const ConflictService = {
   resolver: async (
@@ -13,12 +14,14 @@ export const ConflictService = {
       fecha: Date.now(),
     });
 
-    const localTime = (localPayload.actualizadoEn as number) || 0;
-    const serverTime = (serverPayload.actualizadoEn as number) || 0;
-
-    if (localTime >= serverTime) {
-      return localPayload;
+    if (
+      servidorTieneVersionMasNueva(
+        serverPayload.actualizadoEn,
+        localPayload.actualizadoEn
+      )
+    ) {
+      return serverPayload;
     }
-    return serverPayload;
+    return localPayload;
   },
 };

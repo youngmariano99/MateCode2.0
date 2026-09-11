@@ -132,7 +132,7 @@ export const SeccionesDesarrolloTab: React.FC<SeccionesDesarrolloTabProps> = ({
           onClick={iniciarSeccionLandingTicket}
           className="mt-2 w-full rounded-lg bg-emerald-500 py-2.5 text-[10px] font-bold text-zinc-950 uppercase shadow transition-all hover:bg-emerald-600"
         >
-          🚀 Iniciar Ticket de Sección
+          Iniciar Ticket de Sección
         </button>
       </div>
     </Card>

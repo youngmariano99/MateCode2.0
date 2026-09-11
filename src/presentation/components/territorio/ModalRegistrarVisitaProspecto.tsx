@@ -65,7 +65,7 @@ export const ModalRegistrarVisitaProspecto: React.FC<
                   : "text-zinc-400 hover:text-white"
               }`}
             >
-              ✓ Visitado Exitosamente
+              Visitado Exitosamente
             </button>
             <button
               type="button"
@@ -76,7 +76,7 @@ export const ModalRegistrarVisitaProspecto: React.FC<
                   : "text-zinc-400 hover:text-white"
               }`}
             >
-              ✗ No Contactado / Cerrado
+              No Contactado / Cerrado
             </button>
           </div>
 

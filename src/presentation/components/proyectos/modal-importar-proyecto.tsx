@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { db } from "../../../offline/dexie/db";
+import { QueueService } from "../../../offline/services/queue.service";
 import { Icono } from "../icons";
 
 interface ModalImportarProyectoProps {
@@ -150,8 +151,7 @@ Estructura requerida:
       // Generate atomic database entries
       const proyectoId = "pro_" + Math.random().toString(36).substring(2, 9);
 
-      // 1. Create main project entity
-      await db.proyectos.add({
+      const proyectoPayload = {
         id: proyectoId,
         nombre: parsed.nombre,
         clienteId: "", // Sin Cliente / Idea Propia
@@ -190,20 +190,18 @@ Estructura requerida:
           cantidadPagos: 1,
           estadoPago: "Pendiente",
         },
-      });
+      };
 
-      // 2. Context metadata
-      await db.proyecto_contexto.add({
+      const contextoPayload = {
         proyectoId,
         doloresCliente: parsed.contexto?.doloresCliente || "",
         reglasNegocio: parsed.contexto?.reglasNegocio || "",
         publicoObjetivo: parsed.contexto?.publicoObjetivo || "",
         casosUsoExcluidos: "",
         historiasCriticas: "",
-      });
+      };
 
-      // 3. Design System
-      await db.proyecto_design_system.add({
+      const designSystemPayload = {
         proyectoId,
         arquetipo: parsed.designSystem?.arquetipo || "Diseño Suizo",
         metafora:
@@ -213,30 +211,29 @@ Estructura requerida:
         fuentePrimaria: "Inter",
         fuenteSecundaria: "Inter",
         microinteracciones: "Hover escalado sutil",
-      });
+      };
 
-      // 4. Engineering State
       const allDeps = [
         ...(parsed.stack?.frontend || []),
         ...(parsed.stack?.backend || []),
         ...(parsed.stack?.baseDatos || []),
       ];
-      await db.proyecto_estado_tecnico.add({
+      const estadoTecnicoPayload = {
         proyectoId,
         dependencias: allDeps.map((d: string) => ({
           nombre: d,
           version: "latest",
         })),
         baseDatosEsquema: "",
-      });
+      };
 
-      // 5. Epics mapping
+      const epicasPayload: Record<string, unknown>[] = [];
       const epicIdMap = new Map<string, string>();
       if (Array.isArray(parsed.epicas)) {
         for (const ep of parsed.epicas) {
           const newEpId = "ep_" + Math.random().toString(36).substring(2, 9);
           epicIdMap.set(ep.id, newEpId);
-          await db.epicas.add({
+          epicasPayload.push({
             id: newEpId,
             proyectoId,
             nombre: ep.nombre,
@@ -245,12 +242,12 @@ Estructura requerida:
         }
       }
 
-      // 6. User Stories mapping
+      const historiasPayload: Record<string, unknown>[] = [];
       if (Array.isArray(parsed.historias)) {
         for (const us of parsed.historias) {
           const newUsId = "us_" + Math.random().toString(36).substring(2, 9);
           const mappedEpicId = epicIdMap.get(us.epicaId) || "";
-          await db.historias.add({
+          historiasPayload.push({
             id: newUsId,
             proyectoId,
             epicaId: mappedEpicId,
@@ -264,7 +261,68 @@ Estructura requerida:
         }
       }
 
-      // 7. Add synchronization log
+      await db.transaction(
+        "rw",
+        [
+          db.proyectos,
+          db.proyecto_contexto,
+          db.proyecto_design_system,
+          db.proyecto_estado_tecnico,
+          db.epicas,
+          db.historias,
+          db.cola_eventos,
+        ],
+        async () => {
+          await db.proyectos.add(proyectoPayload);
+          await QueueService.encolar(
+            "proyectos",
+            "crear",
+            proyectoId,
+            proyectoPayload
+          );
+
+          await db.proyecto_contexto.add(contextoPayload);
+          await QueueService.encolar(
+            "proyecto_contexto",
+            "crear",
+            proyectoId,
+            contextoPayload
+          );
+
+          await db.proyecto_design_system.add(designSystemPayload);
+          await QueueService.encolar(
+            "proyecto_design_system",
+            "crear",
+            proyectoId,
+            designSystemPayload
+          );
+
+          await db.proyecto_estado_tecnico.add(estadoTecnicoPayload);
+          await QueueService.encolar(
+            "proyecto_estado_tecnico",
+            "crear",
+            proyectoId,
+            estadoTecnicoPayload
+          );
+
+          for (const ep of epicasPayload) {
+            await db.epicas.add(ep);
+            await QueueService.encolar("epicas", "crear", ep.id as string, ep);
+          }
+
+          for (const us of historiasPayload) {
+            await db.historias.add(us);
+            await QueueService.encolar(
+              "historias",
+              "crear",
+              us.id as string,
+              us
+            );
+          }
+        }
+      );
+
+      // Add synchronization log
       await db.logs_sincronizacion.add({
         tipo: "exito",
         mensaje: `Ingesta: Proyecto "${parsed.nombre}" importado y mapeado exitosamente con ID ${proyectoId}.`,
@@ -298,7 +356,7 @@ Estructura requerida:
         <div className="flex items-center justify-between border-b border-[#2A2A2E] pb-4">
           <div>
             <h3 className="font-mono text-sm font-extrabold tracking-tight text-white uppercase">
-              🚀 Ingestar Proyecto Existente (IA)
+              Ingestar Proyecto Existente (IA)
             </h3>
             <p className="mt-1 font-mono text-[10px] text-zinc-400">
               Genera e importa el contexto completo de un proyecto en un solo

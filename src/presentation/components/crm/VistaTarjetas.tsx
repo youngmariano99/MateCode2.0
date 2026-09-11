@@ -58,9 +58,9 @@ export const VistaTarjetas: React.FC<VistaTarjetasProps> = ({
             </div>
 
             <div className="mt-4 flex flex-col gap-1.5 border-t border-[#2A2A2E]/60 pt-3 font-mono text-xs text-zinc-400">
-              <span>✉ {c.correo}</span>
-              <span>☏ {c.telefono || "Sin teléfono"}</span>
-              {c.responsable && <span>👤 Asignado: {c.responsable}</span>}
+              <span>{c.correo}</span>
+              <span>{c.telefono || "Sin teléfono"}</span>
+              {c.responsable && <span>Asignado: {c.responsable}</span>}
             </div>
 
             <div className="mt-4 flex justify-end gap-3 border-t border-[#2A2A2E]/60 pt-2.5">

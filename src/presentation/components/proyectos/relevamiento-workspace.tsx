@@ -1,5 +1,5 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import React, { useState, useEffect } from "react";
 import { Card } from "../card";
@@ -250,8 +250,9 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
       if (onSave) {
         onSave(notasBrutas, relevamientoMarkdown);
       }
-    } catch (err: any) {
-      mostrarToast(`Error al guardar relevamiento: ${err.message}`, "error");
+    } catch (err: unknown) {
+      const mensaje = err instanceof Error ? err.message : String(err);
+      mostrarToast(`Error al guardar relevamiento: ${mensaje}`, "error");
     }
   };
 
@@ -329,7 +330,7 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
-              📝 1. Notas Brutas del Cliente (Reuniones / Chats)
+              1. Notas Brutas del Cliente (Reuniones / Chats)
             </span>
           </div>
 
@@ -344,7 +345,7 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
           <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
             <div className="flex items-center justify-between">
               <span className="font-mono text-[9px] font-bold text-sky-400 uppercase">
-                🎨 Links de Inspiración Visual & Referencias
+                Links de Inspiración Visual & Referencias
               </span>
               {linksInspiracion.length > 0 && (
                 <button
@@ -407,7 +408,7 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
 
           <div className="mt-1 flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
             <span className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
-              ⚙️ Selector de Prompt IA
+              Selector de Prompt IA
             </span>
             <div className="flex flex-wrap gap-2">
               <button
@@ -441,7 +442,7 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
                     : "border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200"
                 }`}
               >
-                💡 Idea (Contexto DDD)
+                Idea (Contexto DDD)
               </button>
             </div>
             <button
@@ -449,7 +450,7 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
               onClick={copiarPrompt}
               className="mt-1 rounded border border-emerald-500/20 bg-emerald-500/10 py-2 font-mono text-[9px] font-bold text-emerald-400 uppercase transition-all hover:bg-emerald-500/20"
             >
-              🚀 Copiar Prompt + Notas
+              Copiar Prompt + Notas
             </button>
           </div>
         </div>
@@ -459,8 +460,8 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
           <div className="flex items-center justify-between">
             <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
               {promptType === "idea_producto"
-                ? "✨ 2. Objeto Maestro de Contexto (JSON)"
-                : "✨ 2. Resumen Estructurado (Markdown de la IA)"}
+                ? "2. Objeto Maestro de Contexto (JSON)"
+                : "2. Resumen Estructurado (Markdown de la IA)"}
             </span>
             {(relevamientoMarkdown.trim() || copyContenido.trim()) && (
               <button
@@ -468,7 +469,7 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
                 onClick={descargarMarkdown}
                 className="text-[9px] font-bold text-sky-400 hover:text-sky-300"
               >
-                📥 Descargar .md
+                Descargar .md
               </button>
             )}
           </div>
@@ -489,7 +490,7 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
             <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-[9px] font-bold text-amber-400 uppercase">
-                  ✍️ Contenido y Copywriting (Texto del Sitio)
+                  Contenido y Copywriting (Texto del Sitio)
                 </span>
                 <button
                   type="button"

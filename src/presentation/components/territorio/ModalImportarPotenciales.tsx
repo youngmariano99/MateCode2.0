@@ -374,7 +374,7 @@ export const ModalImportarPotenciales: React.FC<
                   onClick={handleCopiarTemplate}
                   className="rounded-lg border border-[#2A2A2E] bg-zinc-900 px-2.5 py-1 font-mono text-[10px] text-emerald-400 transition-all hover:bg-zinc-800"
                 >
-                  {copiado ? "✓ Copiado" : "Copiar Plantilla"}
+                  {copiado ? "Copiado" : "Copiar Plantilla"}
                 </button>
               </div>
               <p className="mt-2 font-mono text-[10px] leading-normal text-zinc-500">
@@ -427,7 +427,7 @@ export const ModalImportarPotenciales: React.FC<
         ) : (
           <div className="flex flex-col gap-4">
             <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 font-mono text-[10px] text-emerald-400">
-              ✓ JSON validado. Se geocodificará cada dirección. Corrige inline
+              JSON validado. Se geocodificará cada dirección. Corrige inline
               cualquier error e intenta re-testear la dirección con el botón de
               búsqueda.
             </div>
@@ -480,9 +480,9 @@ export const ModalImportarPotenciales: React.FC<
                           }
                           className="rounded border border-zinc-800 bg-zinc-900 px-1 py-0.5 text-xs text-zinc-300 focus:outline-none"
                         >
-                          <option value="Alta">🔴 Alta</option>
-                          <option value="Media">🟡 Media</option>
-                          <option value="Baja">🔵 Baja</option>
+                          <option value="Alta">Alta</option>
+                          <option value="Media">Media</option>
+                          <option value="Baja">Baja</option>
                         </select>
                       </td>
                       <td className="px-3 py-2">
@@ -573,14 +573,14 @@ export const ModalImportarPotenciales: React.FC<
                           </span>
                         ) : item.error ? (
                           <span className="font-bold text-red-400">
-                            ✗ {item.error}
+                            {item.error}
                           </span>
                         ) : item.latitud ? (
                           <span
                             className="font-bold text-emerald-400"
                             title={item.direccionFormateada}
                           >
-                            ✓ OK
+                            OK
                           </span>
                         ) : (
                           <span className="text-zinc-500">Pendiente</span>

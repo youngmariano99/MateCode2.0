@@ -7,9 +7,14 @@ import { db } from "../../../../offline/dexie/db";
 import { QueueService } from "../../../../offline/services/queue.service";
 import { SyncService } from "../../../../offline/services/sync.service";
 import { useToast } from "../../../hooks/useToast";
-import { EjecucionIAControl } from "./ejecucion-ia-control";
 import { CheckpointPullService } from "../../../../offline/services/checkpoint-pull.service";
 import { iniciarTicketConIA } from "../../../../application/use-cases/proyecto/iniciar-ticket-ia.use-case";
+import { PROMPT_SPRINTS_CONTINUACION } from "../constants/prompts";
+import { ModalExtenderBacklog } from "./modal-extender-backlog";
+import { ModalCancelarSprint } from "./modal-cancelar-sprint";
+import { ModalRolloverSprint } from "./modal-rollover-sprint";
+import { SprintDashboardGrid } from "./sprint-dashboard-grid";
+import { SprintKanbanBoard } from "./sprint-kanban-board";
 
 interface SprintEnfoqueTabProps {
   proyecto: any;
@@ -30,25 +35,6 @@ interface SprintEnfoqueTabProps {
   handleUpdateActividadEstado: (id: string, nuevoEstado: string) => void;
   setIsImportDesvioOpen: (open: boolean) => void;
 }
-
-const KANBAN_COLUMNS = [
-  { key: "todo", label: "Por Hacer", color: "text-zinc-400 border-zinc-800" },
-  {
-    key: "in_progress",
-    label: "En Progreso",
-    color: "text-amber-400 border-amber-500/20 bg-amber-500/5",
-  },
-  {
-    key: "in_revision",
-    label: "En Revisión",
-    color: "text-sky-400 border-sky-500/20 bg-sky-500/5",
-  },
-  {
-    key: "completado",
-    label: "Completado",
-    color: "text-emerald-400 border-emerald-500/20 bg-emerald-500/5",
-  },
-];
 
 const COLUMN_FLOW = ["todo", "in_progress", "in_revision", "completado"];
 
@@ -98,90 +84,6 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
     const intervalo = setInterval(traer, 10000);
     return () => clearInterval(intervalo);
   }, [proyecto?.id]);
-
-  const PROMPT_SPRINTS_CONTINUACION = `<rol>
-Actúa como Scrum Master y Tech Lead Senior.
-Tu objetivo es planificar nuevos Sprints correctivos o de extensión para desarrollar funcionalidades faltantes o nuevas, basándote en la situación actual del Backlog del proyecto.
-</rol>
-
-<contexto>
-  - Proyecto: {{nombre_proyecto}}
-  - Descripción: {{descripcion_proyecto}}
-  - Stack Técnico y Estándares:
-{{CLAUDE_MD}}
-
-  - Sitemap / Mapa del Sitio actual:
-{{sitemap}}
-
-  - Backlog de Épicas e Historias Existentes:
-{{backlog_historias}}
-</contexto>
-
-<instrucciones_de_usuario>
-El usuario indica lo siguiente sobre lo que se necesita desarrollar a continuación:
-"{{instrucciones_usuario}}"
-</instrucciones_de_usuario>
-
-<reglas_de_generacion>
-1. COHERENCIA LOGÍSTICA: Si se trata de desarrollar algo que faltó de sprints anteriores, asocia las nuevas historias/actividades a las Épicas existentes. Si son nuevas funcionalidades, crea las Épicas y las Historias de Usuario correspondientes.
-2. DETALLE TÉCNICO COMPLETO: Para cada nueva historia de usuario o actividad técnica que agregues, debes especificar:
-   - Las actividades técnicas individuales (desglose de tareas).
-   - Para cada actividad, define:
-     - "rol": El rol técnico idóneo (BD, Backend, Frontend, QA, etc.).
-     - "componente": El nombre del archivo o componente a crear o modificar.
-     - "ruta": La ruta de archivos sugerida dentro del repositorio.
-     - "modulo": El nombre del módulo del sistema.
-     - "etiquetas": Array de tecnologías/keywords.
-     - "pasos": Checklist detallado de pasos de implementación.
-     - "criteriosAceptacion": Criterios de aceptación técnicos que validen la tarea.
-     - "seed": (Opcional) Directrices de datos semilla si la actividad requiere sembrar base de datos.
-3. ESTADO INICIAL: Todo nuevo sprint, historia y actividad que se cree debe inicializarse con estado planificado/pendiente ("todo" / "planificado").
-</reglas_de_generacion>
-
-<output_requerido>
-Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin texto explicativo, sin bloques de código markdown extra (solo el JSON crudo):
-[
-  {
-    "sprintNombre": "Sprint X: [Breve título descriptivo del sprint]",
-    "sprintObjetivo": "[Objetivo principal del sprint]",
-    "sprintDuracionSemanas": 2,
-    "sprintCapacidad": 20,
-    "historias": [
-      {
-        "epicaNombre": "[Nombre de Épica existente o una nueva si es funcionalidad nueva]",
-        "epicaDescripcion": "[Descripción de la épica si es nueva, o vacío/omitido si ya existe]",
-        "titulo": "[Título descriptivo de la Historia de Usuario]",
-        "descripcion": "[Como usuario quiero... para... (Criterios de aceptación generales)]",
-        "prioridad": "Alta" | "Media" | "Baja",
-        "estimacion": 5,
-        "actividades": [
-          {
-            "titulo": "[Título de la actividad técnica]",
-            "rol": "Backend" | "Frontend" | "BD" | "QA" | "Devops",
-            "componente": "[Nombre de componente/archivo]",
-            "ruta": "[Ruta sugerida]",
-            "modulo": "[Nombre del módulo]",
-            "etiquetas": ["etiqueta1", "etiqueta2"],
-            "pasos": [
-              "Paso 1...",
-              "Paso 2..."
-            ],
-            "criteriosAceptacion": [
-              "Criterio 1...",
-              "Criterio 2..."
-            ],
-            "seed": {
-              "modelo": "[Nombre de tabla/entidad si requiere datos semilla, sino omitir]",
-              "volumen": 10,
-              "indicaciones": "[Directrices de datos de prueba]"
-            }
-          }
-        ]
-      }
-    ]
-  }
-]
-</output_requerido>`;
 
   // Extension Modal States
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
@@ -634,7 +536,7 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
       mdContent += `--- \n\n`;
 
       for (const story of stories) {
-        mdContent += `## 🎯 HU: ${story.titulo}\n`;
+        mdContent += `## HU: ${story.titulo}\n`;
         if (story.descripcion) {
           mdContent += `*Criterios de Aceptación/Descripción:*\n\`\`\`text\n${story.descripcion}\n\`\`\`\n\n`;
         }
@@ -653,7 +555,7 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
             task.estado === "Done" ||
             task.estado === "Finalizado";
 
-          mdContent += `### 📄 [${isCompletado ? "✔ COMPLETADA" : "⏳ PENDIENTE"}] ${task.titulo}\n`;
+          mdContent += `### [${isCompletado ? "COMPLETADA" : "⏳ PENDIENTE"}] ${task.titulo}\n`;
           mdContent += `- **Rol:** ${task.rol || "General"}\n`;
           mdContent += `- **Componente/Ruta:** \`${task.componente || "N/A"}\` (${task.ruta || "N/A"})\n\n`;
           const executionId = `execution_act_${task.id}`;
@@ -678,7 +580,7 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
           }
 
           if (handoffsList.length > 0) {
-            mdContent += `#### 💾 Devolución / Handoff de la IA:\n`;
+            mdContent += `#### Devolución / Handoff de la IA:\n`;
             for (const ho of handoffsList) {
               if (ho.resumen_tecnico) {
                 mdContent += `**Resumen Técnico:**\n${ho.resumen_tecnico}\n\n`;
@@ -925,7 +827,7 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
               focusedSprint.estado === "completado" &&
               viewMode === "kanban" && (
                 <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[7px] font-bold text-emerald-400 uppercase">
-                  ✓ Sprint Completado
+                  Sprint Completado
                 </span>
               )}
           </div>
@@ -942,7 +844,7 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
               onClick={() => setViewMode("dashboard")}
               className="text-zinc-350 hover:bg-zinc-850 rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 font-mono text-[9px] font-bold uppercase transition-all hover:text-zinc-100"
             >
-              📂 Ver Sprints
+              Ver Sprints
             </button>
           )}
 
@@ -952,7 +854,7 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
               className="rounded border border-sky-500/20 bg-sky-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-sky-400 uppercase transition-all hover:bg-sky-500/20"
               title="Descargar devoluciones de la IA de este Sprint en un archivo .md"
             >
-              📥 Descargar Handoffs (.md)
+              Descargar Handoffs (.md)
             </button>
           )}
 
@@ -964,7 +866,7 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
                 className="rounded border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-amber-400 uppercase transition-all hover:bg-amber-500/20"
                 title="Reabrir sprint para agregar tareas o registrar bugs manteniendo la fecha de inicio"
               >
-                🔄 Reabrir Sprint
+                Reabrir Sprint
               </button>
             )}
 
@@ -975,7 +877,7 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
                 onClick={iniciarSprint}
                 className="rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
               >
-                ⚡ Comenzar Sprint
+                Comenzar Sprint
               </button>
             )}
 
@@ -991,8 +893,8 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
                   className="rounded border border-zinc-800 bg-zinc-900 px-2 py-1.5 font-mono text-[9px] text-zinc-300 focus:outline-none"
                   title="Motor de IA para los tickets que se encolen"
                 >
-                  <option value="claude">🤖 Claude Code</option>
-                  <option value="antigravity">🚀 Antigravity (Gemini)</option>
+                  <option value="claude">Claude Code</option>
+                  <option value="antigravity">Antigravity (Gemini)</option>
                 </select>
                 <button
                   onClick={handleIniciarSprintAutomatico}
@@ -1000,19 +902,19 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
                   className="rounded border border-violet-500/25 bg-violet-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-violet-400 uppercase transition-all hover:bg-violet-500/20 disabled:opacity-50"
                   title="Encola todos los tickets pendientes del sprint para que el runner los procese uno por uno"
                 >
-                  {encolandoSprintIA ? "Encolando..." : "🤖 Sprint Automático"}
+                  {encolandoSprintIA ? "Encolando..." : "Sprint Automático"}
                 </button>
                 <button
                   onClick={() => setIsCancelModalOpen(true)}
                   className="rounded border border-red-500/20 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase transition-all hover:bg-red-500/20"
                 >
-                  ❌ Cancelar Sprint
+                  Cancelar Sprint
                 </button>
                 <button
                   onClick={handleFinalizarSprintClick}
                   className="rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
                 >
-                  🏁 Finalizar Sprint
+                  Finalizar Sprint
                 </button>
               </>
             )}
@@ -1025,14 +927,14 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
                   className="rounded bg-emerald-500 px-2.5 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase shadow-md shadow-emerald-500/20 transition-all hover:bg-emerald-400"
                   title="Finalizar el desarrollo del proyecto"
                 >
-                  🏁 Finalizar Desarrollo
+                  Finalizar Desarrollo
                 </button>
               )}
               <button
                 onClick={() => setIsExtensionModalOpen(true)}
                 className="rounded border border-sky-500/20 bg-sky-500/10 px-2.5 py-1.5 font-mono text-[9px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
               >
-                ➕ Extender Sprint / Backlog
+                Extender Sprint / Backlog
               </button>
             </>
           )}
@@ -1041,490 +943,35 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
             onClick={() => setIsImportDesvioOpen(true)}
             className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
           >
-            ➕ Importar Desvío
+            Importar Desvío
           </button>
         </div>
       </div>
 
       {/* DASHBOARD MODE: Sprint Grid List */}
       {viewMode === "dashboard" ? (
-        <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {sprints.map((s) => {
-              const stories = tareas.filter((t) =>
-                historias.some(
-                  (h) => h.sprintId === s.id && h.id === t.historiaId
-                )
-              );
-              const completedCount = stories.filter(
-                (t) =>
-                  t.estado === "completado" ||
-                  t.estado === "Completado" ||
-                  t.estado === "done" ||
-                  t.estado === "Done" ||
-                  t.estado === "Finalizado"
-              ).length;
-              const progressPct =
-                stories.length > 0
-                  ? Math.round((completedCount / stories.length) * 100)
-                  : 0;
-
-              return (
-                <div
-                  key={s.id}
-                  className={`flex flex-col rounded-xl border p-4 font-mono transition-all hover:bg-zinc-900/10 ${
-                    s.estado === "activo"
-                      ? "border-emerald-500/30 bg-emerald-500/5"
-                      : s.estado === "completado"
-                        ? "border-zinc-900 bg-zinc-950/20 opacity-70"
-                        : "border-zinc-900 bg-zinc-950/40"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="truncate text-[11px] font-bold text-zinc-200">
-                      {s.nombre}
-                    </span>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <span
-                        className={`py-0.2 rounded border px-1.5 text-[7px] font-bold uppercase ${
-                          s.estado === "activo"
-                            ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
-                            : s.estado === "completado"
-                              ? "border-zinc-800 bg-zinc-900 text-zinc-500"
-                              : "border-zinc-800 bg-zinc-900 text-zinc-400"
-                        }`}
-                      >
-                        {s.estado === "activo"
-                          ? "Activo"
-                          : s.estado === "completado"
-                            ? "Completado"
-                            : "Planificado"}
-                      </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEliminarSprintSoft(s.id);
-                        }}
-                        className="text-zinc-650 rounded p-0.5 transition-colors hover:bg-red-500/10 hover:text-red-400"
-                        title="Eliminar Sprint (Soft Delete)"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-
-                  <p className="mt-2 line-clamp-2 min-h-[24px] text-[8px] leading-normal text-zinc-400">
-                    {s.objetivo || "Sin objetivo definido."}
-                  </p>
-
-                  {/* Micro stats grid */}
-                  <div className="my-3 grid grid-cols-3 gap-2 border-t border-b border-zinc-900/60 py-2 text-[8px] text-zinc-500">
-                    <div>
-                      <span className="block text-[7px] text-zinc-600 uppercase">
-                        Capacidad
-                      </span>
-                      <span className="text-zinc-350 font-bold">
-                        {s.capacidad || 0} Ptos
-                      </span>
-                    </div>
-                    <div>
-                      <span className="block text-[7px] text-zinc-600 uppercase">
-                        Duración
-                      </span>
-                      <span className="text-zinc-350 font-bold">
-                        {s.duracionSemanas || 2} Semanas
-                      </span>
-                    </div>
-                    <div>
-                      <span className="block text-[7px] text-zinc-600 uppercase">
-                        Tareas
-                      </span>
-                      <span className="text-zinc-350 font-bold">
-                        {completedCount}/{stories.length}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Start/End/Completion Dates */}
-                  <div className="mb-3 flex flex-col gap-0.5 border-b border-zinc-900/40 pb-2.5 font-mono text-[8px] text-zinc-500">
-                    {s.fechaInicio && (
-                      <div className="flex justify-between">
-                        <span className="text-zinc-650">INICIO:</span>
-                        <span className="font-bold text-zinc-400">
-                          {new Date(s.fechaInicio).toLocaleDateString("es-AR")}
-                        </span>
-                      </div>
-                    )}
-                    {s.fechaFin && s.estado !== "completado" && (
-                      <div className="flex justify-between">
-                        <span className="text-zinc-650">FIN ESTIMADO:</span>
-                        <span className="font-bold text-zinc-400">
-                          {new Date(s.fechaFin).toLocaleDateString("es-AR")}
-                        </span>
-                      </div>
-                    )}
-                    {s.finalizadoEn && (
-                      <div className="flex justify-between">
-                        <span className="text-zinc-650 text-emerald-500/80">
-                          COMPLETADO:
-                        </span>
-                        <span className="font-bold text-emerald-400">
-                          {new Date(s.finalizadoEn).toLocaleDateString("es-AR")}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Progress bar */}
-                  {stories.length > 0 && (
-                    <div className="mb-4">
-                      <div className="mb-1 flex items-center justify-between text-[7px] text-zinc-500">
-                        <span>Progreso</span>
-                        <span>{progressPct}%</span>
-                      </div>
-                      <div className="h-1 w-full overflow-hidden rounded-full bg-zinc-900">
-                        <div
-                          className={`h-full ${s.estado === "activo" ? "animate-pulse bg-emerald-500" : "bg-sky-500"}`}
-                          style={{ width: `${progressPct}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Actions footer */}
-                  <div className="mt-auto flex gap-2 pt-2">
-                    {s.estado === "planificado" && (
-                      <button
-                        onClick={() => handleIniciarSprintFromDashboard(s.id)}
-                        className="flex-1 rounded bg-emerald-500 py-1.5 text-center text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
-                      >
-                        ⚡ Comenzar
-                      </button>
-                    )}
-                    {s.estado === "activo" && (
-                      <button
-                        onClick={() => handleVerSprintDetails(s.id)}
-                        className="flex-1 rounded border border-emerald-500/30 bg-emerald-500/20 py-1.5 text-center text-[9px] font-bold text-emerald-400 uppercase transition-all hover:bg-emerald-500/30"
-                      >
-                        🎯 Tablero
-                      </button>
-                    )}
-                    {s.estado === "completado" && (
-                      <button
-                        onClick={() => handleReabrirSprintClick(s.id)}
-                        className="flex-1 rounded border border-amber-500/20 bg-amber-500/10 py-1.5 text-center text-[9px] font-bold text-amber-400 uppercase transition-all hover:bg-amber-500/20"
-                        title="Reabrir sprint para agregar tareas o registrar bugs manteniendo la fecha de inicio"
-                      >
-                        🔄 Reabrir
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleVerSprintDetails(s.id)}
-                      className="flex-1 rounded border border-zinc-800 bg-zinc-900 py-1.5 text-center text-[9px] font-bold text-zinc-400 uppercase transition-all hover:text-zinc-200"
-                    >
-                      {s.estado === "completado"
-                        ? "📥 Ver / Handoff"
-                        : "📋 Detalles"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-
-            {sprints.length === 0 && (
-              <div className="col-span-full rounded-xl border border-dashed border-zinc-900 bg-zinc-900/10 py-10 text-center font-mono text-[10px] text-zinc-500">
-                No hay sprints creados en la planificación de este proyecto.
-              </div>
-            )}
-          </div>
-        </div>
+        <SprintDashboardGrid
+          sprints={sprints}
+          tareas={tareas}
+          historias={historias}
+          handleEliminarSprintSoft={handleEliminarSprintSoft}
+          handleIniciarSprintFromDashboard={handleIniciarSprintFromDashboard}
+          handleVerSprintDetails={handleVerSprintDetails}
+          handleReabrirSprintClick={handleReabrirSprintClick}
+        />
       ) : (
         /* KANBAN / SCOPE VIEW MODE */
-        <div className="animate-in fade-in flex flex-col gap-4 duration-200">
-          {/* Metadata banner */}
-          <div className="grid grid-cols-1 gap-2 rounded-lg border border-zinc-900 bg-zinc-950/40 p-2.5 sm:grid-cols-3">
-            <div className="border-zinc-900 text-center sm:border-r">
-              <span className="block font-mono text-[8px] text-zinc-500 uppercase">
-                Objetivo del Sprint
-              </span>
-              <span className="block truncate font-mono text-[10px] font-bold text-zinc-300">
-                {focusedSprint?.objetivo || "Sin objetivo definido"}
-              </span>
-            </div>
-            <div className="border-zinc-900 text-center sm:border-r">
-              <span className="block font-mono text-[8px] text-zinc-500 uppercase">
-                Capacidad Planeada
-              </span>
-              <span className="block font-mono text-[10px] font-bold text-zinc-300">
-                {focusedSprint?.capacidad || 0} Ptos de Historia
-              </span>
-            </div>
-            <div className="text-center">
-              <span className="block font-mono text-[8px] text-zinc-500 uppercase">
-                Duración
-              </span>
-              <span className="block font-mono text-[10px] font-bold text-zinc-300">
-                {focusedSprint?.duracionSemanas || 2} Semanas
-              </span>
-            </div>
-          </div>
-
-          {/* Planning view if the selected sprint is NOT started yet */}
-          {focusedSprint?.estado === "planificado" ? (
-            <div className="rounded-xl border border-zinc-900 bg-zinc-950/20 p-8 text-center font-mono">
-              <p className="text-[10px] text-zinc-400">
-                Este sprint se encuentra actualmente en **Planificación**.
-              </p>
-              <p className="text-zinc-650 mt-1 text-[8px]">
-                Revisa los ítems asignados o haz clic en &quot;Comenzar
-                Sprint&quot; en la barra de control para habilitar el Kanban de
-                ejecución.
-              </p>
-
-              <div className="mt-6 overflow-x-auto text-left">
-                <span className="mb-2 block text-[8px] font-bold text-zinc-500 uppercase">
-                  Historias y Actividades Programadas
-                </span>
-                <table className="w-full border-collapse font-mono text-[9px] text-zinc-400">
-                  <thead>
-                    <tr className="border-b border-zinc-900 text-zinc-500 uppercase">
-                      <th className="p-2 text-left">Historia de Usuario</th>
-                      <th className="p-2 text-left">Estimación</th>
-                      <th className="p-2 text-left">Actividades asignadas</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {historiasSprint.map((h) => {
-                      const sub = tareas.filter((t) => t.historiaId === h.id);
-                      return (
-                        <tr key={h.id} className="border-b border-zinc-900/40">
-                          <td className="p-2 font-bold text-zinc-300">
-                            {h.titulo}
-                          </td>
-                          <td className="p-2">{h.estimacion}h</td>
-                          <td className="p-2">
-                            {sub.length > 0 ? (
-                              <div className="flex flex-col gap-1 text-[8px]">
-                                {sub.map((t) => (
-                                  <div key={t.id} className="text-zinc-450">
-                                    • {t.titulo}{" "}
-                                    <span className="text-[7px] text-zinc-600">
-                                      ({t.rol})
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-zinc-600 italic">
-                                Sin actividades asignadas
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {historiasSprint.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={3}
-                          className="py-4 text-center text-zinc-600"
-                        >
-                          No hay historias asignadas a este sprint.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : (
-            /* KANBAN BOARD VIEW */
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-              {KANBAN_COLUMNS.map((col) => {
-                const acts = getActividadesByCol(col.key);
-                return (
-                  <div
-                    key={col.key}
-                    className="flex min-h-[500px] flex-col rounded-xl border border-zinc-900 bg-zinc-950/20 p-3"
-                  >
-                    {/* Column Header */}
-                    <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
-                      <span
-                        className={`font-mono text-[10px] font-bold uppercase ${col.color.split(" ")[0]}`}
-                      >
-                        {col.label}
-                      </span>
-                      <span className="py-0.2 rounded border border-zinc-800 bg-zinc-900 px-1.5 font-mono text-[8px] font-bold text-zinc-400">
-                        {acts.length}
-                      </span>
-                    </div>
-
-                    {/* Column Items */}
-                    <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
-                      {acts.map((t) => {
-                        const matchedStory = historiasSprint.find(
-                          (h) => h.id === t.historiaId
-                        );
-                        const matchedEpic = matchedStory
-                          ? epicas.find((e) => e.id === matchedStory.epicaId)
-                          : null;
-
-                        const isCompletado =
-                          t.estado === "done" || t.estado === "completado";
-                        const isRevision =
-                          t.estado === "review" ||
-                          t.estado === "testing" ||
-                          t.estado === "in_revision";
-                        const isEnProgreso =
-                          t.estado === "doing" || t.estado === "in_progress";
-
-                        return (
-                          <div
-                            key={t.id}
-                            className={`flex flex-col gap-2 rounded-lg border border-zinc-900 bg-zinc-900/10 p-3 transition-all hover:border-zinc-800 hover:bg-zinc-900/30 ${
-                              isEnProgreso
-                                ? "border-amber-500/20 bg-amber-500/5"
-                                : isRevision
-                                  ? "border-sky-500/20 bg-sky-500/5"
-                                  : isCompletado
-                                    ? "border-emerald-500/20 bg-emerald-500/5 opacity-70"
-                                    : ""
-                            }`}
-                          >
-                            {/* Card Top Title & ID */}
-                            <div className="flex items-start justify-between gap-2">
-                              <span className="font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                                ACT-{t.id.slice(-4).toUpperCase()}
-                              </span>
-                              {/* Arrow state changers */}
-                              {focusedSprint?.estado === "activo" && (
-                                <div className="flex shrink-0 items-center gap-1">
-                                  {col.key !== "todo" && (
-                                    <button
-                                      onClick={() =>
-                                        handleMoveState(
-                                          t.id,
-                                          t.estado || "todo",
-                                          "prev"
-                                        )
-                                      }
-                                      className="rounded border border-zinc-800 bg-zinc-900 px-1 font-mono text-[8px] text-zinc-400 hover:text-zinc-200"
-                                      title="Mover columna anterior"
-                                    >
-                                      ◀
-                                    </button>
-                                  )}
-                                  {col.key !== "completado" && (
-                                    <button
-                                      onClick={() =>
-                                        handleMoveState(
-                                          t.id,
-                                          t.estado || "todo",
-                                          "next"
-                                        )
-                                      }
-                                      className="rounded border border-zinc-800 bg-zinc-900 px-1 font-mono text-[8px] text-zinc-400 hover:text-zinc-200"
-                                      title="Mover columna siguiente"
-                                    >
-                                      ▶
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
-                            <span className="font-mono text-[9px] leading-normal font-bold text-zinc-200">
-                              {t.titulo}
-                            </span>
-
-                            {/* Tags layer (Epic & HU) */}
-                            <div className="flex flex-wrap gap-1.5">
-                              {matchedEpic && (
-                                <button
-                                  onClick={() =>
-                                    setActiveModalContext({
-                                      tipo: "epica",
-                                      nombre: matchedEpic.nombre,
-                                      descripcion:
-                                        matchedEpic.descripcion ||
-                                        "Sin descripción",
-                                    })
-                                  }
-                                  className="py-0.2 rounded border border-sky-500/20 bg-sky-500/5 px-1 font-mono text-[7px] text-sky-400 uppercase transition-all hover:bg-sky-500/10"
-                                  title="Ver Épica"
-                                >
-                                  📦 {matchedEpic.nombre.slice(0, 15)}...
-                                </button>
-                              )}
-                              {matchedStory && (
-                                <button
-                                  onClick={() =>
-                                    setActiveModalContext({
-                                      tipo: "historia",
-                                      nombre: matchedStory.titulo,
-                                      descripcion:
-                                        matchedStory.descripcion ||
-                                        "Sin descripción de criterios de aceptación.",
-                                    })
-                                  }
-                                  className="py-0.2 rounded border border-purple-500/20 bg-purple-500/5 px-1 font-mono text-[7px] text-purple-400 uppercase transition-all hover:bg-purple-500/10"
-                                  title="Ver Historia de Usuario"
-                                >
-                                  🎯 HU-
-                                  {matchedStory.id.slice(-4).toUpperCase()}
-                                </button>
-                              )}
-                            </div>
-
-                            {/* Technical meta info */}
-                            <div className="mt-0.5 flex flex-col gap-0.5 border-t border-zinc-900/60 pt-1.5 font-mono text-[7px] text-zinc-500">
-                              {t.rol && <span>👤 Rol: {t.rol}</span>}
-                              {t.componente && (
-                                <span>📄 File: {t.componente}</span>
-                              )}
-                              {t.ruta && (
-                                <span className="truncate">
-                                  📂 Path: {t.ruta}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Launch focus mode (manual) */}
-                            {focusedSprint?.estado === "activo" &&
-                              !isCompletado && (
-                                <button
-                                  onClick={() =>
-                                    iniciarCintaProduccionActividad(t)
-                                  }
-                                  className="mt-1 flex items-center justify-center gap-1 rounded border border-emerald-500/25 bg-emerald-500/10 py-1 font-mono text-[8px] font-bold text-emerald-400 uppercase transition-all hover:bg-emerald-500/20"
-                                >
-                                  🎯 Modo Enfoque
-                                </button>
-                              )}
-
-                            {/* Ejecución automatizada con IA (Fase 3) */}
-                            {focusedSprint?.estado === "activo" &&
-                              !isCompletado && (
-                                <EjecucionIAControl
-                                  proyectoId={proyecto.id}
-                                  actividad={{ id: t.id, titulo: t.titulo }}
-                                />
-                              )}
-                          </div>
-                        );
-                      })}
-                      {acts.length === 0 && (
-                        <div className="rounded-xl border border-dashed border-zinc-900/60 py-8 text-center font-mono text-[8px] text-zinc-600">
-                          Vacio
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <SprintKanbanBoard
+          proyecto={proyecto}
+          focusedSprint={focusedSprint}
+          historiasSprint={historiasSprint}
+          tareas={tareas}
+          epicas={epicas}
+          getActividadesByCol={getActividadesByCol}
+          handleMoveState={handleMoveState}
+          setActiveModalContext={setActiveModalContext}
+          iniciarCintaProduccionActividad={iniciarCintaProduccionActividad}
+        />
       )}
 
       {/* Sutil Context Modal for Epics / HUs */}
@@ -1556,386 +1003,60 @@ Devuelve ÚNICAMENTE un array JSON válido con la siguiente estructura, sin text
       )}
 
       {/* Rollover Modal */}
-      {isRolloverOpen && (
-        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm duration-200">
-          <div className="w-[480px] rounded-xl border border-zinc-800 bg-zinc-950 p-5 font-mono shadow-2xl">
-            <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
-              <span className="text-[10px] font-bold text-red-400 uppercase">
-                ⚠️ Finalizar Sprint con Tareas Pendientes
-              </span>
-              <button
-                onClick={() => setIsRolloverOpen(false)}
-                className="hover:text-zinc-350 text-[9px] text-zinc-500 uppercase"
-              >
-                Cancelar
-              </button>
-            </div>
-            <p className="mb-3 text-[9px] leading-relaxed text-zinc-400">
-              Detectamos actividades no completadas en este sprint. Para poder
-              cerrar el sprint, debes reprogramar las Historias de Usuario con
-              tareas pendientes a otro sprint (o al Backlog general):
-            </p>
-            <div className="flex flex-col gap-3">
-              <select
-                value={rolloverTargetSprintId}
-                onChange={(e) => setRolloverTargetSprintId(e.target.value)}
-                className="w-full rounded border border-zinc-900 bg-zinc-900 p-2 text-[9px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500"
-              >
-                <option value="backlog">
-                  (Enviar al Backlog - Sin Sprint)
-                </option>
-                {sprints
-                  .filter(
-                    (s) =>
-                      s.id !== selectedSprintId && s.estado !== "completado"
-                  )
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      Reprogramar a: {s.nombre} (
-                      {s.estado === "planificado"
-                        ? "En Planificación"
-                        : "Activo"}
-                      )
-                    </option>
-                  ))}
-              </select>
-
-              <button
-                onClick={() => {
-                  finalizarSprint(rolloverTargetSprintId || "backlog");
-                  setIsRolloverOpen(false);
-                  setViewMode("dashboard");
-                }}
-                className="hover:bg-red-650 w-full rounded bg-red-500 py-2 text-center text-[10px] font-bold text-zinc-100 uppercase transition-all"
-              >
-                Confirmar y Finalizar Sprint 🏁
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ModalRolloverSprint
+        isOpen={isRolloverOpen}
+        onClose={() => setIsRolloverOpen(false)}
+        rolloverTargetSprintId={rolloverTargetSprintId}
+        setRolloverTargetSprintId={setRolloverTargetSprintId}
+        sprints={sprints}
+        selectedSprintId={selectedSprintId}
+        onConfirm={() => {
+          finalizarSprint(rolloverTargetSprintId || "backlog");
+          setIsRolloverOpen(false);
+          setViewMode("dashboard");
+        }}
+      />
 
       {/* Cancel Sprint Dialog Modal */}
-      {isCancelModalOpen && (
-        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm duration-200">
-          <div className="w-[450px] rounded-xl border border-zinc-800 bg-zinc-950 p-5 font-mono shadow-2xl">
-            <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
-              <span className="text-[10px] font-bold text-red-400 uppercase">
-                ⚠️ Cancelar Sprint Activo
-              </span>
-              <button
-                onClick={() => setIsCancelModalOpen(false)}
-                className="hover:text-zinc-350 text-[9px] text-zinc-500 uppercase"
-              >
-                Cerrar
-              </button>
-            </div>
-            <p className="mb-4 text-[9px] leading-relaxed text-zinc-400">
-              Esta acción detendrá el desarrollo y devolverá el sprint al estado
-              **&quot;Planificado&quot;**. Podrás iniciarlo de nuevo más tarde.
-            </p>
-
-            <div className="flex flex-col gap-3">
-              <span className="block text-[8px] font-bold text-zinc-500 uppercase">
-                ¿Qué hacer con las tareas del sprint?
-              </span>
-
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-zinc-900 bg-zinc-900/10 p-2.5 hover:border-zinc-800">
-                <input
-                  type="radio"
-                  checked={resetTasksOnCancel}
-                  onChange={() => setResetTasksOnCancel(true)}
-                  className="mt-0.5 accent-emerald-500"
-                />
-                <div className="text-[9px]">
-                  <span className="block font-bold text-zinc-200">
-                    Reiniciar Progreso (Recomendado)
-                  </span>
-                  <span className="block text-[8px] leading-normal text-zinc-500">
-                    Restablece todas las actividades de este sprint al estado
-                    **&quot;Por Hacer&quot;** (todo).
-                  </span>
-                </div>
-              </label>
-
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-zinc-900 bg-zinc-900/10 p-2.5 hover:border-zinc-800">
-                <input
-                  type="radio"
-                  checked={!resetTasksOnCancel}
-                  onChange={() => setResetTasksOnCancel(false)}
-                  className="mt-0.5 accent-emerald-500"
-                />
-                <div className="text-[9px]">
-                  <span className="block font-bold text-zinc-200">
-                    Mantener Progreso
-                  </span>
-                  <span className="block text-[8px] leading-normal text-zinc-500">
-                    Conserva el estado actual de las actividades (ej: las que ya
-                    estaban completadas seguirán completadas).
-                  </span>
-                </div>
-              </label>
-
-              <div className="mt-4 flex gap-2">
-                <button
-                  onClick={() => setIsCancelModalOpen(false)}
-                  className="text-zinc-450 flex-1 rounded border border-zinc-800 bg-zinc-900 py-2 text-center text-[9px] font-bold uppercase transition-all hover:text-zinc-200"
-                >
-                  Volver atrás
-                </button>
-                <button
-                  onClick={() => {
-                    cancelarSprint(resetTasksOnCancel);
-                    setIsCancelModalOpen(false);
-                    setViewMode("dashboard");
-                  }}
-                  className="flex-1 rounded bg-red-500 py-2 text-center text-[9px] font-bold text-zinc-100 uppercase transition-all hover:bg-red-600"
-                >
-                  Sí, Cancelar Sprint
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ModalCancelarSprint
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        resetTasksOnCancel={resetTasksOnCancel}
+        setResetTasksOnCancel={setResetTasksOnCancel}
+        onConfirm={() => {
+          cancelarSprint(resetTasksOnCancel);
+          setIsCancelModalOpen(false);
+          setViewMode("dashboard");
+        }}
+      />
 
       {/* Backlog & Sprint Extension Modal */}
-      {isExtensionModalOpen && (
-        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm duration-200">
-          <div className="flex max-h-[85vh] w-[650px] flex-col overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 p-6 font-mono shadow-2xl">
-            <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-sky-500" />
-                <span className="text-[11px] font-bold tracking-wider text-zinc-100 uppercase">
-                  Extender Backlog & Sprints
-                </span>
-              </div>
-              <button
-                onClick={() => setIsExtensionModalOpen(false)}
-                className="hover:text-zinc-350 text-[10px] font-bold text-zinc-500 uppercase"
-              >
-                Cerrar ✕
-              </button>
-            </div>
-
-            {/* Modal Tabs Header */}
-            <div className="mb-4 flex gap-1 border-b border-zinc-900 pb-2">
-              {[
-                { id: "ia", label: "✨ Importar con IA (Recomendado)" },
-                { id: "sprint", label: "📅 Crear Sprint Manual" },
-                { id: "backlog", label: "📋 Vincular Backlog" },
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setExtensionTab(t.id as any)}
-                  className={`rounded-lg border px-3 py-1.5 text-[9px] font-bold uppercase transition-all ${
-                    extensionTab === t.id
-                      ? "border-sky-500/30 bg-sky-500/10 text-sky-400"
-                      : "hover:text-zinc-350 border-transparent text-zinc-500 hover:bg-zinc-900/40"
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Modal Content Scroll Area */}
-            <div className="flex-1 overflow-y-auto pr-1 text-left">
-              {extensionTab === "ia" && (
-                <div className="flex flex-col gap-4">
-                  <div className="rounded-lg border border-sky-500/10 bg-sky-500/5 p-3 text-[9px] leading-relaxed text-sky-300">
-                    💡 **¿Cómo funciona?**
-                    <br />
-                    1. Escribe en las instrucciones lo que deseas agregar o
-                    corregir (ej. &quot;Falta agregar cupones de descuento y
-                    reparar el flujo de login que falla al expirar token&quot;).
-                    <br />
-                    2. Haz clic en **Copiar Prompt** para enviar a la IA todo el
-                    contexto actual (backlog, stack y sitemap).
-                    <br />
-                    3. Pega el JSON que te devuelva la IA abajo y haz clic en
-                    **Importar**. Se creará todo de forma estructurada
-                    automáticamente.
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[8px] font-bold tracking-wider text-zinc-500 uppercase">
-                      1. Instrucciones para la IA (Ajustes o Nuevas
-                      Funcionalidades)
-                    </label>
-                    <textarea
-                      value={userInstructions}
-                      onChange={(e) => setUserInstructions(e.target.value)}
-                      placeholder="Escribe lo que falta desarrollar o los nuevos requerimientos..."
-                      className="h-20 w-full rounded-lg border border-zinc-800 bg-zinc-900/60 p-2.5 font-mono text-[9px] text-zinc-300 placeholder-zinc-700 focus:border-sky-500/40 focus:outline-none"
-                    />
-                  </div>
-
-                  <button
-                    onClick={handleCopiarPromptIA}
-                    className="w-full rounded bg-sky-500 py-2 text-center text-[9px] font-bold text-zinc-950 uppercase shadow-md shadow-sky-500/25 transition-all hover:bg-sky-400"
-                  >
-                    📋 Generar & Copiar Prompt para la IA
-                  </button>
-
-                  <div className="flex flex-col gap-1.5 border-t border-zinc-900 pt-4">
-                    <label className="text-[8px] font-bold tracking-wider text-zinc-500 uppercase">
-                      2. Pegar JSON de respuesta de la IA
-                    </label>
-                    <textarea
-                      value={backlogJson}
-                      onChange={(e) => setBacklogJson(e.target.value)}
-                      placeholder="Pega el array JSON devuelto por la IA..."
-                      className="h-28 w-full rounded-lg border border-zinc-800 bg-zinc-900/60 p-2.5 font-mono text-[8px] text-zinc-300 placeholder-zinc-700 focus:border-emerald-500/40 focus:outline-none"
-                    />
-                  </div>
-
-                  <button
-                    onClick={handleImportarSprintsJson}
-                    className="w-full rounded bg-emerald-500 py-2.5 text-center text-[9px] font-bold text-zinc-950 uppercase shadow-md shadow-emerald-500/25 transition-all hover:bg-emerald-400"
-                  >
-                    📥 Procesar e Importar Backlog de Extensión
-                  </button>
-                </div>
-              )}
-
-              {extensionTab === "sprint" && (
-                <div className="flex flex-col gap-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[8px] font-bold text-zinc-500 uppercase">
-                        Nombre del Sprint
-                      </label>
-                      <input
-                        type="text"
-                        value={newSprintNombre}
-                        onChange={(e) => setNewSprintNombre(e.target.value)}
-                        placeholder="Ej: Sprint 5: Ajustes y QA"
-                        className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 font-mono text-[9px] text-zinc-200 focus:border-sky-500/40 focus:outline-none"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[8px] font-bold text-zinc-500 uppercase">
-                        Capacidad (Puntos)
-                      </label>
-                      <input
-                        type="number"
-                        value={newSprintCapacidad}
-                        onChange={(e) =>
-                          setNewSprintCapacidad(Number(e.target.value))
-                        }
-                        className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 font-mono text-[9px] text-zinc-200 focus:border-sky-500/40 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[8px] font-bold text-zinc-500 uppercase">
-                      Duración (Semanas)
-                    </label>
-                    <select
-                      value={newSprintDuracion}
-                      onChange={(e) =>
-                        setNewSprintDuracion(Number(e.target.value))
-                      }
-                      className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 font-mono text-[9px] text-zinc-200 focus:border-sky-500/40 focus:outline-none"
-                    >
-                      <option value={1}>1 Semana</option>
-                      <option value={2}>2 Semanas</option>
-                      <option value={3}>3 Semanas</option>
-                      <option value={4}>4 Semanas</option>
-                    </select>
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[8px] font-bold text-zinc-500 uppercase">
-                      Objetivo del Sprint
-                    </label>
-                    <textarea
-                      value={newSprintObjetivo}
-                      onChange={(e) => setNewSprintObjetivo(e.target.value)}
-                      placeholder="Describir el objetivo principal o alcance del sprint..."
-                      className="h-20 w-full rounded-lg border border-zinc-800 bg-zinc-900/60 p-2.5 font-mono text-[9px] text-zinc-300 focus:border-sky-500/40 focus:outline-none"
-                    />
-                  </div>
-
-                  <button
-                    onClick={handleCrearSprintManual}
-                    className="w-full rounded bg-emerald-500 py-2 text-center text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
-                  >
-                    ➕ Planificar Sprint
-                  </button>
-                </div>
-              )}
-
-              {extensionTab === "backlog" && (
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[8px] font-bold text-zinc-500 uppercase">
-                      Seleccionar Sprint de Destino
-                    </label>
-                    <select
-                      value={selectedSprintForAssign}
-                      onChange={(e) =>
-                        setSelectedSprintForAssign(e.target.value)
-                      }
-                      className="rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 font-mono text-[9px] text-zinc-200 focus:border-sky-500/40 focus:outline-none"
-                    >
-                      <option value="">-- Selecciona un Sprint --</option>
-                      {sprints.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.nombre} ({s.estado})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="border-t border-zinc-900 pt-3">
-                    <span className="mb-2 block text-[8px] font-bold text-zinc-500 uppercase">
-                      Historias Huérfanas (Sin Sprint Asignado)
-                    </span>
-
-                    <div className="flex max-h-[220px] flex-col gap-2 overflow-y-auto pr-1">
-                      {historias.filter((h) => !h.sprintId).length === 0 ? (
-                        <p className="py-6 text-center text-[9px] text-zinc-500">
-                          No hay historias sin sprint asignado.
-                        </p>
-                      ) : (
-                        historias
-                          .filter((h) => !h.sprintId)
-                          .map((h) => (
-                            <div
-                              key={h.id}
-                              className="flex items-center justify-between gap-3 rounded-lg border border-zinc-900 bg-zinc-900/20 p-2.5"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <span className="block truncate text-[9px] font-bold text-zinc-200">
-                                  {h.titulo}
-                                </span>
-                                <span className="block truncate text-[7px] text-zinc-500">
-                                  Prioridad: {h.prioridad || "Media"} •
-                                  Estimación: {h.estimacion || 0} Ptos
-                                </span>
-                              </div>
-                              <button
-                                onClick={() =>
-                                  handleAsignarHistoriaASprint(h.id)
-                                }
-                                className="shrink-0 rounded border border-sky-500/30 bg-sky-500/10 px-2 py-1 text-[8px] font-bold text-sky-400 uppercase transition-all hover:bg-sky-500/20"
-                              >
-                                Vincular 🔗
-                              </button>
-                            </div>
-                          ))
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <ModalExtenderBacklog
+        isOpen={isExtensionModalOpen}
+        onClose={() => setIsExtensionModalOpen(false)}
+        extensionTab={extensionTab}
+        setExtensionTab={setExtensionTab}
+        userInstructions={userInstructions}
+        setUserInstructions={setUserInstructions}
+        handleCopiarPromptIA={handleCopiarPromptIA}
+        backlogJson={backlogJson}
+        setBacklogJson={setBacklogJson}
+        handleImportarSprintsJson={handleImportarSprintsJson}
+        newSprintNombre={newSprintNombre}
+        setNewSprintNombre={setNewSprintNombre}
+        newSprintCapacidad={newSprintCapacidad}
+        setNewSprintCapacidad={setNewSprintCapacidad}
+        newSprintDuracion={newSprintDuracion}
+        setNewSprintDuracion={setNewSprintDuracion}
+        newSprintObjetivo={newSprintObjetivo}
+        setNewSprintObjetivo={setNewSprintObjetivo}
+        handleCrearSprintManual={handleCrearSprintManual}
+        selectedSprintForAssign={selectedSprintForAssign}
+        setSelectedSprintForAssign={setSelectedSprintForAssign}
+        sprints={sprints}
+        historias={historias}
+        handleAsignarHistoriaASprint={handleAsignarHistoriaASprint}
+      />
     </Card>
   );
 };

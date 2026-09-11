@@ -1,16 +1,60 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../../../offline/dexie/db";
 
+interface TareaResumen {
+  id: string;
+  titulo?: string;
+  rol?: string;
+}
+
 interface MetricasIATabProps {
   proyectoId: string;
-  tareas: any[];
+  tareas: TareaResumen[];
   /** Tareas del sprint actualmente enfocado en el workspace, para poder acotar la descarga de handoffs a ese sprint. */
-  tareasSprintActual?: any[];
+  tareasSprintActual?: TareaResumen[];
   nombreSprintActual?: string;
+}
+
+interface Checkpoint {
+  id: string;
+  actividadId: string;
+  taskExecutionId: string;
+  tiempoInicio?: number;
+  tiempoFin?: number;
+  estadoCheckpoint: string;
+  tokensInput?: number;
+  tokensOutput?: number;
+  costoUsd?: number;
+  reintentosFallidos?: number;
+  prEstado?: string;
+  prUrl?: string;
+  ciEstado?: string;
+  actualizadoEn?: number;
+  promptEnviado?: string;
+}
+
+interface DesvioPlan {
+  loQuePediaElTicket: string;
+  loQueSeHizo: string;
+  motivo: string;
+}
+
+interface AccionManual {
+  nivel: string;
+  descripcion: string;
+}
+
+interface HandoffCompleto {
+  resumen_tecnico?: string;
+  resumen_negocio?: string;
+  archivos_creados_o_modificados?: string[];
+  firmas_o_contratos_exportados?: string[];
+  desvios_del_plan?: DesvioPlan[];
+  acciones_manuales_requeridas?: AccionManual[];
+  archivo_prueba_creado?: string;
 }
 
 interface FilaMetrica {
@@ -53,9 +97,9 @@ function formatMin(n: number | null): string {
 
 /** Arma el bloque Markdown de un ticket: lo pedido (prompt) + lo devuelto (handoff completo). */
 function construirSeccionHandoff(
-  tarea: any,
-  cp: any,
-  handoffCompleto: Record<string, any> | null
+  tarea: TareaResumen | undefined,
+  cp: Checkpoint,
+  handoffCompleto: HandoffCompleto | null
 ): string {
   const titulo = tarea?.titulo || cp.actividadId;
   const lineas: string[] = [`## ${titulo}`, ""];
@@ -136,9 +180,9 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
       db.task_execution_checkpoints
         .where("proyectoId")
         .equals(proyectoId)
-        .toArray(),
+        .toArray() as unknown as Promise<Checkpoint[]>,
     [proyectoId]
-  ) as any[] | undefined;
+  );
   const checkpoints = useMemo(() => checkpointsQuery || [], [checkpointsQuery]);
 
   const filas: FilaMetrica[] = useMemo(() => {
@@ -243,12 +287,14 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
       .where("id")
       .anyOf(taskExecutionIds)
       .toArray();
-    const execById = new Map(executions.map((e: any) => [e.id, e]));
+    const execById = new Map(
+      executions.map((e) => [e.id as string, e as { metadata?: string }])
+    );
 
     const secciones = checkpointsSprint.map((cp) => {
       const tarea = tareas.find((t) => t.id === cp.actividadId);
-      const exec = execById.get(cp.taskExecutionId) as any;
-      let handoffCompleto: Record<string, any> | null = null;
+      const exec = execById.get(cp.taskExecutionId);
+      let handoffCompleto: HandoffCompleto | null = null;
       try {
         const meta = exec?.metadata ? JSON.parse(exec.metadata) : null;
         handoffCompleto = meta?.handoffs?.default ?? null;
@@ -299,7 +345,7 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
             onClick={descargarHandoffsSprint}
             className="rounded-lg border border-violet-900/60 bg-violet-950/30 px-3 py-1.5 font-mono text-[8px] font-bold text-violet-300 uppercase hover:bg-violet-950/60"
           >
-            📥 Descargar handoffs del sprint
+            Descargar handoffs del sprint
           </button>
         </div>
       )}
@@ -455,9 +501,9 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
                   </td>
                   <td className="py-1 text-center">
                     {f.ciEstado === "paso"
-                      ? "✓"
+                      ? ""
                       : f.ciEstado === "fallo"
-                        ? "✗"
+                        ? ""
                         : "—"}
                   </td>
                   <td className="py-1 text-center">

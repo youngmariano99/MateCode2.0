@@ -1,19 +1,66 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React from "react";
 import { db } from "../../../../offline/dexie/db";
+import { QueueService } from "../../../../offline/services/queue.service";
+import type { TaskExecutionCheckpoint } from "../../../../domain/entidades/automatizacion-ia.entity";
+
+interface ItemCinta {
+  id: string;
+  titulo: string;
+  estado?: string;
+  descripcion?: string;
+  pasos?: string[];
+  [key: string]: unknown;
+}
+
+interface IteracionRegistro {
+  fecha: string;
+  feedback: string;
+  version?: string;
+}
+
+interface BugRegistro {
+  fecha?: string;
+  logs?: string;
+  resuelto: boolean;
+  comportamientoEsperado?: string;
+  comportamientoReal?: string;
+}
+
+interface HandoffData {
+  fecha?: string;
+  resumen_tecnico?: string;
+  archivos_creados_o_modificados?: string[] | string;
+  [key: string]: unknown;
+}
+
+interface CintaMetadata {
+  pipeline?: string[];
+  activeStationIndex?: number;
+  handoffs?: Record<string, HandoffData>;
+  iterations?: Record<string, IteracionRegistro[]>;
+  bugs?: Record<string, BugRegistro[]>;
+  [key: string]: unknown;
+}
+
+interface ExecutionCinta {
+  id: string;
+  proyectoId: string;
+  metadata?: CintaMetadata;
+  [key: string]: unknown;
+}
 
 interface ConveyorBeltFocusViewProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedHistoriaCinta: any;
-  selectedActividadCinta?: any;
-  activeCintaExecution: any;
-  focusedSprint: any;
+  selectedHistoriaCinta: ItemCinta | null;
+  selectedActividadCinta?: ItemCinta | null;
+  activeCintaExecution: ExecutionCinta | null;
+  focusedSprint: { nombre?: string } | null;
   cintaHandoffInput: string;
   setCintaHandoffInput: (val: string) => void;
-  detectedDocUpdates: any;
+  detectedDocUpdates: Record<string, unknown> | null;
   handleAplicarActualizacionesDocs: () => void;
   cintaIterationFeedback: string;
   setCintaIterationFeedback: (val: string) => void;
@@ -78,9 +125,11 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
   if (!activeCintaExecution) return null;
 
   const isActividadMode = !!selectedActividadCinta;
-  const currentItem = isActividadMode
-    ? selectedActividadCinta
-    : selectedHistoriaCinta;
+  // La guarda de arriba ya garantiza que al menos uno de los dos está
+  // presente — TS no puede seguir esa lógica a través del ternario.
+  const currentItem = (
+    isActividadMode ? selectedActividadCinta : selectedHistoriaCinta
+  ) as ItemCinta;
 
   const meta = activeCintaExecution.metadata || {};
   const pipeline = meta.pipeline || [];
@@ -101,12 +150,10 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
   const branchName = `feature/mc-${shortId}-${cleanTitle}`;
 
   // Extract history
-  const allHandoffs = Object.entries(meta.handoffs || {}) as Array<
-    [string, any]
-  >;
+  const allHandoffs = Object.entries(meta.handoffs || {});
   const stationIterations = meta.iterations?.[activeStation] || [];
   const stationBugs = meta.bugs?.[activeStation] || [];
-  const activeBug = stationBugs.find((b: any) => !b.resuelto);
+  const activeBug = stationBugs.find((b) => !b.resuelto);
 
   return (
     <div className="animate-in fade-in fixed inset-0 z-40 flex flex-col overflow-y-auto bg-zinc-950 p-6 duration-300">
@@ -157,7 +204,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                 <div
                   className={`flex items-center gap-2 rounded-lg border px-4 py-2 font-mono text-[10px] font-bold uppercase transition-all ${stateClass}`}
                 >
-                  {isCompleted ? "✓ " : ""}
+                  {isCompleted ? "" : ""}
                   {st}
                 </div>
                 {idx < pipeline.length - 1 && (
@@ -177,7 +224,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
             <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
               <div>
                 <span className="font-mono text-[10px] font-bold text-zinc-200 uppercase">
-                  📋 Prompt de la{" "}
+                  Prompt de la{" "}
                   {isActividadMode ? "Actividad" : `Estación: ${activeStation}`}
                 </span>
                 <p className="mt-0.5 font-mono text-[8px] text-zinc-500">
@@ -197,7 +244,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                 }}
                 className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
               >
-                📋 Copiar Prompt
+                Copiar Prompt
               </button>
             </div>
 
@@ -214,7 +261,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <span className="font-mono text-[10px] font-bold text-zinc-200 uppercase">
-                  📥 Registrar Handoff {isActividadMode ? "" : "& Avanzar"}
+                  Registrar Handoff {isActividadMode ? "" : "& Avanzar"}
                 </span>
                 <p className="mt-0.5 font-mono text-[8px] text-zinc-500">
                   {isActividadMode
@@ -273,35 +320,70 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                     );
 
                     const isActividad = !!selectedActividadCinta;
-                    const checkpointId = isActividad
-                      ? `chk_${selectedActividadCinta.id}`
-                      : `chk_${selectedHistoriaCinta.id}`;
+                    const checkpointId = `chk_${currentItem.id}`;
 
                     try {
                       // Marcar motor como antigravity en la metadata
                       const meta = activeCintaExecution.metadata || {};
-                      await db.task_executions.update(activeCintaExecution.id, {
-                        metadata: { ...meta, engine: "antigravity" },
-                      });
+                      const metaActualizada = {
+                        ...meta,
+                        engine: "antigravity",
+                      };
+                      await db.transaction(
+                        "rw",
+                        [db.task_executions, db.cola_eventos],
+                        async () => {
+                          await db.task_executions.update(
+                            activeCintaExecution.id,
+                            { metadata: metaActualizada }
+                          );
+                          await QueueService.encolar(
+                            "task_executions",
+                            "editar",
+                            activeCintaExecution.id,
+                            {
+                              id: activeCintaExecution.id,
+                              metadata: metaActualizada,
+                            }
+                          );
+                        }
+                      );
 
-                      // Actualizar o crear checkpoint para que ejecucion-ia-control reaccione
+                      // Actualizar o crear checkpoint para que ejecucion-ia-control reaccione.
+                      // actividadId queda undefined en modo cinta (checkpoint
+                      // atado a una historia, no a una actividad puntual) —
+                      // el dominio lo declara requerido para el caso normal,
+                      // de ahí el cast puntual acá.
                       const checkpointBase = {
                         id: checkpointId,
                         taskExecutionId: activeCintaExecution.id,
-                        actividadId: isActividad
-                          ? selectedActividadCinta.id
-                          : undefined,
+                        actividadId: isActividad ? currentItem.id : undefined,
                         proyectoId: activeCintaExecution.proyectoId,
-                        motorIA: "antigravity", // ¡Fuga corregida!
+                        motorIA: "antigravity" as const, // ¡Fuga corregida!
                         reintentosFallidos: 0,
                         accionesManualesModeradas: [],
                         accionesManualesCriticas: [],
                       };
-                      await db.task_execution_checkpoints.put({
+                      const checkpointInicial = {
                         ...checkpointBase,
                         estadoCheckpoint: "IN_PROGRESS_AI",
                         actualizadoEn: Date.now(),
-                      } as any);
+                      } as TaskExecutionCheckpoint;
+                      await db.transaction(
+                        "rw",
+                        [db.task_execution_checkpoints, db.cola_eventos],
+                        async () => {
+                          await db.task_execution_checkpoints.put(
+                            checkpointInicial
+                          );
+                          await QueueService.encolar(
+                            "task_execution_checkpoints",
+                            "editar",
+                            checkpointId,
+                            { ...checkpointInicial }
+                          );
+                        }
+                      );
 
                       const res = await fetch("/api/ai/execute", {
                         method: "POST",
@@ -318,12 +400,25 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                         const match = finalHandoff.match(/\{[\s\S]*\}/);
                         if (match) finalHandoff = match[0];
 
-                        await db.task_execution_checkpoints.update(
-                          checkpointId,
-                          {
-                            estadoCheckpoint: "COMPLETED_HANDOFF",
-                            actualizadoEn: Date.now(),
-                          } as any
+                        const cambiosCompletado = {
+                          estadoCheckpoint: "COMPLETED_HANDOFF" as const,
+                          actualizadoEn: Date.now(),
+                        };
+                        await db.transaction(
+                          "rw",
+                          [db.task_execution_checkpoints, db.cola_eventos],
+                          async () => {
+                            await db.task_execution_checkpoints.update(
+                              checkpointId,
+                              cambiosCompletado
+                            );
+                            await QueueService.encolar(
+                              "task_execution_checkpoints",
+                              "editar",
+                              checkpointId,
+                              { id: checkpointId, ...cambiosCompletado }
+                            );
+                          }
                         );
 
                         avanzarEstacionCinta(activeStation, finalHandoff);
@@ -333,13 +428,26 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                           "error"
                         );
 
-                        await db.task_execution_checkpoints.update(
-                          checkpointId,
-                          {
-                            estadoCheckpoint: "PAUSED_CHECKPOINT",
-                            ultimoErrorLogs: data.logs || "Error desconocido",
-                            actualizadoEn: Date.now(),
-                          } as any
+                        const cambiosPausado = {
+                          estadoCheckpoint: "PAUSED_CHECKPOINT" as const,
+                          ultimoErrorLogs: data.logs || "Error desconocido",
+                          actualizadoEn: Date.now(),
+                        };
+                        await db.transaction(
+                          "rw",
+                          [db.task_execution_checkpoints, db.cola_eventos],
+                          async () => {
+                            await db.task_execution_checkpoints.update(
+                              checkpointId,
+                              cambiosPausado
+                            );
+                            await QueueService.encolar(
+                              "task_execution_checkpoints",
+                              "editar",
+                              checkpointId,
+                              { id: checkpointId, ...cambiosPausado }
+                            );
+                          }
                         );
 
                         registrarBugEstacion(
@@ -349,21 +457,39 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                           "El agente falló o los tests no pasaron."
                         );
                       }
-                    } catch (e: any) {
+                    } catch (e: unknown) {
+                      const mensaje =
+                        e instanceof Error ? e.message : String(e);
                       mostrarToast(
-                        `Error de red al conectar con Antigravity: ${e.message}`,
+                        `Error de red al conectar con Antigravity: ${mensaje}`,
                         "error"
                       );
 
-                      await db.task_execution_checkpoints.update(checkpointId, {
-                        estadoCheckpoint: "PAUSED_CHECKPOINT",
-                        ultimoErrorLogs: e.message,
+                      const cambiosError = {
+                        estadoCheckpoint: "PAUSED_CHECKPOINT" as const,
+                        ultimoErrorLogs: mensaje,
                         actualizadoEn: Date.now(),
-                      } as any);
+                      };
+                      await db.transaction(
+                        "rw",
+                        [db.task_execution_checkpoints, db.cola_eventos],
+                        async () => {
+                          await db.task_execution_checkpoints.update(
+                            checkpointId,
+                            cambiosError
+                          );
+                          await QueueService.encolar(
+                            "task_execution_checkpoints",
+                            "editar",
+                            checkpointId,
+                            { id: checkpointId, ...cambiosError }
+                          );
+                        }
+                      );
 
                       registrarBugEstacion(
                         activeStation,
-                        e.message,
+                        mensaje,
                         "Conexión exitosa al backend.",
                         "Falló la llamada a la API local."
                       );
@@ -375,8 +501,8 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                   className="rounded bg-emerald-500 px-6 py-2 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400 disabled:opacity-50"
                 >
                   {isExecuting
-                    ? "🤖 Trabajando (No cierres esta ventana)..."
-                    : "🚀 Iniciar Ejecución Automática"}
+                    ? "Trabajando (No cierres esta ventana)..."
+                    : "Iniciar Ejecución Automática"}
                 </button>
               </div>
             )}
@@ -385,7 +511,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
               <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3 font-mono">
                 <div className="min-w-0 flex-1">
                   <span className="block text-[9px] font-bold text-emerald-400 uppercase">
-                    🔄 Actualizaciones de Documentación Detectadas
+                    Actualizaciones de Documentación Detectadas
                   </span>
                   <span className="mt-1 block font-mono text-[8px] leading-normal text-zinc-400">
                     La IA sugiere cambios para:{" "}
@@ -421,7 +547,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                       disabled={!cintaHandoffInput.trim()}
                       className="rounded bg-emerald-500 px-4 py-2 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400 disabled:opacity-40"
                     >
-                      💾 Guardar Handoff
+                      Guardar Handoff
                     </button>
                     {completarCerrarActividad &&
                       (currentItem.estado === "in_revision" ||
@@ -432,7 +558,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                           }
                           className="rounded bg-sky-500 px-4 py-2 font-mono text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-sky-400"
                         >
-                          🏁 Completar y Cerrar Ticket
+                          Completar y Cerrar Ticket
                         </button>
                       )}
                   </div>
@@ -460,7 +586,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
             <div className="flex flex-col gap-3 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
               <div>
                 <span className="font-mono text-[10px] font-bold text-sky-400 uppercase">
-                  🚀 Git Flow de Cierre & CI/CD
+                  Git Flow de Cierre & CI/CD
                 </span>
                 <p className="mt-0.5 font-mono text-[8px] text-zinc-500">
                   Comandos sugeridos para integrar los cambios del ticket en la
@@ -484,7 +610,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                   }}
                   className="shrink-0 rounded border border-sky-500/20 bg-sky-500/10 px-2.5 py-1.5 font-mono text-[8px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
                 >
-                  📋 Copiar Git
+                  Copiar Git
                 </button>
               </div>
 
@@ -492,7 +618,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                 onClick={() => setIsCicdModalOpen(true)}
                 className="w-full rounded border border-sky-500/20 bg-sky-500/10 py-1.5 text-center font-mono text-[9px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
               >
-                🛠️ Configurar GitHub Actions Workflow (CI/CD)
+                Configurar GitHub Actions Workflow (CI/CD)
               </button>
             </div>
           ) : null}
@@ -503,7 +629,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
           {/* Acceptance criteria / Context */}
           <div className="rounded-xl border border-zinc-900 bg-zinc-950/60 p-4">
             <span className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
-              🎯{" "}
+              {" "}
               {isActividadMode
                 ? "Detalle de Actividad"
                 : "Criterios de Aceptación HU"}
@@ -534,7 +660,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
           {/* Iterations channel */}
           <div className="flex flex-col gap-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4 font-mono">
             <span className="text-[10px] font-bold text-sky-400 uppercase">
-              🔄 Carril de Iteraciones ({stationIterations.length})
+              Carril de Iteraciones ({stationIterations.length})
             </span>
             <p className="text-zinc-550 text-[8px]">
               Registra feedback para que la IA refine o ajuste detalles del
@@ -581,7 +707,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
 
             {stationIterations.length > 0 && (
               <div className="mt-2 flex max-h-[120px] flex-col gap-1.5 overflow-y-auto border-t border-sky-500/20 pt-2 pr-1">
-                {stationIterations.map((it: any, idx: number) => (
+                {stationIterations.map((it, idx) => (
                   <div
                     key={idx}
                     className="rounded border border-zinc-900 bg-zinc-950 p-2 text-[9px] text-zinc-300"
@@ -599,7 +725,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
           {/* Bugs logger channel */}
           <div className="flex flex-col gap-2 rounded-xl border border-red-500/20 bg-red-500/5 p-4 font-mono">
             <span className="text-[10px] font-bold text-red-400 uppercase">
-              🐛 Carril de Errores & Bugs ({stationBugs.length})
+              Carril de Errores & Bugs ({stationBugs.length})
             </span>
 
             {activeBug ? (
@@ -697,7 +823,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
 
             {stationBugs.length > 0 && (
               <div className="mt-1.5 flex max-h-[100px] flex-col gap-1 overflow-y-auto border-t border-red-500/10 pt-2 pr-1">
-                {stationBugs.map((b: any, idx: number) => (
+                {stationBugs.map((b, idx) => (
                   <div
                     key={idx}
                     className="animate-in slide-in-from-top-1 flex items-center justify-between rounded border border-zinc-900 bg-zinc-950 p-1.5 text-[8px] text-zinc-400"
@@ -723,7 +849,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
           {/* History of handoffs */}
           <div className="rounded-xl border border-zinc-900 bg-zinc-950/60 p-4 font-mono">
             <span className="text-[10px] font-bold text-zinc-400 uppercase">
-              📂 Historial de Handoffs ({allHandoffs.length})
+              Historial de Handoffs ({allHandoffs.length})
             </span>
 
             {allHandoffs.length === 0 ? (
@@ -732,7 +858,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
               </p>
             ) : (
               <div className="mt-2.5 flex max-h-[180px] flex-col gap-2 overflow-y-auto pr-1">
-                {allHandoffs.map(([stationName, data]: [string, any]) => (
+                {allHandoffs.map(([stationName, data]) => (
                   <div
                     key={stationName}
                     className="flex flex-col gap-1 rounded border border-zinc-900 bg-zinc-900/40 p-2.5 text-[9px]"
@@ -749,7 +875,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                     </div>
                     {data.archivos_creados_o_modificados && (
                       <div className="text-zinc-550 mt-1 text-[8px]">
-                        📁 <b>Archivos:</b>{" "}
+                        <b>Archivos:</b>{" "}
                         {Array.isArray(data.archivos_creados_o_modificados)
                           ? data.archivos_creados_o_modificados.join(", ")
                           : String(data.archivos_creados_o_modificados)}
@@ -757,7 +883,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                     )}
                     {data.resumen_tecnico && (
                       <div className="text-zinc-350 mt-0.5 text-[8px] italic">
-                        📝 <b>Resumen:</b> {data.resumen_tecnico}
+                        <b>Resumen:</b> {data.resumen_tecnico}
                       </div>
                     )}
                   </div>
@@ -773,7 +899,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
           <div className="w-[550px] rounded-xl border border-zinc-800 bg-zinc-950 p-5 font-mono shadow-2xl">
             <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-3">
               <span className="text-xs font-bold text-sky-400 uppercase">
-                🛠️ Configurar GitHub Actions Workflow
+                Configurar GitHub Actions Workflow
               </span>
               <button
                 onClick={() => setIsCicdModalOpen(false)}
@@ -826,7 +952,7 @@ Devuelve el YAML completo optimizado y limpio sin explicaciones introductorias.`
                 }}
                 className="w-full rounded bg-sky-500 py-2 text-center text-[10px] font-bold text-zinc-950 uppercase hover:bg-sky-400"
               >
-                📋 Copiar Prompt de CI/CD
+                Copiar Prompt de CI/CD
               </button>
             </div>
           </div>

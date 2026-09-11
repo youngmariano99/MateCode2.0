@@ -580,7 +580,7 @@ export default function ProyectosPage() {
   if (proyectoSeleccionado) {
     const cliNombre =
       clientes.find((c) => c.id === proyectoSeleccionado.clienteId)?.nombre ||
-      "💡 Idea / Proyecto Propio";
+      "Idea / Proyecto Propio";
 
     // Selected project calculations
     const totalSelTasks = selectedProyectoTareas.length;
@@ -1016,7 +1016,7 @@ export default function ProyectosPage() {
             proyectos.map((p) => {
               const clientName =
                 clientes.find((c) => c.id === p.clienteId)?.nombre ||
-                "💡 Idea / Proyecto Propio";
+                "Idea / Proyecto Propio";
               return (
                 <ProyectoCard
                   key={p.id}

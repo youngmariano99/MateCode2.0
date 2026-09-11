@@ -1,4 +1,5 @@
 import { db } from "../../offline/dexie/db";
+import { QueueService } from "../../offline/services/queue.service";
 import { useToast } from "./useToast";
 import { GestionarContactoFrioUseCase } from "../../application/use-cases/crm/gestionar-contacto-frio.use-case";
 import type { PotencialCliente } from "../components/territorio/ModalPotencialCliente";
@@ -186,12 +187,21 @@ export function useTerritorioAcciones({
     if (!prospectoAConvertir) return;
     try {
       const clienteId = `cli_${Date.now()}`;
-      await db.clientes.add({
+      const clientePayload = {
         id: clienteId,
         ...crmPayload,
         latitud: prospectoAConvertir.latitud,
         longitud: prospectoAConvertir.longitud,
         creadoEn: Date.now(),
+      };
+      await db.transaction("rw", [db.clientes, db.cola_eventos], async () => {
+        await db.clientes.add(clientePayload);
+        await QueueService.encolar(
+          "clientes",
+          "crear",
+          clienteId,
+          clientePayload
+        );
       });
       await useCase.marcarClienteCerrado(prospectoAConvertir.id);
       mostrarToast(

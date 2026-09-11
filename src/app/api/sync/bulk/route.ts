@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "../../../../infrastructure/persistencia/drizzle-db";
 import * as schema from "../../../../infrastructure/persistencia/schema";
+import { eq } from "drizzle-orm";
+import { servidorTieneVersionMasNueva } from "../../../../shared/utilidades/resolucion-conflictos";
 
 // El respaldo completo hace muchas inserciones secuenciales dentro de una
 // transacción; el timeout por defecto de una función serverless (10s en
@@ -25,6 +27,7 @@ const tableMapper: Record<string, any> = {
   clientes: schema.clientes,
   contactos: schema.contactos,
   contratos: schema.contratos,
+  documentos: schema.documentos,
   pagos: schema.pagos,
   cuotas: schema.cuotas,
   facturas: schema.facturas,
@@ -54,123 +57,165 @@ const tableMapper: Record<string, any> = {
   registro_actividad: schema.registroActividad,
 };
 
+const DATE_FIELDS = [
+  "creadoEn",
+  "actualizadoEn",
+  "eliminadoEn",
+  "fechaInicio",
+  "fechaFin",
+  "finalizadoEn",
+  "fechaEntrega",
+  "fechaVencimiento",
+  "fechaPago",
+  "fechaFirma",
+  "fechaSeguimiento",
+  "fechaVisita",
+  "expiracion",
+  "tiempoInicio",
+  "tiempoFin",
+  "fechaUltimoContacto",
+  "fecha",
+  "volverFecha",
+  "proximoSeguimientoFecha",
+  "fechaPublicacion",
+];
+
+const EMPTY_TO_NULL_FIELDS = [
+  "clienteId",
+  "agenciaId",
+  "responsableId",
+  "sprintId",
+  "epicaId",
+  "historiaId",
+];
+
+// Solo columnas que siguen siendo `text` en Postgres. Las que ya son `jsonb`
+// (miembros, dependencias, etiquetas, esquemaDb, dolorTags, tagsResultado,
+// canales) reciben el objeto/array tal cual, sin stringificar.
+const JSON_FIELDS = [
+  "metadata",
+  "allowedTools",
+  "deniedPaths",
+  "accionesManualesModeradas",
+  "accionesManualesCriticas",
+  "guiaPruebasManual",
+];
+
+function normalizarPayload(
+  record: Record<string, unknown>
+): Record<string, unknown> {
+  const dbPayload = { ...record };
+
+  for (const field of DATE_FIELDS) {
+    const val = dbPayload[field];
+    if (val !== undefined && val !== null && val !== "") {
+      if (typeof val === "number" || typeof val === "string") {
+        const parsedDate = new Date(val);
+        dbPayload[field] = isNaN(parsedDate.getTime()) ? null : parsedDate;
+      }
+    }
+  }
+
+  for (const field of EMPTY_TO_NULL_FIELDS) {
+    if (dbPayload[field] === "") {
+      dbPayload[field] = null;
+    }
+  }
+
+  for (const field of JSON_FIELDS) {
+    if (
+      dbPayload[field] !== undefined &&
+      typeof dbPayload[field] !== "string"
+    ) {
+      dbPayload[field] = JSON.stringify(dbPayload[field]);
+    }
+  }
+
+  return dbPayload;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
 
-    await db.transaction(async (tx) => {
-      for (const [table, records] of Object.entries(data)) {
-        if (!Array.isArray(records) || records.length === 0) continue;
+    const tablasOk: string[] = [];
+    // Tabla por tabla y transacción por tabla: si una fila de "contenido"
+    // falla, no se pierde el respaldo ya hecho de "tareas" en el mismo
+    // request — antes todo el bulk vivía en una única transacción y una fila
+    // mala tiraba abajo todo lo demás sin decir qué se había guardado.
+    const tablasConError: { tabla: string; error: string }[] = [];
 
-        const tableSchema = tableMapper[table];
-        if (!tableSchema) continue;
+    for (const [table, records] of Object.entries(data)) {
+      if (!Array.isArray(records) || records.length === 0) continue;
 
-        const isProjectConfigTable = [
-          "proyecto_contexto",
-          "proyecto_design_system",
-          "proyecto_estado_tecnico",
-          "proyecto_config_automatizacion",
-        ].includes(table);
-        const isFichaTable = ["ficha_digital", "ficha_fisica"].includes(table);
+      const tableSchema = tableMapper[table];
+      if (!tableSchema) continue;
 
-        const conflictTarget = isProjectConfigTable
-          ? tableSchema.proyectoId
-          : isFichaTable
-            ? tableSchema.potencialClienteId
-            : tableSchema.id;
+      const isProjectConfigTable = [
+        "proyecto_contexto",
+        "proyecto_design_system",
+        "proyecto_estado_tecnico",
+        "proyecto_config_automatizacion",
+      ].includes(table);
+      const isFichaTable = ["ficha_digital", "ficha_fisica"].includes(table);
 
-        for (const record of records) {
-          const dbPayload = { ...record };
+      const conflictTarget = isProjectConfigTable
+        ? tableSchema.proyectoId
+        : isFichaTable
+          ? tableSchema.potencialClienteId
+          : tableSchema.id;
 
-          // Normalizar Dates
-          const dateFields = [
-            "creadoEn",
-            "actualizadoEn",
-            "eliminadoEn",
-            "fechaInicio",
-            "fechaFin",
-            "finalizadoEn",
-            "fechaEntrega",
-            "fechaVencimiento",
-            "fechaPago",
-            "fechaFirma",
-            "fechaSeguimiento",
-            "fechaVisita",
-            "expiracion",
-            "tiempoInicio",
-            "tiempoFin",
-            "fechaUltimoContacto",
-            "fecha",
-            "volverFecha",
-            "proximoSeguimientoFecha",
-            "fechaPublicacion",
-          ];
-          for (const field of dateFields) {
-            const val = dbPayload[field];
-            if (val !== undefined && val !== null && val !== "") {
-              if (typeof val === "number" || typeof val === "string") {
-                const parsedDate = new Date(val);
-                if (!isNaN(parsedDate.getTime())) {
-                  dbPayload[field] = parsedDate;
-                } else {
-                  dbPayload[field] = null;
-                }
+      try {
+        await db.transaction(async (tx) => {
+          for (const record of records as Record<string, unknown>[]) {
+            const dbPayload = normalizarPayload(record);
+
+            // Resolución de conflictos (last-write-wins por actualizadoEn):
+            // el respaldo completo no debe pisar una versión más nueva ya
+            // sincronizada desde otro dispositivo.
+            if (tableSchema.actualizadoEn && dbPayload.actualizadoEn) {
+              const identificador = isProjectConfigTable
+                ? dbPayload.proyectoId
+                : isFichaTable
+                  ? dbPayload.potencialClienteId
+                  : dbPayload.id;
+              const existente = await tx
+                .select({ actualizadoEn: tableSchema.actualizadoEn })
+                .from(tableSchema)
+                .where(eq(conflictTarget, identificador))
+                .limit(1);
+              if (
+                servidorTieneVersionMasNueva(
+                  existente[0]?.actualizadoEn,
+                  dbPayload.actualizadoEn
+                )
+              ) {
+                continue;
               }
             }
-          }
 
-          // Convertir cadenas vacías a null para campos de tipo UUID o referencias
-          const emptyToNullFields = [
-            "clienteId",
-            "agenciaId",
-            "responsableId",
-            "sprintId",
-            "epicaId",
-            "historiaId",
-          ];
-          for (const field of emptyToNullFields) {
-            if (dbPayload[field] === "") {
-              dbPayload[field] = null;
-            }
+            await tx.insert(tableSchema).values(dbPayload).onConflictDoUpdate({
+              target: conflictTarget,
+              set: dbPayload,
+            });
           }
-
-          // Normalizar JSON fields
-          const jsonFields = [
-            "miembros",
-            "dependencias",
-            "etiquetas",
-            "esquemaDb",
-            "metadata",
-            "allowedTools",
-            "deniedPaths",
-            "accionesManualesModeradas",
-            "accionesManualesCriticas",
-            "guiaPruebasManual",
-            "dolorTags",
-            "tagsResultado",
-            "canales",
-          ];
-          for (const field of jsonFields) {
-            if (
-              dbPayload[field] !== undefined &&
-              typeof dbPayload[field] !== "string"
-            ) {
-              dbPayload[field] = JSON.stringify(dbPayload[field]);
-            }
-          }
-
-          // Upsert individual para resiliencia
-          await tx.insert(tableSchema).values(dbPayload).onConflictDoUpdate({
-            target: conflictTarget,
-            set: dbPayload,
-          });
-        }
+        });
+        tablasOk.push(table);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`Error en respaldo en lote de la tabla ${table}:`, err);
+        tablasConError.push({ tabla: table, error: message });
       }
-    });
+    }
 
     return NextResponse.json({
-      success: true,
-      message: "Respaldo en lote completado.",
+      success: tablasConError.length === 0,
+      message:
+        tablasConError.length === 0
+          ? "Respaldo en lote completado."
+          : `Respaldo parcial: ${tablasOk.length} tabla(s) ok, ${tablasConError.length} con error.`,
+      tablasOk,
+      tablasConError,
     });
   } catch (error: unknown) {
     console.error("Error en sincronización en lote (bulk):", error);

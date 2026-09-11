@@ -221,12 +221,11 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
   const copiarTextoRuta = () => {
     if (!rutaResultado || rutaResultado.puntos.length === 0) return;
 
-    const transportMode =
-      perfilTransporte === "foot" ? "🚶 Caminando" : "🚗 En Auto";
-    let text = `📋 RECORRIDO OPTIMIZADO - MATECODE\n`;
+    const transportMode = perfilTransporte === "foot" ? "Caminando" : "En Auto";
+    let text = `RECORRIDO OPTIMIZADO - MATECODE\n`;
     text += `----------------------------------\n`;
-    text += `🏁 Modo: ${transportMode}\n`;
-    text += `📏 Distancia: ${rutaResultado.distanciaKm} km | ⏱️ Duración: ${rutaResultado.duracionMin} min\n\n`;
+    text += `Modo: ${transportMode}\n`;
+    text += `Distancia: ${rutaResultado.distanciaKm} km | ⏱ Duración: ${rutaResultado.duracionMin} min\n\n`;
 
     rutaResultado.puntos.forEach((p, idx) => {
       // Find full details to get the actual address
@@ -242,11 +241,10 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
       let priorityIndicator = "";
       if (p.id !== "mi_posicion_actual") {
         const priority = p.prioridad || "Media";
-        const emoji =
-          priority === "Alta" ? "🔴" : priority === "Baja" ? "🔵" : "🟡";
+        const emoji = priority === "Alta" ? "" : priority === "Baja" ? "" : "";
         priorityIndicator = `[${emoji} ${priority}] `;
       } else {
-        priorityIndicator = `[📍 Inicio] `;
+        priorityIndicator = `[Inicio] `;
       }
 
       text += `${idx + 1}. ${priorityIndicator}${p.nombre}${rubroStr}\n`;
@@ -366,11 +364,11 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
                 </div>
                 {c.latitud && c.longitud ? (
                   <span className="text-[9px] text-emerald-400">
-                    ✓ Geolocalizado
+                    Geolocalizado
                   </span>
                 ) : (
                   <span className="text-[9px] text-red-400">
-                    ✗ Sin coordenadas
+                    Sin coordenadas
                   </span>
                 )}
               </div>
@@ -462,21 +460,21 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
                   onClick={exportarARutaGoogleMaps}
                   className="flex items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-600/10 px-2 py-1.5 font-mono text-[10px] font-bold text-emerald-400 transition-all hover:bg-emerald-600 hover:text-black"
                 >
-                  🗺️ Google Maps
+                  Google Maps
                 </button>
                 <button
                   type="button"
                   onClick={exportarGPX}
                   className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1.5 font-mono text-[10px] font-bold text-zinc-300 transition-all hover:bg-zinc-800"
                 >
-                  💾 Descargar GPX
+                  Descargar GPX
                 </button>
                 <button
                   type="button"
                   onClick={copiarTextoRuta}
                   className="flex items-center gap-1 rounded-lg border border-purple-500/20 bg-purple-600/10 px-2 py-1.5 font-mono text-[10px] font-bold text-purple-400 transition-all hover:bg-purple-600 hover:text-black"
                 >
-                  📋 Copiar Texto (WSP)
+                  Copiar Texto (WSP)
                 </button>
               </div>
             </div>

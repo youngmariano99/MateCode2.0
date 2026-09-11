@@ -4,8 +4,9 @@ import React, { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../../../offline/dexie/db";
 import { Button } from "../../button";
-import { Select, MultiSelect } from "../../select";
+import { Select, MultiSelect, Combobox } from "../../select";
 import { Icono } from "../../icons";
+import { ModalImportarJson } from "../../contenido/modal-importar-json";
 import { useToast } from "../../../hooks/useToast";
 import { GestionarPlantillasRutinaUseCase } from "../../../../application/use-cases/personal/gestionar-plantillas-rutina.use-case";
 import {
@@ -13,9 +14,23 @@ import {
   type FormatoRutina,
   type TipoEstructura,
 } from "../../../../domain/entidades/rutina.entity";
+import {
+  PATRONES_MOVIMIENTO,
+  type PatronMovimiento,
+} from "../../../../domain/entidades/ejercicio.entity";
 
 const useCase = new GestionarPlantillasRutinaUseCase();
 const SIN_EJERCICIOS: never[] = [];
+
+const ETIQUETA_PATRON: Record<PatronMovimiento, string> = {
+  empuje: "Empuje",
+  tiron: "Tirón",
+  dominante_rodilla: "Rodilla",
+  dominante_cadera: "Cadera",
+  core_transporte: "Core / transporte",
+  pausa_movilidad: "Pausa / movilidad",
+  neat: "NEAT",
+};
 
 const ETIQUETA_FORMATO: Record<FormatoRutina, string> = {
   tradicional: "Tradicional (series x reps)",
@@ -51,6 +66,40 @@ interface BloqueSerieForm {
   pesoKg?: number;
 }
 
+/** Chips para acotar el catálogo por patrón de movimiento antes de buscar. */
+const FiltroPatron: React.FC<{
+  value: PatronMovimiento | "";
+  onChange: (v: PatronMovimiento | "") => void;
+}> = ({ value, onChange }) => (
+  <div className="flex flex-wrap gap-1.5">
+    <button
+      type="button"
+      onClick={() => onChange("")}
+      className={`min-h-8 rounded-full border px-2.5 text-[10px] font-bold uppercase transition-all ${
+        value === ""
+          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+          : "border-[#2A2A2E] text-zinc-500 hover:text-zinc-300"
+      }`}
+    >
+      Todos
+    </button>
+    {PATRONES_MOVIMIENTO.map((p) => (
+      <button
+        key={p}
+        type="button"
+        onClick={() => onChange(value === p ? "" : p)}
+        className={`min-h-8 rounded-full border px-2.5 text-[10px] font-bold uppercase transition-all ${
+          value === p
+            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+            : "border-[#2A2A2E] text-zinc-500 hover:text-zinc-300"
+        }`}
+      >
+        {ETIQUETA_PATRON[p]}
+      </button>
+    ))}
+  </div>
+);
+
 /**
  * Alta de rutina: el formato elegido determina si se arma "por series"
  * (tradicional/pirámide/superserie — una lista de ejercicios con sets
@@ -63,7 +112,12 @@ export const CrearPlantilla: React.FC = () => {
   const { mostrarToast } = useToast();
   const ejercicios =
     useLiveQuery(() => db.catalogo_ejercicio.toArray()) || SIN_EJERCICIOS;
-  const opcionesEjercicio = ejercicios.map((e) => ({
+
+  const [patronFiltro, setPatronFiltro] = useState<PatronMovimiento | "">("");
+  const ejerciciosFiltrados = patronFiltro
+    ? ejercicios.filter((e) => e.patron === patronFiltro)
+    : ejercicios;
+  const opcionesEjercicio = ejerciciosFiltrados.map((e) => ({
     value: e.id,
     label: e.nombre,
   }));
@@ -153,13 +207,148 @@ export const CrearPlantilla: React.FC = () => {
     }
   };
 
+  const [modalImportarAbierto, setModalImportarAbierto] = useState(false);
+
+  const plantillaEjemploImport = JSON.stringify(
+    [
+      {
+        nombre: "Full Body A",
+        formato: "tradicional",
+        ejercicios: [
+          {
+            // Nombre EXACTO tal como figura en el catálogo de esta app —
+            // no inventar ejercicios nuevos.
+            nombre: ejercicios[0]?.nombre || "Flexiones de pecho",
+            series: 3,
+            reps: 10,
+            pesoKg: null,
+          },
+        ],
+      },
+      {
+        nombre: "Tabata Full Body",
+        formato: "tabata",
+        ejercicios: [ejercicios[1]?.nombre || "Sentadillas", "Burpees"],
+        numeroRondas: 8,
+        tiempoTrabajoSeg: 20,
+        tiempoDescansoSeg: 10,
+      },
+    ],
+    null,
+    2
+  );
+
+  const importarRutinas = async (items: unknown[]) => {
+    let creadas = 0;
+    const noEncontrados: string[] = [];
+
+    for (const raw of items) {
+      const item = raw as {
+        nombre?: string;
+        formato?: string;
+        ejercicios?: unknown[];
+        numeroRondas?: number;
+        tiempoTrabajoSeg?: number;
+        tiempoDescansoSeg?: number;
+        tiempoLimiteMin?: number;
+      };
+      if (!item.nombre || !Array.isArray(item.ejercicios)) continue;
+
+      const formatoResuelto =
+        FORMATOS_RUTINA.find(
+          (f) => f.toLowerCase() === String(item.formato || "").toLowerCase()
+        ) || "tradicional";
+      const tipo = tipoEstructuraDe(formatoResuelto);
+
+      const resolverEjercicioPorNombre = (nombreBuscado: string) => {
+        const encontrado = ejercicios.find(
+          (e) =>
+            e.nombre.toLowerCase().trim() === nombreBuscado.toLowerCase().trim()
+        );
+        if (!encontrado) noEncontrados.push(nombreBuscado);
+        return encontrado?.id;
+      };
+
+      let estructura: Record<string, unknown>;
+      if (tipo === "series") {
+        const bloques = (
+          item.ejercicios as {
+            nombre?: string;
+            series?: number;
+            reps?: number;
+            pesoKg?: number;
+          }[]
+        )
+          .map((ej) => {
+            const id = ej.nombre
+              ? resolverEjercicioPorNombre(ej.nombre)
+              : undefined;
+            if (!id) return null;
+            return {
+              ejercicioId: id,
+              sets: Array.from({ length: ej.series || 3 }, () => ({
+                reps: ej.reps || 10,
+                pesoKg: ej.pesoKg ?? undefined,
+              })),
+            };
+          })
+          .filter((b): b is NonNullable<typeof b> => b !== null);
+        if (bloques.length === 0) continue;
+        estructura = { bloques };
+      } else {
+        const ejercicioIds = (item.ejercicios as unknown[])
+          .map((e) => resolverEjercicioPorNombre(String(e)))
+          .filter((id): id is string => !!id);
+        if (ejercicioIds.length === 0) continue;
+        estructura = {
+          ejercicioIds,
+          numeroRondas: item.numeroRondas,
+          tiempoTrabajoSeg: item.tiempoTrabajoSeg,
+          tiempoDescansoSeg: item.tiempoDescansoSeg,
+          tiempoLimiteMin: item.tiempoLimiteMin,
+        };
+      }
+
+      const res = await useCase.crearPlantilla({
+        nombre: item.nombre,
+        formato: formatoResuelto,
+        tipoEstructura: tipo,
+        estructura,
+      });
+      if (res.ok) creadas++;
+    }
+
+    if (creadas === 0) {
+      throw new Error(
+        noEncontrados.length > 0
+          ? `No se encontró en el catálogo: ${noEncontrados.join(", ")}. Revisá los nombres exactos.`
+          : "No se pudo crear ninguna rutina del JSON pegado."
+      );
+    }
+    mostrarToast(
+      noEncontrados.length > 0
+        ? `${creadas} rutina(s) creada(s). No se encontraron estos ejercicios: ${noEncontrados.join(", ")}.`
+        : `${creadas} rutina(s) creada(s) con éxito.`,
+      noEncontrados.length > 0 ? "info" : "exito"
+    );
+  };
+
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-4">
-      <div className="flex items-center gap-2">
-        <Icono.Plus className="h-4 w-4 text-zinc-500" />
-        <h3 className="text-xs font-bold tracking-wider text-zinc-400 uppercase">
-          Nueva rutina
-        </h3>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Icono.Plus className="h-4 w-4 text-zinc-500" />
+          <h3 className="text-xs font-bold tracking-wider text-zinc-400 uppercase">
+            Nueva rutina
+          </h3>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => setModalImportarAbierto(true)}
+          className="px-3 py-1.5 text-xs"
+        >
+          Importar JSON
+        </Button>
       </div>
 
       <input
@@ -180,15 +369,21 @@ export const CrearPlantilla: React.FC = () => {
 
       {tipoEstructura === "series" ? (
         <div className="flex flex-col gap-2 border-t border-[#2A2A2E] pt-3">
+          <p className="text-xs text-zinc-500">
+            Elegís ejercicios y armás series x repeticiones. Sirve igual para
+            tradicional o pirámide — la variación de reps entre series se
+            registra al ejecutar, no hace falta planificarla acá.
+          </p>
+          <FiltroPatron value={patronFiltro} onChange={setPatronFiltro} />
           <div className="flex gap-2">
-            <Select
-              value={ejercicioNuevo}
-              onChange={setEjercicioNuevo}
-              options={[
-                { value: "", label: "Elegí un ejercicio" },
-                ...opcionesEjercicio,
-              ]}
-            />
+            <div className="flex-1">
+              <Combobox
+                value={ejercicioNuevo}
+                onChange={setEjercicioNuevo}
+                options={opcionesEjercicio}
+                placeholder="Buscá un ejercicio..."
+              />
+            </div>
             <Button
               variant="outline"
               onClick={agregarEjercicioSerie}
@@ -266,6 +461,12 @@ export const CrearPlantilla: React.FC = () => {
         </div>
       ) : (
         <div className="flex flex-col gap-2 border-t border-[#2A2A2E] pt-3">
+          <p className="text-xs text-zinc-500">
+            Este formato se mide por tiempo o rondas, no por series fijas —
+            elegís los ejercicios del circuito y completás solo los campos que
+            apliquen a {ETIQUETA_FORMATO[formato]}.
+          </p>
+          <FiltroPatron value={patronFiltro} onChange={setPatronFiltro} />
           <MultiSelect
             label="Ejercicios"
             value={ejerciciosTiempo}
@@ -314,6 +515,14 @@ export const CrearPlantilla: React.FC = () => {
       >
         Guardar rutina
       </Button>
+
+      <ModalImportarJson
+        abierto={modalImportarAbierto}
+        onCerrar={() => setModalImportarAbierto(false)}
+        titulo="Importar rutinas desde JSON"
+        plantillaEjemplo={plantillaEjemploImport}
+        onImportar={importarRutinas}
+      />
     </div>
   );
 };

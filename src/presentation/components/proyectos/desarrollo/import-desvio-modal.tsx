@@ -25,7 +25,7 @@ export const ImportDesvioModal: React.FC<ImportDesvioModalProps> = ({
       <div className="border-zinc-850 flex w-full max-w-lg flex-col gap-4 rounded-xl border bg-zinc-950 p-5 font-mono shadow-2xl">
         <div className="flex items-center justify-between border-b border-zinc-900 pb-2">
           <span className="text-[10px] font-bold text-zinc-100 uppercase">
-            ➕ Importar Historia de Desvío (JSON)
+            Importar Historia de Desvío (JSON)
           </span>
           <button
             onClick={onClose}
@@ -44,7 +44,7 @@ export const ImportDesvioModal: React.FC<ImportDesvioModalProps> = ({
             onClick={copiarPromptDesvio}
             className="w-full rounded border border-emerald-500/20 bg-emerald-500/10 py-1.5 text-center text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
           >
-            📋 Copiar Prompt de Inducción Desvío
+            Copiar Prompt de Inducción Desvío
           </button>
         </div>
 

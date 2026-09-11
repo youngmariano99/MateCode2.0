@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React from "react";
@@ -24,7 +23,7 @@ interface DescargasPlanningTabProps {
   entidades: string;
   requisitosFuncionales: string;
   requisitosNoFuncionales: string;
-  ds: any;
+  ds: { designSystemMarkdown?: string } | undefined;
   sitemapSystemMarkdown: string;
   sitemapMarkup: string;
   sitemap: string;
@@ -171,7 +170,7 @@ export const DescargasPlanningTab: React.FC<DescargasPlanningTabProps> = ({
                         : "border-amber-500/20 bg-amber-500/10 text-amber-400"
                     }`}
                   >
-                    {doc.status ? "🟢 Armado" : "🟡 Pendiente"}
+                    {doc.status ? "Armado" : "Pendiente"}
                   </span>
                 </div>
                 <p className="text-zinc-550 mt-2 text-[8px] leading-relaxed">
@@ -185,7 +184,7 @@ export const DescargasPlanningTab: React.FC<DescargasPlanningTabProps> = ({
                 }}
                 className="w-full rounded border border-zinc-800 bg-zinc-900/60 py-1.5 text-center text-[8px] font-bold text-zinc-300 uppercase transition-all hover:bg-zinc-900 hover:text-zinc-100"
               >
-                📥 Descargar
+                Descargar
               </button>
             </div>
           );
@@ -207,13 +206,13 @@ export const DescargasPlanningTab: React.FC<DescargasPlanningTabProps> = ({
             onClick={() => selectDocumentForEdit("SETUP.md")}
             className="rounded border border-sky-500/20 bg-sky-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
           >
-            ✍️ Redactar SETUP.md
+            Redactar SETUP.md
           </button>
           <button
             onClick={copiarPromptInicializador}
             className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
           >
-            📋 Copiar Prompt Setup
+            Copiar Prompt Setup
           </button>
         </div>
       </div>
@@ -223,7 +222,7 @@ export const DescargasPlanningTab: React.FC<DescargasPlanningTabProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#2A2A2E] pb-3">
           <div>
             <span className="text-[10px] font-bold text-zinc-100 uppercase">
-              📝 Editor Interactivo: {selectedDocName}
+              Editor Interactivo: {selectedDocName}
             </span>
             <p className="text-zinc-550 mt-0.5 text-[9px]">
               Modifica y guarda los cambios de {selectedDocName} directamente en
@@ -241,13 +240,13 @@ export const DescargasPlanningTab: React.FC<DescargasPlanningTabProps> = ({
               }}
               className="rounded border border-zinc-800 bg-zinc-900/60 px-3 py-1.5 text-[9px] font-bold text-zinc-300 uppercase transition-all hover:bg-zinc-900"
             >
-              📋 Copiar
+              Copiar
             </button>
             <button
               onClick={handleSaveSelectedDoc}
               className="rounded bg-emerald-500 px-4 py-1.5 text-[9px] font-bold text-zinc-950 uppercase transition-all hover:bg-emerald-400"
             >
-              💾 Guardar Cambios
+              Guardar Cambios
             </button>
           </div>
         </div>

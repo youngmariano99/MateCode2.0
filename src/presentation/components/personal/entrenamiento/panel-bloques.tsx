@@ -27,21 +27,28 @@ const ETIQUETA_EJE: Record<EjeProgresion, string> = {
   progresion: "Progresión (nivel)",
 };
 
+interface PanelBloquesProps {
+  /** Salta a la estación "Rutinas" — se ofrece apenas se crea el primer bloque. */
+  onIrARutinas?: () => void;
+}
+
 /**
  * Bloques (mesociclos): declarás UN eje de progresión por defecto para todo
  * el período — cada ejercicio cae solo al eje disponible más cercano si el
  * suyo no aplica (ver ejeEfectivo). Un solo bloque activo a la vez.
  */
-export const PanelBloques: React.FC = () => {
+export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
   const { mostrarToast } = useToast();
   const [nombre, setNombre] = useState("");
   const [diaFin, setDiaFin] = useState(sumarDias(obtenerDiaTareaHoy(), 28));
   const [eje, setEje] = useState<EjeProgresion>("volumen");
   const [guardando, setGuardando] = useState(false);
+  const [recienCreado, setRecienCreado] = useState(false);
 
   const bloques =
     useLiveQuery(() => db.bloque_entrenamiento.toArray()) || SIN_BLOQUES;
   const activo = bloques.find((b) => b.estado === "activo");
+  const esPrimerBloque = bloques.length === 0;
 
   const crear = async () => {
     if (!nombre.trim()) return;
@@ -55,6 +62,7 @@ export const PanelBloques: React.FC = () => {
     setGuardando(false);
     if (res.ok) {
       setNombre("");
+      if (esPrimerBloque) setRecienCreado(true);
     } else {
       mostrarToast(res.error!.mensaje, "error");
     }
@@ -76,6 +84,14 @@ export const PanelBloques: React.FC = () => {
 
       {!activo && (
         <div className="flex flex-col gap-2 rounded-xl border border-dashed border-[#2A2A2E] p-3">
+          {esPrimerBloque && (
+            <p className="text-xs text-zinc-500">
+              Un bloque es un período de entrenamiento (2-6 semanas). Elegís un
+              solo eje para medir tu progreso en todo el bloque — si un
+              ejercicio no aplica a ese eje, el sistema usa automáticamente el
+              más cercano para ese ejercicio en particular.
+            </p>
+          )}
           <input
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
@@ -131,6 +147,25 @@ export const PanelBloques: React.FC = () => {
           >
             Cerrar bloque
           </button>
+        </div>
+      )}
+
+      {activo && recienCreado && onIrARutinas && (
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3">
+          <span className="text-xs text-zinc-300">
+            Bloque listo. Ahora armá tu primera rutina para poder registrar
+            sesiones.
+          </span>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setRecienCreado(false);
+              onIrARutinas();
+            }}
+            icono={<Icono.ArrowRight className="h-4 w-4" />}
+          >
+            Crear rutina
+          </Button>
         </div>
       )}
     </div>

@@ -74,13 +74,21 @@ export const VistaKanban: React.FC<VistaKanbanProps> = ({
                       </span>
                       <button
                         onClick={() => onAlternarFavorito(c)}
-                        className={`text-xs ${
+                        title={
+                          c.favorito
+                            ? "Quitar de favoritos"
+                            : "Marcar como favorito"
+                        }
+                        className={`flex min-h-11 min-w-11 items-center justify-center ${
                           c.favorito
                             ? "text-amber-400"
                             : "text-zinc-600 hover:text-zinc-400"
                         }`}
                       >
-                        ★
+                        <Icono.Star
+                          className="h-4 w-4"
+                          fill={c.favorito ? "currentColor" : "none"}
+                        />
                       </button>
                     </div>
                     <span className="font-mono text-[10px] text-zinc-500">

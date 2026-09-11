@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "../../../../infrastructure/persistencia/drizzle-db";
 import * as schema from "../../../../infrastructure/persistencia/schema";
 import { eq } from "drizzle-orm";
+import { servidorTieneVersionMasNueva } from "../../../../shared/utilidades/resolucion-conflictos";
 
 export const maxDuration = 30;
 
@@ -21,6 +22,7 @@ const tableMapper: Record<string, any> = {
   clientes: schema.clientes,
   contactos: schema.contactos,
   contratos: schema.contratos,
+  documentos: schema.documentos,
   pagos: schema.pagos,
   cuotas: schema.cuotas,
   facturas: schema.facturas,
@@ -81,7 +83,21 @@ export async function POST(
         : tableSchema.id;
 
     if (accion === "eliminar") {
-      await db.delete(tableSchema).where(eq(conflictTarget, registroId));
+      // Borrado lógico universal: si la tabla tiene columnas de auditoría
+      // (eliminadoEn / eliminado), nunca se hace DELETE físico sobre el
+      // histórico — se marca. Las tablas sin esas columnas (uniones puras
+      // como cliente_etiquetas) sí se borran físicamente, no representan
+      // historial de negocio.
+      if (tableSchema.eliminadoEn) {
+        const setValues: Record<string, unknown> = { eliminadoEn: new Date() };
+        if (tableSchema.eliminado) setValues.eliminado = true;
+        await db
+          .update(tableSchema)
+          .set(setValues)
+          .where(eq(conflictTarget, registroId));
+      } else {
+        await db.delete(tableSchema).where(eq(conflictTarget, registroId));
+      }
       return NextResponse.json({
         success: true,
         message: "Registro eliminado.",
@@ -140,21 +156,18 @@ export async function POST(
       }
     }
 
-    // Normalizar payloads complejos (Arrays o JSON a string)
+    // Normalizar payloads complejos (Arrays o JSON a string) — solo para
+    // columnas que siguen siendo `text` en Postgres. Las que ya son `jsonb`
+    // (miembros, dependencias, etiquetas, esquemaDb, dolorTags,
+    // tagsResultado, canales) reciben el objeto/array tal cual, sin
+    // stringificar.
     const jsonFields = [
-      "miembros",
-      "dependencias",
-      "etiquetas",
-      "esquemaDb",
       "metadata",
       "allowedTools",
       "deniedPaths",
       "accionesManualesModeradas",
       "accionesManualesCriticas",
       "guiaPruebasManual",
-      "dolorTags",
-      "tagsResultado",
-      "canales",
     ];
     for (const field of jsonFields) {
       if (
@@ -162,6 +175,31 @@ export async function POST(
         typeof dbPayload[field] !== "string"
       ) {
         dbPayload[field] = JSON.stringify(dbPayload[field]);
+      }
+    }
+
+    // Resolución de conflictos (last-write-wins por actualizadoEn): si el
+    // servidor ya tiene una versión más nueva que la que llega, no la
+    // pisamos — evita que un dispositivo que sincroniza tarde sobreescriba
+    // una edición más reciente hecha desde otro lado.
+    if (tableSchema.actualizadoEn && dbPayload.actualizadoEn) {
+      const existente = await db
+        .select({ actualizadoEn: tableSchema.actualizadoEn })
+        .from(tableSchema)
+        .where(eq(conflictTarget, registroId))
+        .limit(1);
+      if (
+        servidorTieneVersionMasNueva(
+          existente[0]?.actualizadoEn,
+          dbPayload.actualizadoEn
+        )
+      ) {
+        return NextResponse.json({
+          success: true,
+          conflicto: true,
+          message:
+            "El servidor ya tenía una versión más reciente de este registro; no se sobreescribió.",
+        });
       }
     }
 

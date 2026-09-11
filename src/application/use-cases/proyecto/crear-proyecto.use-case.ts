@@ -1,13 +1,11 @@
 import { db } from "../../../offline/dexie/db";
 import { Resultado } from "../../../shared/utilidades/resultado";
 import { QueueService } from "../../../offline/services/queue.service";
-import { useConexionStore } from "../../../presentation/stores/conexion.store";
 
 export class CrearProyectoUseCase {
   public async ejecutar(
     proyecto: Record<string, unknown>
   ): Promise<Resultado<void>> {
-    const online = useConexionStore.getState().online;
     const id = (proyecto.id as string) || `pro_${Date.now()}`;
     const payload = {
       ...proyecto,
@@ -15,8 +13,6 @@ export class CrearProyectoUseCase {
       creadoEn: Date.now(),
       actualizadoEn: Date.now(),
     };
-
-    await db.proyectos.put(payload);
 
     // Initialize Default Design System (Swiss Design) and placeholders
     const defaultDesignSystem = {
@@ -36,30 +32,42 @@ export class CrearProyectoUseCase {
       estadoHover: "Invertir colores o agregar borde sutil",
       logoUrl: "",
     };
-    await db.proyecto_design_system.put(defaultDesignSystem);
 
-    await db.proyecto_contexto.put({
-      proyectoId: id,
-      doloresCliente: "",
-      reglasNegocio: "",
-      publicoObjetivo: "",
-    });
-
-    await db.proyecto_estado_tecnico.put({
-      proyectoId: id,
-      dependencias: [],
-      esquemaDb: {},
-    });
+    // Transacción: si el navegador se cierra a mitad de camino, o el alta
+    // queda completa (proyecto + tablas asociadas + evento en cola) o no
+    // queda nada — nunca un proyecto local que nunca llegó a encolarse.
+    await db.transaction(
+      "rw",
+      [
+        db.proyectos,
+        db.proyecto_design_system,
+        db.proyecto_contexto,
+        db.proyecto_estado_tecnico,
+        db.cola_eventos,
+      ],
+      async () => {
+        await db.proyectos.put(payload);
+        await db.proyecto_design_system.put(defaultDesignSystem);
+        await db.proyecto_contexto.put({
+          proyectoId: id,
+          doloresCliente: "",
+          reglasNegocio: "",
+          publicoObjetivo: "",
+        });
+        await db.proyecto_estado_tecnico.put({
+          proyectoId: id,
+          dependencias: [],
+          esquemaDb: {},
+        });
+        await QueueService.encolar("proyectos", "crear", id, payload);
+      }
+    );
 
     await db.logs_sincronizacion.add({
       tipo: "exito",
       mensaje: `Proyectos: Proyecto creado y Design System inicializado: ${proyecto.nombre}`,
       fecha: Date.now(),
     });
-
-    if (!online) {
-      await QueueService.encolar("proyectos", "crear", id, payload);
-    }
 
     return Resultado.exito(undefined);
   }

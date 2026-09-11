@@ -65,8 +65,8 @@ export default function EntrenamientoPage() {
 
         {estacion === "hoy" && (
           <div className="flex flex-col gap-4">
-            <PanelBloques />
-            <EjecucionSesion />
+            <PanelBloques onIrARutinas={() => setEstacion("rutinas")} />
+            <EjecucionSesion onIrARutinas={() => setEstacion("rutinas")} />
           </div>
         )}
         {estacion === "rutinas" && <CrearPlantilla />}

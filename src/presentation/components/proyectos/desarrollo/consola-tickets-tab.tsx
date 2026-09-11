@@ -1,15 +1,20 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React from "react";
 import { Card } from "../../card";
-import { TicketCardItem } from "./ticket-card-item";
+import {
+  TicketCardItem,
+  type TicketExecution,
+  type ProyectoResumen,
+  type ContextoResumen,
+  type DesignSystemResumen,
+} from "./ticket-card-item";
 
 interface ConsolaTicketsTabProps {
-  ticketsOrdenados: any[];
-  proyecto: any;
-  contexto: any;
-  ds: any;
+  ticketsOrdenados: TicketExecution[];
+  proyecto: ProyectoResumen | undefined;
+  contexto: ContextoResumen | undefined;
+  ds: DesignSystemResumen | undefined;
   expandedTicketIds: Record<string, boolean>;
   toggleExpandTicket: (id: string) => void;
   handleEliminarTicket: (id: string, title: string) => void;

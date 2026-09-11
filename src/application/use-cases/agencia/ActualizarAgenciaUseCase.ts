@@ -10,27 +10,33 @@ export class ActualizarAgenciaUseCase {
 
   public async ejecutar(agencia: Agencia): Promise<Resultado<void>> {
     const online = useConexionStore.getState().online;
+    const payload = agencia as unknown as Record<string, unknown>;
 
-    await db.clientes.put({
-      ...agencia,
-    });
+    if (!online) {
+      await db.transaction("rw", [db.clientes, db.cola_eventos], async () => {
+        await db.clientes.put({ ...agencia });
+        await QueueService.encolar("agencias", "editar", agencia.id, payload);
+      });
+      await db.logs_sincronizacion.add({
+        tipo: "exito",
+        mensaje: `Agencia actualizada localmente: ${agencia.nombreComercial}`,
+        fecha: Date.now(),
+      });
+      return Resultado.exito(undefined);
+    }
 
+    await db.clientes.put({ ...agencia });
     await db.logs_sincronizacion.add({
       tipo: "exito",
       mensaje: `Agencia actualizada localmente: ${agencia.nombreComercial}`,
       fecha: Date.now(),
     });
 
-    if (!online) {
-      await QueueService.encolar(
-        "agencias",
-        "editar",
-        agencia.id,
-        agencia as unknown as Record<string, unknown>
-      );
+    const resultado = await this.repo.guardar(agencia);
+    if (!resultado.ok) {
+      await QueueService.encolar("agencias", "editar", agencia.id, payload);
       return Resultado.exito(undefined);
     }
-
-    return await this.repo.guardar(agencia);
+    return resultado;
   }
 }

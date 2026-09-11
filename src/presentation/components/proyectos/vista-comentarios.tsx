@@ -1,9 +1,7 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState } from "react";
 import { Card } from "../card";
-import { Button } from "../button";
 import { useToast } from "../../hooks/useToast";
 import { db } from "../../../offline/dexie/db";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -62,7 +60,7 @@ function parseMarkdown(text: string): string {
   );
   html = html.replace(
     /^\s*-\s*\[x\]\s*(.*$)/gim,
-    '<div class="flex items-center gap-2 my-1.5"><span class="h-3 w-3 rounded border border-emerald-500 bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 text-[8px] font-bold">✓</span><span class="text-zinc-500 text-xs line-through">$1</span></div>'
+    '<div class="flex items-center gap-2 my-1.5"><span class="h-3 w-3 rounded border border-emerald-500 bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 text-[8px] font-bold"></span><span class="text-zinc-500 text-xs line-through">$1</span></div>'
   );
 
   // Unordered list items
@@ -120,7 +118,7 @@ export const VistaComentarios: React.FC<VistaComentariosProps> = ({
         .sortBy("creadoEn")
     ) || [];
 
-  const items = (rawItems as any[]).map((item) => ({
+  const items = rawItems.map((item) => ({
     id: item.id,
     proyectoId: item.proyectoId,
     autor: item.autor || "Mariano",
@@ -189,8 +187,9 @@ export const VistaComentarios: React.FC<VistaComentariosProps> = ({
       setEditId(null);
       setTitulo("");
       setTexto("");
-    } catch (err: any) {
-      mostrarToast(`Error al guardar: ${err.message}`, "error");
+    } catch (err: unknown) {
+      const mensaje = err instanceof Error ? err.message : String(err);
+      mostrarToast(`Error al guardar: ${mensaje}`, "error");
     }
   };
 
@@ -226,8 +225,8 @@ export const VistaComentarios: React.FC<VistaComentariosProps> = ({
         nextStatus ? "Mejora completada con éxito." : "Mejora reabierta.",
         "exito"
       );
-    } catch (err: any) {
-      mostrarToast(err.message, "error");
+    } catch (err: unknown) {
+      mostrarToast(err instanceof Error ? err.message : String(err), "error");
     }
   };
 
@@ -240,8 +239,8 @@ export const VistaComentarios: React.FC<VistaComentariosProps> = ({
       try {
         await db.comentarios_proyecto.delete(id);
         mostrarToast("Ítem eliminado.", "info");
-      } catch (err: any) {
-        mostrarToast(err.message, "error");
+      } catch (err: unknown) {
+        mostrarToast(err instanceof Error ? err.message : String(err), "error");
       }
     }
   };
@@ -319,8 +318,8 @@ export const VistaComentarios: React.FC<VistaComentariosProps> = ({
             <div className="flex flex-col gap-3">
               <span className="font-mono text-[9px] font-bold text-zinc-400 uppercase">
                 {editId
-                  ? "✍️ Editar Ítem de Garantía"
-                  : "📝 Registrar Ajuste / Garantía"}
+                  ? " Editar Ítem de Garantía"
+                  : "Registrar Ajuste / Garantía"}
               </span>
 
               <div className="flex flex-col gap-1">
@@ -374,7 +373,7 @@ El botón de checkout no redirige al webhook de éxito.
             {/* Markdown Live Preview column */}
             <div className="flex max-h-[350px] flex-col gap-2 overflow-y-auto rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
               <span className="border-b border-zinc-900 pb-1 font-mono text-[8px] font-bold text-zinc-500 uppercase">
-                🖥️ Vista Previa (Renderizado Live)
+                Vista Previa (Renderizado Live)
               </span>
               {texto.trim() ? (
                 <div
@@ -462,7 +461,7 @@ El botón de checkout no redirige al webhook de éxito.
                             </span>
                             {item.completado && item.fechaCompletado && (
                               <span className="ml-2 text-emerald-400">
-                                ✓ Completado el {item.fechaCompletado}
+                                Completado el {item.fechaCompletado}
                               </span>
                             )}
                           </div>

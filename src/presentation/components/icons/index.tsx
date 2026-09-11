@@ -51,4 +51,5 @@ export const Icono = {
   ArrowRight: Lucide.ArrowRight,
   Dumbbell: Lucide.Dumbbell,
   Flame: Lucide.Flame,
+  Star: Lucide.Star,
 };

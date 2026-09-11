@@ -1,7 +1,13 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React from "react";
+
+interface TareaConCriterios {
+  id: string;
+  titulo: string;
+  criteriosAceptacion?: string[];
+  criterioAceptacion?: string;
+}
 
 interface ImportadorTabProps {
   tipoImportacion: "modular" | "unificada";
@@ -28,7 +34,7 @@ interface ImportadorTabProps {
   setConfigJson: (val: string) => void;
   selectedAuditTareaId: string | null;
   setSelectedAuditTareaId: (id: string | null) => void;
-  tareasConCriterios: any[];
+  tareasConCriterios: TareaConCriterios[];
   handleLimpiarPlanificacion: () => void;
   handleLimpiarEpicas: () => void;
   handleLimpiarHistorias: () => void;
@@ -106,7 +112,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
         <div className="min-w-0 flex-1">
           <span className="font-mono text-[10px] font-bold text-red-400 uppercase">
-            ⚠️ Zona de Peligro: Reiniciar Planificación
+            Zona de Peligro: Reiniciar Planificación
           </span>
           <p className="text-zinc-550 mt-1 font-mono text-[9px]">
             ¿Quieres volver a empezar? Esta opción eliminará permanentemente
@@ -118,7 +124,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
           onClick={handleLimpiarPlanificacion}
           className="shrink-0 rounded border border-red-500/30 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase hover:bg-red-500/25"
         >
-          🗑️ Limpiar Backlog y Sprints
+          Limpiar Backlog y Sprints
         </button>
       </div>
 
@@ -132,7 +138,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
               : "text-zinc-550 hover:text-zinc-300"
           }`}
         >
-          🔄 Paso a Paso Modular (Recomendado)
+          Paso a Paso Modular (Recomendado)
         </button>
         <button
           onClick={() => setTipoImportacion("unificada")}
@@ -142,7 +148,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
               : "text-zinc-550 hover:text-zinc-300"
           }`}
         >
-          📦 Ingesta Unificada (JSON Único)
+          Ingesta Unificada (JSON Único)
         </button>
       </div>
 
@@ -163,7 +169,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
               onClick={copiarPromptBacklog}
               className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
             >
-              📋 Copiar Prompt Backlog
+              Copiar Prompt Backlog
             </button>
           </div>
           <textarea
@@ -206,7 +212,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
                 onClick={copiarPromptEpicasModulares}
                 className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
               >
-                📋 Copiar Prompt Épicas
+                Copiar Prompt Épicas
               </button>
             </div>
             <textarea
@@ -222,7 +228,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
                   onClick={handleLimpiarEpicas}
                   className="rounded border border-red-500/30 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase hover:bg-red-500/25"
                 >
-                  🗑️ Limpiar Épicas
+                  Limpiar Épicas
                 </button>
               )}
               <button
@@ -258,7 +264,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
                 onClick={copiarPromptHistoriasModulares}
                 className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20 disabled:opacity-40"
               >
-                📋 Copiar Prompt Historias
+                Copiar Prompt Historias
               </button>
             </div>
             <textarea
@@ -275,7 +281,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
                   onClick={handleLimpiarHistorias}
                   className="rounded border border-red-500/30 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase hover:bg-red-500/25"
                 >
-                  🗑️ Limpiar Historias
+                  Limpiar Historias
                 </button>
               )}
               <button
@@ -312,7 +318,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
                 onClick={copiarPromptActividadesModulares}
                 className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20 disabled:opacity-40"
               >
-                📋 Copiar Prompt Actividades
+                Copiar Prompt Actividades
               </button>
             </div>
             <textarea
@@ -329,7 +335,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
                   onClick={handleLimpiarActividades}
                   className="rounded border border-red-500/30 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase hover:bg-red-500/25"
                 >
-                  🗑️ Limpiar Actividades
+                  Limpiar Actividades
                 </button>
               )}
               <button
@@ -367,7 +373,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
                 onClick={copiarPromptConfigActividades}
                 className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20 disabled:opacity-40"
               >
-                📋 Copiar Prompt Config
+                Copiar Prompt Config
               </button>
             </div>
             <textarea
@@ -384,7 +390,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
                   onClick={handleLimpiarConfigActividades}
                   className="rounded border border-red-500/30 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase hover:bg-red-500/25"
                 >
-                  🗑️ Restablecer Configuración
+                  Restablecer Configuración
                 </button>
               )}
               <button
@@ -422,7 +428,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
                 onClick={copiarPromptCriterios}
                 className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20 disabled:opacity-40"
               >
-                📋 Copiar Prompt Criterios
+                Copiar Prompt Criterios
               </button>
             </div>
 
@@ -430,7 +436,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
               {/* Import Box */}
               <div className="flex flex-col gap-2 md:col-span-6">
                 <span className="text-zinc-455 mb-1 block font-mono text-[8px] font-bold uppercase">
-                  📥 Importador de Criterios (JSON)
+                  Importador de Criterios (JSON)
                 </span>
                 <textarea
                   disabled={tareasCount === 0}
@@ -446,7 +452,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
                       onClick={handleLimpiarCriterios}
                       className="rounded border border-red-500/30 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase hover:bg-red-500/25"
                     >
-                      🗑️ Limpiar Criterios
+                      Limpiar Criterios
                     </button>
                   )}
                   <button
@@ -462,11 +468,11 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
               {/* Visualizer list */}
               <div className="flex flex-col gap-2 border-t border-zinc-900 pt-4 md:col-span-6 md:border-t-0 md:border-l md:pt-0 md:pl-4">
                 <span className="text-zinc-455 mb-1 block font-mono text-[8px] font-bold uppercase">
-                  🔍 Visualizador de Criterios Vinculados
+                  Visualizador de Criterios Vinculados
                 </span>
 
                 {(() => {
-                  const listToShow = (tareasConCriterios || []) as any[];
+                  const listToShow = tareasConCriterios || [];
                   if (listToShow.length === 0) {
                     return (
                       <div className="rounded border border-zinc-900/60 bg-zinc-900/10 py-8 text-center font-mono text-[9px] text-zinc-500">
@@ -502,7 +508,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
                                 {t.titulo}
                               </span>
                               <span className="shrink-0 rounded border border-zinc-800 bg-zinc-900/80 px-1 py-0.5 font-bold text-zinc-400">
-                                📋 {listSize}{" "}
+                                {listSize}{" "}
                                 {listSize === 1 ? "criterio" : "criterios"}
                               </span>
                             </button>
@@ -573,7 +579,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
                 onClick={copiarPromptSprints}
                 className="rounded border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20 disabled:opacity-40"
               >
-                📋 Copiar Prompt Sprints
+                Copiar Prompt Sprints
               </button>
             </div>
             <textarea
@@ -590,7 +596,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
                   onClick={handleLimpiarSprints}
                   className="rounded border border-red-500/30 bg-red-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-red-400 uppercase hover:bg-red-500/25"
                 >
-                  🗑️ Limpiar Sprints
+                  Limpiar Sprints
                 </button>
               )}
               <button

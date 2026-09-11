@@ -438,6 +438,27 @@ export const firmas = pgTable("firmas", {
   ...columnasAuditoria,
 });
 
+// "Documentos inteligentes" (contratos/presupuestos/propuestas con
+// versionado) — id varchar generado en cliente, mismo patrón que
+// potencial_cliente. Faltaba esta tabla: el use-case ya encolaba eventos
+// "documentos" hacia /sync desde que se creó la función, pero al no existir
+// ni la tabla ni la entrada en tableMapper, todo evento quedaba agotando
+// reintentos en la cola para siempre — el documento nunca salía del navegador.
+export const documentos = pgTable("documentos", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  titulo: varchar("titulo", { length: 255 }).notNull(),
+  tipo: varchar("tipo", { length: 100 }).notNull(),
+  clienteId: varchar("cliente_id", { length: 255 }),
+  proyectoId: varchar("proyecto_id", { length: 255 }),
+  monto: varchar("monto", { length: 100 }),
+  formaPago: varchar("forma_pago", { length: 100 }),
+  contenido: text("contenido").notNull(),
+  versiones: jsonb("versiones"),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
+});
+
 // ==========================================
 // 6. Comercial y Prospección
 // ==========================================
@@ -469,7 +490,7 @@ export const fichaDigital = pgTable("ficha_digital", {
   email: varchar("email", { length: 255 }),
   facebook: varchar("facebook", { length: 255 }),
   nombreDueño: varchar("nombre_dueno", { length: 255 }),
-  dolorTags: text("dolor_tags"), // JSON string[]
+  dolorTags: jsonb("dolor_tags"), // string[]
   tieneWeb: varchar("tiene_web", { length: 30 }).default("no").notNull(),
   usaCatalogoNativoWhatsapp: boolean("usa_catalogo_nativo_whatsapp")
     .default(false)
@@ -504,7 +525,7 @@ export const intentoContacto = pgTable("intento_contacto", {
   mensajeEnviado: text("mensaje_enviado"),
   resultado: varchar("resultado", { length: 30 }).notNull(),
   respuestaTexto: text("respuesta_texto"),
-  tagsResultado: text("tags_resultado"), // JSON string[]
+  tagsResultado: jsonb("tags_resultado"), // string[]
   proximoSeguimientoFecha: timestamp("proximo_seguimiento_fecha"),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
 });
@@ -527,6 +548,7 @@ export const cicloSemanal = pgTable("ciclo_semanal", {
   objetivoVideos: integer("objetivo_videos").default(6).notNull(),
   estado: varchar("estado", { length: 20 }).default("activo").notNull(),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const ideaContenido = pgTable("idea_contenido", {
@@ -536,6 +558,7 @@ export const ideaContenido = pgTable("idea_contenido", {
   estado: varchar("estado", { length: 20 }).default("Backlog").notNull(),
   cicloId: varchar("ciclo_id", { length: 255 }),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const plantillaGuion = pgTable("plantilla_guion", {
@@ -544,6 +567,7 @@ export const plantillaGuion = pgTable("plantilla_guion", {
   secciones: jsonb("secciones").notNull(),
   activa: boolean("activa").default(false).notNull(),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const contenido = pgTable("contenido", {
@@ -552,7 +576,7 @@ export const contenido = pgTable("contenido", {
   cicloId: varchar("ciclo_id", { length: 255 }),
   titulo: varchar("titulo", { length: 500 }).notNull(),
   tipoContenido: varchar("tipo_contenido", { length: 20 }).notNull(),
-  canales: text("canales"), // JSON string[]
+  canales: jsonb("canales"), // string[]
   estado: varchar("estado", { length: 20 }).default("Guion").notNull(),
   guion: jsonb("guion").notNull(),
   plantillaGuionId: varchar("plantilla_guion_id", { length: 255 }),
@@ -562,6 +586,7 @@ export const contenido = pgTable("contenido", {
   metricas: jsonb("metricas"),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const catalogoKpiContenido = pgTable("catalogo_kpi_contenido", {
@@ -572,6 +597,7 @@ export const catalogoKpiContenido = pgTable("catalogo_kpi_contenido", {
   unidad: varchar("unidad", { length: 50 }),
   esDelUsuario: boolean("es_del_usuario").default(false).notNull(),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const visitas = pgTable("visitas", {
@@ -651,7 +677,9 @@ export const automatizaciones = pgTable("automatizaciones", {
 
 export const epicas = pgTable("epicas", {
   id: varchar("id", { length: 255 }).primaryKey(),
-  proyectoId: varchar("proyecto_id", { length: 255 }).notNull(),
+  proyectoId: varchar("proyecto_id", { length: 255 })
+    .references(() => proyectos.id)
+    .notNull(),
   nombre: varchar("nombre", { length: 255 }).notNull(),
   descripcion: text("descripcion"),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
@@ -661,7 +689,9 @@ export const epicas = pgTable("epicas", {
 
 export const sprints = pgTable("sprints", {
   id: varchar("id", { length: 255 }).primaryKey(),
-  proyectoId: varchar("proyecto_id", { length: 255 }).notNull(),
+  proyectoId: varchar("proyecto_id", { length: 255 })
+    .references(() => proyectos.id)
+    .notNull(),
   nombre: varchar("nombre", { length: 255 }).notNull(),
   duracionSemanas: integer("duracion_semanas").default(2).notNull(),
   fechaInicio: timestamp("fecha_inicio"),
@@ -669,7 +699,7 @@ export const sprints = pgTable("sprints", {
   objetivo: text("objetivo"),
   descripcion: text("descripcion"),
   capacidad: integer("capacidad").default(10).notNull(),
-  miembros: text("miembros"), // Lista de miembros serializada
+  miembros: jsonb("miembros"), // string[]
   estado: varchar("estado", { length: 50 }).default("planificado").notNull(),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
@@ -680,17 +710,19 @@ export const sprints = pgTable("sprints", {
 
 export const historias = pgTable("historias", {
   id: varchar("id", { length: 255 }).primaryKey(),
-  proyectoId: varchar("proyecto_id", { length: 255 }).notNull(),
-  epicaId: varchar("epica_id", { length: 255 }),
-  sprintId: varchar("sprint_id", { length: 255 }),
+  proyectoId: varchar("proyecto_id", { length: 255 })
+    .references(() => proyectos.id)
+    .notNull(),
+  epicaId: varchar("epica_id", { length: 255 }).references(() => epicas.id),
+  sprintId: varchar("sprint_id", { length: 255 }).references(() => sprints.id),
   titulo: varchar("titulo", { length: 255 }).notNull(),
   descripcion: text("descripcion"),
   prioridad: varchar("prioridad", { length: 50 }).default("Media").notNull(),
   estimacion: integer("estimacion").default(1).notNull(),
   estado: varchar("estado", { length: 50 }).default("backlog").notNull(),
   completada: boolean("completada").default(false).notNull(),
-  dependencias: text("dependencias"), // Array JSON serializado
-  etiquetas: text("etiquetas"), // Array JSON serializado
+  dependencias: jsonb("dependencias"), // string[]
+  etiquetas: jsonb("etiquetas"), // string[]
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   eliminado: boolean("eliminado").default(false).notNull(),
@@ -699,8 +731,12 @@ export const historias = pgTable("historias", {
 
 export const tareas = pgTable("tareas", {
   id: varchar("id", { length: 255 }).primaryKey(),
-  proyectoId: varchar("proyecto_id", { length: 255 }).notNull(),
-  historiaId: varchar("historia_id", { length: 255 }),
+  proyectoId: varchar("proyecto_id", { length: 255 })
+    .references(() => proyectos.id)
+    .notNull(),
+  historiaId: varchar("historia_id", { length: 255 }).references(
+    () => historias.id
+  ),
   titulo: varchar("titulo", { length: 255 }).notNull(),
   descripcion: text("descripcion"),
   estado: varchar("estado", { length: 50 }).default("todo").notNull(),
@@ -715,7 +751,13 @@ export const tareas = pgTable("tareas", {
 
 export const taskExecutions = pgTable("task_executions", {
   id: varchar("id", { length: 255 }).primaryKey(),
-  proyectoId: varchar("proyecto_id", { length: 255 }).notNull(),
+  // FK aplicada como NOT VALID en la base: hay 9 filas históricas de
+  // proyectos ya eliminados de antes de que el borrado pasara a ser lógico
+  // (ver PLAN_AUDITORIA_MATECODE.md). Valida hacia adelante, no exige
+  // limpiar ese handful de filas viejas.
+  proyectoId: varchar("proyecto_id", { length: 255 })
+    .references(() => proyectos.id)
+    .notNull(),
   templateId: varchar("template_id", { length: 255 }),
   titulo: varchar("titulo", { length: 500 }),
   estado: varchar("estado", { length: 50 }).notNull(),
@@ -757,8 +799,8 @@ export const proyectoDesignSystem = pgTable("proyecto_design_system", {
 
 export const proyectoEstadoTecnico = pgTable("proyecto_estado_tecnico", {
   proyectoId: varchar("proyecto_id", { length: 255 }).primaryKey(),
-  dependencias: text("dependencias"), // Array JSON serializado
-  esquemaDb: text("esquema_db"), // Objeto JSON serializado
+  dependencias: jsonb("dependencias"), // array de deps
+  esquemaDb: jsonb("esquema_db"), // objeto de esquema
   activeActivityFocusId: varchar("active_activity_focus_id", { length: 255 }),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
@@ -878,6 +920,7 @@ export const inboxItem = pgTable("inbox_item", {
   promovidoAId: varchar("promovido_a_id", { length: 255 }),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const tareaDiaria = pgTable("tarea_diaria", {
@@ -894,6 +937,7 @@ export const tareaDiaria = pgTable("tarea_diaria", {
   origenPendienteId: varchar("origen_pendiente_id", { length: 255 }),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const tareaPendiente = pgTable("tarea_pendiente", {
@@ -905,6 +949,7 @@ export const tareaPendiente = pgTable("tarea_pendiente", {
   origenInboxId: varchar("origen_inbox_id", { length: 255 }),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const habitoDefinicion = pgTable("habito_definicion", {
@@ -917,6 +962,7 @@ export const habitoDefinicion = pgTable("habito_definicion", {
   activo: boolean("activo").default(true).notNull(),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const habitoRegistro = pgTable("habito_registro", {
@@ -927,6 +973,7 @@ export const habitoRegistro = pgTable("habito_registro", {
   diaTarea: varchar("dia_tarea", { length: 10 }).notNull(),
   nivelEjecutado: varchar("nivel_ejecutado", { length: 10 }).notNull(), // MIN | MED | MAX
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const catalogoEjercicio = pgTable("catalogo_ejercicio", {
@@ -941,6 +988,7 @@ export const catalogoEjercicio = pgTable("catalogo_ejercicio", {
   permiteCarga: boolean("permite_carga").default(false).notNull(),
   niveles: jsonb("niveles").notNull(), // NivelEjercicio[]
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const plantillaRutina = pgTable("plantilla_rutina", {
@@ -967,6 +1015,7 @@ export const bloqueEntrenamiento = pgTable("bloque_entrenamiento", {
   estado: varchar("estado", { length: 20 }).notNull(), // activo | cerrado
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const registroActividad = pgTable("registro_actividad", {
@@ -978,6 +1027,7 @@ export const registroActividad = pgTable("registro_actividad", {
   resultados: jsonb("resultados").notNull(), // ResultadoEjercicio[]
   notas: text("notas"),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });
 
 export const objetivoCuantificable = pgTable("objetivo_cuantificable", {
@@ -996,4 +1046,5 @@ export const objetivoCuantificable = pgTable("objetivo_cuantificable", {
   origenModulo: varchar("origen_modulo", { length: 50 }),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
 });

@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../../../offline/dexie/db";
 import { Button } from "../../button";
-import { Select } from "../../select";
+import { Combobox } from "../../select";
 import { Icono } from "../../icons";
 import { useToast } from "../../../hooks/useToast";
 import { GestionarRegistroActividadUseCase } from "../../../../application/use-cases/personal/gestionar-registro-actividad.use-case";
@@ -16,12 +16,19 @@ const useCase = new GestionarRegistroActividadUseCase();
 const SIN_PLANTILLAS: never[] = [];
 const SIN_EJERCICIOS: never[] = [];
 
+interface EjecucionSesionProps {
+  /** Salta a la estación "Rutinas" — usado por el empty state cuando todavía no hay ninguna creada. */
+  onIrARutinas?: () => void;
+}
+
 /**
  * Ejecución de sesión — fricción cero pensada para usarse cansado: "Hice lo
  * planificado" es un solo tap. Solo si algo cambió se abre la edición por
  * excepción, y solo pide las repeticiones/peso reales por set, nada más.
  */
-export const EjecucionSesion: React.FC = () => {
+export const EjecucionSesion: React.FC<EjecucionSesionProps> = ({
+  onIrARutinas,
+}) => {
   const { mostrarToast } = useToast();
   const plantillas =
     useLiveQuery(() => db.plantilla_rutina.toArray()) || SIN_PLANTILLAS;
@@ -127,14 +134,30 @@ export const EjecucionSesion: React.FC = () => {
         </h3>
       </div>
 
-      <Select
-        value={plantillaId}
-        onChange={setPlantillaId}
-        options={[
-          { value: "", label: "Elegí una rutina" },
-          ...activas.map((p) => ({ value: p.id, label: p.nombre })),
-        ]}
-      />
+      {activas.length === 0 ? (
+        <div className="flex flex-col items-start gap-2 rounded-xl border border-dashed border-[#2A2A2E] p-4">
+          <span className="text-sm text-zinc-400">
+            Todavía no tenés ninguna rutina creada. Armá la primera para poder
+            registrar una sesión acá.
+          </span>
+          {onIrARutinas && (
+            <Button
+              variant="outline"
+              onClick={onIrARutinas}
+              icono={<Icono.Plus className="h-4 w-4" />}
+            >
+              Crear mi primera rutina
+            </Button>
+          )}
+        </div>
+      ) : (
+        <Combobox
+          value={plantillaId}
+          onChange={setPlantillaId}
+          options={activas.map((p) => ({ value: p.id, label: p.nombre }))}
+          placeholder="Buscá una rutina..."
+        />
+      )}
 
       {plantilla && !editando && (
         <div className="flex gap-2">
