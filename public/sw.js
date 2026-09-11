@@ -33,6 +33,16 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
+  // La Cache API solo soporta pedidos GET (cache.put con POST/PATCH/etc.
+  // tira error), y un POST fallido no tiene nada sensato para servir desde
+  // caché — dejamos pasar estos pedidos sin interceptarlos, tal cual los
+  // maneja el navegador, para no interferir con las escrituras a la API
+  // propia ni con las llamadas directas a Supabase (son cross-origin, así
+  // que ni siquiera matchean los prefijos de path de abajo).
+  if (e.request.method !== "GET") {
+    return;
+  }
+
   const url = new URL(e.request.url);
 
   if (
