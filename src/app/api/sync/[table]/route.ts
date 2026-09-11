@@ -203,7 +203,29 @@ export async function POST(
       }
     }
 
-    // Realizar upsert
+    if (accion === "editar") {
+      // Un "editar" manda solo los campos que cambiaron (ej. { id, estado,
+      // actualizadoEn }), nunca el registro completo. Con INSERT ... ON
+      // CONFLICT DO UPDATE, si la fila todavía no existía del lado del
+      // servidor, Postgres igual arma la fila completa para el intento de
+      // insert y revienta con NOT NULL en las columnas que no viajaron
+      // (ej. titulo, proyectoId) — antes de llegar siquiera a chequear el
+      // conflicto. Un editar real nunca debe crear filas: si no hay fila
+      // para actualizar (0 filas afectadas), no es un error — puede ser
+      // simplemente un registro que después se borró localmente.
+      await db
+        .update(tableSchema)
+        .set(dbPayload)
+        .where(eq(conflictTarget, registroId));
+
+      return NextResponse.json({
+        success: true,
+        message: "Actualización completada con éxito.",
+      });
+    }
+
+    // "crear" (u otra acción no contemplada): upsert normal, es seguro que
+    // reintente sin duplicar si el registro ya existe.
     await db.insert(tableSchema).values(dbPayload).onConflictDoUpdate({
       target: conflictTarget,
       set: dbPayload,
