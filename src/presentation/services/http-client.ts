@@ -46,8 +46,14 @@ class HttpClientWrapper {
 
         if (error.response) {
           const status = error.response.status;
+          // Las rutas de la API devuelven el detalle bajo distintas claves
+          // según el endpoint ("mensaje" en la mayoría, "error" en las
+          // rutas de sync) — sin este fallback, cualquier error de las
+          // rutas de sync quedaba enmascarado por el mensaje genérico de
+          // abajo, incluso guardado así en la cola de reintentos.
           const msg =
             error.response.data?.mensaje ||
+            error.response.data?.error ||
             "Ocurrió un error al procesar tu solicitud.";
           const code = error.response.data?.codigo || "HTTP_ERROR";
           return Promise.reject(new ApiError(status, msg, code));
