@@ -56,9 +56,14 @@ self.addEventListener("fetch", (e) => {
     fetch(e.request)
       .then((networkResponse) => {
         if (networkResponse.status === 200) {
+          // clone() tiene que llamarse acá mismo, en el mismo tick en que
+          // llega la respuesta: si se difiere hasta que resuelva
+          // caches.open() (un then anidado), el body ya puede estar en
+          // uso y clone() tira "Response body is already used".
+          const responseParaCache = networkResponse.clone();
           caches
             .open(CACHE_NAME)
-            .then((cache) => cache.put(e.request, networkResponse.clone()));
+            .then((cache) => cache.put(e.request, responseParaCache));
         }
         return networkResponse;
       })
