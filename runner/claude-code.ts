@@ -1,4 +1,12 @@
-import { spawn } from "node:child_process";
+// spawn de node:child_process con shell:true (necesario en Windows porque
+// "claude" es un shim .cmd) reenvía los argumentos a cmd.exe, que los vuelve
+// a parsear con sus propias reglas de comillas — un JSON con comillas
+// anidadas como agentsJson (`{"verificador":{"description":"..."}}`) se
+// corrompe en el camino y la CLI lo recibe truncado ("Invalid --agents
+// configuration: ... Expected '}'"). cross-spawn resuelve el shim de
+// Windows sin pasar por el shell y escapa cada argumento correctamente,
+// incluidos los que tienen comillas embebidas.
+import spawn from "cross-spawn";
 
 export interface InvocacionClaudeCodeResult {
   ok: boolean;
@@ -146,14 +154,11 @@ export function invocarClaudeCode({
   }
 
   return new Promise((resolve) => {
+    // cross-spawn ya resuelve el shim .cmd/.ps1 de Windows por su cuenta
+    // (el mismo problema que antes forzaba shell:true acá) y escapa cada
+    // argumento como corresponde, así que no hace falta pasar por el shell.
     const child = spawn(claudeExecutable, args, {
       cwd: rutaRepo,
-      // En Windows, "claude" instalado vía npm es un shim .cmd/.ps1 — spawn
-      // con shell:false no lo resuelve y tira ENOENT aunque el comando exista
-      // (gotcha conocido de Node en Windows). Como el prompt va por stdin y
-      // no por argv, habilitar el shell acá no reintroduce el riesgo de
-      // escape que sí tendría pasar el prompt como argumento.
-      shell: process.platform === "win32",
     });
 
     let stdoutCrudo = "";
@@ -165,14 +170,17 @@ export function invocarClaudeCode({
       child.kill("SIGTERM");
     }, timeoutMs);
 
-    child.stdin.on("error", () => {
+    // stdio por default de spawn es ["pipe","pipe","pipe"], así que estos
+    // streams siempre existen acá — los tipos de cross-spawn los marcan
+    // nullable porque el propio Node.js permite configurar stdio distinto.
+    child.stdin!.on("error", () => {
       // Si el proceso ya murió (ej. binario no encontrado), escribir a su
       // stdin tira EPIPE — lo ignoramos, el error real ya lo capta "error".
     });
-    child.stdin.write(prompt, "utf-8");
-    child.stdin.end();
+    child.stdin!.write(prompt, "utf-8");
+    child.stdin!.end();
 
-    child.stdout.on("data", (chunk) => {
+    child.stdout!.on("data", (chunk) => {
       const texto = chunk.toString();
       stdoutCrudo += texto;
       lineaPendiente += texto;
@@ -213,7 +221,7 @@ export function invocarClaudeCode({
         }
       }
     });
-    child.stderr.on("data", (chunk) => {
+    child.stderr!.on("data", (chunk) => {
       stderr += chunk.toString();
     });
 
