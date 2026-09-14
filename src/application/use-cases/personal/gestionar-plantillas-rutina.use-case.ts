@@ -39,6 +39,7 @@ export class GestionarPlantillasRutinaUseCase {
       // schema valida "es un objeto" y no fuerza la unión discriminada acá.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       estructura: parsed.data.estructura as any,
+      calentamiento: parsed.data.calentamiento,
       eliminado: false,
       creadoEn: ahora,
       actualizadoEn: ahora,

@@ -7,14 +7,16 @@ import { PanelBloques } from "../../../../presentation/components/personal/entre
 import { EjecucionSesion } from "../../../../presentation/components/personal/entrenamiento/ejecucion-sesion";
 import { CrearPlantilla } from "../../../../presentation/components/personal/entrenamiento/crear-plantilla";
 import { PanelEstadisticas } from "../../../../presentation/components/personal/entrenamiento/panel-estadisticas";
+import { PanelEquipamiento } from "../../../../presentation/components/personal/entrenamiento/panel-equipamiento";
 
-type Estacion = "hoy" | "rutinas" | "progreso";
+type Estacion = "hoy" | "rutinas" | "progreso" | "equipo";
 
 const ESTACIONES: { id: Estacion; label: string; icono: keyof typeof Icono }[] =
   [
     { id: "hoy", label: "Hoy", icono: "Dumbbell" },
     { id: "rutinas", label: "Rutinas", icono: "Plus" },
     { id: "progreso", label: "Progreso", icono: "TrendingUp" },
+    { id: "equipo", label: "Equipo", icono: "Package" },
   ];
 
 const breadcrumbs = [
@@ -71,6 +73,7 @@ export default function EntrenamientoPage() {
         )}
         {estacion === "rutinas" && <CrearPlantilla />}
         {estacion === "progreso" && <PanelEstadisticas />}
+        {estacion === "equipo" && <PanelEquipamiento />}
       </div>
     </MainLayout>
   );

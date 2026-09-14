@@ -1006,6 +1006,7 @@ export const plantillaRutina = pgTable("plantilla_rutina", {
   formato: varchar("formato", { length: 30 }).notNull(),
   tipoEstructura: varchar("tipo_estructura", { length: 20 }).notNull(),
   estructura: jsonb("estructura").notNull(),
+  calentamiento: text("calentamiento"),
   eliminado: boolean("eliminado").default(false).notNull(),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),

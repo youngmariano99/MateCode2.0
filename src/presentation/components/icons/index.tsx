@@ -52,4 +52,6 @@ export const Icono = {
   Dumbbell: Lucide.Dumbbell,
   Flame: Lucide.Flame,
   Star: Lucide.Star,
+  Package: Lucide.Package,
+  Copy: Lucide.Copy,
 };

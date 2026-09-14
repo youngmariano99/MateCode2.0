@@ -10,6 +10,10 @@ import { PanelRetorno } from "../../../../presentation/components/personal/panel
 import { PanelRecuperarHabitos } from "../../../../presentation/components/personal/panel-recuperar-habitos";
 import { PanelObjetivos } from "../../../../presentation/components/personal/panel-objetivos";
 import { PanelEstadoGeneral } from "../../../../presentation/components/personal/panel-estado-general";
+import {
+  PlanificarSemanaIA,
+  PlanificarObjetivosIA,
+} from "../../../../presentation/components/personal/planificar-con-ia";
 import { TarjetaHabitos } from "../../../../presentation/components/personal/tarjeta-habitos";
 import { GestionarObjetivosUseCase } from "../../../../application/use-cases/personal/gestionar-objetivos.use-case";
 import { obtenerDiaTareaHoy } from "../../../../domain/entidades/personal.entity";
@@ -100,11 +104,17 @@ export default function PersonalHoyPage() {
           </div>
         )}
 
-        {horizonte === "semana" && <PanelPendientes />}
+        {horizonte === "semana" && (
+          <div className="flex flex-col gap-4">
+            <PlanificarSemanaIA />
+            <PanelPendientes />
+          </div>
+        )}
 
         {horizonte === "mes" && (
           <div className="flex flex-col gap-6">
             <PanelEstadoGeneral />
+            <PlanificarObjetivosIA />
             <PanelObjetivos />
           </div>
         )}

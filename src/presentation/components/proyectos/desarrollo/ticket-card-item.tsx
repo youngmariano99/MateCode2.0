@@ -23,6 +23,12 @@ export interface HandoffEstacion {
 // El ticket guarda un blob de metadata heterogéneo a propósito (distinto
 // según sea feature/bug/hotfix) — mismo patrón de JSONB flexible que el
 // resto del proyecto, tipado con los campos que este componente sí lee.
+export interface TokensManual {
+  input: number;
+  output: number;
+  registradoEn: number;
+}
+
 export interface TicketMetadata {
   rol?: string;
   seccionNombre?: string;
@@ -35,6 +41,11 @@ export interface TicketMetadata {
   actividadId?: string;
   bugs?: BugRegistrado[];
   handoffs?: Record<string, HandoffEstacion>;
+  /** Tokens que la IA reportó en su propia respuesta (autoreportados, no
+   * verificables) cuando el prompt se pasó a mano por fuera del runner — ver
+   * importarChecklistIA. Distinto de tokensInput/tokensOutput en
+   * task_execution_checkpoints, que sí vienen medidos por el runner. */
+  tokensManual?: TokensManual;
   [key: string]: unknown;
 }
 
@@ -206,7 +217,8 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
     prompt += `1. Analiza los requisitos y el sistema de diseño.\n`;
     prompt += `2. Escribe el código completo del componente con alta calidad y rendimiento según el stack y estándares especificados.\n`;
     prompt += `3. Al finalizar tu respuesta, incluye obligatoriamente este JSON para sincronizar el checklist:\n`;
-    prompt += `{\n  "resumen_ia": "Breve descripción técnica de lo implementado",\n  "checklist": [\n    { "paso": 1, "completado": true },\n    { "paso": 2, "completado": true }\n  ]\n}`;
+    prompt += `{\n  "resumen_ia": "Breve descripción técnica de lo implementado",\n  "checklist": [\n    { "paso": 1, "completado": true },\n    { "paso": 2, "completado": true }\n  ],\n  "tokens_usados": { "input": 0, "output": 0 }\n}\n`;
+    prompt += `("tokens_usados" es opcional: completalo solo si tu interfaz te muestra el conteo de tokens de esta conversación — sirve para comparar el costo de hacerlo manual vs. automatizado.)`;
 
     return prompt;
   };
@@ -279,7 +291,8 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
     prompt += `AJUSTES Y REFINAMIENTO SOLICITADO:\n${refinamientoInput.trim()}\n\n`;
     prompt += `Instrucción: Aplica los ajustes indicados arriba manteniendo la consideracion de consistencia con el componente actual.\n`;
     prompt += `Al finalizar, incluye el JSON obligatorio de respuesta:\n`;
-    prompt += `{\n  "resumen_ia": "Descripción de los ajustes",\n  "checklist": [{ "paso": 1, "completado": true }]\n}`;
+    prompt += `{\n  "resumen_ia": "Descripción de los ajustes",\n  "checklist": [{ "paso": 1, "completado": true }],\n  "tokens_usados": { "input": 0, "output": 0 }\n}\n`;
+    prompt += `("tokens_usados" es opcional, solo si tu interfaz te muestra el conteo de esta conversación.)`;
 
     navigator.clipboard.writeText(prompt);
     mostrarToast("Prompt de refinamiento copiado al portapapeles.", "exito");
@@ -304,12 +317,27 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
         }
       }
 
-      if (parsed.resumen_ia) {
-        setAiSummaryInput(parsed.resumen_ia);
+      const tokensReportados = parsed.tokens_usados;
+      const tokensValidos =
+        tokensReportados &&
+        typeof tokensReportados.input === "number" &&
+        typeof tokensReportados.output === "number";
+
+      if (parsed.resumen_ia || tokensValidos) {
+        if (parsed.resumen_ia) setAiSummaryInput(parsed.resumen_ia);
         const currentMeta = ticket.metadata || {};
-        const metadataActualizada = {
+        const metadataActualizada: TicketMetadata = {
           ...currentMeta,
-          aiSummary: parsed.resumen_ia,
+          ...(parsed.resumen_ia ? { aiSummary: parsed.resumen_ia } : {}),
+          ...(tokensValidos
+            ? {
+                tokensManual: {
+                  input: tokensReportados.input,
+                  output: tokensReportados.output,
+                  registradoEn: Date.now(),
+                },
+              }
+            : {}),
         };
         await db.transaction(
           "rw",
@@ -327,7 +355,12 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
       }
 
       setChecklistJsonInput("");
-      mostrarToast("Checklist e historial sincronizados desde la IA.", "exito");
+      mostrarToast(
+        tokensValidos
+          ? `Checklist e historial sincronizados. Tokens manuales registrados: ${tokensReportados.input + tokensReportados.output}.`
+          : "Checklist e historial sincronizados desde la IA.",
+        "exito"
+      );
     } catch (err: unknown) {
       const mensaje = err instanceof Error ? err.message : String(err);
       mostrarToast(

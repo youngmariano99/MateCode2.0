@@ -10,12 +10,23 @@ interface TareaResumen {
   rol?: string;
 }
 
+interface TicketConTokensManuales {
+  id: string;
+  metadata?: {
+    rol?: string;
+    actividadId?: string;
+    tokensManual?: { input: number; output: number; registradoEn: number };
+  };
+}
+
 interface MetricasIATabProps {
   proyectoId: string;
   tareas: TareaResumen[];
   /** Tareas del sprint actualmente enfocado en el workspace, para poder acotar la descarga de handoffs a ese sprint. */
   tareasSprintActual?: TareaResumen[];
   nombreSprintActual?: string;
+  /** Tickets manuales (Prompt Compiler) — para comparar tokens autoreportados a mano contra los medidos por el runner. */
+  ticketExecutions?: TicketConTokensManuales[];
 }
 
 interface Checkpoint {
@@ -174,6 +185,7 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
   tareas,
   tareasSprintActual,
   nombreSprintActual,
+  ticketExecutions,
 }) => {
   const checkpointsQuery = useLiveQuery(
     () =>
@@ -275,6 +287,28 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
       .sort((a, b) => b.costoPromedio - a.costoPromedio);
   }, [filas]);
 
+  const manualVsAutomatico = useMemo(() => {
+    const manuales = (ticketExecutions || [])
+      .map((t) => t.metadata?.tokensManual)
+      .filter((tm): tm is NonNullable<typeof tm> => !!tm);
+    if (manuales.length === 0 && filas.length === 0) return null;
+
+    const totalManual = manuales.reduce(
+      (acc, tm) => acc + tm.input + tm.output,
+      0
+    );
+    const totalAutomatico = filas.reduce(
+      (acc, f) => acc + f.tokensInput + f.tokensOutput,
+      0
+    );
+    return {
+      cantidadManual: manuales.length,
+      promedioManual: manuales.length ? totalManual / manuales.length : 0,
+      cantidadAutomatico: filas.length,
+      promedioAutomatico: filas.length ? totalAutomatico / filas.length : 0,
+    };
+  }, [ticketExecutions, filas]);
+
   const descargarHandoffsSprint = async () => {
     const idsSprint = new Set((tareasSprintActual || []).map((t) => t.id));
     const checkpointsSprint = checkpoints.filter((cp) =>
@@ -324,17 +358,54 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
       (tareasSprintActual || []).some((t) => t.id === cp.actividadId)
     );
 
-  if (filas.length === 0) {
+  if (filas.length === 0 && !manualVsAutomatico?.cantidadManual) {
     return (
       <div className="rounded-xl border border-dashed border-zinc-900/60 py-12 text-center font-mono text-[9px] text-zinc-600">
         Todavía no hay tickets automatizados con IA en este proyecto. Las
-        métricas aparecen acá apenas el runner procese el primer checkpoint.
+        métricas aparecen acá apenas el runner procese el primer checkpoint, o
+        apenas registres tokens de un ticket hecho a mano.
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-5">
+      {manualVsAutomatico && manualVsAutomatico.cantidadManual > 0 && (
+        <div className="rounded-xl border border-zinc-900 bg-zinc-950/20 p-3">
+          <span className="mb-2 block font-mono text-[9px] font-bold text-zinc-400 uppercase">
+            Manual vs. Automático — tokens promedio por ticket
+          </span>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+              <span className="block font-mono text-[7px] font-bold text-amber-500/80 uppercase">
+                Manual ({manualVsAutomatico.cantidadManual} ticket
+                {manualVsAutomatico.cantidadManual === 1 ? "" : "s"})
+              </span>
+              <span className="block font-mono text-[16px] font-bold text-amber-400">
+                {Math.round(manualVsAutomatico.promedioManual).toLocaleString()}
+              </span>
+            </div>
+            <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3">
+              <span className="block font-mono text-[7px] font-bold text-violet-500/80 uppercase">
+                Automático ({manualVsAutomatico.cantidadAutomatico} ticket
+                {manualVsAutomatico.cantidadAutomatico === 1 ? "" : "s"})
+              </span>
+              <span className="block font-mono text-[16px] font-bold text-violet-400">
+                {manualVsAutomatico.cantidadAutomatico > 0
+                  ? Math.round(
+                      manualVsAutomatico.promedioAutomatico
+                    ).toLocaleString()
+                  : "—"}
+              </span>
+            </div>
+          </div>
+          <span className="mt-2 block font-mono text-[7px] text-zinc-600">
+            Los tokens manuales son autoreportados por la IA al pegar el prompt
+            a mano (campo &quot;tokens_usados&quot; del JSON) — no son una
+            medición exacta, sirven como referencia.
+          </span>
+        </div>
+      )}
       {hayTicketsDelSprintConCheckpoint && (
         <div className="flex items-center justify-between rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
           <span className="font-mono text-[8px] text-zinc-500">

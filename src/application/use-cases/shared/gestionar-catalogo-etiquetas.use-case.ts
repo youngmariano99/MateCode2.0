@@ -42,4 +42,18 @@ export class GestionarCatalogoEtiquetasUseCase {
       );
     }
   }
+
+  public async eliminarEtiqueta(id: string): Promise<Resultado<void>> {
+    try {
+      await db.catalogo_etiquetas.delete(id);
+      await QueueService.encolar("catalogo_etiquetas", "eliminar", id, {});
+      return Resultado.exito(undefined);
+    } catch (err) {
+      return Resultado.falla(
+        new ErrorDominio(
+          err instanceof Error ? err.message : "Error al eliminar la etiqueta."
+        )
+      );
+    }
+  }
 }

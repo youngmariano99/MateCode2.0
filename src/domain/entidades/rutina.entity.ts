@@ -62,6 +62,10 @@ export interface PlantillaRutina {
   formato: FormatoRutina;
   tipoEstructura: TipoEstructura;
   estructura: EstructuraSeries | EstructuraTiempo;
+  // Instructivo, texto libre — no se resuelve contra el catálogo ni se
+  // trackea como sets planificados, es la entrada en calor previa a la
+  // rutina (ej. "5 min de cinta + movilidad de cadera y hombro").
+  calentamiento?: string;
   eliminado: boolean;
   creadoEn: number;
   actualizadoEn: number;
@@ -72,6 +76,7 @@ export const crearPlantillaRutinaSchema = z.object({
   formato: z.enum(FORMATOS_RUTINA),
   tipoEstructura: z.enum(TIPOS_ESTRUCTURA),
   estructura: z.record(z.string(), z.unknown()),
+  calentamiento: z.string().trim().optional(),
 });
 export type CrearPlantillaRutinaInput = z.input<
   typeof crearPlantillaRutinaSchema
@@ -85,7 +90,11 @@ export type CrearPlantillaRutinaInput = z.input<
 // mezclar kg con repeticiones con nivel de dificultad.
 // ============================================================================
 
-export const ESTADOS_BLOQUE = ["activo", "cerrado"] as const;
+// "planificado": un bloque futuro ya cargado (ej. vía importación de una
+// secuencia con progresión) pero que todavía no arrancó — al cerrar el
+// bloque "activo", el siguiente "planificado" (por diaInicio) se promueve
+// solo. Nunca hay más de un bloque "activo" a la vez.
+export const ESTADOS_BLOQUE = ["activo", "cerrado", "planificado"] as const;
 export type EstadoBloque = (typeof ESTADOS_BLOQUE)[number];
 
 export interface BloqueEntrenamiento {
@@ -111,3 +120,17 @@ export const crearBloqueSchema = z
     path: ["diaFin"],
   });
 export type CrearBloqueInput = z.input<typeof crearBloqueSchema>;
+
+/** Un ítem de una secuencia de bloques importada — sin fechas: se encadenan
+ * solas a partir de hoy (o del fin del bloque activo, si ya hay uno). */
+export const itemSecuenciaBloqueSchema = z.object({
+  nombre: z.string().trim().min(1),
+  duracionSemanas: z.number().positive().default(4),
+  ejeProgresionDefault: z.enum(EJES_PROGRESION),
+});
+export const importarSecuenciaBloquesSchema = z.array(
+  itemSecuenciaBloqueSchema
+);
+export type ImportarSecuenciaBloquesInput = z.input<
+  typeof importarSecuenciaBloquesSchema
+>;

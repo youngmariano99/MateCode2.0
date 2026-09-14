@@ -10,6 +10,7 @@ import { Select } from "../select";
 import { useToast } from "../../hooks/useToast";
 import { GestionarObjetivosUseCase } from "../../../application/use-cases/personal/gestionar-objetivos.use-case";
 import { GestionarHabitosUseCase } from "../../../application/use-cases/personal/gestionar-habitos.use-case";
+import type { HabitoRegistro } from "../../../domain/entidades/habitos.entity";
 import { SelectorEtiquetas } from "../contacto-frio/selector-etiquetas";
 import {
   calcularRitmoObjetivo,
@@ -81,6 +82,19 @@ const FilaObjetivo: React.FC<{ objetivo: ObjetivoCuantificable }> = ({
         .first(),
     [objetivo.id]
   );
+
+  const inicioMes = `${hoy.slice(0, 7)}-01`;
+  const registrosDelMes = useLiveQuery(async () => {
+    if (!compromisoVinculado) return [] as HabitoRegistro[];
+    return db.habito_registro
+      .where("habitoId")
+      .equals(compromisoVinculado.id)
+      .filter((r) => r.diaTarea >= inicioMes)
+      .toArray();
+  }, [compromisoVinculado?.id, inicioMes]);
+  const cumplidosDelMes = (registrosDelMes || []).filter(
+    (r) => r.nivelEjecutado !== "NO_CUMPLIDO"
+  ).length;
 
   // Cuánto hace falta por semana no depende de en cuántos días lo repartas
   // (es lo mismo trabajo total); lo que sí cambia es cuánto toca por día
@@ -212,7 +226,9 @@ const FilaObjetivo: React.FC<{ objetivo: ObjetivoCuantificable }> = ({
         ritmo.estado !== "cumplido" &&
         (compromisoVinculado ? (
           <span className="text-[10px] text-emerald-400">
-            Vinculado al compromiso &quot;{compromisoVinculado.nombre}&quot;
+            Vinculado al compromiso &quot;{compromisoVinculado.nombre}&quot; —
+            cumplido {cumplidosDelMes}/{(registrosDelMes || []).length} días
+            este mes
           </span>
         ) : (
           <div className="flex flex-wrap items-center gap-2 border-t border-[#2A2A2E] pt-2">

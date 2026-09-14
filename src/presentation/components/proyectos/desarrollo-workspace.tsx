@@ -1481,6 +1481,7 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
           tareas={tareas}
           tareasSprintActual={actividadesSprint}
           nombreSprintActual={focusedSprint?.nombre}
+          ticketExecutions={ticketExecutions}
         />
       ) : (
         <div className="flex w-full flex-col gap-6">

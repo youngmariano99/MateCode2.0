@@ -28,11 +28,13 @@ export type ResultadoIntento = (typeof RESULTADOS_INTENTO)[number];
 export const CATEGORIAS_ETIQUETA = [
   "dolor",
   "motivo_rechazo",
-  // Reutilizadas por el módulo Personal (compromisos/objetivos), no CRM —
-  // el catálogo de etiquetas es genérico, viven acá porque este archivo es
-  // donde ya está `CATEGORIAS_ETIQUETA`/`EtiquetaCatalogo`, sin duplicarlo.
+  // Reutilizadas por el módulo Personal (compromisos/objetivos/entrenamiento),
+  // no CRM — el catálogo de etiquetas es genérico, viven acá porque este
+  // archivo es donde ya está `CATEGORIAS_ETIQUETA`/`EtiquetaCatalogo`, sin
+  // duplicarlo.
   "area_personal",
   "motivo_incumplimiento",
+  "equipamiento_propio",
 ] as const;
 export type CategoriaEtiqueta = (typeof CATEGORIAS_ETIQUETA)[number];
 

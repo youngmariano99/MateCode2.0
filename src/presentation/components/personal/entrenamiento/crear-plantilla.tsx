@@ -9,6 +9,7 @@ import { Icono } from "../../icons";
 import { ModalImportarJson } from "../../contenido/modal-importar-json";
 import { useToast } from "../../../hooks/useToast";
 import { GestionarPlantillasRutinaUseCase } from "../../../../application/use-cases/personal/gestionar-plantillas-rutina.use-case";
+import { generarPromptRutina } from "../../../../domain/prompts/generar-prompt-entrenamiento";
 import {
   FORMATOS_RUTINA,
   type FormatoRutina,
@@ -112,6 +113,13 @@ export const CrearPlantilla: React.FC = () => {
   const { mostrarToast } = useToast();
   const ejercicios =
     useLiveQuery(() => db.catalogo_ejercicio.toArray()) || SIN_EJERCICIOS;
+  const equipamientoPropio =
+    useLiveQuery(() =>
+      db.catalogo_etiquetas
+        .where("categoria")
+        .equals("equipamiento_propio")
+        .toArray()
+    ) || SIN_EJERCICIOS;
 
   const [patronFiltro, setPatronFiltro] = useState<PatronMovimiento | "">("");
   const ejerciciosFiltrados = patronFiltro
@@ -123,6 +131,7 @@ export const CrearPlantilla: React.FC = () => {
   }));
 
   const [nombre, setNombre] = useState("");
+  const [calentamiento, setCalentamiento] = useState("");
   const [formato, setFormato] = useState<FormatoRutina>("tradicional");
   const tipoEstructura = tipoEstructuraDe(formato);
 
@@ -157,6 +166,7 @@ export const CrearPlantilla: React.FC = () => {
 
   const limpiar = () => {
     setNombre("");
+    setCalentamiento("");
     setBloquesSeries([]);
     setEjerciciosTiempo([]);
     setNumeroRondas("");
@@ -197,6 +207,7 @@ export const CrearPlantilla: React.FC = () => {
       formato,
       tipoEstructura,
       estructura,
+      calentamiento: calentamiento.trim() || undefined,
     });
     setGuardando(false);
     if (res.ok) {
@@ -214,6 +225,7 @@ export const CrearPlantilla: React.FC = () => {
       {
         nombre: "Full Body A",
         formato: "tradicional",
+        calentamiento: "5 min de cinta + movilidad de cadera y hombro",
         ejercicios: [
           {
             // Nombre EXACTO tal como figura en el catálogo de esta app —
@@ -246,6 +258,7 @@ export const CrearPlantilla: React.FC = () => {
       const item = raw as {
         nombre?: string;
         formato?: string;
+        calentamiento?: string;
         ejercicios?: unknown[];
         numeroRondas?: number;
         tiempoTrabajoSeg?: number;
@@ -314,6 +327,7 @@ export const CrearPlantilla: React.FC = () => {
         formato: formatoResuelto,
         tipoEstructura: tipo,
         estructura,
+        calentamiento: item.calentamiento?.trim() || undefined,
       });
       if (res.ok) creadas++;
     }
@@ -333,6 +347,15 @@ export const CrearPlantilla: React.FC = () => {
     );
   };
 
+  const handleCopiarPromptRutina = () => {
+    const prompt = generarPromptRutina(
+      ejercicios,
+      equipamientoPropio.map((e) => e.etiqueta)
+    );
+    navigator.clipboard.writeText(prompt);
+    mostrarToast("Prompt copiado al portapapeles.", "exito");
+  };
+
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-4">
       <div className="flex items-center justify-between gap-2">
@@ -342,19 +365,35 @@ export const CrearPlantilla: React.FC = () => {
             Nueva rutina
           </h3>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => setModalImportarAbierto(true)}
-          className="px-3 py-1.5 text-xs"
-        >
-          Importar JSON
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleCopiarPromptRutina}
+            className="px-3 py-1.5 text-xs"
+            icono={<Icono.Copy className="h-3.5 w-3.5" />}
+          >
+            Copiar prompt para IA
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setModalImportarAbierto(true)}
+            className="px-3 py-1.5 text-xs"
+          >
+            Importar JSON
+          </Button>
+        </div>
       </div>
 
       <input
         value={nombre}
         onChange={(e) => setNombre(e.target.value)}
         placeholder="Nombre de la rutina (ej. Full Body A)"
+        className="rounded-lg border border-[#2A2A2E] bg-[#0D0D0F] px-2 py-1.5 text-sm text-zinc-200 outline-none focus:border-emerald-500/40"
+      />
+      <input
+        value={calentamiento}
+        onChange={(e) => setCalentamiento(e.target.value)}
+        placeholder="Entrada en calor (opcional, ej. 5 min de cinta + movilidad)"
         className="rounded-lg border border-[#2A2A2E] bg-[#0D0D0F] px-2 py-1.5 text-sm text-zinc-200 outline-none focus:border-emerald-500/40"
       />
       <Select

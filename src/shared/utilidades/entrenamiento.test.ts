@@ -137,6 +137,57 @@ describe("Entrenamiento: use-cases", () => {
     assert.strictEqual(row?.estado, "cerrado");
   });
 
+  test("Importar secuencia: el primero queda activo, el resto planificado y encadenado por fecha", async () => {
+    const res = await bloques.importarSecuencia([
+      {
+        nombre: "Bloque 1 — Volumen",
+        duracionSemanas: 4,
+        ejeProgresionDefault: "volumen",
+      },
+      {
+        nombre: "Bloque 2 — Fuerza",
+        duracionSemanas: 2,
+        ejeProgresionDefault: "carga",
+      },
+    ]);
+    assert.strictEqual(res.ok, true);
+    assert.strictEqual(res.valor, 2);
+
+    const todos = await db.bloque_entrenamiento.toArray();
+    const activo = todos.find((b) => b.nombre === "Bloque 1 — Volumen");
+    const planificado = todos.find((b) => b.nombre === "Bloque 2 — Fuerza");
+    assert.strictEqual(activo?.estado, "activo");
+    assert.strictEqual(planificado?.estado, "planificado");
+    // El segundo bloque arranca el día siguiente a que termina el primero.
+    const diaSiguiente = new Date(new Date(activo!.diaFin).getTime() + 86400000)
+      .toISOString()
+      .slice(0, 10);
+    assert.strictEqual(planificado?.diaInicio, diaSiguiente);
+  });
+
+  test("Al cerrar el bloque activo, se promueve automáticamente el siguiente planificado", async () => {
+    await bloques.importarSecuencia([
+      {
+        nombre: "Bloque 1",
+        duracionSemanas: 1,
+        ejeProgresionDefault: "volumen",
+      },
+      { nombre: "Bloque 2", duracionSemanas: 1, ejeProgresionDefault: "carga" },
+    ]);
+    const todosAntes = await db.bloque_entrenamiento.toArray();
+    const primero = todosAntes.find((b) => b.nombre === "Bloque 1")!;
+
+    await bloques.cerrarBloque(primero.id);
+
+    const todosDespues = await db.bloque_entrenamiento.toArray();
+    const segundo = todosDespues.find((b) => b.nombre === "Bloque 2");
+    assert.strictEqual(segundo?.estado, "activo");
+    assert.strictEqual(
+      todosDespues.find((b) => b.nombre === "Bloque 1")?.estado,
+      "cerrado"
+    );
+  });
+
   test("Crear plantilla por series y registrar 'como planificado' en un tap", async () => {
     const plantilla = await plantillas.crearPlantilla({
       nombre: "Full Body A",

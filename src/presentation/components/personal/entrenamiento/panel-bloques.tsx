@@ -7,8 +7,10 @@ import { Button } from "../../button";
 import { Select } from "../../select";
 import { Badge } from "../../badge";
 import { Icono } from "../../icons";
+import { ModalImportarJson } from "../../contenido/modal-importar-json";
 import { useToast } from "../../../hooks/useToast";
 import { GestionarBloquesUseCase } from "../../../../application/use-cases/personal/gestionar-bloques.use-case";
+import { generarPromptSecuenciaBloques } from "../../../../domain/prompts/generar-prompt-entrenamiento";
 import {
   EJES_PROGRESION,
   type EjeProgresion,
@@ -17,6 +19,23 @@ import {
   obtenerDiaTareaHoy,
   sumarDias,
 } from "../../../../domain/entidades/personal.entity";
+
+const PLANTILLA_SECUENCIA = JSON.stringify(
+  [
+    {
+      nombre: "Bloque 1 — Volumen",
+      duracionSemanas: 4,
+      ejeProgresionDefault: "volumen",
+    },
+    {
+      nombre: "Bloque 2 — Fuerza",
+      duracionSemanas: 4,
+      ejeProgresionDefault: "carga",
+    },
+  ],
+  null,
+  2
+);
 
 const useCase = new GestionarBloquesUseCase();
 const SIN_BLOQUES: never[] = [];
@@ -45,9 +64,14 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
   const [guardando, setGuardando] = useState(false);
   const [recienCreado, setRecienCreado] = useState(false);
 
+  const [modalSecuenciaAbierto, setModalSecuenciaAbierto] = useState(false);
+
   const bloques =
     useLiveQuery(() => db.bloque_entrenamiento.toArray()) || SIN_BLOQUES;
   const activo = bloques.find((b) => b.estado === "activo");
+  const planificados = bloques
+    .filter((b) => b.estado === "planificado")
+    .sort((a, b) => (a.diaInicio < b.diaInicio ? -1 : 1));
   const esPrimerBloque = bloques.length === 0;
 
   const crear = async () => {
@@ -73,13 +97,52 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
     if (!res.ok) mostrarToast(res.error!.mensaje, "error");
   };
 
+  const handleCopiarPromptSecuencia = () => {
+    const prompt = generarPromptSecuenciaBloques(activo || null);
+    navigator.clipboard.writeText(prompt);
+    mostrarToast("Prompt copiado al portapapeles.", "exito");
+  };
+
+  const importarSecuencia = async (items: unknown[]) => {
+    const res = await useCase.importarSecuencia(
+      items as {
+        nombre: string;
+        duracionSemanas?: number;
+        ejeProgresionDefault: EjeProgresion;
+      }[]
+    );
+    if (!res.ok) {
+      throw new Error(res.error!.mensaje);
+    }
+    mostrarToast(`${res.valor} bloque(s) creado(s) en secuencia.`, "exito");
+  };
+
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-4">
-      <div className="flex items-center gap-2">
-        <Icono.Flame className="h-4 w-4 text-zinc-500" />
-        <h3 className="text-xs font-bold tracking-wider text-zinc-400 uppercase">
-          Bloque de entrenamiento
-        </h3>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Icono.Flame className="h-4 w-4 text-zinc-500" />
+          <h3 className="text-xs font-bold tracking-wider text-zinc-400 uppercase">
+            Bloque de entrenamiento
+          </h3>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleCopiarPromptSecuencia}
+            className="px-3 py-1.5 text-xs"
+            icono={<Icono.Copy className="h-3.5 w-3.5" />}
+          >
+            Copiar prompt para IA
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setModalSecuenciaAbierto(true)}
+            className="px-3 py-1.5 text-xs"
+          >
+            Importar secuencia
+          </Button>
+        </div>
       </div>
 
       {!activo && (
@@ -150,6 +213,26 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
         </div>
       )}
 
+      {planificados.length > 0 && (
+        <div className="flex flex-col gap-1.5 rounded-xl border border-dashed border-[#2A2A2E] p-3">
+          <span className="text-[10px] font-bold tracking-wider text-zinc-500 uppercase">
+            En cola
+          </span>
+          {planificados.map((b) => (
+            <div
+              key={b.id}
+              className="flex items-center gap-2 text-xs text-zinc-400"
+            >
+              <Badge color="sky">{ETIQUETA_EJE[b.ejeProgresionDefault]}</Badge>
+              <span className="font-bold text-zinc-300">{b.nombre}</span>
+              <span className="text-zinc-600">
+                {b.diaInicio} → {b.diaFin}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {activo && recienCreado && onIrARutinas && (
         <div className="flex items-center justify-between gap-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3">
           <span className="text-xs text-zinc-300">
@@ -168,6 +251,14 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
           </Button>
         </div>
       )}
+
+      <ModalImportarJson
+        abierto={modalSecuenciaAbierto}
+        onCerrar={() => setModalSecuenciaAbierto(false)}
+        titulo="Importar secuencia de bloques desde JSON"
+        plantillaEjemplo={PLANTILLA_SECUENCIA}
+        onImportar={importarSecuencia}
+      />
     </div>
   );
 };
