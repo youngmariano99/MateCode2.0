@@ -189,7 +189,9 @@ export const handoffIASchema = z.object({
    * vía tokensInput/tokensOutput en el checkpoint), pero sirve como
    * referencia para comparar el costo de hacerlo manual vs. automatizado.
    */
-  tokens_usados: z.object({ input: z.number(), output: z.number() }).optional(),
+  tokens_usados: z
+    .object({ input: z.number().optional(), output: z.number().optional() })
+    .optional(),
   update_docs: z
     .object({
       schema: z.string().optional(),

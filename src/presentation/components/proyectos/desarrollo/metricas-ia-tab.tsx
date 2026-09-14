@@ -17,10 +17,10 @@ interface TicketConTokensManuales {
     actividadId?: string;
     /** Flujo "Prompt Compiler" (ticket-card-item.tsx). */
     tokensManual?: { input: number; output: number; registradoEn: number };
-    /** Flujo "Cinta de Producción" (avanzarEstacionCinta) — un handoff por estación, cada uno puede traer su propio tokens_usados autoreportado. */
+    /** Flujo "Cinta de Producción" (avanzarEstacionCinta) — un handoff por estación, cada uno puede traer su propio tokens_usados autoreportado. Input/output son opcionales: la IA no siempre puede completarlos. */
     handoffs?: Record<
       string,
-      { tokens_usados?: { input: number; output: number } }
+      { tokens_usados?: { input?: number; output?: number } }
     >;
   };
 }
@@ -32,8 +32,9 @@ function tokensManualesDelTicket(ticket: TicketConTokensManuales): number {
   if (tm) total += tm.input + tm.output;
   const handoffs = ticket.metadata?.handoffs || {};
   for (const h of Object.values(handoffs)) {
-    if (h.tokens_usados)
-      total += h.tokens_usados.input + h.tokens_usados.output;
+    if (h.tokens_usados) {
+      total += (h.tokens_usados.input || 0) + (h.tokens_usados.output || 0);
+    }
   }
   return total;
 }
