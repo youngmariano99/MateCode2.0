@@ -3,6 +3,7 @@ import { invocarClaudeCode } from "./claude-code";
 import { invocarAntigravity } from "./antigravity";
 import { correrVerificacion, type PasoVerificacion } from "./verificacion";
 import { verificarEstandares } from "./estandares";
+import { recortarLogParaReintento } from "./recortar-log";
 import { escribirCorralito } from "./corralito";
 import { extraerBloqueJson } from "./extraer-json";
 import { crearCommitYPR, commitYPushFix } from "./git-pr";
@@ -252,7 +253,7 @@ async function procesarCheckpoint(
   const prompt =
     checkpoint.reintentosFallidos > 0 &&
     checkpoint.estadoCheckpoint === "QA_RETRYING"
-      ? `${promptBase}\n\n<correccion_requerida>\nEl intento anterior falló la verificación automática con este log, corregilo:\n${await ultimoErrorLogsDe(checkpoint.id)}\n</correccion_requerida>\n\n${bloqueEstandaresNoNegociables(configAuto?.maxLineasPorArchivo)}`
+      ? `${promptBase}\n\n<correccion_requerida>\nEl intento anterior falló la verificación automática con este log, corregilo:\n${recortarLogParaReintento(await ultimoErrorLogsDe(checkpoint.id))}\n</correccion_requerida>\n\n${bloqueEstandaresNoNegociables(configAuto?.maxLineasPorArchivo)}`
       : promptBase;
 
   // Se guarda "lo que se le pidió" ANTES de invocar, para poder auditar
