@@ -183,6 +183,13 @@ export const handoffIASchema = z.object({
   desvios_del_plan: z.array(desvioPlanSchema).default([]),
   /** Ruta del archivo creado en docs/pruebas_testeos/, si aplicaba crear uno. */
   archivo_prueba_creado: z.string().optional(),
+  /**
+   * Tokens autoreportados por la IA cuando el prompt se pasó a mano (fuera
+   * del runner) — no es una medición exacta (el runner sí mide tokens reales
+   * vía tokensInput/tokensOutput en el checkpoint), pero sirve como
+   * referencia para comparar el costo de hacerlo manual vs. automatizado.
+   */
+  tokens_usados: z.object({ input: z.number(), output: z.number() }).optional(),
   update_docs: z
     .object({
       schema: z.string().optional(),

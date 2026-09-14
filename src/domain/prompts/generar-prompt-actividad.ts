@@ -109,7 +109,8 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
     "desvios_del_plan": [
       { "loQuePediaElTicket": "...", "loQueSeHizo": "...", "motivo": "..." }
     ],
-    "archivo_prueba_creado": "docs/pruebas_testeos/N_Nombre_Backend.md (si creaste uno, sino omitir)"
+    "archivo_prueba_creado": "docs/pruebas_testeos/N_Nombre_Backend.md (si creaste uno, sino omitir)",
+    "tokens_usados": { "input": 0, "output": 0 }
   },
   "update_docs": {
     "schema": "contenido completo de SCHEMA.md si cambió, sino omitir",
@@ -122,6 +123,7 @@ Al final de tu respuesta, adjunta OBLIGATORIAMENTE un bloque JSON con esta estru
 }
 \`\`\`
 Nota: "update_docs" es un respaldo por si no pudiste editar el archivo directamente vos mismo — si ya lo actualizaste en el repo (preferido, ver <mantenimiento_equipo>), no hace falta repetir el contenido acá.
+Nota: "tokens_usados" es opcional — completalo solo si tu interfaz te muestra el conteo de tokens de esta conversación. Sirve para comparar el costo de resolver el ticket a mano vs. con el runner automatizado.
 </formato_handoff_requerido>`;
 }
 

@@ -15,8 +15,27 @@ interface TicketConTokensManuales {
   metadata?: {
     rol?: string;
     actividadId?: string;
+    /** Flujo "Prompt Compiler" (ticket-card-item.tsx). */
     tokensManual?: { input: number; output: number; registradoEn: number };
+    /** Flujo "Cinta de Producción" (avanzarEstacionCinta) — un handoff por estación, cada uno puede traer su propio tokens_usados autoreportado. */
+    handoffs?: Record<
+      string,
+      { tokens_usados?: { input: number; output: number } }
+    >;
   };
+}
+
+/** Suma los tokens manuales autoreportados de un ticket, sea cual sea el flujo que los generó (Prompt Compiler o Cinta de Producción). */
+function tokensManualesDelTicket(ticket: TicketConTokensManuales): number {
+  let total = 0;
+  const tm = ticket.metadata?.tokensManual;
+  if (tm) total += tm.input + tm.output;
+  const handoffs = ticket.metadata?.handoffs || {};
+  for (const h of Object.values(handoffs)) {
+    if (h.tokens_usados)
+      total += h.tokens_usados.input + h.tokens_usados.output;
+  }
+  return total;
 }
 
 interface MetricasIATabProps {
@@ -288,22 +307,21 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
   }, [filas]);
 
   const manualVsAutomatico = useMemo(() => {
-    const manuales = (ticketExecutions || [])
-      .map((t) => t.metadata?.tokensManual)
-      .filter((tm): tm is NonNullable<typeof tm> => !!tm);
-    if (manuales.length === 0 && filas.length === 0) return null;
+    const tokensPorTicket = (ticketExecutions || [])
+      .map(tokensManualesDelTicket)
+      .filter((total) => total > 0);
+    if (tokensPorTicket.length === 0 && filas.length === 0) return null;
 
-    const totalManual = manuales.reduce(
-      (acc, tm) => acc + tm.input + tm.output,
-      0
-    );
+    const totalManual = tokensPorTicket.reduce((acc, n) => acc + n, 0);
     const totalAutomatico = filas.reduce(
       (acc, f) => acc + f.tokensInput + f.tokensOutput,
       0
     );
     return {
-      cantidadManual: manuales.length,
-      promedioManual: manuales.length ? totalManual / manuales.length : 0,
+      cantidadManual: tokensPorTicket.length,
+      promedioManual: tokensPorTicket.length
+        ? totalManual / tokensPorTicket.length
+        : 0,
       cantidadAutomatico: filas.length,
       promedioAutomatico: filas.length ? totalAutomatico / filas.length : 0,
     };
