@@ -7,6 +7,8 @@ import {
 } from "../../../domain/errores/error-base";
 import {
   crearTareaPendienteSchema,
+  lunesDeLaSemana,
+  obtenerDiaTareaHoy,
   type CrearTareaPendienteInput,
   type TareaPendiente,
   type TipoTareaDiaria,
@@ -134,5 +136,35 @@ export class GestionarPendientesUseCase {
       actualizadoEn,
     });
     return resultado;
+  }
+
+  /**
+   * "Armar la semana": asigna en lote los pendientes elegidos a la semana
+   * actual (lunes de hoy) — separa "esto entra esta semana" del resto del
+   * backlog general sin necesidad de una entidad "ciclo" nueva.
+   */
+  public async asignarASemanaActual(ids: string[]): Promise<Resultado<void>> {
+    if (ids.length === 0) {
+      return Resultado.falla(new ErrorDominio("Elegí al menos un pendiente."));
+    }
+    const semanaId = lunesDeLaSemana(obtenerDiaTareaHoy());
+    const actualizadoEn = Date.now();
+    try {
+      for (const id of ids) {
+        await db.tarea_pendiente.update(id, { semanaId, actualizadoEn });
+        await QueueService.encolar("tarea_pendiente", "editar", id, {
+          id,
+          semanaId,
+          actualizadoEn,
+        });
+      }
+      return Resultado.exito(undefined);
+    } catch (err) {
+      return Resultado.falla(
+        new ErrorDominio(
+          err instanceof Error ? err.message : "Error al armar la semana."
+        )
+      );
+    }
   }
 }

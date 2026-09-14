@@ -9,8 +9,10 @@ import { Badge, type BadgeColor } from "../badge";
 import { Icono } from "../icons";
 import { useToast } from "../../hooks/useToast";
 import { GestionarPendientesUseCase } from "../../../application/use-cases/personal/gestionar-pendientes.use-case";
+import { ArmarSemana } from "./armar-semana";
 import {
   obtenerDiaTareaHoy,
+  lunesDeLaSemana,
   PRIORIDADES_PENDIENTE,
   type PrioridadPendiente,
   type TareaPendiente,
@@ -110,14 +112,25 @@ export const PanelPendientes: React.FC = () => {
   const [prioridad, setPrioridad] = useState<PrioridadPendiente>("importante");
   const [guardando, setGuardando] = useState(false);
 
+  const hoy = obtenerDiaTareaHoy();
+  const semanaActual = lunesDeLaSemana(hoy);
+
   const pendientes =
     useLiveQuery(() =>
       db.tarea_pendiente.where("estado").equals("pendiente").toArray()
     ) || SIN_PENDIENTES;
-  const ordenados = [...pendientes].sort(
-    (a, b) =>
-      ORDEN_PRIORIDAD.indexOf(a.prioridad) -
-      ORDEN_PRIORIDAD.indexOf(b.prioridad)
+
+  const ordenar = (lista: TareaPendiente[]) =>
+    [...lista].sort(
+      (a, b) =>
+        ORDEN_PRIORIDAD.indexOf(a.prioridad) -
+        ORDEN_PRIORIDAD.indexOf(b.prioridad)
+    );
+  const estaSemana = ordenar(
+    pendientes.filter((p) => p.semanaId === semanaActual)
+  );
+  const backlogGeneral = ordenar(
+    pendientes.filter((p) => p.semanaId !== semanaActual)
   );
 
   const crear = async () => {
@@ -137,52 +150,74 @@ export const PanelPendientes: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-4">
-      <div className="flex items-center gap-2">
-        <Icono.ListTodo className="h-4 w-4 text-zinc-500" />
-        <h3 className="text-xs font-bold tracking-wider text-zinc-400 uppercase">
-          Pendientes
-        </h3>
-      </div>
+    <div className="flex flex-col gap-4">
+      <ArmarSemana />
 
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          value={descripcion}
-          onChange={(e) => setDescripcion(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void crear();
-          }}
-          placeholder="Algo que hay que hacer, pero no ahora..."
-          className="flex-1 rounded-lg border border-[#2A2A2E] bg-[#0D0D0F] px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-emerald-500/40"
-        />
-        <Select
-          value={prioridad}
-          onChange={(v) => setPrioridad(v as PrioridadPendiente)}
-          options={PRIORIDADES_PENDIENTE.map((p) => ({
-            value: p,
-            label: ETIQUETA_PRIORIDAD[p],
-          }))}
-        />
-        <Button
-          onClick={crear}
-          cargando={guardando}
-          disabled={!descripcion.trim()}
-          variant="outline"
-          icono={<Icono.Plus className="h-4 w-4" />}
-        >
-          Agregar
-        </Button>
-      </div>
+      <div className="flex flex-col gap-3 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-4">
+        <div className="flex items-center gap-2">
+          <Icono.ListTodo className="h-4 w-4 text-zinc-500" />
+          <h3 className="text-xs font-bold tracking-wider text-zinc-400 uppercase">
+            Pendientes
+          </h3>
+        </div>
 
-      <div className="flex flex-col gap-2 border-t border-[#2A2A2E] pt-3">
-        {ordenados.length === 0 && (
-          <span className="text-xs text-zinc-600">
-            Sin pendientes — todo lo que hay que hacer está en el Búnker.
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void crear();
+            }}
+            placeholder="Algo que hay que hacer, pero no ahora..."
+            className="flex-1 rounded-lg border border-[#2A2A2E] bg-[#0D0D0F] px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-emerald-500/40"
+          />
+          <Select
+            value={prioridad}
+            onChange={(v) => setPrioridad(v as PrioridadPendiente)}
+            options={PRIORIDADES_PENDIENTE.map((p) => ({
+              value: p,
+              label: ETIQUETA_PRIORIDAD[p],
+            }))}
+          />
+          <Button
+            onClick={crear}
+            cargando={guardando}
+            disabled={!descripcion.trim()}
+            variant="outline"
+            icono={<Icono.Plus className="h-4 w-4" />}
+          >
+            Agregar
+          </Button>
+        </div>
+
+        <div className="flex flex-col gap-2 border-t border-[#2A2A2E] pt-3">
+          <span className="text-[10px] font-bold tracking-wider text-zinc-600 uppercase">
+            Esta semana
           </span>
-        )}
-        {ordenados.map((p) => (
-          <FilaPendiente key={p.id} pendiente={p} />
-        ))}
+          {estaSemana.length === 0 && (
+            <span className="text-xs text-zinc-600">
+              Nada asignado a esta semana todavía.
+            </span>
+          )}
+          {estaSemana.map((p) => (
+            <FilaPendiente key={p.id} pendiente={p} />
+          ))}
+        </div>
+
+        <div className="flex flex-col gap-2 border-t border-[#2A2A2E] pt-3">
+          <span className="text-[10px] font-bold tracking-wider text-zinc-600 uppercase">
+            Backlog general ({backlogGeneral.length})
+          </span>
+          {backlogGeneral.length === 0 && (
+            <span className="text-xs text-zinc-600">
+              Sin pendientes — todo lo que hay que hacer está en el Búnker o ya
+              en esta semana.
+            </span>
+          )}
+          {backlogGeneral.map((p) => (
+            <FilaPendiente key={p.id} pendiente={p} />
+          ))}
+        </div>
       </div>
     </div>
   );

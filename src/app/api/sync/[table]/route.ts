@@ -149,6 +149,7 @@ export async function POST(
       "sprintId",
       "epicaId",
       "historiaId",
+      "objetivoId",
     ];
     for (const field of emptyToNullFields) {
       if (dbPayload[field] === "") {

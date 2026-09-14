@@ -9,6 +9,8 @@ import { Badge, type BadgeColor } from "../badge";
 import { Select } from "../select";
 import { useToast } from "../../hooks/useToast";
 import { GestionarObjetivosUseCase } from "../../../application/use-cases/personal/gestionar-objetivos.use-case";
+import { GestionarHabitosUseCase } from "../../../application/use-cases/personal/gestionar-habitos.use-case";
+import { SelectorEtiquetas } from "../contacto-frio/selector-etiquetas";
 import {
   calcularRitmoObjetivo,
   AREAS_OBJETIVO,
@@ -22,7 +24,19 @@ import {
 } from "../../../domain/entidades/personal.entity";
 
 const useCase = new GestionarObjetivosUseCase();
+const habitosUseCase = new GestionarHabitosUseCase();
 const SIN_OBJETIVOS: never[] = [];
+const DIAS_LUN_A_SAB = [1, 2, 3, 4, 5, 6];
+const DIAS_LUN_A_VIE = [1, 2, 3, 4, 5];
+
+/** Días de semana consecutivos (arrancando lunes) para una cantidad dada —
+ * ej. 3 → Lun/Mar/Mié. Simple y predecible; el usuario puede reordenar el
+ * hábito creado desde su propia tarjeta si prefiere otra combinación. */
+function diasParaCantidad(cantidad: number): number[] {
+  if (cantidad >= 6) return DIAS_LUN_A_SAB;
+  if (cantidad === 5) return DIAS_LUN_A_VIE;
+  return DIAS_LUN_A_VIE.slice(0, Math.max(1, cantidad));
+}
 
 const ETIQUETA_RITMO: Record<EstadoRitmoObjetivo, string> = {
   cumplido: "Cumplido",
@@ -57,6 +71,44 @@ const FilaObjetivo: React.FC<{ objetivo: ObjetivoCuantificable }> = ({
   const [avanceRapido, setAvanceRapido] = useState("");
   const [nuevaCantidad, setNuevaCantidad] = useState("");
   const [nuevaFecha, setNuevaFecha] = useState("");
+  const [diasPorSemana, setDiasPorSemana] = useState(6);
+  const [creandoCompromiso, setCreandoCompromiso] = useState(false);
+
+  const compromisoVinculado = useLiveQuery(
+    () =>
+      db.habito_definicion
+        .filter((h) => h.objetivoId === objetivo.id && h.activo)
+        .first(),
+    [objetivo.id]
+  );
+
+  // Cuánto hace falta por semana no depende de en cuántos días lo repartas
+  // (es lo mismo trabajo total); lo que sí cambia es cuánto toca por día
+  // activo si lo concentrás en menos días.
+  const porSemana = ritmo.porDiaNecesario * 7;
+  const porDiaActivo = diasPorSemana > 0 ? porSemana / diasPorSemana : 0;
+  const porMes = porSemana * (30 / 7);
+
+  const crearCompromisoVinculado = async () => {
+    setCreandoCompromiso(true);
+    const res = await habitosUseCase.crearHabito({
+      nombre: objetivo.titulo,
+      descripcionMin: `${Math.max(1, Math.round(porDiaActivo * 0.5))} ${objetivo.unidad}`,
+      descripcionMed: `${Math.max(1, Math.round(porDiaActivo))} ${objetivo.unidad}`,
+      descripcionMax: `${Math.max(1, Math.round(porDiaActivo * 1.5))} ${objetivo.unidad}`,
+      area: objetivo.area,
+      frecuencia: "dias_especificos",
+      diasSemana: diasParaCantidad(diasPorSemana),
+      etiquetaArea: objetivo.etiquetaArea,
+      objetivoId: objetivo.id,
+    });
+    setCreandoCompromiso(false);
+    if (res.ok) {
+      mostrarToast("Compromiso creado y vinculado al objetivo.", "exito");
+    } else {
+      mostrarToast(res.error!.mensaje, "error");
+    }
+  };
 
   const registrarAvance = async () => {
     const n = Number(avanceRapido);
@@ -156,6 +208,41 @@ const FilaObjetivo: React.FC<{ objetivo: ObjetivoCuantificable }> = ({
         </div>
       )}
 
+      {!editando &&
+        ritmo.estado !== "cumplido" &&
+        (compromisoVinculado ? (
+          <span className="text-[10px] text-emerald-400">
+            Vinculado al compromiso &quot;{compromisoVinculado.nombre}&quot;
+          </span>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2 border-t border-[#2A2A2E] pt-2">
+            <span className="text-[10px] text-zinc-500">Repartido en</span>
+            <input
+              type="number"
+              min={1}
+              max={7}
+              value={diasPorSemana}
+              onChange={(e) =>
+                setDiasPorSemana(
+                  Math.min(7, Math.max(1, Number(e.target.value) || 1))
+                )
+              }
+              className="w-14 rounded-lg border border-[#2A2A2E] bg-[#111113] px-2 py-1 text-center text-xs text-zinc-200 outline-none focus:border-emerald-500/40"
+            />
+            <span className="text-[10px] text-zinc-500">
+              días/semana: {porDiaActivo.toFixed(1)}/día ·{" "}
+              {porSemana.toFixed(1)}/semana · {porMes.toFixed(0)}/mes
+            </span>
+            <Button
+              onClick={crearCompromisoVinculado}
+              variant="outline"
+              cargando={creandoCompromiso}
+            >
+              Crear compromiso vinculado
+            </Button>
+          </div>
+        ))}
+
       {editando && (
         <div className="flex flex-wrap items-end gap-2 border-t border-[#2A2A2E] pt-2">
           <input
@@ -189,6 +276,7 @@ const FormularioNuevoObjetivo: React.FC = () => {
   const [cantidad, setCantidad] = useState("");
   const [diaLimite, setDiaLimite] = useState(sumarDias(hoy, 30));
   const [area, setArea] = useState<AreaObjetivo>("ambas");
+  const [etiquetasArea, setEtiquetasArea] = useState<string[]>([]);
   const [guardando, setGuardando] = useState(false);
 
   const crear = async () => {
@@ -204,6 +292,7 @@ const FormularioNuevoObjetivo: React.FC = () => {
       diaInicio: hoy,
       diaLimite,
       area,
+      etiquetaArea: etiquetasArea[0],
     });
     setGuardando(false);
     if (res.ok) {
@@ -211,6 +300,7 @@ const FormularioNuevoObjetivo: React.FC = () => {
       setUnidad("");
       setCantidad("");
       setDiaLimite(sumarDias(hoy, 30));
+      setEtiquetasArea([]);
       setAbierto(false);
       mostrarToast("Objetivo definido.", "exito");
     } else {
@@ -272,6 +362,12 @@ const FormularioNuevoObjetivo: React.FC = () => {
           }))}
         />
       </div>
+      <SelectorEtiquetas
+        label="Área (opcional — ej. Freelancer, Contenido, Desarrollo)"
+        categoria="area_personal"
+        value={etiquetasArea}
+        onChange={(v) => setEtiquetasArea(v.slice(-1))}
+      />
       <div className="flex justify-end gap-2">
         <button
           onClick={() => setAbierto(false)}

@@ -86,6 +86,16 @@ export function sumarDias(diaISO: string, dias: number): string {
   return fecha.toISOString().slice(0, 10);
 }
 
+/** Lunes (YYYY-MM-DD) de la semana que contiene `diaISO` — id de "semana". */
+export function lunesDeLaSemana(diaISO: string): string {
+  const [anio, mes, dia] = diaISO.split("-").map(Number);
+  const fecha = new Date(Date.UTC(anio, mes - 1, dia));
+  const diaSemana = fecha.getUTCDay(); // 0=domingo...6=sábado
+  const offsetHastaLunes = diaSemana === 0 ? -6 : 1 - diaSemana;
+  fecha.setUTCDate(fecha.getUTCDate() + offsetHastaLunes);
+  return fecha.toISOString().slice(0, 10);
+}
+
 export const crearTareaDiariaSchema = z.object({
   diaTarea: fechaISO,
   tipo: z.enum(TIPOS_TAREA_DIARIA),
@@ -132,6 +142,9 @@ export interface TareaPendiente {
   area: AreaPendiente;
   estado: EstadoTareaPendiente;
   origenInboxId?: string;
+  // Lunes (YYYY-MM-DD) de la semana a la que se asignó vía "Armar la
+  // semana" — vacío significa que sigue en el backlog general, sin asignar.
+  semanaId?: string;
   creadoEn: number;
   actualizadoEn: number;
 }

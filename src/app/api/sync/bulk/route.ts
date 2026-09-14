@@ -87,6 +87,7 @@ const EMPTY_TO_NULL_FIELDS = [
   "sprintId",
   "epicaId",
   "historiaId",
+  "objetivoId",
 ];
 
 // Solo columnas que siguen siendo `text` en Postgres. Las que ya son `jsonb`

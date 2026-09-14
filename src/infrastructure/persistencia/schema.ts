@@ -947,6 +947,10 @@ export const tareaPendiente = pgTable("tarea_pendiente", {
   area: varchar("area", { length: 20 }).notNull(), // profesional | personal | ambas
   estado: varchar("estado", { length: 20 }).notNull(), // pendiente | promovida | completada | descartada
   origenInboxId: varchar("origen_inbox_id", { length: 255 }),
+  // Lunes (YYYY-MM-DD) de la semana asignada vía "Armar la semana" — mismo
+  // criterio que diaInicio/diaLimite en objetivo_cuantificable (string
+  // plano, no timestamp, para que la ruta de sync no la toque).
+  semanaId: varchar("semana_id", { length: 10 }),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   eliminadoEn: timestamp("eliminado_en"),
@@ -960,6 +964,10 @@ export const habitoDefinicion = pgTable("habito_definicion", {
   descripcionMax: text("descripcion_max").notNull(),
   area: varchar("area", { length: 20 }).notNull(), // profesional | personal | ambas
   activo: boolean("activo").default(true).notNull(),
+  frecuencia: varchar("frecuencia", { length: 20 }).default("diaria").notNull(), // diaria | dias_especificos
+  diasSemana: jsonb("dias_semana"), // number[] (0=domingo...6=sábado), solo si frecuencia="dias_especificos"
+  etiquetaArea: varchar("etiqueta_area", { length: 255 }), // texto libre de catalogo_etiquetas, no FK
+  objetivoId: varchar("objetivo_id", { length: 255 }), // vínculo opcional a objetivo_cuantificable
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   eliminadoEn: timestamp("eliminado_en"),
@@ -971,7 +979,8 @@ export const habitoRegistro = pgTable("habito_registro", {
   // "diaTarea" y no "fecha": ver nota en tarea_diaria — evita que la ruta
   // de sync lo trate como timestamp automáticamente.
   diaTarea: varchar("dia_tarea", { length: 10 }).notNull(),
-  nivelEjecutado: varchar("nivel_ejecutado", { length: 10 }).notNull(), // MIN | MED | MAX
+  nivelEjecutado: varchar("nivel_ejecutado", { length: 10 }).notNull(), // MIN | MED | MAX | NO_CUMPLIDO
+  motivoIncumplimiento: varchar("motivo_incumplimiento", { length: 255 }), // texto libre de catalogo_etiquetas
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   eliminadoEn: timestamp("eliminado_en"),
 });
@@ -1044,6 +1053,7 @@ export const objetivoCuantificable = pgTable("objetivo_cuantificable", {
   area: varchar("area", { length: 20 }).notNull(), // profesional | personal | ambas
   estado: varchar("estado", { length: 20 }).notNull(), // activo | cumplido | vencido | archivado
   origenModulo: varchar("origen_modulo", { length: 50 }),
+  etiquetaArea: varchar("etiqueta_area", { length: 255 }), // texto libre de catalogo_etiquetas, no FK
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   eliminadoEn: timestamp("eliminado_en"),

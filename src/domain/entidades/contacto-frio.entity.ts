@@ -25,7 +25,15 @@ export const RESULTADOS_INTENTO = [
 ] as const;
 export type ResultadoIntento = (typeof RESULTADOS_INTENTO)[number];
 
-export const CATEGORIAS_ETIQUETA = ["dolor", "motivo_rechazo"] as const;
+export const CATEGORIAS_ETIQUETA = [
+  "dolor",
+  "motivo_rechazo",
+  // Reutilizadas por el módulo Personal (compromisos/objetivos), no CRM —
+  // el catálogo de etiquetas es genérico, viven acá porque este archivo es
+  // donde ya está `CATEGORIAS_ETIQUETA`/`EtiquetaCatalogo`, sin duplicarlo.
+  "area_personal",
+  "motivo_incumplimiento",
+] as const;
 export type CategoriaEtiqueta = (typeof CATEGORIAS_ETIQUETA)[number];
 
 export const TIENE_WEB_OPCIONES = [
@@ -249,6 +257,38 @@ export const ETIQUETAS_RECHAZO_DEFAULT: EtiquetaCatalogo[] = [
     id: "rechazo_otro",
     etiqueta: "Otro",
     categoria: "motivo_rechazo",
+    esDelUsuario: false,
+    creadoEn: 0,
+  },
+];
+
+/** Motivos rápidos al marcar un día de un hábito/compromiso como no cumplido. */
+export const ETIQUETAS_INCUMPLIMIENTO_DEFAULT: EtiquetaCatalogo[] = [
+  {
+    id: "incumplimiento_me_olvide",
+    etiqueta: "Me olvidé",
+    categoria: "motivo_incumplimiento",
+    esDelUsuario: false,
+    creadoEn: 0,
+  },
+  {
+    id: "incumplimiento_no_tuve_tiempo",
+    etiqueta: "No tuve tiempo",
+    categoria: "motivo_incumplimiento",
+    esDelUsuario: false,
+    creadoEn: 0,
+  },
+  {
+    id: "incumplimiento_imprevisto",
+    etiqueta: "Imprevisto",
+    categoria: "motivo_incumplimiento",
+    esDelUsuario: false,
+    creadoEn: 0,
+  },
+  {
+    id: "incumplimiento_ya_no_aplica",
+    etiqueta: "Ya no aplica",
+    categoria: "motivo_incumplimiento",
     esDelUsuario: false,
     creadoEn: 0,
   },

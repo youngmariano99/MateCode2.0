@@ -7,7 +7,9 @@ import { CapturaInbox } from "../../../../presentation/components/personal/captu
 import { BunkerDelDia } from "../../../../presentation/components/personal/bunker-del-dia";
 import { PanelPendientes } from "../../../../presentation/components/personal/panel-pendientes";
 import { PanelRetorno } from "../../../../presentation/components/personal/panel-retorno";
+import { PanelRecuperarHabitos } from "../../../../presentation/components/personal/panel-recuperar-habitos";
 import { PanelObjetivos } from "../../../../presentation/components/personal/panel-objetivos";
+import { PanelEstadoGeneral } from "../../../../presentation/components/personal/panel-estado-general";
 import { TarjetaHabitos } from "../../../../presentation/components/personal/tarjeta-habitos";
 import { GestionarObjetivosUseCase } from "../../../../application/use-cases/personal/gestionar-objetivos.use-case";
 import { obtenerDiaTareaHoy } from "../../../../domain/entidades/personal.entity";
@@ -91,6 +93,7 @@ export default function PersonalHoyPage() {
         {horizonte === "dia" && (
           <div className="flex flex-col gap-6">
             <PanelRetorno />
+            <PanelRecuperarHabitos />
             <TarjetaHabitos />
             <CapturaInbox />
             <BunkerDelDia />
@@ -99,7 +102,12 @@ export default function PersonalHoyPage() {
 
         {horizonte === "semana" && <PanelPendientes />}
 
-        {horizonte === "mes" && <PanelObjetivos />}
+        {horizonte === "mes" && (
+          <div className="flex flex-col gap-6">
+            <PanelEstadoGeneral />
+            <PanelObjetivos />
+          </div>
+        )}
       </div>
     </MainLayout>
   );

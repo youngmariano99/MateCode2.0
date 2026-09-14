@@ -6,10 +6,10 @@ import { db } from "../../../offline/dexie/db";
 import { FieldWrapper } from "../input";
 import { Icono } from "../icons";
 import { Button } from "../button";
-import { GestionarContactoFrioUseCase } from "../../../application/use-cases/crm/gestionar-contacto-frio.use-case";
+import { GestionarCatalogoEtiquetasUseCase } from "../../../application/use-cases/shared/gestionar-catalogo-etiquetas.use-case";
 import type { CategoriaEtiqueta } from "../../../domain/entidades/contacto-frio.entity";
 
-const useCase = new GestionarContactoFrioUseCase();
+const useCase = new GestionarCatalogoEtiquetasUseCase();
 
 interface SelectorEtiquetasProps {
   label: string;

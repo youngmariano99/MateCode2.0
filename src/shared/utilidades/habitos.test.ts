@@ -6,6 +6,7 @@ import { GestionarHabitosUseCase } from "../../application/use-cases/personal/ge
 import {
   requiereMinimoObligatorio,
   idRegistroHabito,
+  aplicaHoy,
   type HabitoRegistro,
 } from "../../domain/entidades/habitos.entity";
 
@@ -16,7 +17,10 @@ describe("El Acordeón: regla 'No Fallar Dos Veces' (función pura)", () => {
   const AYER = "2026-01-09";
 
   test("no se dispara si el hábito recién se creó hoy (no había 'ayer')", () => {
-    const habito = { creadoEn: new Date(HOY).getTime() };
+    const habito = {
+      creadoEn: new Date(HOY).getTime(),
+      frecuencia: "diaria" as const,
+    };
     assert.strictEqual(
       requiereMinimoObligatorio(habito, undefined, AYER),
       false
@@ -24,7 +28,10 @@ describe("El Acordeón: regla 'No Fallar Dos Veces' (función pura)", () => {
   });
 
   test("no se dispara si ayer hubo registro, sea cual sea el nivel", () => {
-    const habito = { creadoEn: new Date("2026-01-01").getTime() };
+    const habito = {
+      creadoEn: new Date("2026-01-01").getTime(),
+      frecuencia: "diaria" as const,
+    };
     const registroAyer: HabitoRegistro = {
       id: idRegistroHabito("h1", AYER),
       habitoId: "h1",
@@ -39,11 +46,53 @@ describe("El Acordeón: regla 'No Fallar Dos Veces' (función pura)", () => {
   });
 
   test("se dispara si el hábito ya existía ayer y no hubo registro", () => {
-    const habito = { creadoEn: new Date("2026-01-01").getTime() };
+    const habito = {
+      creadoEn: new Date("2026-01-01").getTime(),
+      frecuencia: "diaria" as const,
+    };
     assert.strictEqual(
       requiereMinimoObligatorio(habito, undefined, AYER),
       true
     );
+  });
+
+  test("no se dispara para un hábito de días específicos si ayer no le tocaba", () => {
+    // AYER = 2026-01-09, viernes (getUTCDay()=5). Un hábito de Lun-Sáb
+    // (1-6) sí le tocaba; uno de "solo domingos" (0) no.
+    const habitoLunSab = {
+      creadoEn: new Date("2026-01-01").getTime(),
+      frecuencia: "dias_especificos" as const,
+      diasSemana: [1, 2, 3, 4, 5, 6],
+    };
+    const habitoSoloDomingo = {
+      creadoEn: new Date("2026-01-01").getTime(),
+      frecuencia: "dias_especificos" as const,
+      diasSemana: [0],
+    };
+    assert.strictEqual(
+      requiereMinimoObligatorio(habitoLunSab, undefined, AYER),
+      true
+    );
+    assert.strictEqual(
+      requiereMinimoObligatorio(habitoSoloDomingo, undefined, AYER),
+      false
+    );
+  });
+});
+
+describe("aplicaHoy (frecuencia de hábitos/compromisos)", () => {
+  test("un hábito diario aplica cualquier día", () => {
+    assert.strictEqual(aplicaHoy({ frecuencia: "diaria" }, "2026-01-10"), true);
+  });
+
+  test("días específicos solo aplica en los días de semana elegidos", () => {
+    // 2026-01-10 es sábado (getUTCDay()=6); 2026-01-11 es domingo (0).
+    const habito = {
+      frecuencia: "dias_especificos" as const,
+      diasSemana: [1, 2, 3, 4, 5, 6],
+    };
+    assert.strictEqual(aplicaHoy(habito, "2026-01-10"), true);
+    assert.strictEqual(aplicaHoy(habito, "2026-01-11"), false);
   });
 });
 
@@ -129,5 +178,54 @@ describe("El Acordeón: use-case", () => {
       .equals(creado.valor)
       .toArray();
     assert.strictEqual(historial.length, 1);
+  });
+
+  test("buscarDiasSinRegistrar devuelve los días sin registro de un hábito diario", async () => {
+    const creado = await useCase.crearHabito({
+      nombre: "Contacto en frío",
+      descripcionMin: "1 contacto",
+      descripcionMed: "3 contactos",
+      descripcionMax: "6 contactos",
+      area: "profesional",
+      frecuencia: "diaria",
+    });
+    // Registrado el 2026-01-07; faltan 08, 09, 10, 11, 12 hasta "hoy" 01-12.
+    await useCase.registrarNivel({
+      habitoId: creado.valor,
+      diaTarea: "2026-01-07",
+      nivelEjecutado: "MIN",
+    });
+
+    const faltantes = await useCase.buscarDiasSinRegistrar(
+      creado.valor,
+      "2026-01-07",
+      "2026-01-12"
+    );
+    assert.deepStrictEqual(faltantes, [
+      "2026-01-08",
+      "2026-01-09",
+      "2026-01-10",
+      "2026-01-11",
+      "2026-01-12",
+    ]);
+  });
+
+  test("buscarDiasSinRegistrar respeta días específicos (no cuenta días que no le tocaban)", async () => {
+    const creado = await useCase.crearHabito({
+      nombre: "Contacto en frío Lun-Sáb",
+      descripcionMin: "1 contacto",
+      descripcionMed: "3 contactos",
+      descripcionMax: "6 contactos",
+      area: "profesional",
+      frecuencia: "dias_especificos",
+      diasSemana: [1, 2, 3, 4, 5, 6],
+    });
+    // 2026-01-10 es sábado, 2026-01-11 es domingo, 2026-01-12 es lunes.
+    const faltantes = await useCase.buscarDiasSinRegistrar(
+      creado.valor,
+      "2026-01-09",
+      "2026-01-12"
+    );
+    assert.deepStrictEqual(faltantes, ["2026-01-10", "2026-01-12"]);
   });
 });

@@ -7,12 +7,14 @@ import { Button } from "../button";
 import { Icono } from "../icons";
 import { useToast } from "../../hooks/useToast";
 import { GestionarHabitosUseCase } from "../../../application/use-cases/personal/gestionar-habitos.use-case";
+import { SelectorEtiquetas } from "../contacto-frio/selector-etiquetas";
 import {
   requiereMinimoObligatorio,
   idRegistroHabito,
-  NIVELES_HABITO,
+  aplicaHoy,
+  FRECUENCIAS_HABITO,
   type HabitoDefinicion,
-  type NivelHabito,
+  type FrecuenciaHabito,
 } from "../../../domain/entidades/habitos.entity";
 import {
   obtenerDiaTareaHoy,
@@ -22,12 +24,27 @@ import {
 const useCase = new GestionarHabitosUseCase();
 const SIN_HABITOS: never[] = [];
 
-const DESCRIPCION_NIVEL: Record<NivelHabito, (h: HabitoDefinicion) => string> =
-  {
-    MIN: (h) => h.descripcionMin,
-    MED: (h) => h.descripcionMed,
-    MAX: (h) => h.descripcionMax,
-  };
+// Nivel seleccionable a mano en la tarjeta diaria — "NO_CUMPLIDO" no es un
+// botón de este grid: se marca solo desde el panel de recuperación de
+// desvíos, nunca como una elección del día a día.
+const NIVELES_SELECCIONABLES = ["MIN", "MED", "MAX"] as const;
+type NivelSeleccionable = (typeof NIVELES_SELECCIONABLES)[number];
+
+const DESCRIPCION_NIVEL: Record<
+  NivelSeleccionable,
+  (h: HabitoDefinicion) => string
+> = {
+  MIN: (h) => h.descripcionMin,
+  MED: (h) => h.descripcionMed,
+  MAX: (h) => h.descripcionMax,
+};
+
+const ETIQUETA_FRECUENCIA: Record<FrecuenciaHabito, string> = {
+  diaria: "Todos los días",
+  dias_especificos: "Días específicos",
+};
+
+const DIAS_SEMANA_LABEL = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 const FilaHabito: React.FC<{
   habito: HabitoDefinicion;
@@ -48,7 +65,7 @@ const FilaHabito: React.FC<{
   const bloqueado =
     !registroHoy && requiereMinimoObligatorio(habito, registroAyer, ayer);
 
-  const registrar = async (nivel: NivelHabito) => {
+  const registrar = async (nivel: NivelSeleccionable) => {
     const res = await useCase.registrarNivel({
       habitoId: habito.id,
       diaTarea: hoy,
@@ -72,7 +89,7 @@ const FilaHabito: React.FC<{
         )}
       </div>
       <div className="grid grid-cols-3 gap-1.5">
-        {NIVELES_HABITO.map((nivel) => {
+        {NIVELES_SELECCIONABLES.map((nivel) => {
           const activo = registroHoy?.nivelEjecutado === nivel;
           const esMinBloqueado = bloqueado && nivel === "MIN";
           return (
@@ -104,7 +121,16 @@ const FormularioNuevoHabito: React.FC = () => {
   const [descripcionMin, setDescripcionMin] = useState("");
   const [descripcionMed, setDescripcionMed] = useState("");
   const [descripcionMax, setDescripcionMax] = useState("");
+  const [frecuencia, setFrecuencia] = useState<FrecuenciaHabito>("diaria");
+  const [diasSemana, setDiasSemana] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [etiquetasArea, setEtiquetasArea] = useState<string[]>([]);
   const [guardando, setGuardando] = useState(false);
+
+  const toggleDia = (dia: number) => {
+    setDiasSemana((prev) =>
+      prev.includes(dia) ? prev.filter((d) => d !== dia) : [...prev, dia]
+    );
+  };
 
   const crear = async () => {
     setGuardando(true);
@@ -114,6 +140,9 @@ const FormularioNuevoHabito: React.FC = () => {
       descripcionMed,
       descripcionMax,
       area: "ambas",
+      frecuencia,
+      diasSemana: frecuencia === "dias_especificos" ? diasSemana : undefined,
+      etiquetaArea: etiquetasArea[0],
     });
     setGuardando(false);
     if (res.ok) {
@@ -121,6 +150,9 @@ const FormularioNuevoHabito: React.FC = () => {
       setDescripcionMin("");
       setDescripcionMed("");
       setDescripcionMax("");
+      setFrecuencia("diaria");
+      setDiasSemana([1, 2, 3, 4, 5]);
+      setEtiquetasArea([]);
       setAbierto(false);
     } else {
       mostrarToast(res.error!.mensaje, "error");
@@ -165,6 +197,52 @@ const FormularioNuevoHabito: React.FC = () => {
         placeholder="Nivel MAX"
         className="rounded-lg border border-[#2A2A2E] bg-[#111113] px-2 py-1.5 text-sm text-zinc-200 outline-none focus:border-emerald-500/40"
       />
+
+      <div className="flex flex-col gap-1.5 border-t border-[#2A2A2E] pt-2">
+        <span className="text-[10px] font-bold tracking-wider text-zinc-500 uppercase">
+          Frecuencia
+        </span>
+        <div className="flex gap-1.5">
+          {FRECUENCIAS_HABITO.map((f) => (
+            <button
+              key={f}
+              onClick={() => setFrecuencia(f)}
+              className={`rounded-lg border px-2.5 py-1.5 text-xs font-bold uppercase transition-all ${
+                frecuencia === f
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                  : "border-[#2A2A2E] text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              {ETIQUETA_FRECUENCIA[f]}
+            </button>
+          ))}
+        </div>
+        {frecuencia === "dias_especificos" && (
+          <div className="flex gap-1">
+            {DIAS_SEMANA_LABEL.map((label, dia) => (
+              <button
+                key={dia}
+                onClick={() => toggleDia(dia)}
+                className={`min-h-[36px] flex-1 rounded-lg border text-[11px] font-bold uppercase transition-all ${
+                  diasSemana.includes(dia)
+                    ? "border-emerald-500/40 bg-emerald-500 text-zinc-950"
+                    : "border-[#2A2A2E] text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <SelectorEtiquetas
+        label="Área (opcional)"
+        categoria="area_personal"
+        value={etiquetasArea}
+        onChange={(v) => setEtiquetasArea(v.slice(-1))}
+      />
+
       <div className="flex justify-end gap-2">
         <button
           onClick={() => setAbierto(false)}
@@ -197,7 +275,7 @@ export const TarjetaHabitos: React.FC = () => {
 
   const todos =
     useLiveQuery(() => db.habito_definicion.toArray()) || SIN_HABITOS;
-  const habitos = todos.filter((h) => h.activo);
+  const habitos = todos.filter((h) => h.activo && aplicaHoy(h, hoy));
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-4">

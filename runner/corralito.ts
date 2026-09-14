@@ -24,9 +24,21 @@ export function escribirCorralito(
       allow: allowedTools,
       deny: [
         // Denegados por defecto, independientes de la config del proyecto:
-        // credenciales y control de versiones destructivo.
+        // credenciales y control de versiones destructivo. Ojo: NO se
+        // deniega ".env.*" en general — esa regla bloqueaba también
+        // ".env.example"/".env.sample" (plantillas sin secretos, que el
+        // agente sí necesita poder editar cuando el ticket agrega una
+        // variable nueva). Solo se listan los archivos que realmente
+        // pueden tener valores reales.
         "Read(./.env)",
-        "Read(./.env.*)",
+        "Read(./.env.local)",
+        "Read(./.env.*.local)",
+        "Read(./.env.development)",
+        "Read(./.env.development.local)",
+        "Read(./.env.production)",
+        "Read(./.env.production.local)",
+        "Read(./.env.test)",
+        "Read(./.env.test.local)",
         "Bash(git push --force*)",
         "Bash(rm -rf*)",
         ...denyRules,

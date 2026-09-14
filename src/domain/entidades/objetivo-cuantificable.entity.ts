@@ -36,6 +36,10 @@ export interface ObjetivoCuantificable {
   // existente (ej. "contacto_frio") — para que ese módulo pueda mostrar su
   // propio ritmo sin que el usuario tenga que ir a buscarlo aparte.
   origenModulo?: string;
+  // Etiqueta libre de área (Freelancer, Contenido, Desarrollo...), del
+  // catálogo compartido (categoría "area_personal") — distinta de `area`
+  // (profesional/personal/ambas), que ya significa otra cosa.
+  etiquetaArea?: string;
   creadoEn: number;
   actualizadoEn: number;
 }
@@ -58,6 +62,7 @@ export const crearObjetivoSchema = z
     diaLimite: fechaISO,
     area: z.enum(AREAS_OBJETIVO).default("ambas"),
     origenModulo: z.string().optional(),
+    etiquetaArea: z.string().trim().optional(),
   })
   .refine((v) => v.diaLimite >= v.diaInicio, {
     message: "La fecha límite no puede ser anterior a la de inicio.",

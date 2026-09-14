@@ -44,6 +44,7 @@ export class GestionarObjetivosUseCase {
       area: parsed.data.area,
       estado: "activo",
       origenModulo: parsed.data.origenModulo,
+      etiquetaArea: parsed.data.etiquetaArea,
       creadoEn: ahora,
       actualizadoEn: ahora,
     };

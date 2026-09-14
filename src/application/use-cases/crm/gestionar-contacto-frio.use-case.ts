@@ -17,6 +17,7 @@ import {
   type EstadoEmbudo,
   type CategoriaEtiqueta,
 } from "../../../domain/entidades/contacto-frio.entity";
+import { GestionarCatalogoEtiquetasUseCase } from "../shared/gestionar-catalogo-etiquetas.use-case";
 
 /**
  * Reemplaza GestionarContactosUseCase (taller-contacto + territorio digital):
@@ -24,6 +25,8 @@ import {
  * reales, en vez de 3 vocabularios paralelos que nunca se reconciliaban.
  */
 export class GestionarContactoFrioUseCase {
+  private readonly catalogoEtiquetas = new GestionarCatalogoEtiquetasUseCase();
+
   public async crearProspecto(
     input: CrearProspectoInput
   ): Promise<Resultado<string>> {
@@ -383,30 +386,6 @@ export class GestionarContactoFrioUseCase {
     etiqueta: string,
     categoria: CategoriaEtiqueta
   ): Promise<Resultado<string>> {
-    if (!etiqueta.trim()) {
-      return Resultado.falla(
-        new ErrorDominio("La etiqueta no puede estar vacía.")
-      );
-    }
-    const ahora = Date.now();
-    const id = `etq_${ahora}`;
-    const registro = {
-      id,
-      etiqueta: etiqueta.trim(),
-      categoria,
-      esDelUsuario: true,
-      creadoEn: ahora,
-    };
-    try {
-      await db.catalogo_etiquetas.add(registro);
-      await QueueService.encolar("catalogo_etiquetas", "crear", id, registro);
-      return Resultado.exito(id);
-    } catch (err) {
-      return Resultado.falla(
-        new ErrorDominio(
-          err instanceof Error ? err.message : "Error al crear la etiqueta."
-        )
-      );
-    }
+    return this.catalogoEtiquetas.crearEtiqueta(etiqueta, categoria);
   }
 }

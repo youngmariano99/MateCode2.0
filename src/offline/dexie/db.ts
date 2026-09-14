@@ -14,6 +14,7 @@ import type {
 import {
   ETIQUETAS_DOLOR_DEFAULT,
   ETIQUETAS_RECHAZO_DEFAULT,
+  ETIQUETAS_INCUMPLIMIENTO_DEFAULT,
 } from "../../domain/entidades/contacto-frio.entity";
 import type {
   CatalogoKpiContenido,
@@ -997,20 +998,40 @@ export class MateCodeDB extends Dexie {
         registro_actividad: "id, plantillaId, bloqueId, diaTarea",
       })
       .upgrade(async (tx) => {
-        await tx
-          .table("catalogo_ejercicio")
-          .bulkPut(
-            CATALOGO_EJERCICIOS_SEED.map((e) => ({
-              ...e,
-              creadoEn: Date.now(),
-            }))
-          );
+        await tx.table("catalogo_ejercicio").bulkPut(
+          CATALOGO_EJERCICIOS_SEED.map((e) => ({
+            ...e,
+            creadoEn: Date.now(),
+          }))
+        );
+      });
+
+    // Version 22: Personal — Compromisos (frecuencia en hábitos), etiqueta de
+    // área y motivo de incumplimiento. Ninguno de los campos nuevos
+    // (frecuencia, diasSemana, etiquetaArea, objetivoId, motivoIncumplimiento,
+    // semanaId) se indexa — no hace falta para el volumen de esta app y así
+    // no se toca el `.stores()` de las tablas existentes. Solo hace falta
+    // esta versión para poder correr el `.upgrade()` que siembra el catálogo
+    // de motivos de incumplimiento en instalaciones que ya existían.
+    this.version(22)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx.table("catalogo_etiquetas").bulkPut(
+          ETIQUETAS_INCUMPLIMIENTO_DEFAULT.map((e) => ({
+            ...e,
+            creadoEn: Date.now(),
+          }))
+        );
       });
 
     this.on("populate", async () => {
       const ahoraPopulate = Date.now();
       await this.table("catalogo_etiquetas").bulkPut(
-        [...ETIQUETAS_DOLOR_DEFAULT, ...ETIQUETAS_RECHAZO_DEFAULT].map((e) => ({
+        [
+          ...ETIQUETAS_DOLOR_DEFAULT,
+          ...ETIQUETAS_RECHAZO_DEFAULT,
+          ...ETIQUETAS_INCUMPLIMIENTO_DEFAULT,
+        ].map((e) => ({
           ...e,
           creadoEn: ahoraPopulate,
         }))

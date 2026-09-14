@@ -9,11 +9,13 @@ import {
   crearHabitoSchema,
   registrarHabitoSchema,
   idRegistroHabito,
+  aplicaHoy,
   type CrearHabitoInput,
   type RegistrarHabitoInput,
   type HabitoDefinicion,
   type HabitoRegistro,
 } from "../../../domain/entidades/habitos.entity";
+import { sumarDias } from "../../../domain/entidades/personal.entity";
 
 function idHabito(): string {
   return `hab_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -42,6 +44,10 @@ export class GestionarHabitosUseCase {
       descripcionMax: parsed.data.descripcionMax.trim(),
       area: parsed.data.area,
       activo: true,
+      frecuencia: parsed.data.frecuencia,
+      diasSemana: parsed.data.diasSemana,
+      etiquetaArea: parsed.data.etiquetaArea,
+      objetivoId: parsed.data.objetivoId,
       creadoEn: ahora,
       actualizadoEn: ahora,
     };
@@ -109,6 +115,7 @@ export class GestionarHabitosUseCase {
       habitoId: parsed.data.habitoId,
       diaTarea: parsed.data.diaTarea,
       nivelEjecutado: parsed.data.nivelEjecutado,
+      motivoIncumplimiento: parsed.data.motivoIncumplimiento,
       creadoEn: Date.now(),
     };
     try {
@@ -124,5 +131,36 @@ export class GestionarHabitosUseCase {
         )
       );
     }
+  }
+
+  /**
+   * Días entre `desdeISO` (exclusivo) y `hastaISO` (inclusivo, normalmente
+   * "ayer") en los que el hábito aplicaba (`aplicaHoy`) pero no tiene
+   * `habito_registro` — la base del panel de recuperación tras un desvío.
+   * No devuelve nada para días que ni le correspondían al hábito.
+   */
+  public async buscarDiasSinRegistrar(
+    habitoId: string,
+    desdeISO: string,
+    hastaISO: string
+  ): Promise<string[]> {
+    const habito = await db.habito_definicion.get(habitoId);
+    if (!habito) return [];
+
+    const dias: string[] = [];
+    let cursor = sumarDias(desdeISO, 1);
+    while (cursor <= hastaISO) {
+      if (aplicaHoy(habito, cursor)) dias.push(cursor);
+      cursor = sumarDias(cursor, 1);
+    }
+    if (dias.length === 0) return [];
+
+    const registrosExistentes = await db.habito_registro
+      .where("habitoId")
+      .equals(habitoId)
+      .and((r) => dias.includes(r.diaTarea))
+      .toArray();
+    const diasConRegistro = new Set(registrosExistentes.map((r) => r.diaTarea));
+    return dias.filter((d) => !diasConRegistro.has(d));
   }
 }
