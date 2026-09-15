@@ -158,3 +158,39 @@ export const crearTareaPendienteSchema = z.object({
 export type CrearTareaPendienteInput = z.input<
   typeof crearTareaPendienteSchema
 >;
+
+// ============================================================================
+// Contrato del JSON de "Planificar semana con IA" — valida estrictamente la
+// estructura que le pedimos a la IA en generarPromptPlanSemanal antes de
+// aplicar nada, para que un JSON mal formado (campo faltante, tipo/prioridad
+// inválida) se reporte como error claro en vez de importarse a medias o
+// silenciosamente caer a un valor por defecto.
+// ============================================================================
+export const importarPlanSemanalSchema = z.object({
+  tareasDiarias: z
+    .array(
+      z.object({
+        diaTarea: fechaISO,
+        tipo: z.enum(TIPOS_TAREA_DIARIA),
+        descripcion: z
+          .string()
+          .trim()
+          .min(1, "Falta la descripción de la tarea."),
+      })
+    )
+    .default([]),
+  pendientes: z
+    .array(
+      z.object({
+        descripcion: z
+          .string()
+          .trim()
+          .min(1, "Falta la descripción del pendiente."),
+        prioridad: z.enum(PRIORIDADES_PENDIENTE).default("importante"),
+      })
+    )
+    .default([]),
+});
+export type ImportarPlanSemanalInput = z.input<
+  typeof importarPlanSemanalSchema
+>;

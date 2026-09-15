@@ -6,7 +6,11 @@ import {
   calcularRitmoObjetivo,
   type ObjetivoCuantificable,
 } from "../entidades/objetivo-cuantificable.entity";
-import type { TareaPendiente } from "../entidades/personal.entity";
+import {
+  MAX_TAREAS_ENFOQUE_POR_DIA,
+  MAX_TAREAS_MANTENIMIENTO_POR_DIA,
+  type TareaPendiente,
+} from "../entidades/personal.entity";
 
 const ETIQUETA_RITMO: Record<string, string> = {
   cumplido: "cumplido",
@@ -80,6 +84,14 @@ export function generarPromptPlanSemanal(
 Actúa como asistente de planificación personal, ayudando a armar la semana.
 </rol>
 
+<como_funciona_la_planificacion>
+El sistema organiza el trabajo en 3 niveles distintos — es importante que entiendas la diferencia antes de preguntar, para ubicar cada cosa en el lugar correcto:
+
+1. **Búnker del día** ("tareasDiarias" en el JSON de salida): cada día tiene un cupo FIJO y chico — como máximo ${MAX_TAREAS_ENFOQUE_POR_DIA} tarea de tipo "enfoque" (el foco profundo del día, lo más importante, a lo que le vas a dedicar el grueso del tiempo) y como máximo ${MAX_TAREAS_MANTENIMIENTO_POR_DIA} de tipo "mantenimiento" (tareas más chicas y rápidas). Es un límite DURO del sistema — no se puede cargar un 2do enfoque ni un 4to mantenimiento el mismo día, aunque quieras. Un día puede tener menos de esos cupos ocupados, nunca más.
+2. **Pendientes / backlog general** ("pendientes" en el JSON): todo lo que hay que hacer esta semana pero NO entra en el cupo diario de arriba, va acá — sin día fijo, con prioridad (urgente / importante / puede_esperar). Este es el lugar correcto para: (a) cualquier tarea que sobre una vez llenado el cupo del Búnker de un día, (b) algo que puede llevar más de un día o no tiene sentido atarlo a una fecha exacta, (c) cosas que "hay que completar en algún momento de la semana" sin apuro puntual. No hay límite de cantidad acá — se resuelven a medida que hay lugar en el Búnker de los próximos días.
+3. **Compromisos/hábitos recurrentes** (NO se crean ni se editan con este prompt — se gestionan aparte, en la pantalla de Hábitos): pueden ser "diarios" (todos los días, sin excepción) o de "días específicos" (ej. solo lunes/miércoles/viernes). Ya están reflejados en el contexto histórico de abajo. Si en la charla detectás que hace falta un compromiso nuevo o cambiar la frecuencia de uno existente, decímelo en tu respuesta de texto — no intentes meterlo en el JSON, ese formato no lo soporta.
+</como_funciona_la_planificacion>
+
 <contexto_lo_hecho_hasta_ahora>
 ${resumenHistorico}
 </contexto_lo_hecho_hasta_ahora>
@@ -89,7 +101,7 @@ ${pendientesTexto}
 </pendientes_backlog_general>
 
 <instrucciones>
-Antes de generar el JSON final, hacé todas las preguntas que necesites para entender bien la semana: qué prioridades hay, si hay algo puntual (reunión, entrega, viaje), si algún hábito quedó atrasado y hay que ajustarlo. Esperá mi respuesta a cada pregunta. NO generes el JSON hasta que yo confirme que ya tenés todo lo necesario — no inventes tareas que no te haya confirmado.
+Antes de generar el JSON final, hacé todas las preguntas que necesites para entender bien la semana: para cada día, cuál es EL foco (máximo ${MAX_TAREAS_ENFOQUE_POR_DIA}) y qué mantenimiento chico entra (hasta ${MAX_TAREAS_MANTENIMIENTO_POR_DIA}); qué otras cosas de la semana no tienen día fijo o son más grandes (van como pendientes, no como tareasDiarias); si hay algo puntual (reunión, entrega, viaje); si algún hábito quedó atrasado y hay que ajustarlo. Esperá mi respuesta a cada pregunta. NO generes el JSON hasta que yo confirme que ya tenés todo lo necesario — no inventes tareas que no te haya confirmado, y no propongas más tareasDiarias por día de las que el cupo permite.
 </instrucciones>
 
 <output_requerido>
@@ -102,6 +114,7 @@ Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta est
     { "descripcion": "...", "prioridad": "urgente" | "importante" | "puede_esperar" }
   ]
 }
+Nota: para "tareasDiarias", nunca pongas más de ${MAX_TAREAS_ENFOQUE_POR_DIA} entrada "enfoque" ni más de ${MAX_TAREAS_MANTENIMIENTO_POR_DIA} "mantenimiento" para un mismo "diaTarea" — todo lo que exceda eso va en "pendientes".
 </output_requerido>`;
 }
 

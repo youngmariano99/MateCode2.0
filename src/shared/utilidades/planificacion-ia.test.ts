@@ -162,4 +162,45 @@ describe("ImportarPlanificacionUseCase", () => {
     const objetivos = await db.objetivo_cuantificable.toArray();
     assert.strictEqual(objetivos.length, 0);
   });
+
+  test("importarSemana rechaza un JSON con estructura inválida (tipo de tarea inexistente) en vez de importarlo a medias", async () => {
+    const res = await useCase.importarSemana([
+      {
+        tareasDiarias: [
+          { diaTarea: "2026-01-06", tipo: "urgente", descripcion: "Algo" },
+        ],
+      },
+    ]);
+    assert.strictEqual(res.ok, false);
+    assert.match(res.error!.mensaje, /estructura esperada/);
+    assert.match(res.error!.mensaje, /tareasDiarias\.0\.tipo/);
+    const tareas = await db.tarea_diaria.toArray();
+    assert.strictEqual(tareas.length, 0);
+  });
+
+  test("importarSemana rechaza una fecha con formato inválido", async () => {
+    const res = await useCase.importarSemana([
+      {
+        tareasDiarias: [
+          { diaTarea: "6 de enero", tipo: "enfoque", descripcion: "Algo" },
+        ],
+      },
+    ]);
+    assert.strictEqual(res.ok, false);
+    assert.match(res.error!.mensaje, /estructura esperada/);
+  });
+
+  test("importarObjetivos rechaza un objetivo nuevo sin cantidad", async () => {
+    const res = await useCase.importarObjetivos([
+      {
+        objetivosNuevos: [
+          { titulo: "Leer libros", unidad: "libros", diaLimite: "2026-12-31" },
+        ],
+      },
+    ]);
+    assert.strictEqual(res.ok, false);
+    assert.match(res.error!.mensaje, /estructura esperada/);
+    const objetivos = await db.objetivo_cuantificable.toArray();
+    assert.strictEqual(objetivos.length, 0);
+  });
 });

@@ -78,6 +78,43 @@ export const ajustarObjetivoSchema = z.object({
 export type AjustarObjetivoInput = z.input<typeof ajustarObjetivoSchema>;
 
 // ============================================================================
+// Contrato del JSON de "Planificar objetivos con IA" — valida estrictamente
+// la estructura pedida en generarPromptPlanObjetivos antes de aplicar nada,
+// para reportar un JSON mal formado como error claro en vez de ignorarlo en
+// silencio (mismo criterio que importarPlanSemanalSchema en personal.entity).
+// ============================================================================
+export const importarPlanObjetivosSchema = z.object({
+  objetivosNuevos: z
+    .array(
+      z.object({
+        titulo: z.string().trim().min(1, "Falta el título del objetivo."),
+        unidad: z.string().trim().min(1, "Falta la unidad del objetivo."),
+        cantidadObjetivo: z
+          .number()
+          .positive("La cantidad objetivo tiene que ser mayor a 0."),
+        diaLimite: fechaISO,
+        etiquetaArea: z.string().trim().optional(),
+      })
+    )
+    .default([]),
+  ajustes: z
+    .array(
+      z.object({
+        titulo: z
+          .string()
+          .trim()
+          .min(1, "Falta el título del objetivo a ajustar."),
+        cantidadObjetivo: z.number().positive().optional(),
+        diaLimite: fechaISO.optional(),
+      })
+    )
+    .default([]),
+});
+export type ImportarPlanObjetivosInput = z.input<
+  typeof importarPlanObjetivosSchema
+>;
+
+// ============================================================================
 // Cálculo de ritmo — función pura, sin acceso a la base: dado un objetivo y
 // "hoy", dice cuánto falta, cuánto hay que hacer por día para llegar, y
 // hacia dónde vas si seguís al ritmo actual.
