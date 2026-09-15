@@ -11,6 +11,10 @@
 
 ## Checklist de ejecución
 
+### Fixes reportados por el usuario probando en vivo
+
+- [x] **Bug**: en el tab "Mes", el botón "Planificar objetivos con IA" (componente viejo de la Fase C, `PlanificarObjetivosIA` en `planificar-con-ia.tsx`) armaba el prompt con las áreas de `catalogo_etiquetas` (categoría `area_personal`), la fuente vieja — mostraba "sin áreas definidas todavía" aunque el usuario ya tenía Agencia/Desarrollo/Salud creadas en `area_personal` (la fuente nueva). Quedó reemplazado por "Armar árbol con IA" + el "Copiar prompt para IA" de cada nivel del navegador jerárquico, que sí leen `area_personal`. Fix: se sacó `PlanificarObjetivosIA` del tab Mes en `hoy/page.tsx` (el export queda huérfano en el archivo — candidato a borrar en el Sprint 10, junto con `panel-objetivos.tsx`). Verificado: typecheck/eslint/167 tests/build limpio.
+
 ### Sprint 1 — Base de datos ✅ COMPLETO
 
 - [x] `area-personal.entity.ts` (nuevo)
