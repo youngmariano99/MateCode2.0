@@ -50,6 +50,16 @@ const tableMapper: Record<string, any> = {
   plantilla_rutina: schema.plantillaRutina,
   bloque_entrenamiento: schema.bloqueEntrenamiento,
   registro_actividad: schema.registroActividad,
+  area_personal: schema.areaPersonal,
+  proyecto_personal: schema.proyectoPersonal,
+  entregable: schema.entregable,
+  // Clave "actividad" (no "actividad_personal"): tiene que matchear el
+  // nombre de la tabla Dexie/QueueService.encolar, que es "actividad" — el
+  // nombre de tabla Postgres real (actividad_personal, ver schema.ts) es
+  // independiente de esta clave, solo evita colisionar con la tabla legacy
+  // `actividad` (uuid/agenciaId, código muerto del CRM).
+  actividad: schema.actividadPersonal,
+  personal_historial: schema.personalHistorial,
 };
 
 export async function POST(

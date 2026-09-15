@@ -39,7 +39,22 @@ export interface ObjetivoCuantificable {
   // Etiqueta libre de área (Freelancer, Contenido, Desarrollo...), del
   // catálogo compartido (categoría "area_personal") — distinta de `area`
   // (profesional/personal/ambas), que ya significa otra cosa.
+  // @deprecated reemplazada por `areaId` (jerarquía Área→Objetivo→Proyecto→
+  // Entregable→Actividad) — se mantiene un release más solo para no romper
+  // datos viejos durante la migración, no usar en código nuevo.
   etiquetaArea?: string;
+  /** Área real de la jerarquía (area-personal.entity.ts) — reemplaza etiquetaArea. */
+  areaId?: string;
+  /**
+   * true si tiene al menos un ProyectoPersonal activo debajo — mientras sea
+   * true, `registrarAvance()` queda inválido (el progreso se recalcula solo
+   * sumando los hijos, no se edita a mano) y hay que registrar el avance en
+   * la Actividad correspondiente. Denormalizado para no tener que consultar
+   * proyecto_personal en cada render. Opcional (no todavía obligatorio en
+   * Sprint 1 — se setea desde Sprint 2, cuando existe GestionarProyectosPersonalUseCase);
+   * filas sin este campo se tratan como sin hijos (comportamiento actual).
+   */
+  tieneHijos?: boolean;
   creadoEn: number;
   actualizadoEn: number;
 }
@@ -63,6 +78,7 @@ export const crearObjetivoSchema = z
     area: z.enum(AREAS_OBJETIVO).default("ambas"),
     origenModulo: z.string().optional(),
     etiquetaArea: z.string().trim().optional(),
+    areaId: z.string().optional(),
   })
   .refine((v) => v.diaLimite >= v.diaInicio, {
     message: "La fecha límite no puede ser anterior a la de inicio.",
@@ -130,6 +146,13 @@ export interface RitmoObjetivo {
   estado: EstadoRitmoObjetivo;
   /** Si seguís exactamente al ritmo promedio actual, a cuánto llegás. */
   proyeccionAlRitmoActual: number;
+  /**
+   * Cuánto deberías llevar hecho a esta altura si repartís el objetivo
+   * uniformemente en el tiempo transcurrido — es el número que explica el
+   * "por qué" de estado="atrasado"/"adelantado" (ej. "llevás 40, deberías
+   * llevar 62"), no solo la etiqueta.
+   */
+  ritmoEsperadoHastaHoy: number;
 }
 
 function diferenciaDias(desdeISO: string, hastaISO: string): number {
@@ -157,6 +180,7 @@ export function calcularRitmoObjetivo(
       porDiaNecesario: 0,
       estado: "cumplido",
       proyeccionAlRitmoActual: progresoActual,
+      ritmoEsperadoHastaHoy: cantidadObjetivo,
     };
   }
 
@@ -182,6 +206,7 @@ export function calcularRitmoObjetivo(
       porDiaNecesario: restante,
       estado: "vencido",
       proyeccionAlRitmoActual,
+      ritmoEsperadoHastaHoy: cantidadObjetivo,
     };
   }
 
@@ -199,5 +224,6 @@ export function calcularRitmoObjetivo(
     porDiaNecesario,
     estado,
     proyeccionAlRitmoActual,
+    ritmoEsperadoHastaHoy,
   };
 }

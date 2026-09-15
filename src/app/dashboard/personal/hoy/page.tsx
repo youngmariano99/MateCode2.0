@@ -8,7 +8,7 @@ import { BunkerDelDia } from "../../../../presentation/components/personal/bunke
 import { PanelPendientes } from "../../../../presentation/components/personal/panel-pendientes";
 import { PanelRetorno } from "../../../../presentation/components/personal/panel-retorno";
 import { PanelRecuperarHabitos } from "../../../../presentation/components/personal/panel-recuperar-habitos";
-import { PanelObjetivos } from "../../../../presentation/components/personal/panel-objetivos";
+import { NavegadorJerarquico } from "../../../../presentation/components/personal/navegador-jerarquico";
 import { PanelEstadoGeneral } from "../../../../presentation/components/personal/panel-estado-general";
 import {
   PlanificarSemanaIA,
@@ -16,9 +16,11 @@ import {
 } from "../../../../presentation/components/personal/planificar-con-ia";
 import { TarjetaHabitos } from "../../../../presentation/components/personal/tarjeta-habitos";
 import { GestionarObjetivosUseCase } from "../../../../application/use-cases/personal/gestionar-objetivos.use-case";
+import { MaterializarActividadesDelDiaUseCase } from "../../../../application/use-cases/personal/materializar-actividades-del-dia.use-case";
 import { obtenerDiaTareaHoy } from "../../../../domain/entidades/personal.entity";
 
 const objetivosUseCase = new GestionarObjetivosUseCase();
+const materializarUseCase = new MaterializarActividadesDelDiaUseCase();
 
 type Horizonte = "dia" | "semana" | "mes";
 
@@ -57,9 +59,13 @@ export default function PersonalHoyPage() {
   // Se corre una vez al entrar (no en segundo plano): marca vencidos los
   // objetivos que ya pasaron su fecha límite, para que el panel de retorno
   // y la vista de Mes los muestren de una sin que el usuario tenga que ir a
-  // buscarlos.
+  // buscarlos; y materializa la Actividad de hoy de cada Entregable
+  // recurrente aplicable (ver Sprint 20 §2/§4) — así "Contacto en frío
+  // Lun-Vie" aparece solo, sin recrearlo cada semana.
   useEffect(() => {
-    void objetivosUseCase.marcarVencidosSiCorresponde(obtenerDiaTareaHoy());
+    const hoy = obtenerDiaTareaHoy();
+    void objetivosUseCase.marcarVencidosSiCorresponde(hoy);
+    void materializarUseCase.ejecutar(hoy);
   }, []);
 
   return (
@@ -115,7 +121,7 @@ export default function PersonalHoyPage() {
           <div className="flex flex-col gap-6">
             <PanelEstadoGeneral />
             <PlanificarObjetivosIA />
-            <PanelObjetivos />
+            <NavegadorJerarquico />
           </div>
         )}
       </div>

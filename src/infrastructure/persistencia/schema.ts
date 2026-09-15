@@ -968,6 +968,10 @@ export const habitoDefinicion = pgTable("habito_definicion", {
   diasSemana: jsonb("dias_semana"), // number[] (0=domingo...6=sábado), solo si frecuencia="dias_especificos"
   etiquetaArea: varchar("etiqueta_area", { length: 255 }), // texto libre de catalogo_etiquetas, no FK
   objetivoId: varchar("objetivo_id", { length: 255 }), // vínculo opcional a objetivo_cuantificable
+  // Vínculo opcional a la jerarquía Personal (Sprint 20) — igual que
+  // objetivoId, solo para reportar, nunca se elimina en cascada (Decisión A).
+  proyectoId: varchar("proyecto_id", { length: 255 }),
+  entregableId: varchar("entregable_id", { length: 255 }),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   eliminadoEn: timestamp("eliminado_en"),
@@ -1054,8 +1058,106 @@ export const objetivoCuantificable = pgTable("objetivo_cuantificable", {
   area: varchar("area", { length: 20 }).notNull(), // profesional | personal | ambas
   estado: varchar("estado", { length: 20 }).notNull(), // activo | cumplido | vencido | archivado
   origenModulo: varchar("origen_modulo", { length: 50 }),
+  // @deprecated reemplazada por areaId — ver Sprint 20 (jerarquía Personal).
   etiquetaArea: varchar("etiqueta_area", { length: 255 }), // texto libre de catalogo_etiquetas, no FK
+  areaId: varchar("area_id", { length: 255 }), // FK lógica a area_personal.id
+  tieneHijos: boolean("tiene_hijos").default(false).notNull(),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   eliminadoEn: timestamp("eliminado_en"),
+});
+
+// ==========================================
+// Jerarquía Personal (Sprint 20): Área → Objetivo → Proyecto → Entregable →
+// Actividad. objetivoCuantificable arriba es la raíz de este árbol.
+// eliminadoEn en las 4 tablas (soft delete real, con conteo mostrado antes
+// de borrar — ver EliminarNodoPersonalUseCase). id varchar app-generado,
+// mismo criterio que el resto del módulo Personal (no uuid).
+// ==========================================
+
+export const areaPersonal = pgTable("area_personal", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  nombre: varchar("nombre", { length: 255 }).notNull(),
+  descripcion: text("descripcion"),
+  activa: boolean("activa").default(true).notNull(),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
+});
+
+// Nombre distinto de `proyectos` (CRM/Agencias) a propósito: conceptos no
+// relacionados que comparten palabra, no la misma entidad.
+export const proyectoPersonal = pgTable("proyecto_personal", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  objetivoId: varchar("objetivo_id", { length: 255 }).notNull(),
+  titulo: varchar("titulo", { length: 255 }).notNull(),
+  descripcion: text("descripcion"),
+  diaInicio: varchar("dia_inicio", { length: 10 }).notNull(),
+  diaLimite: varchar("dia_limite", { length: 10 }).notNull(),
+  cantidadObjetivo: doublePrecision("cantidad_objetivo"),
+  unidad: varchar("unidad", { length: 50 }),
+  progresoActual: doublePrecision("progreso_actual").default(0).notNull(),
+  estado: varchar("estado", { length: 20 }).notNull(),
+  tieneHijos: boolean("tiene_hijos").default(false).notNull(),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
+});
+
+export const entregable = pgTable("entregable", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  proyectoId: varchar("proyecto_id", { length: 255 }).notNull(),
+  objetivoId: varchar("objetivo_id", { length: 255 }).notNull(), // ancestro denormalizado
+  titulo: varchar("titulo", { length: 255 }).notNull(),
+  descripcion: text("descripcion"),
+  diaInicio: varchar("dia_inicio", { length: 10 }).notNull(),
+  diaLimite: varchar("dia_limite", { length: 10 }).notNull(),
+  cantidadObjetivo: doublePrecision("cantidad_objetivo"),
+  unidad: varchar("unidad", { length: 50 }),
+  progresoActual: doublePrecision("progreso_actual").default(0).notNull(),
+  estado: varchar("estado", { length: 20 }).notNull(),
+  tieneHijos: boolean("tiene_hijos").default(false).notNull(),
+  recurrencia: jsonb("recurrencia"), // { frecuencia, diasSemana? } | null — pasa tal cual, sin stringificar
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
+});
+
+// Nombre "actividad_personal" (no "actividad" a secas): ya existe una tabla
+// `actividad` legacy (uuid/agenciaId, código muerto del mundo multi-tenant,
+// nunca usada) — mismo criterio que proyectoPersonal para no colisionar.
+export const actividadPersonal = pgTable("actividad_personal", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  entregableId: varchar("entregable_id", { length: 255 }), // opcional: actividad suelta válida
+  proyectoId: varchar("proyecto_id", { length: 255 }),
+  objetivoId: varchar("objetivo_id", { length: 255 }),
+  tipo: varchar("tipo", { length: 20 }).notNull(), // enfoque | mantenimiento | backlog
+  descripcion: text("descripcion").notNull(),
+  diaTarea: varchar("dia_tarea", { length: 10 }),
+  prioridad: varchar("prioridad", { length: 20 }),
+  area: varchar("area", { length: 20 }), // profesional | personal | ambas — migrado de tarea_pendiente.area
+  estado: varchar("estado", { length: 20 }).notNull(),
+  fechaMigradaDesde: varchar("fecha_migrada_desde", { length: 10 }),
+  cantidadObjetivo: doublePrecision("cantidad_objetivo"),
+  unidad: varchar("unidad", { length: 50 }),
+  progresoActual: doublePrecision("progreso_actual"),
+  semanaId: varchar("semana_id", { length: 10 }),
+  recurrenciaId: varchar("recurrencia_id", { length: 255 }),
+  origenInboxId: varchar("origen_inbox_id", { length: 255 }),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
+});
+
+// Append-only real (nunca se borra) — ver personal-historial.entity.ts para
+// el razonamiento de por qué no se reutiliza la tabla `historial` de arriba.
+export const personalHistorial = pgTable("personal_historial", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  entidadTipo: varchar("entidad_tipo", { length: 20 }).notNull(),
+  entidadId: varchar("entidad_id", { length: 255 }).notNull(),
+  accion: varchar("accion", { length: 30 }).notNull(),
+  descripcion: text("descripcion"),
+  campoAnterior: jsonb("campo_anterior"),
+  campoNuevo: jsonb("campo_nuevo"),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
 });

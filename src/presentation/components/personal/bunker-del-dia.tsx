@@ -6,42 +6,44 @@ import { db } from "../../../offline/dexie/db";
 import { Button } from "../button";
 import { Icono } from "../icons";
 import { useToast } from "../../hooks/useToast";
-import { GestionarBunkerUseCase } from "../../../application/use-cases/personal/gestionar-bunker.use-case";
+import { GestionarActividadesUseCase } from "../../../application/use-cases/personal/gestionar-actividades.use-case";
+import {
+  MAX_TAREAS_ENFOQUE_POR_DIA,
+  MAX_TAREAS_MANTENIMIENTO_POR_DIA,
+  type Actividad,
+} from "../../../domain/entidades/actividad.entity";
 import {
   obtenerDiaTareaHoy,
   sumarDias,
-  MAX_TAREAS_ENFOQUE_POR_DIA,
-  MAX_TAREAS_MANTENIMIENTO_POR_DIA,
-  type TareaDiaria,
 } from "../../../domain/entidades/personal.entity";
 
-const useCase = new GestionarBunkerUseCase();
-const SIN_TAREAS: never[] = [];
+const useCase = new GestionarActividadesUseCase();
+const SIN_ACTIVIDADES: never[] = [];
 
-const FilaTarea: React.FC<{ tarea: TareaDiaria }> = ({ tarea }) => {
+const FilaActividad: React.FC<{ actividad: Actividad }> = ({ actividad }) => {
   const { mostrarToast } = useToast();
 
   const completar = async () => {
-    const res = await useCase.completarTarea(tarea.id);
+    const res = await useCase.completarActividad(actividad.id);
     if (!res.ok) mostrarToast(res.error!.mensaje, "error");
   };
 
   const migrarAMañana = async () => {
-    const res = await useCase.migrarTarea({
-      id: tarea.id,
-      nuevoDiaTarea: sumarDias(tarea.diaTarea, 1),
+    const res = await useCase.migrarActividad({
+      id: actividad.id,
+      nuevoDiaTarea: sumarDias(actividad.diaTarea!, 1),
     });
     if (!res.ok) mostrarToast(res.error!.mensaje, "error");
   };
 
   const cancelar = async () => {
-    const res = await useCase.cancelarTarea(tarea.id);
+    const res = await useCase.cancelarActividad(actividad.id);
     if (!res.ok) mostrarToast(res.error!.mensaje, "error");
   };
 
   return (
     <div className="flex items-center justify-between gap-2 rounded-xl border border-[#2A2A2E] bg-[#0D0D0F] p-3">
-      <span className="text-sm text-zinc-200">{tarea.descripcion}</span>
+      <span className="text-sm text-zinc-200">{actividad.descripcion}</span>
       <div className="flex shrink-0 gap-1.5">
         <button
           onClick={() => void completar()}
@@ -69,7 +71,7 @@ const FilaTarea: React.FC<{ tarea: TareaDiaria }> = ({ tarea }) => {
   );
 };
 
-const FormularioNuevaTarea: React.FC<{
+const FormularioNuevaActividad: React.FC<{
   tipo: "enfoque" | "mantenimiento";
   diaTarea: string;
 }> = ({ tipo, diaTarea }) => {
@@ -80,7 +82,7 @@ const FormularioNuevaTarea: React.FC<{
   const crear = async () => {
     if (!descripcion.trim()) return;
     setGuardando(true);
-    const res = await useCase.crearTareaDiaria({ diaTarea, tipo, descripcion });
+    const res = await useCase.crearActividad({ diaTarea, tipo, descripcion });
     setGuardando(false);
     if (res.ok) {
       setDescripcion("");
@@ -118,32 +120,36 @@ const FormularioNuevaTarea: React.FC<{
 };
 
 /**
- * Búnker del Enfoque: el compromiso del día — 1 tarea de enfoque profundo +
- * hasta 3 de mantenimiento. Se resuelven inline (completar/migrar/cancelar),
- * sin pantallas separadas ni rituales.
+ * Agenda de hoy: el compromiso del día — 1 actividad de enfoque profundo +
+ * hasta 3 de mantenimiento (mismo tope que antes, ahora sobre `Actividad` en
+ * vez de `TareaDiaria` — ver Sprint 20). Se resuelven inline (completar/
+ * migrar/cancelar), sin pantallas separadas ni rituales, y sin objetivos
+ * mezclados acá — eso vive en la vista jerárquica (tab "Mes").
  */
 export const BunkerDelDia: React.FC = () => {
   const diaTarea = obtenerDiaTareaHoy();
 
-  const tareasHoy =
+  const actividadesHoy =
     useLiveQuery(
       () =>
-        db.tarea_diaria
+        db.actividad
           .where({ diaTarea })
-          .and((t) => t.estado === "pendiente")
+          .and((a) => a.estado === "pendiente" && a.tipo !== "backlog")
           .toArray(),
       [diaTarea]
-    ) || SIN_TAREAS;
+    ) || SIN_ACTIVIDADES;
 
-  const enfoque = tareasHoy.filter((t) => t.tipo === "enfoque");
-  const mantenimiento = tareasHoy.filter((t) => t.tipo === "mantenimiento");
+  const enfoque = actividadesHoy.filter((a) => a.tipo === "enfoque");
+  const mantenimiento = actividadesHoy.filter(
+    (a) => a.tipo === "mantenimiento"
+  );
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-4">
       <div className="flex items-center gap-2">
         <Icono.Sunrise className="h-4 w-4 text-zinc-500" />
         <h3 className="text-xs font-bold tracking-wider text-zinc-400 uppercase">
-          Búnker del Enfoque — Hoy
+          Agenda de hoy
         </h3>
       </div>
 
@@ -151,11 +157,11 @@ export const BunkerDelDia: React.FC = () => {
         <span className="text-[10px] font-bold tracking-wider text-zinc-500 uppercase">
           Enfoque profundo
         </span>
-        {enfoque.map((t) => (
-          <FilaTarea key={t.id} tarea={t} />
+        {enfoque.map((a) => (
+          <FilaActividad key={a.id} actividad={a} />
         ))}
         {enfoque.length < MAX_TAREAS_ENFOQUE_POR_DIA && (
-          <FormularioNuevaTarea tipo="enfoque" diaTarea={diaTarea} />
+          <FormularioNuevaActividad tipo="enfoque" diaTarea={diaTarea} />
         )}
       </div>
 
@@ -164,11 +170,11 @@ export const BunkerDelDia: React.FC = () => {
           Mantenimiento ({mantenimiento.length}/
           {MAX_TAREAS_MANTENIMIENTO_POR_DIA})
         </span>
-        {mantenimiento.map((t) => (
-          <FilaTarea key={t.id} tarea={t} />
+        {mantenimiento.map((a) => (
+          <FilaActividad key={a.id} actividad={a} />
         ))}
         {mantenimiento.length < MAX_TAREAS_MANTENIMIENTO_POR_DIA && (
-          <FormularioNuevaTarea tipo="mantenimiento" diaTarea={diaTarea} />
+          <FormularioNuevaActividad tipo="mantenimiento" diaTarea={diaTarea} />
         )}
       </div>
     </div>

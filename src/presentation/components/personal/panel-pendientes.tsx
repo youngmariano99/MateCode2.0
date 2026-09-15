@@ -8,17 +8,17 @@ import { Select } from "../select";
 import { Badge, type BadgeColor } from "../badge";
 import { Icono } from "../icons";
 import { useToast } from "../../hooks/useToast";
-import { GestionarPendientesUseCase } from "../../../application/use-cases/personal/gestionar-pendientes.use-case";
+import { GestionarActividadesUseCase } from "../../../application/use-cases/personal/gestionar-actividades.use-case";
 import { ArmarSemana } from "./armar-semana";
 import {
   obtenerDiaTareaHoy,
   lunesDeLaSemana,
   PRIORIDADES_PENDIENTE,
   type PrioridadPendiente,
-  type TareaPendiente,
 } from "../../../domain/entidades/personal.entity";
+import type { Actividad } from "../../../domain/entidades/actividad.entity";
 
-const useCase = new GestionarPendientesUseCase();
+const useCase = new GestionarActividadesUseCase();
 const SIN_PENDIENTES: never[] = [];
 
 const ETIQUETA_PRIORIDAD: Record<PrioridadPendiente, string> = {
@@ -39,13 +39,11 @@ const ORDEN_PRIORIDAD: PrioridadPendiente[] = [
   "puede_esperar",
 ];
 
-const FilaPendiente: React.FC<{ pendiente: TareaPendiente }> = ({
-  pendiente,
-}) => {
+const FilaPendiente: React.FC<{ pendiente: Actividad }> = ({ pendiente }) => {
   const { mostrarToast } = useToast();
 
   const promover = async (tipo: "enfoque" | "mantenimiento") => {
-    const res = await useCase.promoverABunker(
+    const res = await useCase.promoverAAgenda(
       pendiente.id,
       obtenerDiaTareaHoy(),
       tipo
@@ -54,12 +52,12 @@ const FilaPendiente: React.FC<{ pendiente: TareaPendiente }> = ({
   };
 
   const completar = async () => {
-    const res = await useCase.completarPendiente(pendiente.id);
+    const res = await useCase.completarActividad(pendiente.id);
     if (!res.ok) mostrarToast(res.error!.mensaje, "error");
   };
 
   const descartar = async () => {
-    const res = await useCase.descartarPendiente(pendiente.id);
+    const res = await useCase.descartarActividad(pendiente.id);
     if (!res.ok) mostrarToast(res.error!.mensaje, "error");
   };
 
@@ -67,8 +65,8 @@ const FilaPendiente: React.FC<{ pendiente: TareaPendiente }> = ({
     <div className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-[#0D0D0F] p-3">
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm text-zinc-200">{pendiente.descripcion}</span>
-        <Badge color={COLOR_PRIORIDAD[pendiente.prioridad]}>
-          {ETIQUETA_PRIORIDAD[pendiente.prioridad]}
+        <Badge color={COLOR_PRIORIDAD[pendiente.prioridad || "importante"]}>
+          {ETIQUETA_PRIORIDAD[pendiente.prioridad || "importante"]}
         </Badge>
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -102,9 +100,9 @@ const FilaPendiente: React.FC<{ pendiente: TareaPendiente }> = ({
 };
 
 /**
- * Backlog de todo lo que sí o sí hay que hacer pero no entró en el Búnker
+ * Backlog de todo lo que sí o sí hay que hacer pero no entró en la agenda
  * de hoy — triage de 3 niveles, para no perderlo de vista sin saturar el
- * compromiso diario.
+ * compromiso diario. Actividades de tipo "backlog" (ver Sprint 20).
  */
 export const PanelPendientes: React.FC = () => {
   const { mostrarToast } = useToast();
@@ -117,14 +115,18 @@ export const PanelPendientes: React.FC = () => {
 
   const pendientes =
     useLiveQuery(() =>
-      db.tarea_pendiente.where("estado").equals("pendiente").toArray()
+      db.actividad
+        .where("estado")
+        .equals("pendiente")
+        .and((a) => a.tipo === "backlog")
+        .toArray()
     ) || SIN_PENDIENTES;
 
-  const ordenar = (lista: TareaPendiente[]) =>
+  const ordenar = (lista: Actividad[]) =>
     [...lista].sort(
       (a, b) =>
-        ORDEN_PRIORIDAD.indexOf(a.prioridad) -
-        ORDEN_PRIORIDAD.indexOf(b.prioridad)
+        ORDEN_PRIORIDAD.indexOf(a.prioridad || "importante") -
+        ORDEN_PRIORIDAD.indexOf(b.prioridad || "importante")
     );
   const estaSemana = ordenar(
     pendientes.filter((p) => p.semanaId === semanaActual)
@@ -136,7 +138,8 @@ export const PanelPendientes: React.FC = () => {
   const crear = async () => {
     if (!descripcion.trim()) return;
     setGuardando(true);
-    const res = await useCase.crearPendiente({
+    const res = await useCase.crearActividad({
+      tipo: "backlog",
       descripcion,
       prioridad,
       area: "ambas",
@@ -210,8 +213,8 @@ export const PanelPendientes: React.FC = () => {
           </span>
           {backlogGeneral.length === 0 && (
             <span className="text-xs text-zinc-600">
-              Sin pendientes — todo lo que hay que hacer está en el Búnker o ya
-              en esta semana.
+              Sin pendientes — todo lo que hay que hacer está en la agenda de
+              hoy o ya en esta semana.
             </span>
           )}
           {backlogGeneral.map((p) => (

@@ -38,6 +38,12 @@ export interface HabitoDefinicion {
   etiquetaArea?: string;
   // Si este hábito es el desglose recurrente de un ObjetivoCuantificable.
   objetivoId?: string;
+  // Vínculo opcional a la jerarquía Área→Objetivo→Proyecto→Entregable→
+  // Actividad, solo para poder listar/reportar este hábito bajo un Proyecto
+  // o Entregable — no cambia en nada la mecánica del hábito (sigue siendo
+  // MIN/MED/MAX vía aplicaHoy(), nunca se convierte en una Actividad).
+  entregableId?: string;
+  proyectoId?: string;
   creadoEn: number;
   actualizadoEn: number;
 }
@@ -52,6 +58,8 @@ export const crearHabitoSchema = z.object({
   diasSemana: z.array(z.number().int().min(0).max(6)).optional(),
   etiquetaArea: z.string().trim().optional(),
   objetivoId: z.string().optional(),
+  entregableId: z.string().optional(),
+  proyectoId: z.string().optional(),
 });
 export type CrearHabitoInput = z.input<typeof crearHabitoSchema>;
 

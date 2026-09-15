@@ -6,13 +6,13 @@ import { db } from "../../../offline/dexie/db";
 import { Icono } from "../icons";
 import { Button } from "../button";
 import { useToast } from "../../hooks/useToast";
-import { GestionarPendientesUseCase } from "../../../application/use-cases/personal/gestionar-pendientes.use-case";
+import { GestionarActividadesUseCase } from "../../../application/use-cases/personal/gestionar-actividades.use-case";
 import {
   obtenerDiaTareaHoy,
   lunesDeLaSemana,
 } from "../../../domain/entidades/personal.entity";
 
-const useCase = new GestionarPendientesUseCase();
+const useCase = new GestionarActividadesUseCase();
 const SIN_PENDIENTES: never[] = [];
 
 /**
@@ -33,10 +33,10 @@ export const ArmarSemana: React.FC = () => {
   const sinAsignar =
     useLiveQuery(
       () =>
-        db.tarea_pendiente
+        db.actividad
           .where("estado")
           .equals("pendiente")
-          .and((t) => t.semanaId !== semanaActual)
+          .and((a) => a.tipo === "backlog" && a.semanaId !== semanaActual)
           .toArray(),
       [semanaActual]
     ) || SIN_PENDIENTES;

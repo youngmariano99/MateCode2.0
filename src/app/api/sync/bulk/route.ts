@@ -55,6 +55,12 @@ const tableMapper: Record<string, any> = {
   plantilla_rutina: schema.plantillaRutina,
   bloque_entrenamiento: schema.bloqueEntrenamiento,
   registro_actividad: schema.registroActividad,
+  area_personal: schema.areaPersonal,
+  proyecto_personal: schema.proyectoPersonal,
+  entregable: schema.entregable,
+  // Clave "actividad" (no "actividad_personal"): ver nota en sync/[table]/route.ts.
+  actividad: schema.actividadPersonal,
+  personal_historial: schema.personalHistorial,
 };
 
 const DATE_FIELDS = [
@@ -88,6 +94,9 @@ const EMPTY_TO_NULL_FIELDS = [
   "epicaId",
   "historiaId",
   "objetivoId",
+  "areaId",
+  "proyectoId",
+  "entregableId",
 ];
 
 // Solo columnas que siguen siendo `text` en Postgres. Las que ya son `jsonb`

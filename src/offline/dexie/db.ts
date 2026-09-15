@@ -37,6 +37,19 @@ import type {
   HabitoDefinicion,
   HabitoRegistro,
 } from "../../domain/entidades/habitos.entity";
+import type { AreaPersonal } from "../../domain/entidades/area-personal.entity";
+import {
+  AREA_SIN_ASIGNAR_ID,
+  resolverAreaId,
+} from "../../domain/entidades/area-personal.entity";
+import type { ProyectoPersonal } from "../../domain/entidades/proyecto-personal.entity";
+import type { Entregable } from "../../domain/entidades/entregable.entity";
+import type { Actividad } from "../../domain/entidades/actividad.entity";
+import {
+  mapearTareaDiariaAActividad,
+  mapearTareaPendienteAActividad,
+} from "../../domain/entidades/actividad.entity";
+import type { PersonalHistorialRow } from "../../domain/entidades/personal-historial.entity";
 import type { CatalogoEjercicio } from "../../domain/entidades/ejercicio.entity";
 import { CATALOGO_EJERCICIOS_SEED } from "../../domain/entidades/ejercicio-catalogo-seed";
 import type {
@@ -149,6 +162,16 @@ export class MateCodeDB extends Dexie {
   public plantilla_rutina!: Table<PlantillaRutina, string>;
   public bloque_entrenamiento!: Table<BloqueEntrenamiento, string>;
   public registro_actividad!: Table<RegistroActividad, string>;
+
+  // Jerarquía Personal (Sprint 20): Área → Objetivo → Proyecto → Entregable
+  // → Actividad. objetivo_cuantificable arriba es la raíz de este árbol, no
+  // se duplica acá. tarea_diaria/tarea_pendiente (arriba) conviven con
+  // actividad hasta que se migren los datos (Sprint 5) — ver Sprint-20 doc.
+  public area_personal!: Table<AreaPersonal, string>;
+  public proyecto_personal!: Table<ProyectoPersonal, string>;
+  public entregable!: Table<Entregable, string>;
+  public actividad!: Table<Actividad, string>;
+  public personal_historial!: Table<PersonalHistorialRow, string>;
 
   constructor() {
     super("MateCodeLocalDB");
@@ -1022,6 +1045,114 @@ export class MateCodeDB extends Dexie {
             creadoEn: Date.now(),
           }))
         );
+      });
+
+    // Jerarquía Personal (Sprint 20): tablas nuevas, vacías, conviven con
+    // objetivo_cuantificable/tarea_diaria/tarea_pendiente sin tocarlas — ver
+    // Decisión A/B/C en docs/09-SPRINTS/Sprint-20-*.md. Sin upgrade() acá: no
+    // hay datos viejos para backfillear todavía, eso es el Sprint 5 (versión
+    // aparte, más adelante). habito_definicion SÍ cambia de índice acá
+    // (pasa de "id" a incluir objetivoId/proyectoId/entregableId, los 3
+    // campos de vínculo opcional a la jerarquía) — EliminarNodoPersonalUseCase
+    // necesita poder consultarlo por esos campos.
+    this.version(23).stores({
+      area_personal: "id, activa",
+      proyecto_personal: "id, objetivoId, estado",
+      entregable: "id, proyectoId, objetivoId, estado",
+      actividad:
+        "id, entregableId, proyectoId, objetivoId, diaTarea, tipo, estado, semanaId",
+      personal_historial: "id, entidadTipo, entidadId, creadoEn",
+      habito_definicion: "id, objetivoId, proyectoId, entregableId",
+      // areaId sumado al índice existente (no se toca la versión vieja que
+      // ya tiene datos reales — Dexie permite re-declarar .stores() de una
+      // tabla existente en una versión posterior solo para el cambio de índice).
+      objetivo_cuantificable: "id, estado, area, origenModulo, areaId",
+    });
+
+    // Sprint 5 (Jerarquía Personal) — migración de datos REALES existentes,
+    // por etapas (nunca big-bang, ver docs/09-SPRINTS/Sprint-20-*.md §8):
+    // 1) tarea_diaria + tarea_pendiente se copian a `actividad` (no se
+    //    borran, quedan de solo lectura un release).
+    // 2) objetivo_cuantificable.etiquetaArea se resuelve a un area_personal
+    //    real (por nombre exacto, creándola si no existía) y se backfillea
+    //    en areaId; los objetivos sin etiquetaArea van a un área fallback
+    //    fija "Sin área" — así ningún objetivo queda sin Área asignada.
+    // Cada fila creada/editada acá se encola en cola_eventos como cualquier
+    // mutación normal (escribiendo directo con tx, no con QueueService: la
+    // instancia global `db` todavía no está abierta durante un upgrade) para
+    // que la sincronización empuje esto mismo a Supabase — sin esto, la
+    // migración quedaría solo en el navegador y el servidor se desalinearía.
+    this.version(24)
+      .stores({})
+      .upgrade(async (tx) => {
+        const ahora = Date.now();
+        const colaEventos = tx.table("cola_eventos");
+        const encolar = (
+          tabla: string,
+          accion: "crear" | "editar",
+          registroId: string,
+          payload: Record<string, unknown>
+        ) =>
+          colaEventos.add({ tabla, accion, registroId, payload, fecha: ahora });
+
+        // --- 1) tarea_diaria -> actividad --------------------------------
+        const tareasDiarias = await tx.table("tarea_diaria").toArray();
+        for (const t of tareasDiarias) {
+          const actividad = mapearTareaDiariaAActividad(t);
+          await tx.table("actividad").put(actividad);
+          await encolar("actividad", "crear", t.id, { ...actividad });
+        }
+
+        // --- 2) tarea_pendiente -> actividad (tipo "backlog") ------------
+        const tareasPendientes = await tx.table("tarea_pendiente").toArray();
+        for (const p of tareasPendientes) {
+          const actividad = mapearTareaPendienteAActividad(p);
+          await tx.table("actividad").put(actividad);
+          await encolar("actividad", "crear", p.id, { ...actividad });
+        }
+
+        // --- 3) objetivo_cuantificable.etiquetaArea -> areaId ------------
+        const areaSinAsignar = {
+          id: AREA_SIN_ASIGNAR_ID,
+          nombre: "Sin área",
+          activa: true,
+          creadoEn: ahora,
+          actualizadoEn: ahora,
+        };
+        await tx.table("area_personal").put(areaSinAsignar);
+        await encolar(
+          "area_personal",
+          "crear",
+          AREA_SIN_ASIGNAR_ID,
+          areaSinAsignar
+        );
+
+        const objetivos = await tx.table("objetivo_cuantificable").toArray();
+        const areasYaCreadas = new Set<string>();
+        for (const o of objetivos) {
+          const areaId = resolverAreaId(o.etiquetaArea);
+          if (areaId !== AREA_SIN_ASIGNAR_ID && !areasYaCreadas.has(areaId)) {
+            const nuevaArea = {
+              id: areaId,
+              nombre: (o.etiquetaArea as string).trim(),
+              activa: true,
+              creadoEn: ahora,
+              actualizadoEn: ahora,
+            };
+            await tx.table("area_personal").put(nuevaArea);
+            await encolar("area_personal", "crear", areaId, nuevaArea);
+            areasYaCreadas.add(areaId);
+          }
+          await tx.table("objetivo_cuantificable").update(o.id, {
+            areaId,
+            actualizadoEn: ahora,
+          });
+          await encolar("objetivo_cuantificable", "editar", o.id, {
+            id: o.id,
+            areaId,
+            actualizadoEn: ahora,
+          });
+        }
       });
 
     this.on("populate", async () => {

@@ -12,6 +12,7 @@ import {
   type AjustarObjetivoInput,
   type ObjetivoCuantificable,
 } from "../../../domain/entidades/objetivo-cuantificable.entity";
+import { registrarHistorialPersonal } from "../../servicios/registrar-historial-personal.service";
 
 function idObjetivo(): string {
   return `obj_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -45,6 +46,8 @@ export class GestionarObjetivosUseCase {
       estado: "activo",
       origenModulo: parsed.data.origenModulo,
       etiquetaArea: parsed.data.etiquetaArea,
+      areaId: parsed.data.areaId,
+      tieneHijos: false,
       creadoEn: ahora,
       actualizadoEn: ahora,
     };
@@ -52,6 +55,12 @@ export class GestionarObjetivosUseCase {
       await db.objetivo_cuantificable.add(registro);
       await QueueService.encolar("objetivo_cuantificable", "crear", id, {
         ...registro,
+      });
+      await registrarHistorialPersonal({
+        entidadTipo: "objetivo",
+        entidadId: id,
+        accion: "crear",
+        descripcion: `Objetivo "${registro.titulo}" creado.`,
       });
       return Resultado.exito(id);
     } catch (err) {
@@ -79,6 +88,13 @@ export class GestionarObjetivosUseCase {
         new ErrorNoEncontrado("No se encontró el objetivo.")
       );
     }
+    if (objetivo.tieneHijos) {
+      return Resultado.falla(
+        new ErrorDominio(
+          "Este objetivo tiene proyectos debajo — registrá el avance en la actividad correspondiente, el total se suma solo hasta acá."
+        )
+      );
+    }
     const progresoActual = Math.max(0, objetivo.progresoActual + cantidad);
     const estado =
       progresoActual >= objetivo.cantidadObjetivo &&
@@ -97,6 +113,12 @@ export class GestionarObjetivosUseCase {
         progresoActual,
         estado,
         actualizadoEn,
+      });
+      await registrarHistorialPersonal({
+        entidadTipo: "objetivo",
+        entidadId: id,
+        accion: "registrar_avance",
+        descripcion: `+${cantidad} ${objetivo.unidad}`,
       });
       return Resultado.exito(undefined);
     } catch (err) {
@@ -156,6 +178,19 @@ export class GestionarObjetivosUseCase {
         parsed.data.id,
         { id: parsed.data.id, ...cambios }
       );
+      await registrarHistorialPersonal({
+        entidadTipo: "objetivo",
+        entidadId: parsed.data.id,
+        accion:
+          parsed.data.diaLimite !== undefined
+            ? "ajustar_fecha"
+            : "ajustar_cantidad",
+        campoAnterior: {
+          diaLimite: objetivo.diaLimite,
+          cantidadObjetivo: objetivo.cantidadObjetivo,
+        },
+        campoNuevo: cambios,
+      });
       return Resultado.exito(undefined);
     } catch (err) {
       return Resultado.falla(
@@ -183,6 +218,12 @@ export class GestionarObjetivosUseCase {
         id,
         estado: "archivado",
         actualizadoEn,
+      });
+      await registrarHistorialPersonal({
+        entidadTipo: "objetivo",
+        entidadId: id,
+        accion: "editar",
+        descripcion: `Objetivo "${objetivo.titulo}" archivado.`,
       });
       return Resultado.exito(undefined);
     } catch (err) {
