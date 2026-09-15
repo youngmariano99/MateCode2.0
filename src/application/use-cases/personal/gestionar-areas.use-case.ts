@@ -37,6 +37,7 @@ export class GestionarAreasUseCase {
       id,
       nombre: parsed.data.nombre.trim(),
       descripcion: parsed.data.descripcion,
+      color: parsed.data.color,
       activa: true,
       creadoEn: ahora,
       actualizadoEn: ahora,
@@ -75,6 +76,9 @@ export class GestionarAreasUseCase {
       cambios.nombre = parsed.data.nombre.trim();
     if (parsed.data.descripcion !== undefined) {
       cambios.descripcion = parsed.data.descripcion;
+    }
+    if (parsed.data.color !== undefined) {
+      cambios.color = parsed.data.color;
     }
     try {
       await db.area_personal.update(parsed.data.id, cambios);

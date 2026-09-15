@@ -42,7 +42,11 @@ import {
 } from "../../../domain/entidades/personal.entity";
 import { FRECUENCIAS_RECURRENCIA } from "../../../domain/entidades/entregable.entity";
 import { TIPOS_ACTIVIDAD } from "../../../domain/entidades/actividad.entity";
-import type { AreaPersonal } from "../../../domain/entidades/area-personal.entity";
+import {
+  colorDeAreaEfectivo,
+  PALETA_COLORES_AREA,
+  type AreaPersonal,
+} from "../../../domain/entidades/area-personal.entity";
 import type { ObjetivoCuantificable } from "../../../domain/entidades/objetivo-cuantificable.entity";
 import type { ProyectoPersonal } from "../../../domain/entidades/proyecto-personal.entity";
 import type { Entregable } from "../../../domain/entidades/entregable.entity";
@@ -274,19 +278,43 @@ const CampoTexto: React.FC<{
 
 /** ------------------------------------------------------------------ Áreas */
 
+const SelectorColor: React.FC<{
+  value: string;
+  onChange: (color: string) => void;
+}> = ({ value, onChange }) => (
+  <div className="flex flex-wrap gap-1.5">
+    {PALETA_COLORES_AREA.map((c) => (
+      <button
+        key={c}
+        type="button"
+        onClick={() => onChange(c)}
+        title={c}
+        style={{ backgroundColor: c }}
+        className={`h-6 w-6 rounded-full transition-all ${
+          value === c
+            ? "ring-2 ring-zinc-200 ring-offset-2 ring-offset-[#0D0D0F]"
+            : "opacity-70 hover:opacity-100"
+        }`}
+      />
+    ))}
+  </div>
+);
+
 const FormularioNuevaArea: React.FC = () => {
   const { mostrarToast } = useToast();
   const [abierto, setAbierto] = useState(false);
   const [nombre, setNombre] = useState("");
+  const [color, setColor] = useState<string>(PALETA_COLORES_AREA[0]);
   const [guardando, setGuardando] = useState(false);
 
   const crear = async () => {
     if (!nombre.trim()) return;
     setGuardando(true);
-    const res = await areasUseCase.crearArea({ nombre });
+    const res = await areasUseCase.crearArea({ nombre, color });
     setGuardando(false);
     if (res.ok) {
       setNombre("");
+      setColor(PALETA_COLORES_AREA[0]);
       setAbierto(false);
     } else {
       mostrarToast(res.error!.mensaje, "error");
@@ -311,6 +339,7 @@ const FormularioNuevaArea: React.FC = () => {
         onChange={setNombre}
         placeholder="Nombre del área (ej. Freelancer)"
       />
+      <SelectorColor value={color} onChange={setColor} />
       <div className="flex justify-end gap-2">
         <button
           onClick={() => setAbierto(false)}
@@ -324,6 +353,29 @@ const FormularioNuevaArea: React.FC = () => {
       </div>
     </div>
   );
+};
+
+const EditorColorArea: React.FC<{ area: AreaPersonal }> = ({ area }) => {
+  const { mostrarToast } = useToast();
+  const [abierto, setAbierto] = useState(false);
+
+  const elegir = async (color: string) => {
+    const res = await areasUseCase.editarArea({ id: area.id, color });
+    if (!res.ok) mostrarToast(res.error!.mensaje, "error");
+    setAbierto(false);
+  };
+
+  if (!abierto) {
+    return (
+      <button
+        onClick={() => setAbierto(true)}
+        className="self-start text-[10px] font-bold text-zinc-600 uppercase hover:text-zinc-400"
+      >
+        Cambiar color
+      </button>
+    );
+  }
+  return <SelectorColor value={colorDeAreaEfectivo(area)} onChange={elegir} />;
 };
 
 const VistaAreas: React.FC<{
@@ -405,13 +457,20 @@ const VistaAreas: React.FC<{
               onClick={() => onEntrar(a)}
               className="flex cursor-pointer flex-col gap-1 text-left"
             >
-              <span className="text-sm font-bold text-zinc-200">
-                {a.nombre}
-              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: colorDeAreaEfectivo(a) }}
+                />
+                <span className="text-sm font-bold text-zinc-200">
+                  {a.nombre}
+                </span>
+              </div>
               {a.descripcion && (
                 <span className="text-xs text-zinc-500">{a.descripcion}</span>
               )}
             </div>
+            <EditorColorArea area={a} />
             <AccionesNodo
               onHistorial={() => onHistorial(a.id, a.nombre)}
               onArchivar={() => void areasUseCase.desactivarArea(a.id)}

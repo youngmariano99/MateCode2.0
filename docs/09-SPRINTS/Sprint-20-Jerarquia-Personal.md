@@ -123,6 +123,22 @@ Pedido del usuario: (1) faltaban los botones de "ajustar cantidad" y "archivar" 
 - [x] Verificación automatizable: typecheck / eslint / test (167/167) / build — todo limpio
 - [ ] **Verificación visual — no pude hacerla yo**: mismo límite de siempre (la app pide login, no tengo credenciales). Falta que abras el tab "Mes" y confirmes que "Ajustar cantidad"/"Archivar" se ven y funcionan, y el tab "Hoy" para confirmar que el formulario ya no se esconde y que "Próximas actividades" se ve bien
 
+### Calendario semanal/mensual + colores de Área ✅ COMPLETO (código) — ⚠️ pendiente de que VOS lo pruebes en el navegador
+
+Pedido del usuario: poder corroborar de un vistazo que la planificación quedó bien armada (algo que el navegador jerárquico, al mostrar un solo nivel a la vez, no permite ver), con Áreas distinguibles por color y una distinción visual clara entre Actividad y Entregable.
+
+- [x] `area-personal.entity.ts`: `AreaPersonal` gana `color?` (hex), paleta fija `PALETA_COLORES_AREA` (10 colores), `colorDeAreaEfectivo(area)` — si el área no tiene color propio (todas las que ya existían antes de este cambio), deriva uno determinístico de su id vía hash, así los datos reales de hoy ya se ven distinguibles sin tener que migrar nada
+- [x] `gestionar-areas.use-case.ts`: `crearArea`/`editarArea` aceptan y persisten `color`
+- [x] `schema.ts` + Postgres real: columna `color varchar(7)` agregada a `area_personal` (aplicada en vivo, script temporal borrado después)
+- [x] `navegador-jerarquico.tsx`: selector de paleta al crear un Área, punto de color en cada tarjeta de Área, botón "Cambiar color" inline por área existente
+- [x] `calendario-utils.ts` (nuevo): `useColorPorObjetivo()` — un solo mapa Objetivo→Área→color (Entregable/Actividad ya traen `objetivoId` denormalizado, no hace falta ir tabla por tabla), color neutro `COLOR_SIN_AREA` para actividades/entregables sueltos sin jerarquía arriba
+- [x] `calendario-semanal.tsx` (nuevo): `CalendarioSemanal` — 7 columnas Lun-Dom, navegación semana anterior/siguiente/volver a hoy, Actividades en su `diaTarea` (con acciones completar/cancelar inline) + Entregables como hito en su `diaLimite` (borde punteado, solo lectura), cada chip con el color de su Área y un ícono distinto según tipo (Target=enfoque, ListTodo=mantenimiento, Package=entregable)
+- [x] `calendario-mensual.tsx` (nuevo): `CalendarioMensual` — grilla de 6 semanas siempre completa (días de meses linderos atenuados), puntos de color por Área presente ese día, click en un día abre el detalle debajo reusando los mismos chips del calendario semanal
+- [x] `db.ts`: Dexie versión 25 — `entregable` gana índice por `diaLimite` (necesario para las queries por rango de fecha de los dos calendarios; no se toca ninguna otra tabla)
+- [x] `hoy/page.tsx`: dos pestañas nuevas, "Cal. semana" y "Cal. mes", separadas de las pestañas existentes "Semana" (pendientes/backlog) y "Mes" (navegador jerárquico) para no pisar su significado actual
+- [x] Verificación automatizable: typecheck / eslint / test (167/167) / build — todo limpio
+- [ ] **Verificación visual — no pude hacerla yo**: mismo límite de siempre (login sin credenciales). Falta que abras "Cal. semana" y "Cal. mes" y confirmes que las actividades/entregables aparecen en el día correcto, que los colores por Área se ven bien, y que "Cambiar color" en una tarjeta de Área funciona
+
 ### Sprint 10 — Corte final (después, no en el mismo lote)
 
 - [ ] Retirar `tarea_diaria`/`tarea_pendiente` de `.stores()`

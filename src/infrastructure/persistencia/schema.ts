@@ -1079,6 +1079,7 @@ export const areaPersonal = pgTable("area_personal", {
   id: varchar("id", { length: 255 }).primaryKey(),
   nombre: varchar("nombre", { length: 255 }).notNull(),
   descripcion: text("descripcion"),
+  color: varchar("color", { length: 7 }),
   activa: boolean("activa").default(true).notNull(),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),

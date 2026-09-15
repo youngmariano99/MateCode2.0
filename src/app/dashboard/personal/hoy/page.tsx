@@ -12,6 +12,8 @@ import { NavegadorJerarquico } from "../../../../presentation/components/persona
 import { PanelEstadoGeneral } from "../../../../presentation/components/personal/panel-estado-general";
 import { PlanificarSemanaIA } from "../../../../presentation/components/personal/planificar-con-ia";
 import { TarjetaHabitos } from "../../../../presentation/components/personal/tarjeta-habitos";
+import { CalendarioSemanal } from "../../../../presentation/components/personal/calendario-semanal";
+import { CalendarioMensual } from "../../../../presentation/components/personal/calendario-mensual";
 import { GestionarObjetivosUseCase } from "../../../../application/use-cases/personal/gestionar-objetivos.use-case";
 import { MaterializarActividadesDelDiaUseCase } from "../../../../application/use-cases/personal/materializar-actividades-del-dia.use-case";
 import { obtenerDiaTareaHoy } from "../../../../domain/entidades/personal.entity";
@@ -19,7 +21,7 @@ import { obtenerDiaTareaHoy } from "../../../../domain/entidades/personal.entity
 const objetivosUseCase = new GestionarObjetivosUseCase();
 const materializarUseCase = new MaterializarActividadesDelDiaUseCase();
 
-type Horizonte = "dia" | "semana" | "mes";
+type Horizonte = "dia" | "semana" | "mes" | "cal_semana" | "cal_mes";
 
 const HORIZONTES: {
   id: Horizonte;
@@ -29,6 +31,8 @@ const HORIZONTES: {
   { id: "dia", label: "Día", icono: "Sunrise" },
   { id: "semana", label: "Semana", icono: "ListTodo" },
   { id: "mes", label: "Mes", icono: "Target" },
+  { id: "cal_semana", label: "Cal. semana", icono: "Calendario" },
+  { id: "cal_mes", label: "Cal. mes", icono: "Calendario" },
 ];
 
 const breadcrumbs = [
@@ -41,6 +45,10 @@ const DESCRIPCION_HORIZONTE: Record<Horizonte, string> = {
   semana:
     "Lo que sí o sí tenés que hacer aunque no entre en el foco de hoy, ordenado por prioridad — como en una guardia.",
   mes: "Tus objetivos cuantitativos y el ritmo real para llegar a cada uno, recalculado solo.",
+  cal_semana:
+    "La semana completa de un vistazo, coloreada por Área, para corroborar que la planificación quedó bien armada.",
+  cal_mes:
+    "El mes completo de un vistazo — click en un día para ver el detalle.",
 };
 
 /**
@@ -120,6 +128,10 @@ export default function PersonalHoyPage() {
             <NavegadorJerarquico />
           </div>
         )}
+
+        {horizonte === "cal_semana" && <CalendarioSemanal />}
+
+        {horizonte === "cal_mes" && <CalendarioMensual />}
       </div>
     </MainLayout>
   );

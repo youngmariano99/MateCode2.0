@@ -1155,6 +1155,14 @@ export class MateCodeDB extends Dexie {
         }
       });
 
+    // Calendario semanal/mensual (ver calendario-semanal.tsx/calendario-
+    // mensual.tsx): necesita consultar Entregables por diaLimite, índice que
+    // no existía — se re-declara solo esa tabla, mismo criterio que areaId
+    // arriba (no se toca ninguna otra tabla ni se pierden datos).
+    this.version(25).stores({
+      entregable: "id, proyectoId, objetivoId, estado, diaLimite",
+    });
+
     this.on("populate", async () => {
       const ahoraPopulate = Date.now();
       await this.table("catalogo_etiquetas").bulkPut(
