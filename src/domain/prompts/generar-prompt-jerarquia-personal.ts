@@ -9,7 +9,9 @@
  * validan la respuesta.
  */
 
-const NOTA_RECURRENCIA = `Si el Entregable es algo que se repite (ej. "Contacto en frío, todos los días hábiles hasta llegar a la meta"), agregale "recurrencia": { "frecuencia": "diaria" | "dias_especificos", "diasSemana": [0-6, 0=domingo] } — no hace falta repetir "actividades" cada semana, el sistema las genera solo cada día que corresponda. Si es puntual (una sola vez), no pongas "recurrencia".`;
+const NOTA_RECURRENCIA = `Si el Entregable es algo que se repite igual día tras día o semana tras semana (ej. "Contacto en frío, todos los días hábiles hasta llegar a la meta"), agregale "recurrencia": { "frecuencia": "diaria" | "dias_especificos", "diasSemana": [0-6, 0=domingo] } — no hace falta repetir "actividades" cada semana, el sistema las genera solo cada día que corresponda. Si es puntual (una sola vez), no pongas "recurrencia".
+
+Importante — repetitivo vs. evolutivo: si la actividad se mantiene igual a lo largo del tiempo, es un solo Entregable recurrente (no crees uno nuevo por semana). Pero si en algún momento la naturaleza o la cantidad cambia (ej. "esta semana contacto 10 por día" pasa a "la próxima subo a 15 por día", o cambia el enfoque de la tarea), eso es una etapa nueva: creá un Entregable nuevo y aparte (con su propio rango de fechas y, si corresponde, su propia recurrencia) para esa etapa, en vez de forzar un solo Entregable estático a cubrir algo que progresa.`;
 
 const INSTRUCCION_PREGUNTAR = `Antes de generar el JSON final, hacé todas las preguntas que necesites para no inventar nada: fechas, cantidades, si algo es recurrente o puntual. Esperá mi respuesta a cada pregunta. NO generes el JSON hasta que confirme que ya tenés todo lo necesario.`;
 
@@ -191,7 +193,7 @@ Esta/estas Actividad(es) van a pertenecer al Entregable "${entregableTitulo}" ($
 </entregable_padre>
 
 <instrucciones>
-"enfoque" es como máximo 1 por día (lo más importante), "mantenimiento" hasta 3 por día — no propongas más de eso para un mismo día. ${INSTRUCCION_PREGUNTAR}
+Como guía general, "enfoque" (lo más importante del día) ronda 1 por día y "mantenimiento" ronda 3 por día — tratá de organizar el trabajo cerca de esa cantidad para que un mismo día no termine con 10 actividades encima, pero no es un límite estricto: si genuinamente hace falta más para no dejar nada afuera, no te sientas limitado a esos números. ${INSTRUCCION_PREGUNTAR}
 </instrucciones>
 
 <output_requerido>

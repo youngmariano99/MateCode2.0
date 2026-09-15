@@ -204,7 +204,7 @@ describe("Jerarquía Personal: CRUD + cascada de progreso + auditoría", () => {
     assert.strictEqual(proyectoFinal?.progresoActual, 4);
   });
 
-  test("Actividad de tipo enfoque/mantenimiento respeta el tope diario (1 enfoque + 3 mantenimiento)", async () => {
+  test("Actividad de tipo enfoque/mantenimiento NO tiene tope duro — 1 enfoque + 3 mantenimiento es solo la cantidad recomendada", async () => {
     const dia = "2026-02-01";
     const foco1 = await actividades.crearActividad({
       tipo: "enfoque",
@@ -215,33 +215,30 @@ describe("Jerarquía Personal: CRUD + cascada de progreso + auditoría", () => {
 
     const foco2 = await actividades.crearActividad({
       tipo: "enfoque",
-      descripcion: "Un segundo foco",
+      descripcion: "Un segundo foco, si hace falta",
       diaTarea: dia,
     });
     assert.strictEqual(
       foco2.ok,
-      false,
-      "no debería permitir un 2do enfoque el mismo día"
+      true,
+      "un 2do enfoque el mismo día ya no debe bloquearse — el usuario decide si le hace sentido"
     );
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 5; i++) {
       const m = await actividades.crearActividad({
         tipo: "mantenimiento",
         descripcion: `Mantenimiento ${i}`,
         diaTarea: dia,
       });
-      assert.strictEqual(m.ok, true);
+      assert.strictEqual(
+        m.ok,
+        true,
+        `mantenimiento ${i} no debería bloquearse aunque supere la cantidad recomendada`
+      );
     }
-    const mantenimiento4 = await actividades.crearActividad({
-      tipo: "mantenimiento",
-      descripcion: "Un 4to mantenimiento",
-      diaTarea: dia,
-    });
-    assert.strictEqual(
-      mantenimiento4.ok,
-      false,
-      "no debería permitir un 4to mantenimiento el mismo día"
-    );
+
+    const todasDelDia = await db.actividad.where({ diaTarea: dia }).toArray();
+    assert.strictEqual(todasDelDia.length, 7);
   });
 
   test("Cada mutación deja una fila en personal_historial", async () => {

@@ -45,6 +45,8 @@ export const ESTADOS_TAREA_DIARIA = [
 ] as const;
 export type EstadoTareaDiaria = (typeof ESTADOS_TAREA_DIARIA)[number];
 
+// Reusadas por actividad.entity.ts como cantidad *recomendada* por día (ya
+// no un tope duro que bloquea — ver GestionarActividadesUseCase.crearActividad).
 export const MAX_TAREAS_ENFOQUE_POR_DIA = 1;
 export const MAX_TAREAS_MANTENIMIENTO_POR_DIA = 3;
 

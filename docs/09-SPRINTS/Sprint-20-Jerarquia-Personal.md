@@ -111,6 +111,18 @@
 - [x] Verificación automatizable: typecheck / eslint / test (167/167) / build — todo limpio, sin errores de consola
 - [ ] **Verificación visual — no pude hacerla yo**: mismo límite que Sprints 7 y 8 (login). Falta que abras el tab "Mes", entres a un Objetivo/Proyecto y confirmes que eliminar/ajustar fecha/historial se ven y funcionan bien
 
+### Ajustes pedidos tras probar Sprints 8/9 en vivo ✅ COMPLETO (código) — ⚠️ pendiente de que VOS lo pruebes en el navegador
+
+Pedido del usuario: (1) faltaban los botones de "ajustar cantidad" y "archivar" en el navegador jerárquico (el backend ya los soportaba desde el Sprint 2, solo faltaba la UI); (2) sacar el tope duro de actividades por día — dejar solo una cantidad recomendada — y mostrar en la vista de Hoy las próximas actividades ya agendadas, además de que los prompts de IA traten esa cantidad como una guía blanda, no un límite, y sepan distinguir una actividad que se repite igual de una que va evolucionando en el tiempo.
+
+- [x] `ajustar-cantidad-modal.tsx` (nuevo): `AjustarCantidadModal`, sin preview de cascada (a diferencia de la fecha, la cantidad de un nivel es un valor propio, nunca derivado de los hijos — cambiarla no afecta a nadie más), escritura directa vía `ajustarObjetivo`/`ajustarProyecto`/`ajustarEntregable`
+- [x] `navegador-jerarquico.tsx`: acción "Ajustar cantidad" cableada en Objetivo/Proyecto/Entregable (estado `ajustarCantidadTarget` centralizado en la raíz, mismo patrón que `eliminarTarget`/`ajustarTarget`/`historialTarget`); acción "Archivar" cableada donde ya existía `archivarEntregable`/etc. en el use-case
+- [x] `gestionar-actividades.use-case.ts`: sacado el bloque que rechazaba `crearActividad()` al llegar a `MAX_TAREAS_ENFOQUE_POR_DIA`/`MAX_TAREAS_MANTENIMIENTO_POR_DIA` — esos números quedan como cantidad _recomendada_, ya no bloquean. Test viejo de "rechaza al superar el tope" reemplazado por uno que confirma que 2 enfoque + 5 mantenimiento el mismo día NO se bloquean
+- [x] `bunker-del-dia.tsx`: el formulario de nueva actividad ya no se oculta al llegar a la cantidad recomendada (queda siempre visible, con un contador que avisa si se pasó del recomendado); nueva sección "Próximas actividades" debajo, listando pendientes con `diaTarea` posterior a hoy ordenadas ascendente, reusando `FilaActividad` (completar/migrar/cancelar)
+- [x] `generar-prompt-jerarquia-personal.ts`: ablandado el lenguaje de `generarPromptActividades` (de "no propongas más de eso" a "guía, no límite estricto"); `NOTA_RECURRENCIA` (usada en los prompts de árbol/proyecto/entregable) ganó un párrafo nuevo pidiéndole a la IA que distinga actividad repetitiva-sin-cambios (un solo Entregable recurrente) de evolutiva (cuando cambia la cantidad o el enfoque, crear un Entregable nuevo y aparte para esa etapa)
+- [x] Verificación automatizable: typecheck / eslint / test (167/167) / build — todo limpio
+- [ ] **Verificación visual — no pude hacerla yo**: mismo límite de siempre (la app pide login, no tengo credenciales). Falta que abras el tab "Mes" y confirmes que "Ajustar cantidad"/"Archivar" se ven y funcionan, y el tab "Hoy" para confirmar que el formulario ya no se esconde y que "Próximas actividades" se ve bien
+
 ### Sprint 10 — Corte final (después, no en el mismo lote)
 
 - [ ] Retirar `tarea_diaria`/`tarea_pendiente` de `.stores()`

@@ -10,6 +10,10 @@ import { Dialog } from "../dialog";
 import { ModalImportarJson } from "../contenido/modal-importar-json";
 import { ConfirmarEliminacionNodo } from "./confirmar-eliminacion-nodo";
 import { AjustarFechaModal } from "./ajustar-fecha-modal";
+import {
+  AjustarCantidadModal,
+  type NivelConCantidad,
+} from "./ajustar-cantidad-modal";
 import { PanelHistorialPersonal } from "./panel-historial-personal";
 import type { NivelJerarquiaPersonal } from "../../../application/use-cases/personal/eliminar-nodo-personal.use-case";
 import type { NivelConHijosFecha } from "../../../application/use-cases/personal/ajustar-fecha-personal.use-case";
@@ -80,9 +84,25 @@ function fechaRelativa(diaLimite: string, hoy: string): string {
 const AccionesNodo: React.FC<{
   onHistorial?: () => void;
   onAjustarFecha?: () => void;
+  onAjustarCantidad?: () => void;
+  onArchivar?: () => void;
   onEliminar?: () => void;
-}> = ({ onHistorial, onAjustarFecha, onEliminar }) => {
-  if (!onHistorial && !onAjustarFecha && !onEliminar) return null;
+}> = ({
+  onHistorial,
+  onAjustarFecha,
+  onAjustarCantidad,
+  onArchivar,
+  onEliminar,
+}) => {
+  if (
+    !onHistorial &&
+    !onAjustarFecha &&
+    !onAjustarCantidad &&
+    !onArchivar &&
+    !onEliminar
+  ) {
+    return null;
+  }
   const detener = (fn: () => void) => (e: React.MouseEvent) => {
     e.stopPropagation();
     fn();
@@ -105,6 +125,24 @@ const AccionesNodo: React.FC<{
           className="rounded border border-zinc-800 p-1.5 text-zinc-500 hover:text-amber-400"
         >
           <Icono.Clock className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {onAjustarCantidad && (
+        <button
+          onClick={detener(onAjustarCantidad)}
+          title="Ajustar cantidad"
+          className="rounded border border-zinc-800 p-1.5 text-zinc-500 hover:text-amber-400"
+        >
+          <Icono.TrendingUp className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {onArchivar && (
+        <button
+          onClick={detener(onArchivar)}
+          title="Archivar"
+          className="rounded border border-zinc-800 p-1.5 text-zinc-500 hover:text-zinc-300"
+        >
+          <Icono.Inbox className="h-3.5 w-3.5" />
         </button>
       )}
       {onEliminar && (
@@ -132,6 +170,8 @@ const TarjetaNodo: React.FC<{
   onClick: () => void;
   onHistorial?: () => void;
   onAjustarFecha?: () => void;
+  onAjustarCantidad?: () => void;
+  onArchivar?: () => void;
   onEliminar?: () => void;
 }> = ({
   titulo,
@@ -144,6 +184,8 @@ const TarjetaNodo: React.FC<{
   onClick,
   onHistorial,
   onAjustarFecha,
+  onAjustarCantidad,
+  onArchivar,
   onEliminar,
 }) => {
   const hoy = obtenerDiaTareaHoy();
@@ -207,6 +249,8 @@ const TarjetaNodo: React.FC<{
       <AccionesNodo
         onHistorial={onHistorial}
         onAjustarFecha={onAjustarFecha}
+        onAjustarCantidad={onAjustarCantidad}
+        onArchivar={onArchivar}
         onEliminar={onEliminar}
       />
     </div>
@@ -370,6 +414,7 @@ const VistaAreas: React.FC<{
             </div>
             <AccionesNodo
               onHistorial={() => onHistorial(a.id, a.nombre)}
+              onArchivar={() => void areasUseCase.desactivarArea(a.id)}
               onEliminar={() => onEliminar(a.id, a.nombre)}
             />
           </div>
@@ -506,8 +551,21 @@ const VistaObjetivos: React.FC<{
   onEntrar: (o: ObjetivoCuantificable) => void;
   onEliminar: (id: string, titulo: string) => void;
   onAjustarFecha: (id: string, titulo: string, fechaActual: string) => void;
+  onAjustarCantidad: (
+    id: string,
+    titulo: string,
+    cantidadActual: number,
+    unidad?: string
+  ) => void;
   onHistorial: (id: string, titulo: string) => void;
-}> = ({ area, onEntrar, onEliminar, onAjustarFecha, onHistorial }) => {
+}> = ({
+  area,
+  onEntrar,
+  onEliminar,
+  onAjustarFecha,
+  onAjustarCantidad,
+  onHistorial,
+}) => {
   const { mostrarToast } = useToast();
   const [modalAbierto, setModalAbierto] = useState(false);
   const todos =
@@ -581,6 +639,10 @@ const VistaObjetivos: React.FC<{
             onClick={() => onEntrar(o)}
             onHistorial={() => onHistorial(o.id, o.titulo)}
             onAjustarFecha={() => onAjustarFecha(o.id, o.titulo, o.diaLimite)}
+            onAjustarCantidad={() =>
+              onAjustarCantidad(o.id, o.titulo, o.cantidadObjetivo, o.unidad)
+            }
+            onArchivar={() => void objetivosUseCase.archivarObjetivo(o.id)}
             onEliminar={() => onEliminar(o.id, o.titulo)}
           />
         ))}
@@ -714,8 +776,21 @@ const VistaProyectos: React.FC<{
   onEntrar: (p: ProyectoPersonal) => void;
   onEliminar: (id: string, titulo: string) => void;
   onAjustarFecha: (id: string, titulo: string, fechaActual: string) => void;
+  onAjustarCantidad: (
+    id: string,
+    titulo: string,
+    cantidadActual: number,
+    unidad?: string
+  ) => void;
   onHistorial: (id: string, titulo: string) => void;
-}> = ({ objetivo, onEntrar, onEliminar, onAjustarFecha, onHistorial }) => {
+}> = ({
+  objetivo,
+  onEntrar,
+  onEliminar,
+  onAjustarFecha,
+  onAjustarCantidad,
+  onHistorial,
+}) => {
   const { mostrarToast } = useToast();
   const [modalAbierto, setModalAbierto] = useState(false);
   const todos =
@@ -783,6 +858,18 @@ const VistaProyectos: React.FC<{
             onClick={() => onEntrar(p)}
             onHistorial={() => onHistorial(p.id, p.titulo)}
             onAjustarFecha={() => onAjustarFecha(p.id, p.titulo, p.diaLimite)}
+            onAjustarCantidad={
+              p.cantidadObjetivo !== undefined
+                ? () =>
+                    onAjustarCantidad(
+                      p.id,
+                      p.titulo,
+                      p.cantidadObjetivo!,
+                      p.unidad
+                    )
+                : undefined
+            }
+            onArchivar={() => void proyectosUseCase.archivarProyecto(p.id)}
             onEliminar={() => onEliminar(p.id, p.titulo)}
           />
         ))}
@@ -947,8 +1034,14 @@ const VistaEntregables: React.FC<{
   proyecto: ProyectoPersonal;
   onEntrar: (e: Entregable) => void;
   onEliminar: (id: string, titulo: string) => void;
+  onAjustarCantidad: (
+    id: string,
+    titulo: string,
+    cantidadActual: number,
+    unidad?: string
+  ) => void;
   onHistorial: (id: string, titulo: string) => void;
-}> = ({ proyecto, onEntrar, onEliminar, onHistorial }) => {
+}> = ({ proyecto, onEntrar, onEliminar, onAjustarCantidad, onHistorial }) => {
   const { mostrarToast } = useToast();
   const [modalAbierto, setModalAbierto] = useState(false);
   const todos =
@@ -1016,6 +1109,20 @@ const VistaEntregables: React.FC<{
               progresoActual={e.progresoActual}
               onClick={() => onEntrar(e)}
               onHistorial={() => onHistorial(e.id, e.titulo)}
+              onAjustarCantidad={
+                e.cantidadObjetivo !== undefined
+                  ? () =>
+                      onAjustarCantidad(
+                        e.id,
+                        e.titulo,
+                        e.cantidadObjetivo!,
+                        e.unidad
+                      )
+                  : undefined
+              }
+              onArchivar={() =>
+                void entregablesUseCase.archivarEntregable(e.id)
+              }
               onEliminar={() => onEliminar(e.id, e.titulo)}
             />
             {e.recurrencia && (
@@ -1295,6 +1402,13 @@ export const NavegadorJerarquico: React.FC = () => {
     id: string;
     titulo: string;
   } | null>(null);
+  const [ajustarCantidadTarget, setAjustarCantidadTarget] = useState<{
+    nivel: NivelConCantidad;
+    id: string;
+    titulo: string;
+    cantidadActual: number;
+    unidad?: string;
+  } | null>(null);
 
   const migas: { label: string; onClick: () => void }[] = [
     {
@@ -1372,6 +1486,15 @@ export const NavegadorJerarquico: React.FC = () => {
           onAjustarFecha={(id, titulo, fechaActual) =>
             setAjustarTarget({ nivel: "objetivo", id, titulo, fechaActual })
           }
+          onAjustarCantidad={(id, titulo, cantidadActual, unidad) =>
+            setAjustarCantidadTarget({
+              nivel: "objetivo",
+              id,
+              titulo,
+              cantidadActual,
+              unidad,
+            })
+          }
           onHistorial={(id, titulo) =>
             setHistorialTarget({ tipo: "objetivo", id, titulo })
           }
@@ -1387,6 +1510,15 @@ export const NavegadorJerarquico: React.FC = () => {
           onAjustarFecha={(id, titulo, fechaActual) =>
             setAjustarTarget({ nivel: "proyecto", id, titulo, fechaActual })
           }
+          onAjustarCantidad={(id, titulo, cantidadActual, unidad) =>
+            setAjustarCantidadTarget({
+              nivel: "proyecto",
+              id,
+              titulo,
+              cantidadActual,
+              unidad,
+            })
+          }
           onHistorial={(id, titulo) =>
             setHistorialTarget({ tipo: "proyecto", id, titulo })
           }
@@ -1398,6 +1530,15 @@ export const NavegadorJerarquico: React.FC = () => {
           onEntrar={setEntregable}
           onEliminar={(id, titulo) =>
             setEliminarTarget({ nivel: "entregable", id, titulo })
+          }
+          onAjustarCantidad={(id, titulo, cantidadActual, unidad) =>
+            setAjustarCantidadTarget({
+              nivel: "entregable",
+              id,
+              titulo,
+              cantidadActual,
+              unidad,
+            })
           }
           onHistorial={(id, titulo) =>
             setHistorialTarget({ tipo: "entregable", id, titulo })
@@ -1439,6 +1580,18 @@ export const NavegadorJerarquico: React.FC = () => {
             entidadId={historialTarget.id}
           />
         </Dialog>
+      )}
+      {ajustarCantidadTarget && (
+        <AjustarCantidadModal
+          abierto
+          nivel={ajustarCantidadTarget.nivel}
+          id={ajustarCantidadTarget.id}
+          titulo={ajustarCantidadTarget.titulo}
+          cantidadActual={ajustarCantidadTarget.cantidadActual}
+          unidad={ajustarCantidadTarget.unidad}
+          onCerrar={() => setAjustarCantidadTarget(null)}
+          onAjustado={() => setAjustarCantidadTarget(null)}
+        />
       )}
     </div>
   );

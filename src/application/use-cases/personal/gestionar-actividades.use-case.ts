@@ -8,8 +8,6 @@ import {
 import {
   crearActividadSchema,
   migrarActividadSchema,
-  MAX_TAREAS_ENFOQUE_POR_DIA,
-  MAX_TAREAS_MANTENIMIENTO_POR_DIA,
   type CrearActividadInput,
   type MigrarActividadInput,
   type Actividad,
@@ -27,10 +25,13 @@ function idActividad(): string {
 
 /**
  * Actividad — día a día, hoja de la jerarquía. `entregableId` es opcional:
- * una actividad suelta (sin Entregable arriba) sigue siendo válida. Mismo
- * tope duro que tenía el Búnker (1 enfoque + 3 mantenimiento por día) — acá
- * es donde se sigue enforzando, contando filas Actividad en vez de
- * TareaDiaria (ver migración Sprint 5).
+ * una actividad suelta (sin Entregable arriba) sigue siendo válida.
+ *
+ * Sin tope duro por día (cambio post-Sprint 20: antes el Búnker bloqueaba a
+ * partir de 1 enfoque + 3 mantenimiento; ahora esos números son solo una
+ * cantidad *recomendada* — ver MAX_TAREAS_* en actividad.entity.ts — que la
+ * UI y los prompts de IA usan como guía, pero nunca bloquean crear una más
+ * si el usuario, después de resolver esas, quiere seguir agregando.
  */
 export class GestionarActividadesUseCase {
   public async crearActividad(
@@ -58,27 +59,6 @@ export class GestionarActividadesUseCase {
         );
       }
       entregable = fila;
-    }
-
-    if (
-      parsed.data.tipo === "enfoque" ||
-      parsed.data.tipo === "mantenimiento"
-    ) {
-      const activasDelDia = await db.actividad
-        .where({ diaTarea: parsed.data.diaTarea, tipo: parsed.data.tipo })
-        .and((a) => a.estado === "pendiente")
-        .toArray();
-      const limite =
-        parsed.data.tipo === "enfoque"
-          ? MAX_TAREAS_ENFOQUE_POR_DIA
-          : MAX_TAREAS_MANTENIMIENTO_POR_DIA;
-      if (activasDelDia.length >= limite) {
-        return Resultado.falla(
-          new ErrorDominio(
-            "Para ingresar esta actividad, debés cancelar o migrar una de las existentes. Menos pero mejor."
-          )
-        );
-      }
     }
 
     const ahora = Date.now();

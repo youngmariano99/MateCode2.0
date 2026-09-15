@@ -120,11 +120,12 @@ const FormularioNuevaActividad: React.FC<{
 };
 
 /**
- * Agenda de hoy: el compromiso del día — 1 actividad de enfoque profundo +
- * hasta 3 de mantenimiento (mismo tope que antes, ahora sobre `Actividad` en
- * vez de `TareaDiaria` — ver Sprint 20). Se resuelven inline (completar/
- * migrar/cancelar), sin pantallas separadas ni rituales, y sin objetivos
- * mezclados acá — eso vive en la vista jerárquica (tab "Mes").
+ * Agenda de hoy: el compromiso del día — recomendado 1 actividad de enfoque
+ * profundo + hasta 3 de mantenimiento, pero sin tope duro (ver Sprint 20:
+ * MAX_TAREAS_* son solo una cantidad recomendada, el formulario para seguir
+ * agregando sigue disponible aunque ya se llegó a esa cantidad). Se resuelven
+ * inline (completar/migrar/cancelar), sin pantallas separadas ni rituales, y
+ * sin objetivos mezclados acá — eso vive en la vista jerárquica (tab "Mes").
  */
 export const BunkerDelDia: React.FC = () => {
   const diaTarea = obtenerDiaTareaHoy();
@@ -136,6 +137,17 @@ export const BunkerDelDia: React.FC = () => {
           .where({ diaTarea })
           .and((a) => a.estado === "pendiente" && a.tipo !== "backlog")
           .toArray(),
+      [diaTarea]
+    ) || SIN_ACTIVIDADES;
+
+  const proximasActividades =
+    useLiveQuery(
+      () =>
+        db.actividad
+          .where("diaTarea")
+          .above(diaTarea)
+          .and((a) => a.estado === "pendiente" && a.tipo !== "backlog")
+          .sortBy("diaTarea"),
       [diaTarea]
     ) || SIN_ACTIVIDADES;
 
@@ -155,28 +167,43 @@ export const BunkerDelDia: React.FC = () => {
 
       <div className="flex flex-col gap-2">
         <span className="text-[10px] font-bold tracking-wider text-zinc-500 uppercase">
-          Enfoque profundo
+          Enfoque profundo{" "}
+          {enfoque.length > MAX_TAREAS_ENFOQUE_POR_DIA && (
+            <span className="text-zinc-600">
+              ({enfoque.length}, recomendado {MAX_TAREAS_ENFOQUE_POR_DIA})
+            </span>
+          )}
         </span>
         {enfoque.map((a) => (
           <FilaActividad key={a.id} actividad={a} />
         ))}
-        {enfoque.length < MAX_TAREAS_ENFOQUE_POR_DIA && (
-          <FormularioNuevaActividad tipo="enfoque" diaTarea={diaTarea} />
-        )}
+        <FormularioNuevaActividad tipo="enfoque" diaTarea={diaTarea} />
       </div>
 
       <div className="flex flex-col gap-2 border-t border-[#2A2A2E] pt-3">
         <span className="text-[10px] font-bold tracking-wider text-zinc-500 uppercase">
           Mantenimiento ({mantenimiento.length}/
-          {MAX_TAREAS_MANTENIMIENTO_POR_DIA})
+          {MAX_TAREAS_MANTENIMIENTO_POR_DIA} recomendado)
         </span>
         {mantenimiento.map((a) => (
           <FilaActividad key={a.id} actividad={a} />
         ))}
-        {mantenimiento.length < MAX_TAREAS_MANTENIMIENTO_POR_DIA && (
-          <FormularioNuevaActividad tipo="mantenimiento" diaTarea={diaTarea} />
-        )}
+        <FormularioNuevaActividad tipo="mantenimiento" diaTarea={diaTarea} />
       </div>
+
+      {proximasActividades.length > 0 && (
+        <div className="flex flex-col gap-2 border-t border-[#2A2A2E] pt-3">
+          <span className="text-[10px] font-bold tracking-wider text-zinc-500 uppercase">
+            Próximas actividades
+          </span>
+          {proximasActividades.map((a) => (
+            <div key={a.id} className="flex flex-col gap-1">
+              <span className="text-[10px] text-zinc-600">{a.diaTarea}</span>
+              <FilaActividad actividad={a} />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
