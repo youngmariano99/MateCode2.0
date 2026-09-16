@@ -119,10 +119,17 @@ export class ImportarArbolPersonalUseCase {
         errores: [`Entregable "${item.titulo}": ${res.error!.mensaje}`],
       };
     }
-    const hijos = await Promise.all(
+    const hijosActividades = await Promise.all(
       item.actividades.map((a) => this.crearActividad(a, res.valor))
     );
-    return combinar({ creados: 1, errores: [] }, ...hijos);
+    const hijosFases = await Promise.all(
+      item.fases.map((f) => this.crearFase(f, res.valor))
+    );
+    return combinar(
+      { creados: 1, errores: [] },
+      ...hijosActividades,
+      ...hijosFases
+    );
   }
 
   private async crearProyectoConHijos(

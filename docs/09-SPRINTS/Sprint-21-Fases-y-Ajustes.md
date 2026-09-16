@@ -91,6 +91,19 @@
 - [x] Verificación: typecheck / eslint / test (183/183) / build final — todo limpio
 - [ ] **Verificación visual — no pude hacerla yo**: mismo límite de siempre (login sin credenciales)
 
+### Fix post-entrega: Fases anidadas en el mismo JSON, no como paso aparte
+
+El usuario probó el prompt de "Planificar por etapas" y notó una contradicción real: la Etapa 3 decía "bajá a Proyecto/Entregable/Actividad **dentro de cada Fase**" (como si la Fase fuera un contenedor), pero el JSON de salida no tenía lugar para Fases y pedía generarlas en un prompt totalmente aparte — dos exhanges de copiar/pegar en vez de uno. Esto no coincidía con el modelo de datos real (Fase cuelga de un Entregable, nunca al revés) ni con lo que el usuario esperaba (ir llenando de a partes en un solo flujo, como los sprints de desarrollo).
+
+- [x] `itemEntregableJsonSchema` gana `fases: ItemFaseJson[]` anidado (mismo lugar que `actividades`) — ahora **cualquiera** de los 5 puntos de entrada de la jerarquía puede crear Fases en la misma pasada, no solo el flujo por etapas
+- [x] `ImportarArbolPersonalUseCase.crearEntregableConHijos` crea las Fases anidadas junto con las Actividades
+- [x] `NOTA_FASES` (nueva, en `generar-prompt-jerarquia-personal.ts`): aclara explícitamente que Fase NO es un nivel de la jerarquía, va dentro del Entregable — cableada en el árbol completo, en "Entregable bajo Proyecto existente", y en el flujo por etapas
+- [x] `generarPromptPlanificacionEnFases`: Etapa 2 reformulada ("pensar el ritmo", no "armar Fases como contenedor"), Etapa 3 aclara que el reparto se nidea dentro del Entregable, un solo JSON final con todo junto — sacada la nota vieja que mandaba a un segundo prompt
+- [x] `resumen-import-jerarquia.tsx`: la vista previa del Entregable ahora también muestra sus Fases anidadas
+- [x] El prompt/import de "Fases bajo un Entregable existente" (`generarPromptFases`/`importarFases`) se mantiene — pero ahora está clarificado que es solo para agregar Fases a algo que ya existía de antes, no para el armado inicial
+- [x] Test nuevo: `importarArbol` crea las Fases anidadas dentro del Entregable en la misma pasada
+- [x] Verificación: typecheck / eslint / test (184/184) / build — todo limpio
+
 ## Sprint 21 completo — resumen
 
 Los 9 sprints del plan quedaron implementados y verificados (typecheck/eslint/test/build limpios en cada uno). Pendiente únicamente la prueba visual en el navegador (bloqueada por el login) — recorrido sugerido: crear Fases a mano y con "Generar automáticamente" en un Entregable, cerrar una Fase con cada tipo de decisión (incluida la que queda bloqueada por bandas), usar "Planificar por etapas" y "Ajustar con IA" desde Áreas/Objetivos, y confirmar que la vista previa de import funciona en los 6 puntos de entrada.

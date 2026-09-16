@@ -19,6 +19,8 @@ Importante — sub-tareas del mismo día: si un procedimiento tiene partes disti
 
 const NOTA_HABITO = `Antes de crear un Entregable recurrente, preguntate si en realidad es un Hábito: si lo que se describe NO tiene una meta final numérica a alcanzar y se sostiene indefinidamente en el tiempo sin fecha de corte real (ej. "caminar todos los días", "tomar agua", "meditar") — eso encaja mejor como Hábito (un módulo aparte de esta jerarquía, con seguimiento MIN/MED/MAX). Si notás que es este caso, avisá y preguntá si seguimos igual (creando el Entregable de todos modos, por alguna razón puntual) o si lo dejamos fuera de este árbol para cargarlo como Hábito en la pantalla correspondiente.`;
 
+const NOTA_FASES = `Las Fases NO son un nivel nuevo de la jerarquía (sigue siendo Área → Objetivo → Proyecto → Entregable → Actividad) — son checkpoints OPCIONALES que cuelgan de un Entregable puntual, para partir su meta total en tramos con fecha propia (ej. semanales) y poder revisar cuánto se logró en cada uno. Van anidadas DENTRO del Entregable, en su propio campo "fases" (mismo lugar que "actividades") — nunca en un nivel aparte. Usalas cuando el usuario quiera ir revisando el avance por partes en vez de solo al final: cada Fase lleva título, orden (0, 1, 2...), fecha de inicio, fecha límite, y su propia cantidad objetivo (la porción de la meta total del Entregable que le toca a esa Fase — no repitas el total completo en cada una). Si no hace falta ese nivel de detalle, dejá "fases": [].`;
+
 const INSTRUCCION_PREGUNTAR = `Antes de generar el JSON final, hacé todas las preguntas que necesites para no inventar nada: fechas, cantidades, si algo es recurrente o puntual. Esperá mi respuesta a cada pregunta. NO generes el JSON hasta que confirme que ya tenés todo lo necesario.`;
 
 /** Árbol completo: Área (nueva o existente) → Objetivo(s) → Proyecto(s) → Entregable(s) → Actividad(es), todo en un JSON. */
@@ -50,6 +52,10 @@ ${areasTexto}
 - Actividad: día a día, hijo de un Entregable. Si el Entregable es recurrente, NO hace falta declarar actividades — se generan solas.
 </como_funciona_la_jerarquia>
 
+<fases_opcionales>
+${NOTA_FASES}
+</fases_opcionales>
+
 <hijos_vs_habitos>
 ${NOTA_HABITO}
 </hijos_vs_habitos>
@@ -72,13 +78,17 @@ Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta est
             {
               "titulo": "...", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 200, "unidad": "contactos",
               "recurrencia": { "frecuencia": "dias_especificos", "diasSemana": [1,2,3,4,5] },
-              "actividades": []
+              "actividades": [],
+              "fases": [
+                { "titulo": "Semana 1", "orden": 0, "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 10, "unidad": "contactos" }
+              ]
             },
             {
               "titulo": "...", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 8, "unidad": "pantallas",
               "actividades": [
                 { "tipo": "enfoque" | "mantenimiento", "descripcion": "...", "diaTarea": "YYYY-MM-DD" }
-              ]
+              ],
+              "fases": []
             }
           ]
         }
@@ -86,7 +96,7 @@ Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta est
     }
   ]
 }
-Nota: "proyectos", "entregables", "actividades" pueden quedar vacíos ([]) si solo querés armar hasta ese nivel por ahora.
+Nota: "proyectos", "entregables", "actividades" y "fases" pueden quedar vacíos ([]) si solo querés armar hasta ese nivel por ahora, o si ese Entregable no necesita checkpoints.
 </output_requerido>`;
 }
 
@@ -171,7 +181,7 @@ Este/estos Entregable(s) van a pertenecer al Proyecto "${proyectoTitulo}" (${pro
 </proyecto_padre>
 
 <instrucciones>
-Un Entregable tiene fecha límite obligatoria; cantidad/unidad son opcionales. ${NOTA_RECURRENCIA} ${NOTA_HABITO} ${INSTRUCCION_PREGUNTAR}
+Un Entregable tiene fecha límite obligatoria; cantidad/unidad son opcionales. ${NOTA_RECURRENCIA} ${NOTA_FASES} ${NOTA_HABITO} ${INSTRUCCION_PREGUNTAR}
 </instrucciones>
 
 <output_requerido>
@@ -182,7 +192,8 @@ Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta est
     {
       "titulo": "...", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 200, "unidad": "contactos",
       "recurrencia": { "frecuencia": "dias_especificos", "diasSemana": [1,2,3,4,5] },
-      "actividades": []
+      "actividades": [],
+      "fases": []
     }
   ]
 }
@@ -291,22 +302,30 @@ ${areasTexto}
 ${resumenFasesRecientes || "Sin Fases abiertas o cerradas recientes."}
 </fases_recientes>
 
+<como_funciona_la_jerarquia>
+La jerarquía tiene 5 niveles fijos: Área → Objetivo → Proyecto → Entregable → Actividad. Las Fases NO son un nivel nuevo — son checkpoints opcionales que van DENTRO de un Entregable puntual (ver más abajo). Nunca pongas Proyecto o Entregable "dentro de" una Fase: es al revés, la Fase vive adentro del Entregable.
+</como_funciona_la_jerarquia>
+
+<fases_opcionales>
+${NOTA_FASES}
+</fases_opcionales>
+
 <flujo_obligatorio>
 Etapa 1 — Cuantificar: definí solo el/los Objetivo(s) SMART (cantidad + unidad + fecha límite). NO bajes a Proyecto/Entregable todavía. Confirmá conmigo que los números están bien antes de seguir.
 
-Etapa 2 — El CÓMO, en Fases: para cada Objetivo, resolvé cómo se llega al total — repartilo en Fases (checkpoints semanales/mensuales/lo que corresponda) con su propia meta y fechas. Si el ritmo va a ir cambiando (ej. arrancar despacio e ir subiendo), reflejalo en la cantidad de cada Fase, no en un solo número fijo. Confirmá conmigo el reparto antes de seguir.
+Etapa 2 — El ritmo: para cada Objetivo, pensá en voz alta cómo se llega al total con el tiempo — constante (lo mismo cada semana) o progresivo (arrancar despacio e ir subiendo, tipo pirámide). No hace falta el detalle fino todavía, pero sí el reparto semana a semana (o mes a mes) de cuánto corresponde en cada tramo. Confirmá conmigo ese reparto antes de seguir — en la Etapa 3 se va a convertir directamente en las "fases" del Entregable que corresponda.
 
-Etapa 3 — Estructura: recién acá bajá a Proyecto(s)/Entregable(s)/Actividad(es) dentro de cada Fase ya acordada. ${NOTA_RECURRENCIA}
+Etapa 3 — Estructura: recién acá bajá a Proyecto(s) → Entregable(s) → Actividad(es). El reparto que acordamos en la Etapa 2 va como "fases" ANIDADAS dentro del Entregable recurrente que corresponda (no como un nivel aparte). ${NOTA_RECURRENCIA}
 
 ${NOTA_HABITO}
 </flujo_obligatorio>
 
 <instrucciones>
-${INSTRUCCION_PREGUNTAR} No generes NINGÚN JSON hasta terminar las 3 etapas — cada etapa se confirma en el chat antes de pasar a la siguiente.
+${INSTRUCCION_PREGUNTAR} No generes NINGÚN JSON hasta terminar las 3 etapas — cada etapa se confirma en el chat antes de pasar a la siguiente. Al final se genera UN SOLO JSON con todo (objetivos, proyectos, entregables, actividades y fases juntos) — no hace falta pegar nada por separado.
 </instrucciones>
 
 <output_requerido>
-Recién al final de la Etapa 3, cuando confirme que todo está listo, devolvé ÚNICAMENTE un objeto JSON con esta estructura (sin texto adicional) — mismo formato del árbol completo, con "fases" anidadas dentro de cada objetivo (opcional, solo si armaste Fases para ese objetivo):
+Recién al final de la Etapa 3, cuando confirme que todo está listo, devolvé ÚNICAMENTE un objeto JSON con esta estructura (sin texto adicional) — TODO en un solo JSON, con "fases" anidadas dentro de cada Entregable que las necesite (el reparto que armamos en la Etapa 2, ya con números concretos por fase):
 {
   "areaTitulo": "...",
   "objetivosNuevos": [
@@ -319,7 +338,11 @@ Recién al final de la Etapa 3, cuando confirme que todo está listo, devolvé �
             {
               "titulo": "...", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 200, "unidad": "contactos",
               "recurrencia": { "frecuencia": "dias_especificos", "diasSemana": [1,2,3,4,5] },
-              "actividades": []
+              "actividades": [],
+              "fases": [
+                { "titulo": "Semana 1", "orden": 0, "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 10, "unidad": "contactos" },
+                { "titulo": "Semana 2", "orden": 1, "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 15, "unidad": "contactos" }
+              ]
             }
           ]
         }
@@ -327,7 +350,7 @@ Recién al final de la Etapa 3, cuando confirme que todo está listo, devolvé �
     }
   ]
 }
-Nota: las Fases no van en este JSON del árbol — una vez creado el Entregable, generá el JSON de Fases aparte con el prompt de "Fases bajo un Entregable existente" (mismo Entregable, resuelto por título).
+Nota: "fases" puede quedar vacío ([]) en los Entregables que no necesitan checkpoints — no es obligatorio en todos.
 </output_requerido>`;
 }
 

@@ -77,6 +77,13 @@ const ResumenEntregable: React.FC<{ e: ItemEntregableJson; nivel: number }> = ({
     {e.actividades.map((a, i) => (
       <ResumenActividad key={i} a={a} nivel={nivel + 1} />
     ))}
+    {e.fases.map((f, i) => (
+      <Fila key={`fase-${i}`} nivel={nivel + 1}>
+        <span className="text-violet-400">◆ Fase:</span>{" "}
+        <span className="font-bold text-zinc-100">{f.titulo}</span> —{" "}
+        {f.diaInicio} → {f.diaLimite} · {f.cantidadObjetivo} {f.unidad}
+      </Fila>
+    ))}
   </>
 );
 

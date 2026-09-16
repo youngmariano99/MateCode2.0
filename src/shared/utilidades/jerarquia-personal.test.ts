@@ -699,7 +699,75 @@ describe("Import JSON con IA de la jerarquía (árbol completo y por nivel)", ()
     await db.proyecto_personal.clear();
     await db.entregable.clear();
     await db.actividad.clear();
+    await db.fase_personal.clear();
     await db.personal_historial.clear();
+  });
+
+  test("importarArbol crea las Fases anidadas dentro del Entregable en la misma pasada (Sprint 21)", async () => {
+    const res = await importarArbol.importarArbol([
+      {
+        areaTitulo: "Freelancer",
+        objetivosNuevos: [
+          {
+            titulo: "1000 contactos",
+            unidad: "contactos",
+            cantidadObjetivo: 1000,
+            diaLimite: "2027-01-31",
+            proyectos: [
+              {
+                titulo: "Contacto en frío",
+                diaLimite: "2026-12-31",
+                entregables: [
+                  {
+                    titulo: "Contacto en frío recurrente",
+                    diaLimite: "2026-12-31",
+                    cantidadObjetivo: 1000,
+                    unidad: "contactos",
+                    recurrencia: {
+                      frecuencia: "dias_especificos",
+                      diasSemana: [1, 2, 3, 4, 5],
+                    },
+                    actividades: [],
+                    fases: [
+                      {
+                        titulo: "Semana 1",
+                        orden: 0,
+                        diaInicio: "2026-01-05",
+                        diaLimite: "2026-01-11",
+                        cantidadObjetivo: 10,
+                        unidad: "contactos",
+                      },
+                      {
+                        titulo: "Semana 2",
+                        orden: 1,
+                        diaInicio: "2026-01-12",
+                        diaLimite: "2026-01-18",
+                        cantidadObjetivo: 15,
+                        unidad: "contactos",
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    assert.strictEqual(res.ok, true);
+
+    const entregable = await db.entregable
+      .filter((e) => e.titulo === "Contacto en frío recurrente")
+      .first();
+    assert.ok(entregable);
+    const fases = await db.fase_personal
+      .where("entregableId")
+      .equals(entregable!.id)
+      .sortBy("orden");
+    assert.strictEqual(fases.length, 2);
+    assert.strictEqual(fases[0].titulo, "Semana 1");
+    assert.strictEqual(fases[0].cantidadObjetivo, 10);
+    assert.strictEqual(fases[1].cantidadObjetivo, 15);
   });
 
   test("rechaza un JSON con estructura inválida (sin objetivosNuevos) en vez de importarlo a medias", async () => {

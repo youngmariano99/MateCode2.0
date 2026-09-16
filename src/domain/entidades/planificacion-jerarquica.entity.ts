@@ -29,6 +29,26 @@ export const itemActividadJsonSchema = z.object({
 });
 export type ItemActividadJson = z.infer<typeof itemActividadJsonSchema>;
 
+// Fases (Sprint 21) — checkpoints periódicos de un Entregable, con meta
+// propia. Van ANIDADAS dentro del Entregable (igual que "actividades"): se
+// crean en la misma pasada que el resto del árbol, no en un JSON aparte —
+// el prompt de "Fases bajo un Entregable existente" (generarPromptFases)
+// sigue existiendo, pero solo para agregarle Fases a un Entregable que ya
+// existía de antes, no para el armado inicial.
+export const itemFaseJsonSchema = z.object({
+  titulo: z.string().trim().min(1, "Falta el título de la fase."),
+  orden: z.number().int().min(0),
+  diaInicio: fechaISO,
+  diaLimite: fechaISO,
+  cantidadObjetivo: z
+    .number()
+    .positive("La cantidad de la fase tiene que ser mayor a 0."),
+  unidad: z.string().trim().min(1, "Falta la unidad de la fase."),
+  bandaAceptable: z.number().min(0).max(100).optional(),
+  bandaMejorable: z.number().min(0).max(100).optional(),
+});
+export type ItemFaseJson = z.infer<typeof itemFaseJsonSchema>;
+
 export const itemEntregableJsonSchema = z.object({
   titulo: z.string().trim().min(1, "Falta el título del entregable."),
   diaInicio: fechaISO.optional(),
@@ -42,6 +62,7 @@ export const itemEntregableJsonSchema = z.object({
     })
     .optional(),
   actividades: z.array(itemActividadJsonSchema).default([]),
+  fases: z.array(itemFaseJsonSchema).default([]),
 });
 export type ItemEntregableJson = z.infer<typeof itemEntregableJsonSchema>;
 
@@ -117,24 +138,9 @@ export type ImportarActividadesBajoEntregableInput = z.input<
   typeof importarActividadesBajoEntregableSchema
 >;
 
-// ============================================================================
-// Fases (Sprint 21) — checkpoints periódicos de un Entregable existente, con
-// meta propia. Mismo criterio de resolución por título exacto que el resto.
-// ============================================================================
-export const itemFaseJsonSchema = z.object({
-  titulo: z.string().trim().min(1, "Falta el título de la fase."),
-  orden: z.number().int().min(0),
-  diaInicio: fechaISO,
-  diaLimite: fechaISO,
-  cantidadObjetivo: z
-    .number()
-    .positive("La cantidad de la fase tiene que ser mayor a 0."),
-  unidad: z.string().trim().min(1, "Falta la unidad de la fase."),
-  bandaAceptable: z.number().min(0).max(100).optional(),
-  bandaMejorable: z.number().min(0).max(100).optional(),
-});
-export type ItemFaseJson = z.infer<typeof itemFaseJsonSchema>;
-
+// Import incremental: agregar Fases a un Entregable que YA EXISTE de antes
+// (mismo criterio de título exacto que el resto de los puntos de entrada
+// incrementales) — itemFaseJsonSchema vive arriba, junto a itemEntregableJsonSchema.
 export const importarFasesBajoEntregableSchema = z.object({
   entregableTitulo: z
     .string()
