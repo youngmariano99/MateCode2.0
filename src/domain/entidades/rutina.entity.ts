@@ -31,6 +31,23 @@ export type FormatoRutina = (typeof FORMATOS_RUTINA)[number];
 export const TIPOS_ESTRUCTURA = ["series", "tiempo"] as const;
 export type TipoEstructura = (typeof TIPOS_ESTRUCTURA)[number];
 
+const FORMATOS_TIEMPO = new Set<FormatoRutina>([
+  "circuito",
+  "tabata",
+  "emom",
+  "amrap",
+  "for_time",
+  "liss",
+  "pausa_activa",
+]);
+
+/** Tradicional/pirámide/superserie son "series"; el resto se mide por tiempo/rondas. */
+export function tipoEstructuraDeFormato(
+  formato: FormatoRutina
+): TipoEstructura {
+  return FORMATOS_TIEMPO.has(formato) ? "tiempo" : "series";
+}
+
 export interface SetPlanificado {
   reps?: number;
   tiempoSeg?: number;
@@ -82,6 +99,23 @@ export type CrearPlantillaRutinaInput = z.input<
   typeof crearPlantillaRutinaSchema
 >;
 
+/**
+ * Ajuste in-place de una Rutina existente (Sprint 22) — usado por la
+ * resolución-por-nombre del import combinado: si ya existe una Rutina con
+ * el nombre que trae el JSON, se actualiza con esto en vez de crear una
+ * duplicada (mismo nombre + números nuevos = "ajustar", no "otra rutina").
+ */
+export const ajustarPlantillaRutinaSchema = z.object({
+  id: z.string(),
+  formato: z.enum(FORMATOS_RUTINA).optional(),
+  tipoEstructura: z.enum(TIPOS_ESTRUCTURA).optional(),
+  estructura: z.record(z.string(), z.unknown()).optional(),
+  calentamiento: z.string().trim().optional(),
+});
+export type AjustarPlantillaRutinaInput = z.input<
+  typeof ajustarPlantillaRutinaSchema
+>;
+
 // ============================================================================
 // Bloque de entrenamiento (mesociclo) — declara UN eje de progresión por
 // defecto para todo el período; cada ejercicio cae al eje disponible más
@@ -104,6 +138,8 @@ export interface BloqueEntrenamiento {
   diaFin: string;
   ejeProgresionDefault: EjeProgresion;
   estado: EstadoBloque;
+  /** Rutinas (PlantillaRutina.id) que se entrenan en este período — array denormalizado, una Rutina puede repetirse en varios Bloques. */
+  plantillaIds: string[];
   creadoEn: number;
   actualizadoEn: number;
 }
@@ -114,6 +150,7 @@ export const crearBloqueSchema = z
     diaInicio: fechaISO,
     diaFin: fechaISO,
     ejeProgresionDefault: z.enum(EJES_PROGRESION),
+    plantillaIds: z.array(z.string()).default([]),
   })
   .refine((v) => v.diaFin >= v.diaInicio, {
     message: "La fecha de fin no puede ser anterior a la de inicio.",

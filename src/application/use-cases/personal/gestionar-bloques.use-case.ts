@@ -43,6 +43,7 @@ export class GestionarBloquesUseCase {
       diaFin: parsed.data.diaFin,
       ejeProgresionDefault: parsed.data.ejeProgresionDefault,
       estado: "activo",
+      plantillaIds: parsed.data.plantillaIds,
       creadoEn: ahora,
       actualizadoEn: ahora,
     };
@@ -154,6 +155,7 @@ export class GestionarBloquesUseCase {
           diaFin,
           ejeProgresionDefault: item.ejeProgresionDefault,
           estado: esPrimeroYNoHayActivo ? "activo" : "planificado",
+          plantillaIds: [],
           creadoEn: ahora,
           actualizadoEn: ahora,
         };
@@ -171,6 +173,45 @@ export class GestionarBloquesUseCase {
           err instanceof Error
             ? err.message
             : "Error al importar la secuencia de bloques."
+        )
+      );
+    }
+  }
+
+  /**
+   * Agrega Rutinas (por id) a un Bloque ya existente, sin duplicar las que
+   * ya estaban vinculadas — para vincular a mano desde la UI, sin pasar por
+   * el import combinado con IA.
+   */
+  public async vincularRutinas(
+    bloqueId: string,
+    plantillaIds: string[]
+  ): Promise<Resultado<void>> {
+    const bloque = await db.bloque_entrenamiento.get(bloqueId);
+    if (!bloque) {
+      return Resultado.falla(
+        new ErrorNoEncontrado("No se encontró el bloque.")
+      );
+    }
+    const combinados = Array.from(
+      new Set([...bloque.plantillaIds, ...plantillaIds])
+    );
+    const actualizadoEn = Date.now();
+    try {
+      await db.bloque_entrenamiento.update(bloqueId, {
+        plantillaIds: combinados,
+        actualizadoEn,
+      });
+      await QueueService.encolar("bloque_entrenamiento", "editar", bloqueId, {
+        id: bloqueId,
+        plantillaIds: combinados,
+        actualizadoEn,
+      });
+      return Resultado.exito(undefined);
+    } catch (err) {
+      return Resultado.falla(
+        new ErrorDominio(
+          err instanceof Error ? err.message : "Error al vincular la rutina."
         )
       );
     }

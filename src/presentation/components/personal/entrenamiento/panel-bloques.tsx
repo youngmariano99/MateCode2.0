@@ -4,17 +4,24 @@ import React, { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../../../offline/dexie/db";
 import { Button } from "../../button";
-import { Select } from "../../select";
+import { Select, Combobox } from "../../select";
 import { Badge } from "../../badge";
 import { Icono } from "../../icons";
 import { ModalImportarJson } from "../../contenido/modal-importar-json";
 import { useToast } from "../../../hooks/useToast";
 import { GestionarBloquesUseCase } from "../../../../application/use-cases/personal/gestionar-bloques.use-case";
-import { generarPromptSecuenciaBloques } from "../../../../domain/prompts/generar-prompt-entrenamiento";
+import { ImportarBloqueEntrenamientoUseCase } from "../../../../application/use-cases/personal/importar-bloque-entrenamiento.use-case";
+import {
+  generarPromptSecuenciaBloques,
+  generarPromptBloqueCompleto,
+} from "../../../../domain/prompts/generar-prompt-entrenamiento";
+import { resumenBloqueCompleto } from "./resumen-import-entrenamiento";
 import {
   EJES_PROGRESION,
   type EjeProgresion,
 } from "../../../../domain/entidades/ejercicio.entity";
+import { calcularMejoraEjercicio } from "../../../../domain/entidades/registro-actividad.entity";
+import type { PlantillaRutina } from "../../../../domain/entidades/rutina.entity";
 import {
   obtenerDiaTareaHoy,
   sumarDias,
@@ -38,7 +45,39 @@ const PLANTILLA_SECUENCIA = JSON.stringify(
 );
 
 const useCase = new GestionarBloquesUseCase();
+const importarBloqueUseCase = new ImportarBloqueEntrenamientoUseCase();
 const SIN_BLOQUES: never[] = [];
+const SIN_RUTINAS: PlantillaRutina[] = [];
+const SIN_EJERCICIOS: never[] = [];
+
+/** Progreso real del bloque activo, por ejercicio, vía calcularMejoraEjercicio sobre sus RegistroActividad — para que la IA arme el próximo bloque en base a desempeño real, no a la plantilla teórica. */
+async function armarResumenProgreso(
+  bloqueActivoId: string,
+  eje: EjeProgresion,
+  nombrePorId: Map<string, string>
+): Promise<string> {
+  const registros = await db.registro_actividad
+    .where("bloqueId")
+    .equals(bloqueActivoId)
+    .sortBy("diaTarea");
+  if (registros.length === 0) return "";
+
+  const ejercicioIds = new Set<string>();
+  registros.forEach((r) =>
+    r.resultados.forEach((res) => ejercicioIds.add(res.ejercicioId))
+  );
+
+  const lineas: string[] = [];
+  for (const id of ejercicioIds) {
+    const mejora = calcularMejoraEjercicio(registros, id, eje);
+    if (!mejora) continue;
+    const nombre = nombrePorId.get(id) || id;
+    lineas.push(
+      `- ${nombre}: arrancó en ${mejora.valorInicial}, llegó a ${mejora.valorFinal} (${mejora.sesiones} sesiones${mejora.mejoro ? ", mejoró" : ""}).`
+    );
+  }
+  return lineas.join("\n");
+}
 
 const ETIQUETA_EJE: Record<EjeProgresion, string> = {
   carga: "Carga (kg)",
@@ -65,6 +104,9 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
   const [recienCreado, setRecienCreado] = useState(false);
 
   const [modalSecuenciaAbierto, setModalSecuenciaAbierto] = useState(false);
+  const [modalBloqueCompletoAbierto, setModalBloqueCompletoAbierto] =
+    useState(false);
+  const [rutinaAVincular, setRutinaAVincular] = useState("");
 
   const bloques =
     useLiveQuery(() => db.bloque_entrenamiento.toArray()) || SIN_BLOQUES;
@@ -73,6 +115,29 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
     .filter((b) => b.estado === "planificado")
     .sort((a, b) => (a.diaInicio < b.diaInicio ? -1 : 1));
   const esPrimerBloque = bloques.length === 0;
+
+  const rutinasExistentes =
+    useLiveQuery(() =>
+      db.plantilla_rutina.filter((p) => !p.eliminado).toArray()
+    ) || SIN_RUTINAS;
+  const catalogoEjercicios =
+    useLiveQuery(() => db.catalogo_ejercicio.toArray()) || SIN_EJERCICIOS;
+  const equipamientoPropio =
+    useLiveQuery(() =>
+      db.catalogo_etiquetas
+        .where("categoria")
+        .equals("equipamiento_propio")
+        .toArray()
+    ) || SIN_EJERCICIOS;
+  const nombrePorIdEjercicio = new Map(
+    catalogoEjercicios.map((e) => [e.id, e.nombre])
+  );
+  const nombrePorIdRutina = new Map(
+    rutinasExistentes.map((r) => [r.id, r.nombre])
+  );
+  const rutinasDisponiblesParaVincular = rutinasExistentes.filter(
+    (r) => !(activo?.plantillaIds || []).includes(r.id)
+  );
 
   const crear = async () => {
     if (!nombre.trim()) return;
@@ -117,6 +182,38 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
     mostrarToast(`${res.valor} bloque(s) creado(s) en secuencia.`, "exito");
   };
 
+  const handleCopiarPromptBloqueCompleto = async () => {
+    const resumenProgreso = activo
+      ? await armarResumenProgreso(
+          activo.id,
+          activo.ejeProgresionDefault,
+          nombrePorIdEjercicio
+        )
+      : "";
+    const prompt = generarPromptBloqueCompleto(
+      catalogoEjercicios,
+      equipamientoPropio.map((e) => e.etiqueta),
+      rutinasExistentes,
+      bloques,
+      resumenProgreso
+    );
+    navigator.clipboard.writeText(prompt);
+    mostrarToast("Prompt copiado al portapapeles.", "exito");
+  };
+
+  const importarBloqueCompleto = async (items: unknown[]) => {
+    const res = await importarBloqueUseCase.importarBloqueCompleto(items);
+    if (!res.ok) throw new Error(res.error!.mensaje);
+    mostrarToast(res.valor, "exito");
+  };
+
+  const vincularRutina = async () => {
+    if (!activo || !rutinaAVincular) return;
+    const res = await useCase.vincularRutinas(activo.id, [rutinaAVincular]);
+    if (!res.ok) mostrarToast(res.error!.mensaje, "error");
+    else setRutinaAVincular("");
+  };
+
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-4">
       <div className="flex items-center justify-between gap-2">
@@ -126,14 +223,27 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
             Bloque de entrenamiento
           </h3>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => void handleCopiarPromptBloqueCompleto()}
+            className="px-3 py-1.5 text-xs"
+            icono={<Icono.Sparkles className="h-3.5 w-3.5" />}
+          >
+            Copiar prompt (bloque completo)
+          </Button>
+          <Button
+            onClick={() => setModalBloqueCompletoAbierto(true)}
+            className="px-3 py-1.5 text-xs"
+          >
+            Pegar plan generado
+          </Button>
           <Button
             variant="outline"
             onClick={handleCopiarPromptSecuencia}
             className="px-3 py-1.5 text-xs"
             icono={<Icono.Copy className="h-3.5 w-3.5" />}
           >
-            Copiar prompt para IA
+            Solo periodización (sin rutinas)
           </Button>
           <Button
             variant="outline"
@@ -189,27 +299,70 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
       )}
 
       {activo && (
-        <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
-          <div>
-            <span className="text-sm font-bold text-zinc-200">
-              {activo.nombre}
-            </span>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <Badge color="emerald">Activo</Badge>
-              <Badge color="sky">
-                {ETIQUETA_EJE[activo.ejeProgresionDefault]}
-              </Badge>
-              <span className="text-xs text-zinc-500">
-                {activo.diaInicio} → {activo.diaFin}
+        <div className="flex flex-col gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <span className="text-sm font-bold text-zinc-200">
+                {activo.nombre}
               </span>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <Badge color="emerald">Activo</Badge>
+                <Badge color="sky">
+                  {ETIQUETA_EJE[activo.ejeProgresionDefault]}
+                </Badge>
+                <span className="text-xs text-zinc-500">
+                  {activo.diaInicio} → {activo.diaFin}
+                </span>
+              </div>
             </div>
+            <button
+              onClick={() => void cerrar(activo.id)}
+              className="rounded border border-zinc-800 px-2 py-1 text-[10px] font-bold text-zinc-500 uppercase hover:text-red-400"
+            >
+              Cerrar bloque
+            </button>
           </div>
-          <button
-            onClick={() => void cerrar(activo.id)}
-            className="rounded border border-zinc-800 px-2 py-1 text-[10px] font-bold text-zinc-500 uppercase hover:text-red-400"
-          >
-            Cerrar bloque
-          </button>
+
+          <div className="flex flex-col gap-1.5 border-t border-emerald-500/10 pt-2">
+            <span className="text-[10px] font-bold tracking-wider text-zinc-500 uppercase">
+              Rutinas de este bloque
+            </span>
+            {activo.plantillaIds.length === 0 && (
+              <span className="text-xs text-zinc-600">
+                Sin rutinas vinculadas todavía.
+              </span>
+            )}
+            <div className="flex flex-wrap gap-1.5">
+              {activo.plantillaIds.map((id) => (
+                <Badge key={id} color="zinc">
+                  {nombrePorIdRutina.get(id) || id}
+                </Badge>
+              ))}
+            </div>
+            {rutinasDisponiblesParaVincular.length > 0 && (
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Combobox
+                    value={rutinaAVincular}
+                    onChange={setRutinaAVincular}
+                    options={rutinasDisponiblesParaVincular.map((r) => ({
+                      value: r.id,
+                      label: r.nombre,
+                    }))}
+                    placeholder="Vincular una rutina existente..."
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => void vincularRutina()}
+                  disabled={!rutinaAVincular}
+                  className="px-3 py-1.5 text-xs"
+                >
+                  Vincular
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -258,6 +411,34 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
         titulo="Importar secuencia de bloques desde JSON"
         plantillaEjemplo={PLANTILLA_SECUENCIA}
         onImportar={importarSecuencia}
+      />
+      <ModalImportarJson
+        abierto={modalBloqueCompletoAbierto}
+        onCerrar={() => setModalBloqueCompletoAbierto(false)}
+        titulo="Armar bloque completo desde JSON"
+        renderResumen={resumenBloqueCompleto}
+        plantillaEjemplo={JSON.stringify(
+          {
+            bloque: {
+              nombre: "Bloque 2 — Fuerza",
+              diaFin: sumarDias(obtenerDiaTareaHoy(), 28),
+              ejeProgresionDefault: "carga",
+            },
+            rutinas: [
+              {
+                nombre: "Full Body A",
+                formato: "tradicional",
+                ejercicios: [
+                  { nombre: "Flexiones de pecho", series: 4, reps: 10 },
+                ],
+              },
+            ],
+            ejerciciosNuevos: [],
+          },
+          null,
+          2
+        )}
+        onImportar={importarBloqueCompleto}
       />
     </div>
   );

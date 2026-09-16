@@ -1027,6 +1027,7 @@ export const bloqueEntrenamiento = pgTable("bloque_entrenamiento", {
     length: 20,
   }).notNull(),
   estado: varchar("estado", { length: 20 }).notNull(), // activo | cerrado
+  plantillaIds: jsonb("plantilla_ids").default([]).notNull(), // string[] — Rutinas de este período
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   eliminadoEn: timestamp("eliminado_en"),

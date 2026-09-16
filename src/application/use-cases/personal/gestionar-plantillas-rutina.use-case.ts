@@ -7,7 +7,9 @@ import {
 } from "../../../domain/errores/error-base";
 import {
   crearPlantillaRutinaSchema,
+  ajustarPlantillaRutinaSchema,
   type CrearPlantillaRutinaInput,
+  type AjustarPlantillaRutinaInput,
   type PlantillaRutina,
 } from "../../../domain/entidades/rutina.entity";
 
@@ -54,6 +56,52 @@ export class GestionarPlantillasRutinaUseCase {
       return Resultado.falla(
         new ErrorDominio(
           err instanceof Error ? err.message : "Error al crear la rutina."
+        )
+      );
+    }
+  }
+
+  /**
+   * Actualiza una Rutina existente in-place (Sprint 22) — usado por la
+   * resolución-por-nombre del import combinado: mismo nombre + estructura
+   * nueva significa "ajustar esta rutina", no crear una duplicada.
+   */
+  public async ajustarPlantilla(
+    input: AjustarPlantillaRutinaInput
+  ): Promise<Resultado<void>> {
+    const parsed = ajustarPlantillaRutinaSchema.safeParse(input);
+    if (!parsed.success) {
+      return Resultado.falla(new ErrorDominio(parsed.error.issues[0].message));
+    }
+    const plantilla = await db.plantilla_rutina.get(parsed.data.id);
+    if (!plantilla) {
+      return Resultado.falla(
+        new ErrorNoEncontrado("No se encontró la rutina.")
+      );
+    }
+    const actualizadoEn = Date.now();
+    const cambios: Partial<PlantillaRutina> = { actualizadoEn };
+    if (parsed.data.formato !== undefined)
+      cambios.formato = parsed.data.formato;
+    if (parsed.data.tipoEstructura !== undefined)
+      cambios.tipoEstructura = parsed.data.tipoEstructura;
+    if (parsed.data.estructura !== undefined) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      cambios.estructura = parsed.data.estructura as any;
+    }
+    if (parsed.data.calentamiento !== undefined)
+      cambios.calentamiento = parsed.data.calentamiento;
+    try {
+      await db.plantilla_rutina.update(parsed.data.id, cambios);
+      await QueueService.encolar("plantilla_rutina", "editar", parsed.data.id, {
+        id: parsed.data.id,
+        ...cambios,
+      });
+      return Resultado.exito(undefined);
+    } catch (err) {
+      return Resultado.falla(
+        new ErrorDominio(
+          err instanceof Error ? err.message : "Error al ajustar la rutina."
         )
       );
     }

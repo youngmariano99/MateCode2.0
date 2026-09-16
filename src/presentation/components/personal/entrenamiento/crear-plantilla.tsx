@@ -9,11 +9,14 @@ import { Icono } from "../../icons";
 import { ModalImportarJson } from "../../contenido/modal-importar-json";
 import { useToast } from "../../../hooks/useToast";
 import { GestionarPlantillasRutinaUseCase } from "../../../../application/use-cases/personal/gestionar-plantillas-rutina.use-case";
+import { ImportarBloqueEntrenamientoUseCase } from "../../../../application/use-cases/personal/importar-bloque-entrenamiento.use-case";
 import { generarPromptRutina } from "../../../../domain/prompts/generar-prompt-entrenamiento";
+import { resumenRutinasStandalone } from "./resumen-import-entrenamiento";
 import {
   FORMATOS_RUTINA,
+  tipoEstructuraDeFormato,
   type FormatoRutina,
-  type TipoEstructura,
+  type PlantillaRutina,
 } from "../../../../domain/entidades/rutina.entity";
 import {
   PATRONES_MOVIMIENTO,
@@ -21,7 +24,9 @@ import {
 } from "../../../../domain/entidades/ejercicio.entity";
 
 const useCase = new GestionarPlantillasRutinaUseCase();
+const importarUseCase = new ImportarBloqueEntrenamientoUseCase();
 const SIN_EJERCICIOS: never[] = [];
+const SIN_RUTINAS: PlantillaRutina[] = [];
 
 const ETIQUETA_PATRON: Record<PatronMovimiento, string> = {
   empuje: "Empuje",
@@ -45,20 +50,6 @@ const ETIQUETA_FORMATO: Record<FormatoRutina, string> = {
   liss: "Aeróbico continuo (LISS)",
   pausa_activa: "Pausa activa",
 };
-
-const FORMATOS_TIEMPO = new Set<FormatoRutina>([
-  "circuito",
-  "tabata",
-  "emom",
-  "amrap",
-  "for_time",
-  "liss",
-  "pausa_activa",
-]);
-
-function tipoEstructuraDe(formato: FormatoRutina): TipoEstructura {
-  return FORMATOS_TIEMPO.has(formato) ? "tiempo" : "series";
-}
 
 interface BloqueSerieForm {
   ejercicioId: string;
@@ -133,7 +124,7 @@ export const CrearPlantilla: React.FC = () => {
   const [nombre, setNombre] = useState("");
   const [calentamiento, setCalentamiento] = useState("");
   const [formato, setFormato] = useState<FormatoRutina>("tradicional");
-  const tipoEstructura = tipoEstructuraDe(formato);
+  const tipoEstructura = tipoEstructuraDeFormato(formato);
 
   const [bloquesSeries, setBloquesSeries] = useState<BloqueSerieForm[]>([]);
   const [ejercicioNuevo, setEjercicioNuevo] = useState("");
@@ -219,138 +210,60 @@ export const CrearPlantilla: React.FC = () => {
   };
 
   const [modalImportarAbierto, setModalImportarAbierto] = useState(false);
+  const rutinasExistentes =
+    useLiveQuery(() =>
+      db.plantilla_rutina.filter((p) => !p.eliminado).toArray()
+    ) || SIN_RUTINAS;
 
   const plantillaEjemploImport = JSON.stringify(
-    [
-      {
-        nombre: "Full Body A",
-        formato: "tradicional",
-        calentamiento: "5 min de cinta + movilidad de cadera y hombro",
-        ejercicios: [
-          {
-            // Nombre EXACTO tal como figura en el catálogo de esta app —
-            // no inventar ejercicios nuevos.
-            nombre: ejercicios[0]?.nombre || "Flexiones de pecho",
-            series: 3,
-            reps: 10,
-            pesoKg: null,
-          },
-        ],
-      },
-      {
-        nombre: "Tabata Full Body",
-        formato: "tabata",
-        ejercicios: [ejercicios[1]?.nombre || "Sentadillas", "Burpees"],
-        numeroRondas: 8,
-        tiempoTrabajoSeg: 20,
-        tiempoDescansoSeg: 10,
-      },
-    ],
+    {
+      rutinasNuevas: [
+        {
+          nombre: "Full Body A",
+          formato: "tradicional",
+          calentamiento: "5 min de cinta + movilidad de cadera y hombro",
+          ejercicios: [
+            {
+              // Nombre EXACTO tal como figura en el catálogo de esta app,
+              // o en "ejerciciosNuevos" de este mismo JSON.
+              nombre: ejercicios[0]?.nombre || "Flexiones de pecho",
+              series: 3,
+              reps: 10,
+              pesoKg: null,
+            },
+          ],
+        },
+        {
+          nombre: "Tabata Full Body",
+          formato: "tabata",
+          ejercicios: [ejercicios[1]?.nombre || "Sentadillas", "Burpees"],
+          numeroRondas: 8,
+          tiempoTrabajoSeg: 20,
+          tiempoDescansoSeg: 10,
+        },
+      ],
+      ejerciciosNuevos: [],
+    },
     null,
     2
   );
 
+  // Reusa ImportarBloqueEntrenamientoUseCase.importarPausasActivas — mismo
+  // shape ({ rutinasNuevas, ejerciciosNuevos }), sin Bloque: exactamente lo
+  // que hace falta acá (alta suelta de rutinas), con la misma resolución
+  // por nombre (reusa/actualiza, nunca duplica) y creación de Ejercicios
+  // nuevos, sin reimplementar esa lógica en la UI.
   const importarRutinas = async (items: unknown[]) => {
-    let creadas = 0;
-    const noEncontrados: string[] = [];
-
-    for (const raw of items) {
-      const item = raw as {
-        nombre?: string;
-        formato?: string;
-        calentamiento?: string;
-        ejercicios?: unknown[];
-        numeroRondas?: number;
-        tiempoTrabajoSeg?: number;
-        tiempoDescansoSeg?: number;
-        tiempoLimiteMin?: number;
-      };
-      if (!item.nombre || !Array.isArray(item.ejercicios)) continue;
-
-      const formatoResuelto =
-        FORMATOS_RUTINA.find(
-          (f) => f.toLowerCase() === String(item.formato || "").toLowerCase()
-        ) || "tradicional";
-      const tipo = tipoEstructuraDe(formatoResuelto);
-
-      const resolverEjercicioPorNombre = (nombreBuscado: string) => {
-        const encontrado = ejercicios.find(
-          (e) =>
-            e.nombre.toLowerCase().trim() === nombreBuscado.toLowerCase().trim()
-        );
-        if (!encontrado) noEncontrados.push(nombreBuscado);
-        return encontrado?.id;
-      };
-
-      let estructura: Record<string, unknown>;
-      if (tipo === "series") {
-        const bloques = (
-          item.ejercicios as {
-            nombre?: string;
-            series?: number;
-            reps?: number;
-            pesoKg?: number;
-          }[]
-        )
-          .map((ej) => {
-            const id = ej.nombre
-              ? resolverEjercicioPorNombre(ej.nombre)
-              : undefined;
-            if (!id) return null;
-            return {
-              ejercicioId: id,
-              sets: Array.from({ length: ej.series || 3 }, () => ({
-                reps: ej.reps || 10,
-                pesoKg: ej.pesoKg ?? undefined,
-              })),
-            };
-          })
-          .filter((b): b is NonNullable<typeof b> => b !== null);
-        if (bloques.length === 0) continue;
-        estructura = { bloques };
-      } else {
-        const ejercicioIds = (item.ejercicios as unknown[])
-          .map((e) => resolverEjercicioPorNombre(String(e)))
-          .filter((id): id is string => !!id);
-        if (ejercicioIds.length === 0) continue;
-        estructura = {
-          ejercicioIds,
-          numeroRondas: item.numeroRondas,
-          tiempoTrabajoSeg: item.tiempoTrabajoSeg,
-          tiempoDescansoSeg: item.tiempoDescansoSeg,
-          tiempoLimiteMin: item.tiempoLimiteMin,
-        };
-      }
-
-      const res = await useCase.crearPlantilla({
-        nombre: item.nombre,
-        formato: formatoResuelto,
-        tipoEstructura: tipo,
-        estructura,
-        calentamiento: item.calentamiento?.trim() || undefined,
-      });
-      if (res.ok) creadas++;
-    }
-
-    if (creadas === 0) {
-      throw new Error(
-        noEncontrados.length > 0
-          ? `No se encontró en el catálogo: ${noEncontrados.join(", ")}. Revisá los nombres exactos.`
-          : "No se pudo crear ninguna rutina del JSON pegado."
-      );
-    }
-    mostrarToast(
-      noEncontrados.length > 0
-        ? `${creadas} rutina(s) creada(s). No se encontraron estos ejercicios: ${noEncontrados.join(", ")}.`
-        : `${creadas} rutina(s) creada(s) con éxito.`,
-      noEncontrados.length > 0 ? "info" : "exito"
-    );
+    const res = await importarUseCase.importarPausasActivas(items);
+    if (!res.ok) throw new Error(res.error!.mensaje);
+    mostrarToast(res.valor, "exito");
   };
 
   const handleCopiarPromptRutina = () => {
     const prompt = generarPromptRutina(
       ejercicios,
-      equipamientoPropio.map((e) => e.etiqueta)
+      equipamientoPropio.map((e) => e.etiqueta),
+      rutinasExistentes
     );
     navigator.clipboard.writeText(prompt);
     mostrarToast("Prompt copiado al portapapeles.", "exito");
@@ -559,6 +472,7 @@ export const CrearPlantilla: React.FC = () => {
         abierto={modalImportarAbierto}
         onCerrar={() => setModalImportarAbierto(false)}
         titulo="Importar rutinas desde JSON"
+        renderResumen={resumenRutinasStandalone}
         plantillaEjemplo={plantillaEjemploImport}
         onImportar={importarRutinas}
       />

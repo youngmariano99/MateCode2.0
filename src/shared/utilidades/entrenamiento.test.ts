@@ -5,6 +5,8 @@ import { db } from "../../offline/dexie/db";
 import { GestionarBloquesUseCase } from "../../application/use-cases/personal/gestionar-bloques.use-case";
 import { GestionarPlantillasRutinaUseCase } from "../../application/use-cases/personal/gestionar-plantillas-rutina.use-case";
 import { GestionarRegistroActividadUseCase } from "../../application/use-cases/personal/gestionar-registro-actividad.use-case";
+import { GestionarEjerciciosUseCase } from "../../application/use-cases/personal/gestionar-ejercicios.use-case";
+import { ImportarBloqueEntrenamientoUseCase } from "../../application/use-cases/personal/importar-bloque-entrenamiento.use-case";
 import {
   ejesDisponibles,
   ejeEfectivo,
@@ -15,6 +17,8 @@ import type { RegistroActividad } from "../../domain/entidades/registro-activida
 const bloques = new GestionarBloquesUseCase();
 const plantillas = new GestionarPlantillasRutinaUseCase();
 const registros = new GestionarRegistroActividadUseCase();
+const ejercicios = new GestionarEjerciciosUseCase();
+const importarBloque = new ImportarBloqueEntrenamientoUseCase();
 
 describe("Entrenamiento: eje de progresión efectivo (función pura)", () => {
   test("un ejercicio con carga y escalera tiene los 3 ejes disponibles", () => {
@@ -250,5 +254,307 @@ describe("Entrenamiento: use-cases", () => {
     const row = await db.registro_actividad.get(sesion.valor);
     assert.strictEqual(row?.resultados.length, 2);
     assert.strictEqual(row?.resultados[0].rondasCompletadas, 5);
+  });
+});
+
+describe("Entrenamiento: crear Ejercicio respeta el equipamiento real (Sprint 22)", () => {
+  beforeEach(async () => {
+    await db.catalogo_ejercicio.clear();
+    await db.catalogo_etiquetas.clear();
+  });
+
+  test("rechaza un ejercicio que pide equipamiento que el usuario no tiene", async () => {
+    await db.catalogo_etiquetas.add({
+      id: "etq_1",
+      etiqueta: "Mancuernas",
+      categoria: "equipamiento_propio",
+      esDelUsuario: true,
+      creadoEn: Date.now(),
+    });
+    const res = await ejercicios.crearEjercicio({
+      patron: "empuje",
+      nombre: "Press con banda",
+      tipoConteo: "repes",
+      modoConteo: "global",
+      equipamiento: ["banda elástica"],
+      permiteCarga: true,
+    });
+    assert.strictEqual(res.ok, false);
+    assert.match(res.error!.mensaje, /banda elástica/);
+  });
+
+  test("crea el ejercicio si el equipamiento pedido es subconjunto de lo que tiene", async () => {
+    await db.catalogo_etiquetas.add({
+      id: "etq_1",
+      etiqueta: "Mancuernas",
+      categoria: "equipamiento_propio",
+      esDelUsuario: true,
+      creadoEn: Date.now(),
+    });
+    const res = await ejercicios.crearEjercicio({
+      patron: "dominante_rodilla",
+      nombre: "Zancada búlgara",
+      tipoConteo: "repes",
+      modoConteo: "por_lado",
+      equipamiento: ["mancuernas"],
+      permiteCarga: true,
+    });
+    assert.strictEqual(res.ok, true);
+    const fila = await db.catalogo_ejercicio.get(res.valor);
+    assert.strictEqual(fila?.nombre, "Zancada búlgara");
+  });
+
+  test("un ejercicio sin equipo (peso corporal) siempre se puede crear", async () => {
+    const res = await ejercicios.crearEjercicio({
+      patron: "empuje",
+      nombre: "Flexiones diamante",
+      tipoConteo: "repes",
+      modoConteo: "global",
+      equipamiento: [],
+    });
+    assert.strictEqual(res.ok, true);
+  });
+});
+
+describe("Entrenamiento: import combinado Bloque + Rutinas + Ejercicios (Sprint 22)", () => {
+  beforeEach(async () => {
+    await db.bloque_entrenamiento.clear();
+    await db.plantilla_rutina.clear();
+    await db.catalogo_ejercicio.clear();
+    await db.catalogo_etiquetas.clear();
+    await db.catalogo_ejercicio.add({
+      id: "cej_flexiones",
+      patron: "empuje",
+      nombre: "Flexiones de pecho",
+      tipoConteo: "repes",
+      modoConteo: "global",
+      equipamiento: [],
+      esPausaActiva: false,
+      esNeat: false,
+      permiteCarga: false,
+      niveles: [],
+      creadoEn: Date.now(),
+    });
+  });
+
+  test("crea el Bloque con sus Rutinas vinculadas por plantillaIds, reusando el ejercicio existente", async () => {
+    const res = await importarBloque.importarBloqueCompleto([
+      {
+        bloque: {
+          nombre: "Bloque 1 — Volumen",
+          diaInicio: "2026-01-01",
+          diaFin: "2026-02-01",
+          ejeProgresionDefault: "volumen",
+        },
+        rutinas: [
+          {
+            nombre: "Full Body A",
+            formato: "tradicional",
+            ejercicios: [{ nombre: "Flexiones de pecho", series: 3, reps: 10 }],
+          },
+        ],
+        ejerciciosNuevos: [],
+      },
+    ]);
+    assert.strictEqual(res.ok, true);
+
+    const bloque = (await db.bloque_entrenamiento.toArray()).find(
+      (b) => b.nombre === "Bloque 1 — Volumen"
+    );
+    assert.strictEqual(bloque?.plantillaIds.length, 1);
+    const rutina = await db.plantilla_rutina.get(bloque!.plantillaIds[0]);
+    assert.strictEqual(rutina?.nombre, "Full Body A");
+
+    const todosLosEjercicios = await db.catalogo_ejercicio.toArray();
+    assert.strictEqual(
+      todosLosEjercicios.length,
+      1,
+      "no debe haber creado un ejercicio duplicado de 'Flexiones de pecho'"
+    );
+  });
+
+  test("crea un Ejercicio nuevo cuando no existe en el catálogo", async () => {
+    const res = await importarBloque.importarBloqueCompleto([
+      {
+        bloque: {
+          nombre: "Bloque 2",
+          diaInicio: "2026-01-01",
+          diaFin: "2026-02-01",
+          ejeProgresionDefault: "carga",
+        },
+        rutinas: [
+          {
+            nombre: "Tren inferior",
+            formato: "tradicional",
+            ejercicios: [{ nombre: "Zancada búlgara", series: 3, reps: 10 }],
+          },
+        ],
+        ejerciciosNuevos: [
+          {
+            patron: "dominante_rodilla",
+            nombre: "Zancada búlgara",
+            tipoConteo: "repes",
+            modoConteo: "por_lado",
+            equipamiento: [],
+            permiteCarga: true,
+          },
+        ],
+      },
+    ]);
+    assert.strictEqual(res.ok, true);
+    const creado = await db.catalogo_ejercicio
+      .filter((e) => e.nombre === "Zancada búlgara")
+      .first();
+    assert.ok(creado, "el ejercicio nuevo debió crearse");
+  });
+
+  test("si ya existe una Rutina con ese nombre exacto, la ACTUALIZA en vez de duplicarla", async () => {
+    const original = await plantillas.crearPlantilla({
+      nombre: "Full Body A",
+      formato: "tradicional",
+      tipoEstructura: "series",
+      estructura: {
+        bloques: [
+          { ejercicioId: "cej_flexiones", sets: [{ reps: 8 }, { reps: 8 }] },
+        ],
+      },
+    });
+    assert.strictEqual(original.ok, true);
+
+    const res = await importarBloque.importarBloqueCompleto([
+      {
+        bloque: {
+          nombre: "Bloque 2 — Fuerza",
+          diaInicio: "2026-01-01",
+          diaFin: "2026-03-01",
+          ejeProgresionDefault: "carga",
+        },
+        rutinas: [
+          {
+            nombre: "Full Body A", // mismo nombre exacto
+            formato: "tradicional",
+            ejercicios: [{ nombre: "Flexiones de pecho", series: 4, reps: 12 }],
+          },
+        ],
+        ejerciciosNuevos: [],
+      },
+    ]);
+    assert.strictEqual(res.ok, true);
+
+    const todasLasRutinas = await db.plantilla_rutina.toArray();
+    assert.strictEqual(
+      todasLasRutinas.length,
+      1,
+      "no debe haber duplicado la rutina 'Full Body A'"
+    );
+    const actualizada = await db.plantilla_rutina.get(original.valor);
+    const estructura = actualizada?.estructura as {
+      bloques: { sets: { reps?: number }[] }[];
+    };
+    assert.strictEqual(estructura.bloques[0].sets.length, 4);
+    assert.strictEqual(estructura.bloques[0].sets[0].reps, 12);
+  });
+
+  test("un ejercicio nuevo con equipamiento inválido no bloquea el resto del import", async () => {
+    await db.catalogo_etiquetas.add({
+      id: "etq_1",
+      etiqueta: "Mancuernas",
+      categoria: "equipamiento_propio",
+      esDelUsuario: true,
+      creadoEn: Date.now(),
+    });
+    const res = await importarBloque.importarBloqueCompleto([
+      {
+        bloque: {
+          nombre: "Bloque 3",
+          diaInicio: "2026-01-01",
+          diaFin: "2026-02-01",
+          ejeProgresionDefault: "volumen",
+        },
+        rutinas: [
+          {
+            nombre: "Rutina válida",
+            formato: "tradicional",
+            ejercicios: [{ nombre: "Flexiones de pecho", series: 3, reps: 10 }],
+          },
+          {
+            nombre: "Rutina imposible",
+            formato: "tradicional",
+            ejercicios: [{ nombre: "Remo con banda", series: 3, reps: 10 }],
+          },
+        ],
+        ejerciciosNuevos: [
+          {
+            patron: "tiron",
+            nombre: "Remo con banda",
+            tipoConteo: "repes",
+            modoConteo: "global",
+            equipamiento: ["banda elástica"], // el usuario no tiene esto
+            permiteCarga: false,
+          },
+        ],
+      },
+    ]);
+    assert.strictEqual(
+      res.ok,
+      true,
+      "el bloque igual se crea con lo que sí se pudo resolver"
+    );
+    assert.match(res.valor, /Con errores/);
+
+    const bloque = (await db.bloque_entrenamiento.toArray()).find(
+      (b) => b.nombre === "Bloque 3"
+    );
+    assert.strictEqual(
+      bloque?.plantillaIds.length,
+      1,
+      "solo la rutina válida quedó vinculada"
+    );
+  });
+});
+
+describe("Entrenamiento: pausas activas — solo Rutinas, nunca un Bloque (Sprint 22)", () => {
+  beforeEach(async () => {
+    await db.bloque_entrenamiento.clear();
+    await db.plantilla_rutina.clear();
+    await db.catalogo_ejercicio.clear();
+    await db.catalogo_ejercicio.add({
+      id: "cej_pausa",
+      patron: "pausa_movilidad",
+      nombre: "Círculos de hombro",
+      tipoConteo: "tiempo",
+      modoConteo: "global",
+      equipamiento: [],
+      esPausaActiva: true,
+      esNeat: false,
+      permiteCarga: false,
+      niveles: [],
+      creadoEn: Date.now(),
+    });
+  });
+
+  test("crea Rutinas de pausa activa sin crear ningún BloqueEntrenamiento", async () => {
+    const res = await importarBloque.importarPausasActivas([
+      {
+        rutinasNuevas: [
+          {
+            nombre: "Pausa hombros",
+            formato: "pausa_activa",
+            ejercicios: ["Círculos de hombro"],
+          },
+        ],
+        ejerciciosNuevos: [],
+      },
+    ]);
+    assert.strictEqual(res.ok, true);
+
+    const bloques = await db.bloque_entrenamiento.toArray();
+    assert.strictEqual(bloques.length, 0, "no debe crear ningún bloque");
+
+    const rutina = await db.plantilla_rutina
+      .filter((p) => p.nombre === "Pausa hombros")
+      .first();
+    assert.ok(rutina);
+    assert.strictEqual(rutina?.formato, "pausa_activa");
   });
 });

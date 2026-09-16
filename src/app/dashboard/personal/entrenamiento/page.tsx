@@ -6,6 +6,7 @@ import { Icono } from "../../../../presentation/components/icons";
 import { PanelBloques } from "../../../../presentation/components/personal/entrenamiento/panel-bloques";
 import { EjecucionSesion } from "../../../../presentation/components/personal/entrenamiento/ejecucion-sesion";
 import { CrearPlantilla } from "../../../../presentation/components/personal/entrenamiento/crear-plantilla";
+import { PanelPausasActivas } from "../../../../presentation/components/personal/entrenamiento/panel-pausas-activas";
 import { PanelEstadisticas } from "../../../../presentation/components/personal/entrenamiento/panel-estadisticas";
 import { PanelEquipamiento } from "../../../../presentation/components/personal/entrenamiento/panel-equipamiento";
 
@@ -71,7 +72,12 @@ export default function EntrenamientoPage() {
             <EjecucionSesion onIrARutinas={() => setEstacion("rutinas")} />
           </div>
         )}
-        {estacion === "rutinas" && <CrearPlantilla />}
+        {estacion === "rutinas" && (
+          <div className="flex flex-col gap-4">
+            <CrearPlantilla />
+            <PanelPausasActivas />
+          </div>
+        )}
         {estacion === "progreso" && <PanelEstadisticas />}
         {estacion === "equipo" && <PanelEquipamiento />}
       </div>

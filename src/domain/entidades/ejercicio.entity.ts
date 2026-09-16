@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 // ============================================================================
 // Catálogo de ejercicios — patrón de movimiento + escalera de regresión y
 // progresión por ejercicio (nivel 0 = versión base, negativos = más fácil,
@@ -77,3 +79,31 @@ export function ejeEfectivo(
   if (disponibles.includes("progresion")) return "progresion";
   return "volumen";
 }
+
+// ============================================================================
+// Creación de Ejercicio (Sprint 22) — hasta acá el catálogo solo se sembraba
+// una vez; esto permite agregar ejercicios nuevos vía UI o import JSON con
+// IA. El `equipamiento` se valida contra lo que el usuario tiene de verdad
+// en GestionarEjerciciosUseCase.crearEjercicio (acá solo se valida la forma,
+// no el contenido — la entidad no tiene acceso a la lista de equipamiento
+// real del usuario).
+// ============================================================================
+
+const nivelEjercicioSchema = z.object({
+  nivel: z.number().int(),
+  nombre: z.string().trim().min(1),
+  detalle: z.string().trim().min(1),
+});
+
+export const crearEjercicioSchema = z.object({
+  patron: z.enum(PATRONES_MOVIMIENTO),
+  nombre: z.string().trim().min(1, "Ponele un nombre al ejercicio."),
+  tipoConteo: z.enum(TIPOS_CONTEO),
+  modoConteo: z.enum(MODOS_CONTEO),
+  equipamiento: z.array(z.string().trim()).default([]),
+  esPausaActiva: z.boolean().default(false),
+  esNeat: z.boolean().default(false),
+  permiteCarga: z.boolean().default(false),
+  niveles: z.array(nivelEjercicioSchema).default([]),
+});
+export type CrearEjercicioInput = z.input<typeof crearEjercicioSchema>;
