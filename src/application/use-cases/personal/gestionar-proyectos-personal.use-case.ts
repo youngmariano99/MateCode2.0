@@ -111,10 +111,14 @@ export class GestionarProyectosPersonalUseCase {
     }
     if (
       parsed.data.diaLimite === undefined &&
-      parsed.data.cantidadObjetivo === undefined
+      parsed.data.cantidadObjetivo === undefined &&
+      parsed.data.bandaAceptable === undefined &&
+      parsed.data.bandaMejorable === undefined
     ) {
       return Resultado.falla(
-        new ErrorDominio("Indicá una nueva fecha, una nueva cantidad, o ambas.")
+        new ErrorDominio(
+          "Indicá una nueva fecha, una nueva cantidad, una banda, o alguna combinación."
+        )
       );
     }
     const actualizadoEn = Date.now();
@@ -123,6 +127,12 @@ export class GestionarProyectosPersonalUseCase {
       cambios.diaLimite = parsed.data.diaLimite;
     if (parsed.data.cantidadObjetivo !== undefined) {
       cambios.cantidadObjetivo = parsed.data.cantidadObjetivo;
+    }
+    if (parsed.data.bandaAceptable !== undefined) {
+      cambios.bandaAceptable = parsed.data.bandaAceptable;
+    }
+    if (parsed.data.bandaMejorable !== undefined) {
+      cambios.bandaMejorable = parsed.data.bandaMejorable;
     }
     try {
       await db.proyecto_personal.update(parsed.data.id, cambios);

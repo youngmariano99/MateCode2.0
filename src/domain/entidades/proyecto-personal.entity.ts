@@ -34,9 +34,21 @@ export interface ProyectoPersonal {
   progresoActual: number;
   estado: EstadoProyectoPersonal;
   tieneHijos: boolean;
+  /** % de `cantidadObjetivo` aceptable/mejorable sin llegar al 100% — ver calcularNivelLogro() en objetivo-cuantificable.entity.ts. */
+  bandaAceptable?: number;
+  bandaMejorable?: number;
   creadoEn: number;
   actualizadoEn: number;
 }
+
+function refineBandas<
+  T extends { bandaAceptable?: number; bandaMejorable?: number },
+>(v: T): boolean {
+  if (v.bandaAceptable === undefined || v.bandaMejorable === undefined)
+    return true;
+  return v.bandaMejorable < v.bandaAceptable;
+}
+const MENSAJE_BANDAS = "La banda mejorable tiene que ser menor a la aceptable.";
 
 export const crearProyectoPersonalSchema = z
   .object({
@@ -47,6 +59,8 @@ export const crearProyectoPersonalSchema = z
     diaLimite: fechaISO,
     cantidadObjetivo: z.number().positive().optional(),
     unidad: z.string().trim().optional(),
+    bandaAceptable: z.number().min(0).max(100).optional(),
+    bandaMejorable: z.number().min(0).max(100).optional(),
   })
   .refine((v) => v.diaLimite >= v.diaInicio, {
     message: "La fecha límite no puede ser anterior a la de inicio.",
@@ -58,16 +72,21 @@ export const crearProyectoPersonalSchema = z
       message: "Si indicás cantidad, indicá también la unidad (y viceversa).",
       path: ["unidad"],
     }
-  );
+  )
+  .refine(refineBandas, { message: MENSAJE_BANDAS, path: ["bandaMejorable"] });
 export type CrearProyectoPersonalInput = z.input<
   typeof crearProyectoPersonalSchema
 >;
 
-export const ajustarProyectoPersonalSchema = z.object({
-  id: z.string(),
-  diaLimite: fechaISO.optional(),
-  cantidadObjetivo: z.number().positive().optional(),
-});
+export const ajustarProyectoPersonalSchema = z
+  .object({
+    id: z.string(),
+    diaLimite: fechaISO.optional(),
+    cantidadObjetivo: z.number().positive().optional(),
+    bandaAceptable: z.number().min(0).max(100).optional(),
+    bandaMejorable: z.number().min(0).max(100).optional(),
+  })
+  .refine(refineBandas, { message: MENSAJE_BANDAS, path: ["bandaMejorable"] });
 export type AjustarProyectoPersonalInput = z.input<
   typeof ajustarProyectoPersonalSchema
 >;

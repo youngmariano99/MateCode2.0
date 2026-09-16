@@ -16,6 +16,9 @@ import {
 import { MaterializarActividadesDelDiaUseCase } from "../../application/use-cases/personal/materializar-actividades-del-dia.use-case";
 import { ImportarArbolPersonalUseCase } from "../../application/use-cases/personal/importar-arbol-personal.use-case";
 import { aplicaHoyEntregable } from "../../domain/entidades/entregable.entity";
+import { calcularNivelLogro } from "../../domain/entidades/objetivo-cuantificable.entity";
+import { GestionarFasesUseCase } from "../../application/use-cases/personal/gestionar-fases.use-case";
+import { calcularDistribucionProgresiva } from "../../domain/entidades/fase-personal.entity";
 import {
   mapearTareaDiariaAActividad,
   mapearTareaPendienteAActividad,
@@ -979,5 +982,405 @@ describe("Actividad de backlog: promover a agenda y armar la semana", () => {
   test("asignarASemanaActual sin ids falla con mensaje claro", async () => {
     const res = await actividades.asignarASemanaActual([]);
     assert.strictEqual(res.ok, false);
+  });
+});
+
+describe("calcularNivelLogro — bandas de aceptación (Sprint 21)", () => {
+  test("sin bandaAceptable configurada, no da veredicto", () => {
+    assert.strictEqual(calcularNivelLogro(100, 50), undefined);
+  });
+
+  test("100% o más siempre es ideal, incluso con bandas bajas", () => {
+    assert.strictEqual(calcularNivelLogro(100, 100, 80, 60), "ideal");
+    assert.strictEqual(calcularNivelLogro(100, 120, 80, 60), "ideal");
+  });
+
+  test("por encima de la banda aceptable pero bajo 100% es aceptable", () => {
+    assert.strictEqual(calcularNivelLogro(100, 85, 80, 60), "aceptable");
+  });
+
+  test("entre la banda mejorable y la aceptable es mejorable", () => {
+    assert.strictEqual(calcularNivelLogro(100, 70, 80, 60), "mejorable");
+  });
+
+  test("por debajo de la banda mejorable es bajo", () => {
+    assert.strictEqual(calcularNivelLogro(100, 40, 80, 60), "bajo");
+  });
+
+  test("sin bandaMejorable, cualquier cosa bajo la aceptable es directamente bajo", () => {
+    assert.strictEqual(calcularNivelLogro(100, 70, 80), "bajo");
+  });
+});
+
+describe("calcularDistribucionProgresiva — motor de reparto pirámide (Sprint 21)", () => {
+  test("modo constante (incrementoPorFase=0): mismo reparto todas las semanas", () => {
+    const r = calcularDistribucionProgresiva({
+      diaInicio: "2026-01-05", // lunes
+      diaLimite: "2026-01-18", // 2 semanas exactas
+      diasSemana: [1, 2, 3, 4, 5],
+      duracionFaseDias: 7,
+      cantidadPorDiaInicial: 5,
+      incrementoPorFase: 0,
+      cantidadObjetivoTotal: 50,
+    });
+    assert.strictEqual(r.fases.length, 2);
+    assert.strictEqual(r.fases[0].diasHabiles, 5);
+    assert.strictEqual(r.fases[0].cantidadObjetivo, 25);
+    assert.strictEqual(r.fases[1].cantidadObjetivo, 25);
+    assert.strictEqual(r.totalProyectado, 50);
+    assert.strictEqual(r.diferencia, 0);
+  });
+
+  test("modo creciente con tope: la cuota sube por fase hasta el tope y se queda ahí", () => {
+    const r = calcularDistribucionProgresiva({
+      diaInicio: "2026-01-05",
+      diaLimite: "2026-01-25", // 3 semanas
+      diasSemana: [1, 2, 3, 4, 5],
+      duracionFaseDias: 7,
+      cantidadPorDiaInicial: 2,
+      incrementoPorFase: 1,
+      topePorDia: 3,
+      cantidadObjetivoTotal: 100,
+    });
+    assert.strictEqual(r.fases.length, 3);
+    assert.strictEqual(r.fases[0].cantidadPorDia, 2);
+    assert.strictEqual(r.fases[1].cantidadPorDia, 3);
+    assert.strictEqual(
+      r.fases[2].cantidadPorDia,
+      3,
+      "se queda en el tope, no sigue subiendo"
+    );
+  });
+
+  test("si el total proyectado no coincide con el pedido, reporta la diferencia en vez de forzarlo", () => {
+    const r = calcularDistribucionProgresiva({
+      diaInicio: "2026-01-05",
+      diaLimite: "2026-01-11", // 1 semana, 5 días hábiles x 5/día = 25
+      diasSemana: [1, 2, 3, 4, 5],
+      duracionFaseDias: 7,
+      cantidadPorDiaInicial: 5,
+      incrementoPorFase: 0,
+      cantidadObjetivoTotal: 1000,
+    });
+    assert.strictEqual(r.totalProyectado, 25);
+    assert.strictEqual(r.diferencia, 975);
+  });
+});
+
+describe("Fases: progreso por rango de fechas y cierre con arrastre (Sprint 21)", () => {
+  const fases = new GestionarFasesUseCase();
+
+  beforeEach(async () => {
+    await db.area_personal.clear();
+    await db.objetivo_cuantificable.clear();
+    await db.proyecto_personal.clear();
+    await db.entregable.clear();
+    await db.actividad.clear();
+    await db.fase_personal.clear();
+    await db.personal_historial.clear();
+  });
+
+  async function crearCadena(): Promise<string> {
+    const objetivo = await objetivos.crearObjetivo({
+      titulo: "1000 contactos",
+      unidad: "contactos",
+      cantidadObjetivo: 1000,
+      diaInicio: "2026-01-01",
+      diaLimite: "2026-06-30",
+    });
+    const proyecto = await proyectos.crearProyecto({
+      objetivoId: objetivo.valor,
+      titulo: "Contacto en frío",
+      diaInicio: "2026-01-01",
+      diaLimite: "2026-06-30",
+    });
+    const entregable = await entregables.crearEntregable({
+      proyectoId: proyecto.valor,
+      objetivoId: objetivo.valor,
+      titulo: "Contacto en frío recurrente",
+      diaInicio: "2026-01-01",
+      diaLimite: "2026-06-30",
+      cantidadObjetivo: 1000,
+      unidad: "contactos",
+      recurrencia: {
+        frecuencia: "dias_especificos",
+        diasSemana: [1, 2, 3, 4, 5],
+      },
+    });
+    return entregable.valor;
+  }
+
+  test("recomputarFasesDeEntregable solo cuenta Actividades dentro del rango de la Fase", async () => {
+    const entregableId = await crearCadena();
+    const fase1 = await fases.crearFase({
+      entregableId,
+      titulo: "Semana 1",
+      orden: 0,
+      diaInicio: "2026-01-05",
+      diaLimite: "2026-01-11",
+      cantidadObjetivo: 10,
+      unidad: "contactos",
+    });
+    const fase2 = await fases.crearFase({
+      entregableId,
+      titulo: "Semana 2",
+      orden: 1,
+      diaInicio: "2026-01-12",
+      diaLimite: "2026-01-18",
+      cantidadObjetivo: 10,
+      unidad: "contactos",
+    });
+
+    const actSemana1 = await actividades.crearActividad({
+      entregableId,
+      tipo: "mantenimiento",
+      descripcion: "Contactos día 1",
+      diaTarea: "2026-01-06",
+      cantidadObjetivo: 6,
+    });
+    await actividades.registrarAvance(actSemana1.valor, 6);
+
+    const actSemana2 = await actividades.crearActividad({
+      entregableId,
+      tipo: "mantenimiento",
+      descripcion: "Contactos semana 2",
+      diaTarea: "2026-01-13",
+      cantidadObjetivo: 4,
+    });
+    await actividades.registrarAvance(actSemana2.valor, 4);
+
+    const filaFase1 = await db.fase_personal.get(fase1.valor);
+    const filaFase2 = await db.fase_personal.get(fase2.valor);
+    assert.strictEqual(
+      filaFase1?.progresoActual,
+      6,
+      "solo cuenta lo hecho en su propia semana"
+    );
+    assert.strictEqual(filaFase2?.progresoActual, 4);
+  });
+
+  test("cerrarFase 'trasladar_siguiente': el faltante se suma a la meta de la próxima fase abierta", async () => {
+    const entregableId = await crearCadena();
+    const fase1 = await fases.crearFase({
+      entregableId,
+      titulo: "Semana 1",
+      orden: 0,
+      diaInicio: "2026-01-05",
+      diaLimite: "2026-01-11",
+      cantidadObjetivo: 10,
+      unidad: "contactos",
+    });
+    const fase2 = await fases.crearFase({
+      entregableId,
+      titulo: "Semana 2",
+      orden: 1,
+      diaInicio: "2026-01-12",
+      diaLimite: "2026-01-18",
+      cantidadObjetivo: 10,
+      unidad: "contactos",
+    });
+    const act = await actividades.crearActividad({
+      entregableId,
+      tipo: "mantenimiento",
+      descripcion: "Contactos",
+      diaTarea: "2026-01-06",
+      cantidadObjetivo: 6,
+    });
+    await actividades.registrarAvance(act.valor, 6); // hizo 6 de 10 — faltan 4
+
+    const res = await fases.cerrarFase({
+      id: fase1.valor,
+      decision: "trasladar_siguiente",
+    });
+    assert.strictEqual(res.ok, true);
+
+    const cerrada = await db.fase_personal.get(fase1.valor);
+    assert.strictEqual(cerrada?.estado, "cerrada");
+    assert.strictEqual(cerrada?.cierre?.faltante, 4);
+    assert.strictEqual(cerrada?.cierre?.cantidadTrasladada, 4);
+
+    const siguiente = await db.fase_personal.get(fase2.valor);
+    assert.strictEqual(
+      siguiente?.cantidadObjetivo,
+      14,
+      "10 original + 4 trasladados"
+    );
+  });
+
+  test("cerrarFase 'trasladar_siguiente' sin fase siguiente falla con mensaje claro", async () => {
+    const entregableId = await crearCadena();
+    const fase1 = await fases.crearFase({
+      entregableId,
+      titulo: "Única fase",
+      orden: 0,
+      diaInicio: "2026-01-05",
+      diaLimite: "2026-01-11",
+      cantidadObjetivo: 10,
+      unidad: "contactos",
+    });
+    const res = await fases.cerrarFase({
+      id: fase1.valor,
+      decision: "trasladar_siguiente",
+    });
+    assert.strictEqual(res.ok, false);
+  });
+
+  test("cerrarFase 'repartir_restantes' divide el faltante entre las fases abiertas que quedan", async () => {
+    const entregableId = await crearCadena();
+    const fase1 = await fases.crearFase({
+      entregableId,
+      titulo: "Semana 1",
+      orden: 0,
+      diaInicio: "2026-01-05",
+      diaLimite: "2026-01-11",
+      cantidadObjetivo: 10,
+      unidad: "contactos",
+    });
+    const fase2 = await fases.crearFase({
+      entregableId,
+      titulo: "Semana 2",
+      orden: 1,
+      diaInicio: "2026-01-12",
+      diaLimite: "2026-01-18",
+      cantidadObjetivo: 10,
+      unidad: "contactos",
+    });
+    const fase3 = await fases.crearFase({
+      entregableId,
+      titulo: "Semana 3",
+      orden: 2,
+      diaInicio: "2026-01-19",
+      diaLimite: "2026-01-25",
+      cantidadObjetivo: 10,
+      unidad: "contactos",
+    });
+
+    const res = await fases.cerrarFase({
+      id: fase1.valor,
+      decision: "repartir_restantes",
+    });
+    assert.strictEqual(res.ok, true);
+
+    const f2 = await db.fase_personal.get(fase2.valor);
+    const f3 = await db.fase_personal.get(fase3.valor);
+    assert.strictEqual(
+      f2?.cantidadObjetivo,
+      15,
+      "10 + la mitad de los 10 faltantes"
+    );
+    assert.strictEqual(f3?.cantidadObjetivo, 15);
+  });
+
+  test("cerrarFase 'descartar' no traslada nada", async () => {
+    const entregableId = await crearCadena();
+    const fase1 = await fases.crearFase({
+      entregableId,
+      titulo: "Semana 1",
+      orden: 0,
+      diaInicio: "2026-01-05",
+      diaLimite: "2026-01-11",
+      cantidadObjetivo: 10,
+      unidad: "contactos",
+    });
+    const fase2 = await fases.crearFase({
+      entregableId,
+      titulo: "Semana 2",
+      orden: 1,
+      diaInicio: "2026-01-12",
+      diaLimite: "2026-01-18",
+      cantidadObjetivo: 10,
+      unidad: "contactos",
+    });
+
+    const res = await fases.cerrarFase({
+      id: fase1.valor,
+      decision: "descartar",
+    });
+    assert.strictEqual(res.ok, true);
+
+    const cerrada = await db.fase_personal.get(fase1.valor);
+    assert.strictEqual(cerrada?.cierre?.cantidadTrasladada, 0);
+    const siguiente = await db.fase_personal.get(fase2.valor);
+    assert.strictEqual(siguiente?.cantidadObjetivo, 10, "no se tocó");
+  });
+
+  test("bandas de aceptación: si el logro queda 'bajo', las decisiones clásicas se rechazan salvo reestructurar/descartar", async () => {
+    const entregableId = await crearCadena();
+    const fase1 = await fases.crearFase({
+      entregableId,
+      titulo: "Semana 1",
+      orden: 0,
+      diaInicio: "2026-01-05",
+      diaLimite: "2026-01-11",
+      cantidadObjetivo: 100,
+      unidad: "contactos",
+      bandaAceptable: 80,
+      bandaMejorable: 60,
+    });
+    const fase2 = await fases.crearFase({
+      entregableId,
+      titulo: "Semana 2",
+      orden: 1,
+      diaInicio: "2026-01-12",
+      diaLimite: "2026-01-18",
+      cantidadObjetivo: 100,
+      unidad: "contactos",
+    });
+    const act = await actividades.crearActividad({
+      entregableId,
+      tipo: "mantenimiento",
+      descripcion: "Contactos",
+      diaTarea: "2026-01-06",
+      cantidadObjetivo: 30, // 30/100 = "bajo"
+    });
+    await actividades.registrarAvance(act.valor, 30);
+
+    const rechazado = await fases.cerrarFase({
+      id: fase1.valor,
+      decision: "trasladar_siguiente",
+    });
+    assert.strictEqual(
+      rechazado.ok,
+      false,
+      "con nivel 'bajo', trasladar_siguiente no es una opción válida"
+    );
+
+    const reestructurado = await fases.cerrarFase({
+      id: fase1.valor,
+      decision: "reestructurar_restantes",
+      nuevasCantidadesRestantes: [
+        { faseId: fase2.valor, cantidadObjetivo: 170 },
+      ],
+    });
+    assert.strictEqual(reestructurado.ok, true);
+    const f2 = await db.fase_personal.get(fase2.valor);
+    assert.strictEqual(f2?.cantidadObjetivo, 170);
+  });
+
+  test("detectarFasesPendientesDeCierre solo devuelve fases abiertas ya vencidas", async () => {
+    const entregableId = await crearCadena();
+    const vencida = await fases.crearFase({
+      entregableId,
+      titulo: "Vencida",
+      orden: 0,
+      diaInicio: "2026-01-01",
+      diaLimite: "2026-01-07",
+      cantidadObjetivo: 10,
+      unidad: "contactos",
+    });
+    await fases.crearFase({
+      entregableId,
+      titulo: "Futura",
+      orden: 1,
+      diaInicio: "2026-02-01",
+      diaLimite: "2026-02-07",
+      cantidadObjetivo: 10,
+      unidad: "contactos",
+    });
+
+    const pendientes =
+      await fases.detectarFasesPendientesDeCierre("2026-01-15");
+    assert.strictEqual(pendientes.length, 1);
+    assert.strictEqual(pendientes[0].id, vencida.valor);
   });
 });

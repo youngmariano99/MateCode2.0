@@ -44,6 +44,7 @@ import {
 } from "../../domain/entidades/area-personal.entity";
 import type { ProyectoPersonal } from "../../domain/entidades/proyecto-personal.entity";
 import type { Entregable } from "../../domain/entidades/entregable.entity";
+import type { FasePersonal } from "../../domain/entidades/fase-personal.entity";
 import type { Actividad } from "../../domain/entidades/actividad.entity";
 import {
   mapearTareaDiariaAActividad,
@@ -172,6 +173,7 @@ export class MateCodeDB extends Dexie {
   public entregable!: Table<Entregable, string>;
   public actividad!: Table<Actividad, string>;
   public personal_historial!: Table<PersonalHistorialRow, string>;
+  public fase_personal!: Table<FasePersonal, string>;
 
   constructor() {
     super("MateCodeLocalDB");
@@ -1161,6 +1163,12 @@ export class MateCodeDB extends Dexie {
     // arriba (no se toca ninguna otra tabla ni se pierden datos).
     this.version(25).stores({
       entregable: "id, proyectoId, objetivoId, estado, diaLimite",
+    });
+
+    // Fases (Sprint 21): checkpoints periódicos de un Entregable, con meta
+    // propia y cierre con arrastre de faltante — ver fase-personal.entity.ts.
+    this.version(26).stores({
+      fase_personal: "id, entregableId, estado, diaLimite, orden",
     });
 
     this.on("populate", async () => {

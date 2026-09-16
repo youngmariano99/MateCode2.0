@@ -18,6 +18,7 @@ const ETIQUETA_ACCION: Record<AccionHistorial, string> = {
   ajustar_fecha: "Fecha ajustada",
   ajustar_cantidad: "Cantidad ajustada",
   registrar_avance: "Avance registrado",
+  cerrar_fase: "Fase cerrada",
 };
 
 const COLOR_ACCION: Record<AccionHistorial, string> = {
@@ -27,6 +28,7 @@ const COLOR_ACCION: Record<AccionHistorial, string> = {
   ajustar_fecha: "text-amber-400",
   ajustar_cantidad: "text-amber-400",
   registrar_avance: "text-emerald-400",
+  cerrar_fase: "text-violet-400",
 };
 
 function formatearFecha(ts: number): string {

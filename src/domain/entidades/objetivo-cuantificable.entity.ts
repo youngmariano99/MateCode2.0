@@ -55,6 +55,13 @@ export interface ObjetivoCuantificable {
    * filas sin este campo se tratan como sin hijos (comportamiento actual).
    */
   tieneHijos?: boolean;
+  /**
+   * % de `cantidadObjetivo` que se considera un resultado aceptable /
+   * mejorable, aunque no se haya llegado al 100% — ver calcularNivelLogro().
+   * Ambos opcionales, nunca obligatorios.
+   */
+  bandaAceptable?: number;
+  bandaMejorable?: number;
   creadoEn: number;
   actualizadoEn: number;
 }
@@ -62,6 +69,16 @@ export interface ObjetivoCuantificable {
 const fechaISO = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida (YYYY-MM-DD).");
+
+/** Si se ponen las 2 bandas, la mejorable tiene que ser menor a la aceptable — si no, no dicen nada. */
+function refineBandas<
+  T extends { bandaAceptable?: number; bandaMejorable?: number },
+>(v: T): boolean {
+  if (v.bandaAceptable === undefined || v.bandaMejorable === undefined)
+    return true;
+  return v.bandaMejorable < v.bandaAceptable;
+}
+const MENSAJE_BANDAS = "La banda mejorable tiene que ser menor a la aceptable.";
 
 export const crearObjetivoSchema = z
   .object({
@@ -79,19 +96,50 @@ export const crearObjetivoSchema = z
     origenModulo: z.string().optional(),
     etiquetaArea: z.string().trim().optional(),
     areaId: z.string().optional(),
+    bandaAceptable: z.number().min(0).max(100).optional(),
+    bandaMejorable: z.number().min(0).max(100).optional(),
   })
   .refine((v) => v.diaLimite >= v.diaInicio, {
     message: "La fecha límite no puede ser anterior a la de inicio.",
     path: ["diaLimite"],
-  });
+  })
+  .refine(refineBandas, { message: MENSAJE_BANDAS, path: ["bandaMejorable"] });
 export type CrearObjetivoInput = z.input<typeof crearObjetivoSchema>;
 
-export const ajustarObjetivoSchema = z.object({
-  id: z.string(),
-  cantidadObjetivo: z.number().positive().optional(),
-  diaLimite: fechaISO.optional(),
-});
+export const ajustarObjetivoSchema = z
+  .object({
+    id: z.string(),
+    cantidadObjetivo: z.number().positive().optional(),
+    diaLimite: fechaISO.optional(),
+    bandaAceptable: z.number().min(0).max(100).optional(),
+    bandaMejorable: z.number().min(0).max(100).optional(),
+  })
+  .refine(refineBandas, { message: MENSAJE_BANDAS, path: ["bandaMejorable"] });
 export type AjustarObjetivoInput = z.input<typeof ajustarObjetivoSchema>;
+
+// ============================================================================
+// Bandas de aceptación — el % de la meta no siempre tiene que ser 100% para
+// sentir que "se cumplió razonablemente". Función pura, agnóstica de nivel
+// (sirve para Objetivo/Proyecto/Entregable/Fase, todos tienen cantidad +
+// progreso) — mismo criterio que calcularRitmoObjetivo, sin acceso a DB.
+// ============================================================================
+export type NivelLogro = "ideal" | "aceptable" | "mejorable" | "bajo";
+
+export function calcularNivelLogro(
+  cantidadObjetivo: number,
+  progresoActual: number,
+  bandaAceptable?: number,
+  bandaMejorable?: number
+): NivelLogro | undefined {
+  if (bandaAceptable === undefined || cantidadObjetivo <= 0) return undefined;
+  const porcentaje = (progresoActual / cantidadObjetivo) * 100;
+  if (porcentaje >= 100) return "ideal";
+  if (porcentaje >= bandaAceptable) return "aceptable";
+  if (bandaMejorable !== undefined && porcentaje >= bandaMejorable) {
+    return "mejorable";
+  }
+  return "bajo";
+}
 
 // ============================================================================
 // Contrato del JSON de "Planificar objetivos con IA" — valida estrictamente

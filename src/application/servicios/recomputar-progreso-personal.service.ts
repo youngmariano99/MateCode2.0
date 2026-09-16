@@ -76,7 +76,49 @@ export async function recomputarEntregable(
     });
   }
 
+  await recomputarFasesDeEntregable(entregableId, actividades);
   await recomputarProyecto(entregable.proyectoId);
+}
+
+/**
+ * Recalcula el progreso de cada Fase abierta de un Entregable sumando SOLO
+ * las Actividades cuyo `diaTarea` cae dentro del rango de esa Fase — a
+ * diferencia del Entregable (que suma TODO), cada Fase es un recorte de
+ * tiempo, así que una Actividad de la semana 3 no puede sumar a la Fase de
+ * la semana 1. Recibe las actividades ya cargadas por recomputarEntregable
+ * para no repetir la query.
+ */
+export async function recomputarFasesDeEntregable(
+  entregableId: string,
+  actividades: Actividad[]
+): Promise<void> {
+  const fases = await db.fase_personal
+    .where("entregableId")
+    .equals(entregableId)
+    .and((f) => f.estado === "abierta")
+    .toArray();
+  if (fases.length === 0) return;
+
+  const actualizadoEn = Date.now();
+  for (const fase of fases) {
+    const progresoActual = actividades
+      .filter(
+        (a) =>
+          a.diaTarea !== undefined &&
+          a.diaTarea >= fase.diaInicio &&
+          a.diaTarea <= fase.diaLimite &&
+          a.estado !== "cancelada" &&
+          a.estado !== "descartada"
+      )
+      .reduce((s, a) => s + progresoEfectivoActividad(a), 0);
+    if (progresoActual === fase.progresoActual) continue;
+    await db.fase_personal.update(fase.id, { progresoActual, actualizadoEn });
+    await QueueService.encolar("fase_personal", "editar", fase.id, {
+      id: fase.id,
+      progresoActual,
+      actualizadoEn,
+    });
+  }
 }
 
 export async function recomputarProyecto(proyectoId: string): Promise<void> {

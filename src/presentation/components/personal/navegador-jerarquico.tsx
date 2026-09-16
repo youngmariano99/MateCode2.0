@@ -8,6 +8,14 @@ import { Icono } from "../icons";
 import { useToast } from "../../hooks/useToast";
 import { Dialog } from "../dialog";
 import { ModalImportarJson } from "../contenido/modal-importar-json";
+import { SeccionFasesEntregable } from "./seccion-fases-entregable";
+import { AjustarConIAModal } from "./ajustar-con-ia-modal";
+import {
+  resumenArbolCompleto,
+  resumenProyectoBajoObjetivo,
+  resumenEntregableBajoProyecto,
+  resumenActividadesBajoEntregable,
+} from "./resumen-import-jerarquia";
 import { ConfirmarEliminacionNodo } from "./confirmar-eliminacion-nodo";
 import { AjustarFechaModal } from "./ajustar-fecha-modal";
 import {
@@ -30,11 +38,14 @@ import {
   generarPromptProyecto,
   generarPromptEntregable,
   generarPromptActividades,
+  generarPromptPlanificacionEnFases,
 } from "../../../domain/prompts/generar-prompt-jerarquia-personal";
 import { generarResumenPeriodo } from "../../../domain/prompts/generar-prompt-planificacion-personal";
 import {
   calcularRitmoObjetivo,
+  calcularNivelLogro,
   type EstadoRitmoObjetivo,
+  type NivelLogro,
 } from "../../../domain/entidades/objetivo-cuantificable.entity";
 import {
   obtenerDiaTareaHoy,
@@ -75,6 +86,19 @@ const ETIQUETA_RITMO: Record<EstadoRitmoObjetivo, string> = {
   adelantado: "Adelantado",
 };
 
+const COLOR_NIVEL_LOGRO: Record<NivelLogro, string> = {
+  ideal: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10",
+  aceptable: "text-sky-400 border-sky-500/30 bg-sky-500/10",
+  mejorable: "text-amber-400 border-amber-500/30 bg-amber-500/10",
+  bajo: "text-red-400 border-red-500/30 bg-red-500/10",
+};
+const ETIQUETA_NIVEL_LOGRO: Record<NivelLogro, string> = {
+  ideal: "Ideal",
+  aceptable: "Aceptable",
+  mejorable: "Mejorable",
+  bajo: "Bajo",
+};
+
 function fechaRelativa(diaLimite: string, hoy: string): string {
   const dif = Math.round(
     (new Date(diaLimite).getTime() - new Date(hoy).getTime()) / 86400000
@@ -89,12 +113,14 @@ const AccionesNodo: React.FC<{
   onHistorial?: () => void;
   onAjustarFecha?: () => void;
   onAjustarCantidad?: () => void;
+  onAjustarConIA?: () => void;
   onArchivar?: () => void;
   onEliminar?: () => void;
 }> = ({
   onHistorial,
   onAjustarFecha,
   onAjustarCantidad,
+  onAjustarConIA,
   onArchivar,
   onEliminar,
 }) => {
@@ -102,6 +128,7 @@ const AccionesNodo: React.FC<{
     !onHistorial &&
     !onAjustarFecha &&
     !onAjustarCantidad &&
+    !onAjustarConIA &&
     !onArchivar &&
     !onEliminar
   ) {
@@ -120,6 +147,15 @@ const AccionesNodo: React.FC<{
           className="rounded border border-zinc-800 p-1.5 text-zinc-500 hover:text-sky-400"
         >
           <Icono.History className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {onAjustarConIA && (
+        <button
+          onClick={detener(onAjustarConIA)}
+          title="Ajustar con IA"
+          className="rounded border border-zinc-800 p-1.5 text-zinc-500 hover:text-emerald-400"
+        >
+          <Icono.Sparkles className="h-3.5 w-3.5" />
         </button>
       )}
       {onAjustarFecha && (
@@ -171,10 +207,13 @@ const TarjetaNodo: React.FC<{
   cantidadObjetivo?: number;
   unidad?: string;
   progresoActual: number;
+  bandaAceptable?: number;
+  bandaMejorable?: number;
   onClick: () => void;
   onHistorial?: () => void;
   onAjustarFecha?: () => void;
   onAjustarCantidad?: () => void;
+  onAjustarConIA?: () => void;
   onArchivar?: () => void;
   onEliminar?: () => void;
 }> = ({
@@ -185,10 +224,13 @@ const TarjetaNodo: React.FC<{
   cantidadObjetivo,
   unidad,
   progresoActual,
+  bandaAceptable,
+  bandaMejorable,
   onClick,
   onHistorial,
   onAjustarFecha,
   onAjustarCantidad,
+  onAjustarConIA,
   onArchivar,
   onEliminar,
 }) => {
@@ -200,6 +242,15 @@ const TarjetaNodo: React.FC<{
           hoy
         )
       : null;
+  const nivelLogro =
+    cantidadObjetivo !== undefined
+      ? calcularNivelLogro(
+          cantidadObjetivo,
+          progresoActual,
+          bandaAceptable,
+          bandaMejorable
+        )
+      : undefined;
   const vencida = diaLimite < hoy;
 
   return (
@@ -233,13 +284,23 @@ const TarjetaNodo: React.FC<{
               <span className="text-xs text-zinc-400">
                 {progresoActual}/{cantidadObjetivo} {unidad}
               </span>
-              {ritmo && (
-                <span
-                  className={`rounded border px-1.5 py-0.5 text-[10px] font-bold ${COLOR_RITMO[ritmo.estado]}`}
-                >
-                  {ETIQUETA_RITMO[ritmo.estado]}
-                </span>
-              )}
+              <div className="flex shrink-0 gap-1">
+                {nivelLogro && (
+                  <span
+                    className={`rounded border px-1.5 py-0.5 text-[10px] font-bold ${COLOR_NIVEL_LOGRO[nivelLogro]}`}
+                    title="Nivel de logro según las bandas de aceptación configuradas"
+                  >
+                    {ETIQUETA_NIVEL_LOGRO[nivelLogro]}
+                  </span>
+                )}
+                {ritmo && (
+                  <span
+                    className={`rounded border px-1.5 py-0.5 text-[10px] font-bold ${COLOR_RITMO[ritmo.estado]}`}
+                  >
+                    {ETIQUETA_RITMO[ritmo.estado]}
+                  </span>
+                )}
+              </div>
             </div>
             {ritmo && ritmo.estado !== "cumplido" && (
               <span className="text-[11px] text-zinc-500">
@@ -254,6 +315,7 @@ const TarjetaNodo: React.FC<{
         onHistorial={onHistorial}
         onAjustarFecha={onAjustarFecha}
         onAjustarCantidad={onAjustarCantidad}
+        onAjustarConIA={onAjustarConIA}
         onArchivar={onArchivar}
         onEliminar={onEliminar}
       />
@@ -411,6 +473,41 @@ const VistaAreas: React.FC<{
     mostrarToast("Prompt copiado al portapapeles.", "exito");
   };
 
+  const copiarPromptEtapas = async () => {
+    const hoy = obtenerDiaTareaHoy();
+    const habitos = await db.habito_definicion.toArray();
+    const registros = await db.habito_registro
+      .where("diaTarea")
+      .aboveOrEqual(sumarDias(hoy, -30))
+      .toArray();
+    const objetivos = await db.objetivo_cuantificable
+      .where("estado")
+      .anyOf(["activo", "vencido"])
+      .toArray();
+    const resumen = generarResumenPeriodo(habitos, registros, objetivos, hoy);
+
+    const todasLasFases = (await db.fase_personal.toArray())
+      .sort((a, b) => b.actualizadoEn - a.actualizadoEn)
+      .slice(0, 10);
+    const resumenFases =
+      todasLasFases.length > 0
+        ? todasLasFases
+            .map(
+              (f) =>
+                `- "${f.titulo}" (${f.estado}): ${f.progresoActual}/${f.cantidadObjetivo} ${f.unidad}, ${f.diaInicio} → ${f.diaLimite}`
+            )
+            .join("\n")
+        : "";
+
+    const prompt = generarPromptPlanificacionEnFases(
+      resumen,
+      areas.map((a) => a.nombre),
+      resumenFases
+    );
+    navigator.clipboard.writeText(prompt);
+    mostrarToast("Prompt copiado al portapapeles.", "exito");
+  };
+
   const importar = async (items: unknown[]) => {
     const res = await importarUseCase.importarArbol(items);
     if (!res.ok) throw new Error(res.error!.mensaje);
@@ -431,6 +528,14 @@ const VistaAreas: React.FC<{
             icono={<Icono.Sparkles className="h-3.5 w-3.5" />}
           >
             Armar árbol con IA
+          </Button>
+          <Button
+            variant="outline"
+            onClick={copiarPromptEtapas}
+            className="px-3 py-1.5 text-xs"
+            icono={<Icono.Sparkles className="h-3.5 w-3.5" />}
+          >
+            Planificar por etapas
           </Button>
           <Button
             variant="outline"
@@ -484,6 +589,7 @@ const VistaAreas: React.FC<{
         abierto={modalAbierto}
         onCerrar={() => setModalAbierto(false)}
         titulo="Importar árbol completo desde JSON"
+        renderResumen={resumenArbolCompleto}
         plantillaEjemplo={JSON.stringify(
           {
             areaTitulo: "Freelancer",
@@ -614,7 +720,9 @@ const VistaObjetivos: React.FC<{
     id: string,
     titulo: string,
     cantidadActual: number,
-    unidad?: string
+    unidad?: string,
+    bandaAceptable?: number,
+    bandaMejorable?: number
   ) => void;
   onHistorial: (id: string, titulo: string) => void;
 }> = ({
@@ -627,6 +735,8 @@ const VistaObjetivos: React.FC<{
 }) => {
   const { mostrarToast } = useToast();
   const [modalAbierto, setModalAbierto] = useState(false);
+  const [objetivoParaAjustarIA, setObjetivoParaAjustarIA] =
+    useState<ObjetivoCuantificable | null>(null);
   const todos =
     useLiveQuery(
       () => db.objetivo_cuantificable.where("areaId").equals(area.id).toArray(),
@@ -695,22 +805,40 @@ const VistaObjetivos: React.FC<{
             cantidadObjetivo={o.cantidadObjetivo}
             unidad={o.unidad}
             progresoActual={o.progresoActual}
+            bandaAceptable={o.bandaAceptable}
+            bandaMejorable={o.bandaMejorable}
             onClick={() => onEntrar(o)}
             onHistorial={() => onHistorial(o.id, o.titulo)}
             onAjustarFecha={() => onAjustarFecha(o.id, o.titulo, o.diaLimite)}
             onAjustarCantidad={() =>
-              onAjustarCantidad(o.id, o.titulo, o.cantidadObjetivo, o.unidad)
+              onAjustarCantidad(
+                o.id,
+                o.titulo,
+                o.cantidadObjetivo,
+                o.unidad,
+                o.bandaAceptable,
+                o.bandaMejorable
+              )
             }
+            onAjustarConIA={() => setObjetivoParaAjustarIA(o)}
             onArchivar={() => void objetivosUseCase.archivarObjetivo(o.id)}
             onEliminar={() => onEliminar(o.id, o.titulo)}
           />
         ))}
         <FormularioNuevoObjetivo areaId={area.id} />
       </div>
+      {objetivoParaAjustarIA && (
+        <AjustarConIAModal
+          abierto
+          objetivo={objetivoParaAjustarIA}
+          onCerrar={() => setObjetivoParaAjustarIA(null)}
+        />
+      )}
       <ModalImportarJson
         abierto={modalAbierto}
         onCerrar={() => setModalAbierto(false)}
         titulo="Importar objetivo(s) desde JSON"
+        renderResumen={resumenArbolCompleto}
         plantillaEjemplo={JSON.stringify(
           {
             areaTitulo: area.nombre,
@@ -839,7 +967,9 @@ const VistaProyectos: React.FC<{
     id: string,
     titulo: string,
     cantidadActual: number,
-    unidad?: string
+    unidad?: string,
+    bandaAceptable?: number,
+    bandaMejorable?: number
   ) => void;
   onHistorial: (id: string, titulo: string) => void;
 }> = ({
@@ -914,6 +1044,8 @@ const VistaProyectos: React.FC<{
             cantidadObjetivo={p.cantidadObjetivo}
             unidad={p.unidad}
             progresoActual={p.progresoActual}
+            bandaAceptable={p.bandaAceptable}
+            bandaMejorable={p.bandaMejorable}
             onClick={() => onEntrar(p)}
             onHistorial={() => onHistorial(p.id, p.titulo)}
             onAjustarFecha={() => onAjustarFecha(p.id, p.titulo, p.diaLimite)}
@@ -924,7 +1056,9 @@ const VistaProyectos: React.FC<{
                       p.id,
                       p.titulo,
                       p.cantidadObjetivo!,
-                      p.unidad
+                      p.unidad,
+                      p.bandaAceptable,
+                      p.bandaMejorable
                     )
                 : undefined
             }
@@ -938,6 +1072,7 @@ const VistaProyectos: React.FC<{
         abierto={modalAbierto}
         onCerrar={() => setModalAbierto(false)}
         titulo="Importar proyecto(s) desde JSON"
+        renderResumen={resumenProyectoBajoObjetivo}
         plantillaEjemplo={JSON.stringify(
           {
             objetivoTitulo: objetivo.titulo,
@@ -1097,7 +1232,9 @@ const VistaEntregables: React.FC<{
     id: string,
     titulo: string,
     cantidadActual: number,
-    unidad?: string
+    unidad?: string,
+    bandaAceptable?: number,
+    bandaMejorable?: number
   ) => void;
   onHistorial: (id: string, titulo: string) => void;
 }> = ({ proyecto, onEntrar, onEliminar, onAjustarCantidad, onHistorial }) => {
@@ -1166,6 +1303,8 @@ const VistaEntregables: React.FC<{
               cantidadObjetivo={e.cantidadObjetivo}
               unidad={e.unidad}
               progresoActual={e.progresoActual}
+              bandaAceptable={e.bandaAceptable}
+              bandaMejorable={e.bandaMejorable}
               onClick={() => onEntrar(e)}
               onHistorial={() => onHistorial(e.id, e.titulo)}
               onAjustarCantidad={
@@ -1175,7 +1314,9 @@ const VistaEntregables: React.FC<{
                         e.id,
                         e.titulo,
                         e.cantidadObjetivo!,
-                        e.unidad
+                        e.unidad,
+                        e.bandaAceptable,
+                        e.bandaMejorable
                       )
                   : undefined
               }
@@ -1200,6 +1341,7 @@ const VistaEntregables: React.FC<{
         abierto={modalAbierto}
         onCerrar={() => setModalAbierto(false)}
         titulo="Importar entregable(s) desde JSON"
+        renderResumen={resumenEntregableBajoProyecto}
         plantillaEjemplo={JSON.stringify(
           {
             proyectoTitulo: proyecto.titulo,
@@ -1403,10 +1545,12 @@ const VistaActividades: React.FC<{ entregable: Entregable }> = ({
       {!entregable.recurrencia && (
         <FormularioNuevaActividadEntregable entregableId={entregable.id} />
       )}
+      <SeccionFasesEntregable entregable={entregable} />
       <ModalImportarJson
         abierto={modalAbierto}
         onCerrar={() => setModalAbierto(false)}
         titulo="Importar actividad(es) desde JSON"
+        renderResumen={resumenActividadesBajoEntregable}
         plantillaEjemplo={JSON.stringify(
           {
             entregableTitulo: entregable.titulo,
@@ -1467,6 +1611,8 @@ export const NavegadorJerarquico: React.FC = () => {
     titulo: string;
     cantidadActual: number;
     unidad?: string;
+    bandaAceptable?: number;
+    bandaMejorable?: number;
   } | null>(null);
 
   const migas: { label: string; onClick: () => void }[] = [
@@ -1545,13 +1691,22 @@ export const NavegadorJerarquico: React.FC = () => {
           onAjustarFecha={(id, titulo, fechaActual) =>
             setAjustarTarget({ nivel: "objetivo", id, titulo, fechaActual })
           }
-          onAjustarCantidad={(id, titulo, cantidadActual, unidad) =>
+          onAjustarCantidad={(
+            id,
+            titulo,
+            cantidadActual,
+            unidad,
+            bandaAceptable,
+            bandaMejorable
+          ) =>
             setAjustarCantidadTarget({
               nivel: "objetivo",
               id,
               titulo,
               cantidadActual,
               unidad,
+              bandaAceptable,
+              bandaMejorable,
             })
           }
           onHistorial={(id, titulo) =>
@@ -1569,13 +1724,22 @@ export const NavegadorJerarquico: React.FC = () => {
           onAjustarFecha={(id, titulo, fechaActual) =>
             setAjustarTarget({ nivel: "proyecto", id, titulo, fechaActual })
           }
-          onAjustarCantidad={(id, titulo, cantidadActual, unidad) =>
+          onAjustarCantidad={(
+            id,
+            titulo,
+            cantidadActual,
+            unidad,
+            bandaAceptable,
+            bandaMejorable
+          ) =>
             setAjustarCantidadTarget({
               nivel: "proyecto",
               id,
               titulo,
               cantidadActual,
               unidad,
+              bandaAceptable,
+              bandaMejorable,
             })
           }
           onHistorial={(id, titulo) =>
@@ -1590,13 +1754,22 @@ export const NavegadorJerarquico: React.FC = () => {
           onEliminar={(id, titulo) =>
             setEliminarTarget({ nivel: "entregable", id, titulo })
           }
-          onAjustarCantidad={(id, titulo, cantidadActual, unidad) =>
+          onAjustarCantidad={(
+            id,
+            titulo,
+            cantidadActual,
+            unidad,
+            bandaAceptable,
+            bandaMejorable
+          ) =>
             setAjustarCantidadTarget({
               nivel: "entregable",
               id,
               titulo,
               cantidadActual,
               unidad,
+              bandaAceptable,
+              bandaMejorable,
             })
           }
           onHistorial={(id, titulo) =>
@@ -1648,6 +1821,8 @@ export const NavegadorJerarquico: React.FC = () => {
           titulo={ajustarCantidadTarget.titulo}
           cantidadActual={ajustarCantidadTarget.cantidadActual}
           unidad={ajustarCantidadTarget.unidad}
+          bandaAceptableActual={ajustarCantidadTarget.bandaAceptable}
+          bandaMejorableActual={ajustarCantidadTarget.bandaMejorable}
           onCerrar={() => setAjustarCantidadTarget(null)}
           onAjustado={() => setAjustarCantidadTarget(null)}
         />

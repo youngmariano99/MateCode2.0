@@ -6,16 +6,19 @@ import {
   importarProyectoBajoObjetivoSchema,
   importarEntregableBajoProyectoSchema,
   importarActividadesBajoEntregableSchema,
+  importarFasesBajoEntregableSchema,
   type ItemObjetivoJson,
   type ItemProyectoJson,
   type ItemEntregableJson,
   type ItemActividadJson,
+  type ItemFaseJson,
 } from "../../../domain/entidades/planificacion-jerarquica.entity";
 import { GestionarAreasUseCase } from "./gestionar-areas.use-case";
 import { GestionarObjetivosUseCase } from "./gestionar-objetivos.use-case";
 import { GestionarProyectosPersonalUseCase } from "./gestionar-proyectos-personal.use-case";
 import { GestionarEntregablesUseCase } from "./gestionar-entregables.use-case";
 import { GestionarActividadesUseCase } from "./gestionar-actividades.use-case";
+import { GestionarFasesUseCase } from "./gestionar-fases.use-case";
 import { obtenerDiaTareaHoy } from "../../../domain/entidades/personal.entity";
 
 /** Arma un mensaje legible a partir de los issues de zod — mismo criterio que en importar-planificacion.use-case.ts. */
@@ -60,6 +63,7 @@ export class ImportarArbolPersonalUseCase {
   private readonly proyectos = new GestionarProyectosPersonalUseCase();
   private readonly entregables = new GestionarEntregablesUseCase();
   private readonly actividades = new GestionarActividadesUseCase();
+  private readonly fases = new GestionarFasesUseCase();
 
   private async resolverOCrearArea(
     areaTitulo: string
@@ -321,5 +325,60 @@ export class ImportarArbolPersonalUseCase {
       )
     );
     return this.resultadoFinal(combinar(...resultados), "actividad");
+  }
+
+  private async crearFase(
+    item: ItemFaseJson,
+    entregableId: string
+  ): Promise<ResultadoCreacion> {
+    const res = await this.fases.crearFase({
+      entregableId,
+      titulo: item.titulo,
+      orden: item.orden,
+      diaInicio: item.diaInicio,
+      diaLimite: item.diaLimite,
+      cantidadObjetivo: item.cantidadObjetivo,
+      unidad: item.unidad,
+      bandaAceptable: item.bandaAceptable,
+      bandaMejorable: item.bandaMejorable,
+    });
+    if (!res.ok) {
+      return {
+        creados: 0,
+        errores: [`Fase "${item.titulo}": ${res.error!.mensaje}`],
+      };
+    }
+    return { creados: 1, errores: [] };
+  }
+
+  /** Fase(s) bajo un Entregable YA EXISTENTE, resuelto por título exacto. */
+  public async importarFases(items: unknown[]): Promise<Resultado<string>> {
+    const parsed = importarFasesBajoEntregableSchema.safeParse(items[0] ?? {});
+    if (!parsed.success) {
+      return Resultado.falla(
+        new ErrorDominio(
+          `El JSON no tiene la estructura esperada: ${mensajeDeIssues(parsed.error.issues)}`
+        )
+      );
+    }
+    const entregable = await db.entregable
+      .filter(
+        (e) =>
+          e.titulo.toLowerCase().trim() ===
+            parsed.data.entregableTitulo.toLowerCase().trim() &&
+          e.estado !== "archivado"
+      )
+      .first();
+    if (!entregable) {
+      return Resultado.falla(
+        new ErrorDominio(
+          `No se encontró un entregable activo con el título "${parsed.data.entregableTitulo}".`
+        )
+      );
+    }
+    const resultados = await Promise.all(
+      parsed.data.fasesNuevas.map((f) => this.crearFase(f, entregable.id))
+    );
+    return this.resultadoFinal(combinar(...resultados), "fase");
   }
 }

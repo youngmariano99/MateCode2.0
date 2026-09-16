@@ -55,9 +55,21 @@ export interface Entregable {
   tieneHijos: boolean;
   /** undefined = puntual (una sola vez, sin repetirse). */
   recurrencia?: RecurrenciaEntregable;
+  /** % de `cantidadObjetivo` aceptable/mejorable sin llegar al 100% — ver calcularNivelLogro() en objetivo-cuantificable.entity.ts. En Fase (fase-personal.entity.ts) esto además decide el flujo de cierre, acá es solo informativo. */
+  bandaAceptable?: number;
+  bandaMejorable?: number;
   creadoEn: number;
   actualizadoEn: number;
 }
+
+function refineBandas<
+  T extends { bandaAceptable?: number; bandaMejorable?: number },
+>(v: T): boolean {
+  if (v.bandaAceptable === undefined || v.bandaMejorable === undefined)
+    return true;
+  return v.bandaMejorable < v.bandaAceptable;
+}
+const MENSAJE_BANDAS = "La banda mejorable tiene que ser menor a la aceptable.";
 
 export const crearEntregableSchema = z
   .object({
@@ -75,6 +87,8 @@ export const crearEntregableSchema = z
         diasSemana: z.array(z.number().int().min(0).max(6)).optional(),
       })
       .optional(),
+    bandaAceptable: z.number().min(0).max(100).optional(),
+    bandaMejorable: z.number().min(0).max(100).optional(),
   })
   .refine((v) => v.diaLimite >= v.diaInicio, {
     message: "La fecha límite no puede ser anterior a la de inicio.",
@@ -86,14 +100,19 @@ export const crearEntregableSchema = z
       message: "Si indicás cantidad, indicá también la unidad (y viceversa).",
       path: ["unidad"],
     }
-  );
+  )
+  .refine(refineBandas, { message: MENSAJE_BANDAS, path: ["bandaMejorable"] });
 export type CrearEntregableInput = z.input<typeof crearEntregableSchema>;
 
-export const ajustarEntregableSchema = z.object({
-  id: z.string(),
-  diaLimite: fechaISO.optional(),
-  cantidadObjetivo: z.number().positive().optional(),
-});
+export const ajustarEntregableSchema = z
+  .object({
+    id: z.string(),
+    diaLimite: fechaISO.optional(),
+    cantidadObjetivo: z.number().positive().optional(),
+    bandaAceptable: z.number().min(0).max(100).optional(),
+    bandaMejorable: z.number().min(0).max(100).optional(),
+  })
+  .refine(refineBandas, { message: MENSAJE_BANDAS, path: ["bandaMejorable"] });
 export type AjustarEntregableInput = z.input<typeof ajustarEntregableSchema>;
 
 /**

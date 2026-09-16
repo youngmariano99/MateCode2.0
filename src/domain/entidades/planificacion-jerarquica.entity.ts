@@ -116,3 +116,34 @@ export const importarActividadesBajoEntregableSchema = z.object({
 export type ImportarActividadesBajoEntregableInput = z.input<
   typeof importarActividadesBajoEntregableSchema
 >;
+
+// ============================================================================
+// Fases (Sprint 21) — checkpoints periódicos de un Entregable existente, con
+// meta propia. Mismo criterio de resolución por título exacto que el resto.
+// ============================================================================
+export const itemFaseJsonSchema = z.object({
+  titulo: z.string().trim().min(1, "Falta el título de la fase."),
+  orden: z.number().int().min(0),
+  diaInicio: fechaISO,
+  diaLimite: fechaISO,
+  cantidadObjetivo: z
+    .number()
+    .positive("La cantidad de la fase tiene que ser mayor a 0."),
+  unidad: z.string().trim().min(1, "Falta la unidad de la fase."),
+  bandaAceptable: z.number().min(0).max(100).optional(),
+  bandaMejorable: z.number().min(0).max(100).optional(),
+});
+export type ItemFaseJson = z.infer<typeof itemFaseJsonSchema>;
+
+export const importarFasesBajoEntregableSchema = z.object({
+  entregableTitulo: z
+    .string()
+    .trim()
+    .min(1, "Falta el título del entregable padre."),
+  fasesNuevas: z
+    .array(itemFaseJsonSchema)
+    .min(1, "No hay ninguna fase para crear."),
+});
+export type ImportarFasesBajoEntregableInput = z.input<
+  typeof importarFasesBajoEntregableSchema
+>;

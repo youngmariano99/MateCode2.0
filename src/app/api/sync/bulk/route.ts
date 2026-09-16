@@ -61,6 +61,7 @@ const tableMapper: Record<string, any> = {
   // Clave "actividad" (no "actividad_personal"): ver nota en sync/[table]/route.ts.
   actividad: schema.actividadPersonal,
   personal_historial: schema.personalHistorial,
+  fase_personal: schema.fasePersonal,
 };
 
 const DATE_FIELDS = [

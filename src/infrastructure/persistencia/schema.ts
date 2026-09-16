@@ -1062,6 +1062,8 @@ export const objetivoCuantificable = pgTable("objetivo_cuantificable", {
   etiquetaArea: varchar("etiqueta_area", { length: 255 }), // texto libre de catalogo_etiquetas, no FK
   areaId: varchar("area_id", { length: 255 }), // FK lógica a area_personal.id
   tieneHijos: boolean("tiene_hijos").default(false).notNull(),
+  bandaAceptable: integer("banda_aceptable"), // % de cantidadObjetivo — ver calcularNivelLogro (Sprint 21)
+  bandaMejorable: integer("banda_mejorable"),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   eliminadoEn: timestamp("eliminado_en"),
@@ -1100,6 +1102,8 @@ export const proyectoPersonal = pgTable("proyecto_personal", {
   progresoActual: doublePrecision("progreso_actual").default(0).notNull(),
   estado: varchar("estado", { length: 20 }).notNull(),
   tieneHijos: boolean("tiene_hijos").default(false).notNull(),
+  bandaAceptable: integer("banda_aceptable"),
+  bandaMejorable: integer("banda_mejorable"),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   eliminadoEn: timestamp("eliminado_en"),
@@ -1119,6 +1123,8 @@ export const entregable = pgTable("entregable", {
   estado: varchar("estado", { length: 20 }).notNull(),
   tieneHijos: boolean("tiene_hijos").default(false).notNull(),
   recurrencia: jsonb("recurrencia"), // { frecuencia, diasSemana? } | null — pasa tal cual, sin stringificar
+  bandaAceptable: integer("banda_aceptable"),
+  bandaMejorable: integer("banda_mejorable"),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   eliminadoEn: timestamp("eliminado_en"),
@@ -1148,6 +1154,27 @@ export const actividadPersonal = pgTable("actividad_personal", {
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   eliminadoEn: timestamp("eliminado_en"),
+});
+
+// Fases (Sprint 21): checkpoint periódico de un Entregable, con meta propia
+// y cierre con arrastre de faltante — ver fase-personal.entity.ts. `cierre`
+// pasa tal cual como jsonb (mismo criterio que `recurrencia` en Entregable).
+export const fasePersonal = pgTable("fase_personal", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  entregableId: varchar("entregable_id", { length: 255 }).notNull(),
+  titulo: varchar("titulo", { length: 255 }).notNull(),
+  orden: integer("orden").notNull(),
+  diaInicio: varchar("dia_inicio", { length: 10 }).notNull(),
+  diaLimite: varchar("dia_limite", { length: 10 }).notNull(),
+  cantidadObjetivo: doublePrecision("cantidad_objetivo").notNull(),
+  unidad: varchar("unidad", { length: 50 }).notNull(),
+  progresoActual: doublePrecision("progreso_actual").default(0).notNull(),
+  bandaAceptable: integer("banda_aceptable"),
+  bandaMejorable: integer("banda_mejorable"),
+  estado: varchar("estado", { length: 20 }).notNull(),
+  cierre: jsonb("cierre"),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
 });
 
 // Append-only real (nunca se borra) — ver personal-historial.entity.ts para

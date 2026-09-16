@@ -60,6 +60,7 @@ const tableMapper: Record<string, any> = {
   // `actividad` (uuid/agenciaId, código muerto del CRM).
   actividad: schema.actividadPersonal,
   personal_historial: schema.personalHistorial,
+  fase_personal: schema.fasePersonal,
 };
 
 export async function POST(

@@ -151,10 +151,14 @@ export class GestionarObjetivosUseCase {
     }
     if (
       parsed.data.cantidadObjetivo === undefined &&
-      parsed.data.diaLimite === undefined
+      parsed.data.diaLimite === undefined &&
+      parsed.data.bandaAceptable === undefined &&
+      parsed.data.bandaMejorable === undefined
     ) {
       return Resultado.falla(
-        new ErrorDominio("Indicá una nueva cantidad, una nueva fecha, o ambas.")
+        new ErrorDominio(
+          "Indicá una nueva cantidad, una nueva fecha, una banda, o alguna combinación."
+        )
       );
     }
     const actualizadoEn = Date.now();
@@ -164,6 +168,12 @@ export class GestionarObjetivosUseCase {
     }
     if (parsed.data.diaLimite !== undefined) {
       cambios.diaLimite = parsed.data.diaLimite;
+    }
+    if (parsed.data.bandaAceptable !== undefined) {
+      cambios.bandaAceptable = parsed.data.bandaAceptable;
+    }
+    if (parsed.data.bandaMejorable !== undefined) {
+      cambios.bandaMejorable = parsed.data.bandaMejorable;
     }
     // Un reajuste reactiva un objetivo que había quedado vencido — es
     // justamente la vía para "salvarlo" en vez de abandonarlo.

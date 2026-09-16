@@ -7,6 +7,7 @@ import { CapturaInbox } from "../../../../presentation/components/personal/captu
 import { BunkerDelDia } from "../../../../presentation/components/personal/bunker-del-dia";
 import { PanelPendientes } from "../../../../presentation/components/personal/panel-pendientes";
 import { PanelRetorno } from "../../../../presentation/components/personal/panel-retorno";
+import { AvisoFasesPendientes } from "../../../../presentation/components/personal/aviso-fases-pendientes";
 import { PanelRecuperarHabitos } from "../../../../presentation/components/personal/panel-recuperar-habitos";
 import { NavegadorJerarquico } from "../../../../presentation/components/personal/navegador-jerarquico";
 import { PanelEstadoGeneral } from "../../../../presentation/components/personal/panel-estado-general";
@@ -108,6 +109,7 @@ export default function PersonalHoyPage() {
         {horizonte === "dia" && (
           <div className="flex flex-col gap-6">
             <PanelRetorno />
+            <AvisoFasesPendientes />
             <PanelRecuperarHabitos />
             <TarjetaHabitos />
             <CapturaInbox />

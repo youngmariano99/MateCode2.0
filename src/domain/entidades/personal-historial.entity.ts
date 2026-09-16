@@ -14,6 +14,7 @@ export const TIPOS_ENTIDAD_HISTORIAL = [
   "entregable",
   "actividad",
   "habito",
+  "fase",
 ] as const;
 export type TipoEntidadHistorial = (typeof TIPOS_ENTIDAD_HISTORIAL)[number];
 
@@ -24,6 +25,7 @@ export const ACCIONES_HISTORIAL = [
   "ajustar_fecha",
   "ajustar_cantidad",
   "registrar_avance",
+  "cerrar_fase",
 ] as const;
 export type AccionHistorial = (typeof ACCIONES_HISTORIAL)[number];
 
