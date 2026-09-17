@@ -16,12 +16,16 @@ import {
   generarPromptBloqueCompleto,
 } from "../../../../domain/prompts/generar-prompt-entrenamiento";
 import { resumenBloqueCompleto } from "./resumen-import-entrenamiento";
+import { ConfirmarEliminarBloqueModal } from "./confirmar-eliminar-bloque-modal";
 import {
   EJES_PROGRESION,
   type EjeProgresion,
 } from "../../../../domain/entidades/ejercicio.entity";
 import { calcularMejoraEjercicio } from "../../../../domain/entidades/registro-actividad.entity";
-import type { PlantillaRutina } from "../../../../domain/entidades/rutina.entity";
+import type {
+  PlantillaRutina,
+  BloqueEntrenamiento,
+} from "../../../../domain/entidades/rutina.entity";
 import {
   obtenerDiaTareaHoy,
   sumarDias,
@@ -85,6 +89,24 @@ const ETIQUETA_EJE: Record<EjeProgresion, string> = {
   progresion: "Progresión (nivel)",
 };
 
+const DIAS_SEMANA = [
+  { valor: 1, corto: "L" },
+  { valor: 2, corto: "M" },
+  { valor: 3, corto: "M" },
+  { valor: 4, corto: "J" },
+  { valor: 5, corto: "V" },
+  { valor: 6, corto: "S" },
+  { valor: 0, corto: "D" },
+];
+
+function textoDias(diasSemana: number[]): string {
+  const set = new Set(diasSemana);
+  if (DIAS_SEMANA.every((d) => set.has(d.valor))) return "todos los días";
+  return DIAS_SEMANA.filter((d) => set.has(d.valor))
+    .map((d) => d.corto)
+    .join("");
+}
+
 interface PanelBloquesProps {
   /** Salta a la estación "Rutinas" — se ofrece apenas se crea el primer bloque. */
   onIrARutinas?: () => void;
@@ -107,9 +129,14 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
   const [modalBloqueCompletoAbierto, setModalBloqueCompletoAbierto] =
     useState(false);
   const [rutinaAVincular, setRutinaAVincular] = useState("");
+  const [diasAVincular, setDiasAVincular] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [bloqueAEliminar, setBloqueAEliminar] =
+    useState<BloqueEntrenamiento | null>(null);
 
   const bloques =
-    useLiveQuery(() => db.bloque_entrenamiento.toArray()) || SIN_BLOQUES;
+    useLiveQuery(() =>
+      db.bloque_entrenamiento.filter((b) => !b.eliminado).toArray()
+    ) || SIN_BLOQUES;
   const activo = bloques.find((b) => b.estado === "activo");
   const planificados = bloques
     .filter((b) => b.estado === "planificado")
@@ -135,8 +162,11 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
   const nombrePorIdRutina = new Map(
     rutinasExistentes.map((r) => [r.id, r.nombre])
   );
+  const idsYaProgramados = new Set(
+    (activo?.rutinasProgramadas || []).map((r) => r.plantillaId)
+  );
   const rutinasDisponiblesParaVincular = rutinasExistentes.filter(
-    (r) => !(activo?.plantillaIds || []).includes(r.id)
+    (r) => !idsYaProgramados.has(r.id)
   );
 
   const crear = async () => {
@@ -208,10 +238,29 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
   };
 
   const vincularRutina = async () => {
-    if (!activo || !rutinaAVincular) return;
-    const res = await useCase.vincularRutinas(activo.id, [rutinaAVincular]);
+    if (!activo || !rutinaAVincular || diasAVincular.length === 0) return;
+    const res = await useCase.programarRutina({
+      bloqueId: activo.id,
+      plantillaId: rutinaAVincular,
+      diasSemana: diasAVincular,
+    });
     if (!res.ok) mostrarToast(res.error!.mensaje, "error");
-    else setRutinaAVincular("");
+    else {
+      setRutinaAVincular("");
+      setDiasAVincular([1, 2, 3, 4, 5]);
+    }
+  };
+
+  const quitarRutina = async (plantillaId: string) => {
+    if (!activo) return;
+    const res = await useCase.quitarRutinaDelBloque(activo.id, plantillaId);
+    if (!res.ok) mostrarToast(res.error!.mensaje, "error");
+  };
+
+  const toggleDia = (dia: number) => {
+    setDiasAVincular((prev) =>
+      prev.includes(dia) ? prev.filter((d) => d !== dia) : [...prev, dia]
+    );
   };
 
   return (
@@ -315,51 +364,91 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
                 </span>
               </div>
             </div>
-            <button
-              onClick={() => void cerrar(activo.id)}
-              className="rounded border border-zinc-800 px-2 py-1 text-[10px] font-bold text-zinc-500 uppercase hover:text-red-400"
-            >
-              Cerrar bloque
-            </button>
+            <div className="flex shrink-0 gap-1.5">
+              <button
+                onClick={() => void cerrar(activo.id)}
+                className="rounded border border-zinc-800 px-2 py-1 text-[10px] font-bold text-zinc-500 uppercase hover:text-amber-400"
+              >
+                Cerrar bloque
+              </button>
+              <button
+                onClick={() => setBloqueAEliminar(activo)}
+                className="rounded border border-zinc-800 px-2 py-1 text-[10px] font-bold text-zinc-500 uppercase hover:text-red-400"
+              >
+                Eliminar
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5 border-t border-emerald-500/10 pt-2">
             <span className="text-[10px] font-bold tracking-wider text-zinc-500 uppercase">
               Rutinas de este bloque
             </span>
-            {activo.plantillaIds.length === 0 && (
+            {activo.rutinasProgramadas.length === 0 && (
               <span className="text-xs text-zinc-600">
                 Sin rutinas vinculadas todavía.
               </span>
             )}
-            <div className="flex flex-wrap gap-1.5">
-              {activo.plantillaIds.map((id) => (
-                <Badge key={id} color="zinc">
-                  {nombrePorIdRutina.get(id) || id}
-                </Badge>
+            <div className="flex flex-col gap-1">
+              {activo.rutinasProgramadas.map((r) => (
+                <div
+                  key={r.plantillaId}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-[#2A2A2E] px-2 py-1"
+                >
+                  <span className="text-xs text-zinc-300">
+                    {nombrePorIdRutina.get(r.plantillaId) || r.plantillaId}{" "}
+                    <span className="text-zinc-500">
+                      · {textoDias(r.diasSemana)}
+                    </span>
+                  </span>
+                  <button
+                    onClick={() => void quitarRutina(r.plantillaId)}
+                    className="text-zinc-600 hover:text-red-400"
+                    title="Quitar del bloque"
+                  >
+                    <Icono.Close className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               ))}
             </div>
             {rutinasDisponiblesParaVincular.length > 0 && (
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Combobox
-                    value={rutinaAVincular}
-                    onChange={setRutinaAVincular}
-                    options={rutinasDisponiblesParaVincular.map((r) => ({
-                      value: r.id,
-                      label: r.nombre,
-                    }))}
-                    placeholder="Vincular una rutina existente..."
-                  />
+              <div className="flex flex-col gap-1.5">
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Combobox
+                      value={rutinaAVincular}
+                      onChange={setRutinaAVincular}
+                      options={rutinasDisponiblesParaVincular.map((r) => ({
+                        value: r.id,
+                        label: r.nombre,
+                      }))}
+                      placeholder="Vincular una rutina existente..."
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => void vincularRutina()}
+                    disabled={!rutinaAVincular || diasAVincular.length === 0}
+                    className="px-3 py-1.5 text-xs"
+                  >
+                    Vincular
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={() => void vincularRutina()}
-                  disabled={!rutinaAVincular}
-                  className="px-3 py-1.5 text-xs"
-                >
-                  Vincular
-                </Button>
+                <div className="flex gap-1">
+                  {DIAS_SEMANA.map((d) => (
+                    <button
+                      key={d.valor}
+                      onClick={() => toggleDia(d.valor)}
+                      className={`h-6 w-6 rounded-md border text-[10px] font-bold ${
+                        diasAVincular.includes(d.valor)
+                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                          : "border-[#2A2A2E] text-zinc-500"
+                      }`}
+                    >
+                      {d.corto}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -381,6 +470,13 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
               <span className="text-zinc-600">
                 {b.diaInicio} → {b.diaFin}
               </span>
+              <button
+                onClick={() => setBloqueAEliminar(b)}
+                className="ml-auto text-zinc-700 hover:text-red-400"
+                title="Eliminar"
+              >
+                <Icono.Close className="h-3.5 w-3.5" />
+              </button>
             </div>
           ))}
         </div>
@@ -440,6 +536,14 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
         )}
         onImportar={importarBloqueCompleto}
       />
+      {bloqueAEliminar && (
+        <ConfirmarEliminarBloqueModal
+          abierto
+          bloque={bloqueAEliminar}
+          onCerrar={() => setBloqueAEliminar(null)}
+          onEliminado={() => setBloqueAEliminar(null)}
+        />
+      )}
     </div>
   );
 };

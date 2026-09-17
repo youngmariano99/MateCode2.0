@@ -131,6 +131,19 @@ export type AjustarPlantillaRutinaInput = z.input<
 export const ESTADOS_BLOQUE = ["activo", "cerrado", "planificado"] as const;
 export type EstadoBloque = (typeof ESTADOS_BLOQUE)[number];
 
+/**
+ * Una Rutina programada dentro de un Bloque — a qué días de la semana se
+ * repite (0=domingo...6=sábado), mismo criterio que `RecurrenciaEntregable`
+ * en el módulo Personal. El patrón se repite todas las semanas del Bloque;
+ * "moverla" un día puntual no cambia el patrón — simplemente se registra la
+ * sesión ese otro día (ver GestionarRegistroActividadUseCase), el patrón es
+ * una guía, no un candado.
+ */
+export interface RutinaProgramada {
+  plantillaId: string;
+  diasSemana: number[];
+}
+
 export interface BloqueEntrenamiento {
   id: string;
   nombre: string;
@@ -138,11 +151,18 @@ export interface BloqueEntrenamiento {
   diaFin: string;
   ejeProgresionDefault: EjeProgresion;
   estado: EstadoBloque;
-  /** Rutinas (PlantillaRutina.id) que se entrenan en este período — array denormalizado, una Rutina puede repetirse en varios Bloques. */
-  plantillaIds: string[];
+  /** Rutinas de este Bloque con sus días — una Rutina puede repetirse en varios Bloques con días distintos. */
+  rutinasProgramadas: RutinaProgramada[];
+  /** Soft delete — nunca hard-delete: un Bloque puede tener RegistroActividad reales encima, y esos nunca se tocan. */
+  eliminado: boolean;
   creadoEn: number;
   actualizadoEn: number;
 }
+
+const rutinaProgramadaSchema = z.object({
+  plantillaId: z.string().min(1),
+  diasSemana: z.array(z.number().int().min(0).max(6)).min(1),
+});
 
 export const crearBloqueSchema = z
   .object({
@@ -150,13 +170,27 @@ export const crearBloqueSchema = z
     diaInicio: fechaISO,
     diaFin: fechaISO,
     ejeProgresionDefault: z.enum(EJES_PROGRESION),
-    plantillaIds: z.array(z.string()).default([]),
+    rutinasProgramadas: z.array(rutinaProgramadaSchema).default([]),
   })
   .refine((v) => v.diaFin >= v.diaInicio, {
     message: "La fecha de fin no puede ser anterior a la de inicio.",
     path: ["diaFin"],
   });
 export type CrearBloqueInput = z.input<typeof crearBloqueSchema>;
+
+export const programarRutinaSchema = z.object({
+  bloqueId: z.string(),
+  plantillaId: z.string(),
+  diasSemana: z.array(z.number().int().min(0).max(6)).min(1),
+});
+export type ProgramarRutinaInput = z.input<typeof programarRutinaSchema>;
+
+/** ¿Toca esta Rutina hoy? Mismo criterio que aplicaHoyEntregable en el módulo Personal. */
+export function aplicaHoyRutina(diasSemana: number[], diaISO: string): boolean {
+  const [anio, mes, dia] = diaISO.split("-").map(Number);
+  const diaSemana = new Date(Date.UTC(anio, mes - 1, dia)).getUTCDay();
+  return diasSemana.includes(diaSemana);
+}
 
 /** Un ítem de una secuencia de bloques importada — sin fechas: se encadenan
  * solas a partir de hoy (o del fin del bloque activo, si ya hay uno). */

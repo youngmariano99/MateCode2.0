@@ -1027,7 +1027,8 @@ export const bloqueEntrenamiento = pgTable("bloque_entrenamiento", {
     length: 20,
   }).notNull(),
   estado: varchar("estado", { length: 20 }).notNull(), // activo | cerrado
-  plantillaIds: jsonb("plantilla_ids").default([]).notNull(), // string[] — Rutinas de este período
+  rutinasProgramadas: jsonb("rutinas_programadas").default([]).notNull(), // RutinaProgramada[] — {plantillaId, diasSemana}[]
+  eliminado: boolean("eliminado").default(false).notNull(),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   eliminadoEn: timestamp("eliminado_en"),
@@ -1189,4 +1190,20 @@ export const personalHistorial = pgTable("personal_historial", {
   campoAnterior: jsonb("campo_anterior"),
   campoNuevo: jsonb("campo_nuevo"),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
+});
+
+// Oficina (Sprint 23): sesión de trabajo enfocado con cronómetro — ver
+// sesion-trabajo.entity.ts. iniciadoEn/pausadoEn son timestamps ms-epoch
+// igual que en Dexie; la ruta de sync los convierte a Date vía el array
+// dateFields (ver src/app/api/sync/[table]/route.ts y .../bulk/route.ts).
+export const sesionTrabajo = pgTable("sesion_trabajo", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  actividadId: varchar("actividad_id", { length: 255 }).notNull(),
+  diaTarea: varchar("dia_tarea", { length: 10 }).notNull(),
+  iniciadoEn: timestamp("iniciado_en").notNull(),
+  pausadoEn: timestamp("pausado_en"),
+  segundosAcumulados: integer("segundos_acumulados").default(0).notNull(),
+  estado: varchar("estado", { length: 20 }).notNull(),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
 });

@@ -8,9 +8,11 @@ import {
 import {
   crearBloqueSchema,
   importarSecuenciaBloquesSchema,
+  programarRutinaSchema,
   type CrearBloqueInput,
   type BloqueEntrenamiento,
   type ImportarSecuenciaBloquesInput,
+  type ProgramarRutinaInput,
 } from "../../../domain/entidades/rutina.entity";
 import {
   obtenerDiaTareaHoy,
@@ -43,7 +45,8 @@ export class GestionarBloquesUseCase {
       diaFin: parsed.data.diaFin,
       ejeProgresionDefault: parsed.data.ejeProgresionDefault,
       estado: "activo",
-      plantillaIds: parsed.data.plantillaIds,
+      rutinasProgramadas: parsed.data.rutinasProgramadas,
+      eliminado: false,
       creadoEn: ahora,
       actualizadoEn: ahora,
     };
@@ -89,6 +92,7 @@ export class GestionarBloquesUseCase {
       const planificados = await db.bloque_entrenamiento
         .where("estado")
         .equals("planificado")
+        .and((b) => !b.eliminado)
         .toArray();
       const siguiente = planificados.sort((a, b) =>
         a.diaInicio < b.diaInicio ? -1 : 1
@@ -135,7 +139,7 @@ export class GestionarBloquesUseCase {
     }
 
     const bloqueActivo = (await db.bloque_entrenamiento.toArray()).find(
-      (b) => b.estado === "activo"
+      (b) => b.estado === "activo" && !b.eliminado
     );
     let cursorInicio = bloqueActivo
       ? sumarDias(bloqueActivo.diaFin, 1)
@@ -155,7 +159,8 @@ export class GestionarBloquesUseCase {
           diaFin,
           ejeProgresionDefault: item.ejeProgresionDefault,
           estado: esPrimeroYNoHayActivo ? "activo" : "planificado",
-          plantillaIds: [],
+          rutinasProgramadas: [],
+          eliminado: false,
           creadoEn: ahora,
           actualizadoEn: ahora,
         };
@@ -179,13 +184,66 @@ export class GestionarBloquesUseCase {
   }
 
   /**
-   * Agrega Rutinas (por id) a un Bloque ya existente, sin duplicar las que
-   * ya estaban vinculadas — para vincular a mano desde la UI, sin pasar por
-   * el import combinado con IA.
+   * Programa una Rutina en un Bloque con sus días de la semana — si esa
+   * Rutina ya estaba programada en este Bloque, actualiza sus días (upsert,
+   * nunca duplica la entrada); si no, la agrega. Para vincular a mano desde
+   * la UI, sin pasar por el import combinado con IA.
    */
-  public async vincularRutinas(
+  public async programarRutina(
+    input: ProgramarRutinaInput
+  ): Promise<Resultado<void>> {
+    const parsed = programarRutinaSchema.safeParse(input);
+    if (!parsed.success) {
+      return Resultado.falla(new ErrorDominio(parsed.error.issues[0].message));
+    }
+    const bloque = await db.bloque_entrenamiento.get(parsed.data.bloqueId);
+    if (!bloque) {
+      return Resultado.falla(
+        new ErrorNoEncontrado("No se encontró el bloque.")
+      );
+    }
+    const yaProgramada = bloque.rutinasProgramadas.some(
+      (r) => r.plantillaId === parsed.data.plantillaId
+    );
+    const rutinasProgramadas = yaProgramada
+      ? bloque.rutinasProgramadas.map((r) =>
+          r.plantillaId === parsed.data.plantillaId
+            ? { ...r, diasSemana: parsed.data.diasSemana }
+            : r
+        )
+      : [
+          ...bloque.rutinasProgramadas,
+          {
+            plantillaId: parsed.data.plantillaId,
+            diasSemana: parsed.data.diasSemana,
+          },
+        ];
+    const actualizadoEn = Date.now();
+    try {
+      await db.bloque_entrenamiento.update(parsed.data.bloqueId, {
+        rutinasProgramadas,
+        actualizadoEn,
+      });
+      await QueueService.encolar(
+        "bloque_entrenamiento",
+        "editar",
+        parsed.data.bloqueId,
+        { id: parsed.data.bloqueId, rutinasProgramadas, actualizadoEn }
+      );
+      return Resultado.exito(undefined);
+    } catch (err) {
+      return Resultado.falla(
+        new ErrorDominio(
+          err instanceof Error ? err.message : "Error al programar la rutina."
+        )
+      );
+    }
+  }
+
+  /** Saca una Rutina programada de un Bloque (deja de tocar ese día — no borra ninguna sesión ya registrada). */
+  public async quitarRutinaDelBloque(
     bloqueId: string,
-    plantillaIds: string[]
+    plantillaId: string
   ): Promise<Resultado<void>> {
     const bloque = await db.bloque_entrenamiento.get(bloqueId);
     if (!bloque) {
@@ -193,25 +251,59 @@ export class GestionarBloquesUseCase {
         new ErrorNoEncontrado("No se encontró el bloque.")
       );
     }
-    const combinados = Array.from(
-      new Set([...bloque.plantillaIds, ...plantillaIds])
+    const rutinasProgramadas = bloque.rutinasProgramadas.filter(
+      (r) => r.plantillaId !== plantillaId
     );
     const actualizadoEn = Date.now();
     try {
       await db.bloque_entrenamiento.update(bloqueId, {
-        plantillaIds: combinados,
+        rutinasProgramadas,
         actualizadoEn,
       });
       await QueueService.encolar("bloque_entrenamiento", "editar", bloqueId, {
         id: bloqueId,
-        plantillaIds: combinados,
+        rutinasProgramadas,
         actualizadoEn,
       });
       return Resultado.exito(undefined);
     } catch (err) {
       return Resultado.falla(
         new ErrorDominio(
-          err instanceof Error ? err.message : "Error al vincular la rutina."
+          err instanceof Error ? err.message : "Error al quitar la rutina."
+        )
+      );
+    }
+  }
+
+  /**
+   * Soft delete — NUNCA hard-delete: un Bloque puede tener RegistroActividad
+   * reales encima (sesiones ya hechas), y esos no se tocan ni se pierden.
+   * Si era el bloque activo, no se promueve ningún "planificado" en su
+   * lugar automáticamente — el usuario decide si arranca uno nuevo.
+   */
+  public async eliminarBloque(id: string): Promise<Resultado<void>> {
+    const bloque = await db.bloque_entrenamiento.get(id);
+    if (!bloque) {
+      return Resultado.falla(
+        new ErrorNoEncontrado("No se encontró el bloque.")
+      );
+    }
+    const actualizadoEn = Date.now();
+    try {
+      await db.bloque_entrenamiento.update(id, {
+        eliminado: true,
+        actualizadoEn,
+      });
+      await QueueService.encolar("bloque_entrenamiento", "editar", id, {
+        id,
+        eliminado: true,
+        actualizadoEn,
+      });
+      return Resultado.exito(undefined);
+    } catch (err) {
+      return Resultado.falla(
+        new ErrorDominio(
+          err instanceof Error ? err.message : "Error al eliminar el bloque."
         )
       );
     }

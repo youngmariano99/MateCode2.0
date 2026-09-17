@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { MainLayout } from "../../../../presentation/components/layout";
 import { Icono } from "../../../../presentation/components/icons";
 import { PanelBloques } from "../../../../presentation/components/personal/entrenamiento/panel-bloques";
+import { CalendarioEntrenamiento } from "../../../../presentation/components/personal/entrenamiento/calendario-entrenamiento";
 import { EjecucionSesion } from "../../../../presentation/components/personal/entrenamiento/ejecucion-sesion";
 import { CrearPlantilla } from "../../../../presentation/components/personal/entrenamiento/crear-plantilla";
 import { PanelPausasActivas } from "../../../../presentation/components/personal/entrenamiento/panel-pausas-activas";
@@ -69,6 +70,7 @@ export default function EntrenamientoPage() {
         {estacion === "hoy" && (
           <div className="flex flex-col gap-4">
             <PanelBloques onIrARutinas={() => setEstacion("rutinas")} />
+            <CalendarioEntrenamiento />
             <EjecucionSesion onIrARutinas={() => setEstacion("rutinas")} />
           </div>
         )}

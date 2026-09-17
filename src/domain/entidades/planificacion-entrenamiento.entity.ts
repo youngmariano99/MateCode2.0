@@ -44,6 +44,8 @@ export type ItemEjercicioEnRutinaJson = z.infer<
 /**
  * Una Rutina — si ya existe una PlantillaRutina con este "nombre" EXACTO, se
  * ACTUALIZA con esta definición (nunca se duplica); si no existe, se crea.
+ * "diasSemana" solo tiene sentido dentro de un Bloque (0=domingo...6=sábado)
+ * — en el import de Rutinas sueltas o pausas activas se ignora.
  */
 export const itemRutinaJsonSchema = z.object({
   nombre: z.string().trim().min(1, "Falta el nombre de la rutina."),
@@ -56,6 +58,7 @@ export const itemRutinaJsonSchema = z.object({
   tiempoTrabajoSeg: z.number().positive().optional(),
   tiempoDescansoSeg: z.number().positive().optional(),
   tiempoLimiteMin: z.number().positive().optional(),
+  diasSemana: z.array(z.number().int().min(0).max(6)).optional(),
 });
 export type ItemRutinaJson = z.infer<typeof itemRutinaJsonSchema>;
 

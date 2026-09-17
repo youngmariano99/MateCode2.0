@@ -20,7 +20,11 @@ const SIN_EJERCICIOS: never[] = [];
  */
 export const PanelEstadisticas: React.FC = () => {
   const bloqueActivo = useLiveQuery(() =>
-    db.bloque_entrenamiento.where("estado").equals("activo").first()
+    db.bloque_entrenamiento
+      .where("estado")
+      .equals("activo")
+      .and((b) => !b.eliminado)
+      .first()
   );
   const ejercicios =
     useLiveQuery(() => db.catalogo_ejercicio.toArray()) || SIN_EJERCICIOS;

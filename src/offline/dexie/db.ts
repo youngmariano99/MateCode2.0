@@ -58,6 +58,7 @@ import type {
   BloqueEntrenamiento,
 } from "../../domain/entidades/rutina.entity";
 import type { RegistroActividad } from "../../domain/entidades/registro-actividad.entity";
+import type { SesionTrabajo } from "../../domain/entidades/sesion-trabajo.entity";
 
 export interface CatalogoErrorRow {
   codigo: string;
@@ -174,6 +175,10 @@ export class MateCodeDB extends Dexie {
   public actividad!: Table<Actividad, string>;
   public personal_historial!: Table<PersonalHistorialRow, string>;
   public fase_personal!: Table<FasePersonal, string>;
+
+  // Oficina (Sprint 23): sesión de trabajo enfocado con cronómetro, una sola
+  // activa/pausada a la vez app-wide — ver sesion-trabajo.entity.ts.
+  public sesion_trabajo!: Table<SesionTrabajo, string>;
 
   constructor() {
     super("MateCodeLocalDB");
@@ -1169,6 +1174,13 @@ export class MateCodeDB extends Dexie {
     // propia y cierre con arrastre de faltante — ver fase-personal.entity.ts.
     this.version(26).stores({
       fase_personal: "id, entregableId, estado, diaLimite, orden",
+    });
+
+    // Oficina (Sprint 23): sesión de trabajo enfocado con cronómetro — una
+    // sola activa/pausada a la vez app-wide (mismo criterio single-focus que
+    // MAX_TAREAS_ENFOQUE_POR_DIA=1). Tabla nueva, sin datos previos que migrar.
+    this.version(27).stores({
+      sesion_trabajo: "id, actividadId, diaTarea, estado",
     });
 
     this.on("populate", async () => {

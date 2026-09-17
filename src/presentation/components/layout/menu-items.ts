@@ -43,7 +43,16 @@ export const MENU_PROFESIONAL: MenuItem[] = [
 ];
 
 export const MENU_PERSONAL: MenuItem[] = [
-  { label: "Hoy", href: "/dashboard/personal/hoy", icono: Icono.Sunrise },
+  {
+    label: "Planificación",
+    href: "/dashboard/personal/hoy",
+    icono: Icono.Sunrise,
+  },
+  {
+    label: "Oficina",
+    href: "/dashboard/personal/oficina",
+    icono: Icono.Briefcase,
+  },
   {
     label: "Entrenamiento",
     href: "/dashboard/personal/entrenamiento",

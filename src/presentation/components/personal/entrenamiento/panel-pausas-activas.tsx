@@ -8,13 +8,21 @@ import { Icono } from "../../icons";
 import { ModalImportarJson } from "../../contenido/modal-importar-json";
 import { useToast } from "../../../hooks/useToast";
 import { ImportarBloqueEntrenamientoUseCase } from "../../../../application/use-cases/personal/importar-bloque-entrenamiento.use-case";
+import { GestionarRegistroActividadUseCase } from "../../../../application/use-cases/personal/gestionar-registro-actividad.use-case";
 import { generarPromptPausasActivas } from "../../../../domain/prompts/generar-prompt-entrenamiento";
 import { resumenPausasActivas } from "./resumen-import-entrenamiento";
 import type { PlantillaRutina } from "../../../../domain/entidades/rutina.entity";
+import {
+  obtenerDiaTareaHoy,
+  sumarDias,
+} from "../../../../domain/entidades/personal.entity";
+import { formatoDiaCorto } from "../calendario-utils";
 
 const importarUseCase = new ImportarBloqueEntrenamientoUseCase();
+const registroUseCase = new GestionarRegistroActividadUseCase();
 const SIN_ITEMS: never[] = [];
 const SIN_RUTINAS: PlantillaRutina[] = [];
+const DIAS_HISTORIAL = 7;
 
 /**
  * Pausas activas: biblioteca de micro-rutinas listas para usar en cualquier
@@ -25,6 +33,9 @@ const SIN_RUTINAS: PlantillaRutina[] = [];
 export const PanelPausasActivas: React.FC = () => {
   const { mostrarToast } = useToast();
   const [modalImportarAbierto, setModalImportarAbierto] = useState(false);
+  const [marcando, setMarcando] = useState<string | null>(null);
+  const hoy = obtenerDiaTareaHoy();
+  const desde = sumarDias(hoy, -(DIAS_HISTORIAL - 1));
 
   const catalogoEjercicios =
     useLiveQuery(() => db.catalogo_ejercicio.toArray()) || SIN_ITEMS;
@@ -41,6 +52,34 @@ export const PanelPausasActivas: React.FC = () => {
         .filter((p) => !p.eliminado && p.formato === "pausa_activa")
         .toArray()
     ) || SIN_RUTINAS;
+  const idsPausaActiva = new Set(rutinasPausaActiva.map((r) => r.id));
+
+  const historial =
+    useLiveQuery(
+      () =>
+        db.registro_actividad
+          .where("diaTarea")
+          .between(desde, hoy, true, true)
+          .and((r) => r.bloqueId === undefined)
+          .reverse()
+          .sortBy("diaTarea"),
+      [desde, hoy]
+    ) || SIN_ITEMS;
+  const historialPausas = historial.filter((r) =>
+    idsPausaActiva.has(r.plantillaId)
+  );
+  const nombrePorId = new Map(rutinasPausaActiva.map((r) => [r.id, r.nombre]));
+
+  const marcarHecha = async (plantillaId: string) => {
+    setMarcando(plantillaId);
+    const res = await registroUseCase.registrarComoPlanificado(
+      plantillaId,
+      hoy
+    );
+    setMarcando(null);
+    if (!res.ok) mostrarToast(res.error!.mensaje, "error");
+    else mostrarToast("Pausa activa registrada.", "exito");
+  };
 
   const copiarPrompt = () => {
     const prompt = generarPromptPausasActivas(
@@ -99,12 +138,38 @@ export const PanelPausasActivas: React.FC = () => {
       ) : (
         <div className="flex flex-wrap gap-1.5">
           {rutinasPausaActiva.map((r) => (
-            <span
+            <div
               key={r.id}
-              className="rounded-full border border-[#2A2A2E] bg-[#0D0D0F] px-2.5 py-1 text-xs text-zinc-300"
+              className="flex items-center gap-1.5 rounded-full border border-[#2A2A2E] bg-[#0D0D0F] py-1 pr-1 pl-2.5 text-xs text-zinc-300"
             >
               {r.nombre}
-            </span>
+              <button
+                onClick={() => void marcarHecha(r.id)}
+                disabled={marcando === r.id}
+                title="Marcar hecha hoy"
+                className="rounded-full border border-emerald-500/20 bg-emerald-500/10 p-1 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-40"
+              >
+                <Icono.Check className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {historialPausas.length > 0 && (
+        <div className="flex flex-col gap-1 border-t border-[#2A2A2E] pt-3">
+          <span className="text-[10px] font-bold tracking-wider text-zinc-500 uppercase">
+            Hechas esta semana
+          </span>
+          {historialPausas.map((r) => (
+            <div key={r.id} className="flex items-center gap-2 text-xs">
+              <span className="text-zinc-600">
+                {formatoDiaCorto(r.diaTarea)}
+              </span>
+              <span className="text-zinc-300">
+                {nombrePorId.get(r.plantillaId) || r.plantillaId}
+              </span>
+            </div>
           ))}
         </div>
       )}

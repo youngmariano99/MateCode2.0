@@ -8,6 +8,8 @@ import type {
 
 const NOTA_ANTIDUPLICADO = `Antes de crear una Rutina o un Ejercicio nuevo, revisá si ya existe algo con ese nombre EXACTO en las listas de abajo. Si existe: para una Rutina, repetí su nombre tal cual (con la estructura que quieras — se actualiza, no se duplica: es la forma de "mantener igual" si repetís los mismos números, o "ajustar" si los cambiás). Para un Ejercicio, usá directamente ese nombre en "ejercicios", no lo repitas en "ejerciciosNuevos". Solo creá algo nuevo (Rutina o Ejercicio) si genuinamente no existe nada parecido — y en ese caso, un nombre distinto y claro.`;
 
+const NOTA_PESO_CORPORAL = `Un ejercicio de peso corporal (el catálogo lo marca sin equipo y sin carga externa) NUNCA lleva "pesoKg" — omitilo directamente (no pongas 0 ni 1 ni ningún número inventado). Poné "pesoKg" únicamente en ejercicios que sí admiten carga externa (mancuernas, barra, etc.).`;
+
 function listaCatalogo(catalogo: CatalogoEjercicio[]): string {
   return catalogo
     .map((e) => {
@@ -108,6 +110,7 @@ ${listaRutinasExistentes(rutinasExistentes, catalogo)}
 2. Incluí siempre una entrada en calor (campo "calentamiento", texto breve — ej. "5 min de cinta + movilidad de cadera y hombro"), no forma parte de los sets planificados.
 3. Los nombres de ejercicio en el JSON final deben coincidir EXACTO con el catálogo de arriba.
 4. ${NOTA_ANTIDUPLICADO}
+5. ${NOTA_PESO_CORPORAL}
 </instrucciones>
 
 <output_requerido>
@@ -118,14 +121,15 @@ Cuando ya tengas todo confirmado, devolvé ÚNICAMENTE un array JSON con esta es
     "formato": "tradicional" | "piramide" | "superserie" | "circuito" | "tabata" | "emom" | "amrap" | "for_time" | "liss" | "pausa_activa",
     "calentamiento": "Descripción breve de la entrada en calor",
     "ejercicios": [
-      { "nombre": "Nombre EXACTO del catálogo", "series": 3, "reps": 10, "pesoKg": null }
+      { "nombre": "Ejercicio de peso corporal", "series": 3, "reps": 10 },
+      { "nombre": "Ejercicio con carga externa", "series": 3, "reps": 10, "pesoKg": 12 }
     ],
     "numeroRondas": 8,
     "tiempoTrabajoSeg": 20,
     "tiempoDescansoSeg": 10
   }
 ]
-Nota: "ejercicios" para formatos de tiempo (tabata/emom/amrap/for_time/circuito/liss/pausa_activa) puede ser directamente un array de nombres (strings), igual que para formatos de series.
+Nota: "ejercicios" para formatos de tiempo (tabata/emom/amrap/for_time/circuito/liss/pausa_activa) puede ser directamente un array de nombres (strings), igual que para formatos de series. Fijate arriba: al ejercicio de peso corporal directamente no se le puso "pesoKg" — así tiene que ser.
 </output_requerido>`;
 }
 
@@ -220,7 +224,9 @@ ${resumenProgresoBloqueActivo || "No hay bloque activo, o todavía no hay sesion
 1. Preguntame el objetivo de este bloque (qué eje de progresión, cuánto tiempo, qué cambia respecto al bloque anterior) antes de generar nada.
 2. Si hay progreso real del bloque activo, usalo para calibrar los números nuevos (ej. si en Sentadilla búlgara se llegó a 22kg, el próximo bloque parte de ahí, no de cero) — NO inventes un número de cero si ya hay historia real.
 3. ${NOTA_ANTIDUPLICADO}
-4. El Bloque necesita nombre, fecha límite ("diaFin"), y eje de progresión — "diaInicio" es opcional (si no lo das, arranca hoy).
+4. ${NOTA_PESO_CORPORAL}
+5. El Bloque necesita nombre, fecha límite ("diaFin"), y eje de progresión — "diaInicio" es opcional (si no lo das, arranca hoy).
+6. Cada Rutina necesita "diasSemana": los días de la semana en que se repite dentro de este bloque, como números (0=domingo, 1=lunes, 2=martes, 3=miércoles, 4=jueves, 5=viernes, 6=sábado) — preguntame qué días le corresponden a cada una. Si no lo especificás, asumo de lunes a viernes.
 </instrucciones>
 
 <output_requerido>
@@ -239,7 +245,8 @@ Cuando ya tengas todo confirmado, devolvé ÚNICAMENTE un objeto JSON con esta e
       "calentamiento": "...",
       "ejercicios": [
         { "nombre": "Nombre EXACTO (existente o de ejerciciosNuevos)", "series": 4, "reps": 8, "pesoKg": 12 }
-      ]
+      ],
+      "diasSemana": [1, 3, 5]
     }
   ],
   "ejerciciosNuevos": [

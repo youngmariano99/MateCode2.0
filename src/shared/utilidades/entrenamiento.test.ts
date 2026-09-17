@@ -141,6 +141,43 @@ describe("Entrenamiento: use-cases", () => {
     assert.strictEqual(row?.estado, "cerrado");
   });
 
+  test("Eliminar un bloque es soft delete: sigue en la base pero nunca borra RegistroActividad", async () => {
+    const creado = await bloques.crearBloque({
+      nombre: "Bloque con sesiones",
+      diaInicio: "2026-01-01",
+      diaFin: "2026-01-28",
+      ejeProgresionDefault: "volumen",
+    });
+    assert.strictEqual(creado.ok, true);
+
+    const plantilla = await plantillas.crearPlantilla({
+      nombre: "Rutina de prueba",
+      formato: "tradicional",
+      tipoEstructura: "series",
+      estructura: {
+        bloques: [{ ejercicioId: "cej_x", sets: [{ reps: 10 }] }],
+      },
+    });
+    const sesion = await registros.registrarComoPlanificado(
+      plantilla.valor,
+      "2026-01-05",
+      creado.valor
+    );
+    assert.strictEqual(sesion.ok, true);
+
+    const eliminado = await bloques.eliminarBloque(creado.valor);
+    assert.strictEqual(eliminado.ok, true);
+
+    const fila = await db.bloque_entrenamiento.get(creado.valor);
+    assert.strictEqual(fila?.eliminado, true, "queda marcado, no se borra");
+
+    const registroDeLaSesion = await db.registro_actividad.get(sesion.valor);
+    assert.ok(
+      registroDeLaSesion,
+      "la sesión ya registrada nunca se toca al eliminar el bloque"
+    );
+  });
+
   test("Importar secuencia: el primero queda activo, el resto planificado y encadenado por fecha", async () => {
     const res = await bloques.importarSecuencia([
       {
@@ -361,8 +398,10 @@ describe("Entrenamiento: import combinado Bloque + Rutinas + Ejercicios (Sprint 
     const bloque = (await db.bloque_entrenamiento.toArray()).find(
       (b) => b.nombre === "Bloque 1 — Volumen"
     );
-    assert.strictEqual(bloque?.plantillaIds.length, 1);
-    const rutina = await db.plantilla_rutina.get(bloque!.plantillaIds[0]);
+    assert.strictEqual(bloque?.rutinasProgramadas.length, 1);
+    const rutina = await db.plantilla_rutina.get(
+      bloque!.rutinasProgramadas[0].plantillaId
+    );
     assert.strictEqual(rutina?.nombre, "Full Body A");
 
     const todosLosEjercicios = await db.catalogo_ejercicio.toArray();
@@ -506,9 +545,46 @@ describe("Entrenamiento: import combinado Bloque + Rutinas + Ejercicios (Sprint 
       (b) => b.nombre === "Bloque 3"
     );
     assert.strictEqual(
-      bloque?.plantillaIds.length,
+      bloque?.rutinasProgramadas.length,
       1,
       "solo la rutina válida quedó vinculada"
+    );
+  });
+
+  test("nunca guarda pesoKg en un ejercicio de peso corporal, aunque el JSON lo traiga (bug del '1kg')", async () => {
+    const res = await importarBloque.importarBloqueCompleto([
+      {
+        bloque: {
+          nombre: "Bloque 4",
+          diaInicio: "2026-01-01",
+          diaFin: "2026-02-01",
+          ejeProgresionDefault: "volumen",
+        },
+        rutinas: [
+          {
+            nombre: "Full Body B",
+            formato: "tradicional",
+            // "cej_flexiones" (creado en el beforeEach) tiene permiteCarga: false.
+            ejercicios: [
+              { nombre: "Flexiones de pecho", series: 3, reps: 10, pesoKg: 1 },
+            ],
+          },
+        ],
+        ejerciciosNuevos: [],
+      },
+    ]);
+    assert.strictEqual(res.ok, true);
+
+    const rutina = await db.plantilla_rutina
+      .filter((p) => p.nombre === "Full Body B")
+      .first();
+    const estructura = rutina?.estructura as {
+      bloques: { sets: { pesoKg?: number }[] }[];
+    };
+    assert.strictEqual(
+      estructura.bloques[0].sets[0].pesoKg,
+      undefined,
+      "un ejercicio sin permiteCarga nunca debe guardar pesoKg"
     );
   });
 });

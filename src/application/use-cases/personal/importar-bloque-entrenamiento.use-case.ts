@@ -46,12 +46,14 @@ export class ImportarBloqueEntrenamientoUseCase {
   private async resolverOCrearEjercicio(
     nombre: string,
     ejerciciosNuevos: ItemEjercicioNuevoJson[]
-  ): Promise<{ id?: string; error?: string }> {
+  ): Promise<{ id?: string; permiteCarga?: boolean; error?: string }> {
     const nombreNorm = normalizar(nombre);
     const existente = await db.catalogo_ejercicio
       .filter((e) => normalizar(e.nombre) === nombreNorm)
       .first();
-    if (existente) return { id: existente.id };
+    if (existente) {
+      return { id: existente.id, permiteCarga: existente.permiteCarga };
+    }
 
     const nuevo = ejerciciosNuevos.find(
       (e) => normalizar(e.nombre) === nombreNorm
@@ -65,7 +67,7 @@ export class ImportarBloqueEntrenamientoUseCase {
     if (!res.ok) {
       return { error: `Ejercicio "${nombre}": ${res.error!.mensaje}` };
     }
-    return { id: res.valor };
+    return { id: res.valor, permiteCarga: nuevo.permiteCarga ?? false };
   }
 
   private async armarEstructura(
@@ -93,11 +95,18 @@ export class ImportarBloqueEntrenamientoUseCase {
           continue;
         }
         const numeroSets = typeof ej === "string" ? 3 : ej.series || 3;
+        // Nunca guardar pesoKg en un ejercicio que no permite carga externa
+        // (peso corporal) — sin importar lo que haya puesto la IA en el
+        // JSON, para no ensuciar las estadísticas con un "1kg" inventado.
+        const pesoValido =
+          resuelto.permiteCarga && typeof ej !== "string"
+            ? ej.pesoKg
+            : undefined;
         bloques.push({
           ejercicioId: resuelto.id,
           sets: Array.from({ length: numeroSets }, () => ({
             reps: typeof ej === "string" ? undefined : ej.reps,
-            pesoKg: typeof ej === "string" ? undefined : ej.pesoKg,
+            pesoKg: pesoValido,
           })),
         });
       }
@@ -192,15 +201,28 @@ export class ImportarBloqueEntrenamientoUseCase {
       );
     }
 
-    const ids: string[] = [];
+    const rutinasProgramadas: { plantillaId: string; diasSemana: number[] }[] =
+      [];
     const errores: string[] = [];
     for (const r of parsed.data.rutinas) {
       const res = await this.resolverOCrearRutina(
         r,
         parsed.data.ejerciciosNuevos
       );
-      if (res.id) ids.push(res.id);
-      else errores.push(res.error!);
+      if (res.id) {
+        // Sin "diasSemana" explícito en el JSON, asume días hábiles — el
+        // prompt siempre le pide a la IA que lo declare, esto es solo red
+        // de contención si lo omite.
+        rutinasProgramadas.push({
+          plantillaId: res.id,
+          diasSemana:
+            r.diasSemana && r.diasSemana.length > 0
+              ? r.diasSemana
+              : [1, 2, 3, 4, 5],
+        });
+      } else {
+        errores.push(res.error!);
+      }
     }
 
     const resBloque = await this.bloques.crearBloque({
@@ -208,12 +230,12 @@ export class ImportarBloqueEntrenamientoUseCase {
       diaInicio: parsed.data.bloque.diaInicio ?? obtenerDiaTareaHoy(),
       diaFin: parsed.data.bloque.diaFin,
       ejeProgresionDefault: parsed.data.bloque.ejeProgresionDefault,
-      plantillaIds: ids,
+      rutinasProgramadas,
     });
     if (!resBloque.ok) return resBloque;
 
     return Resultado.exito(
-      `Bloque "${parsed.data.bloque.nombre}" creado con ${ids.length} rutina(s).` +
+      `Bloque "${parsed.data.bloque.nombre}" creado con ${rutinasProgramadas.length} rutina(s).` +
         (errores.length > 0 ? ` Con errores: ${errores.join(" — ")}` : "")
     );
   }

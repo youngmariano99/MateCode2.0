@@ -45,6 +45,17 @@ function textoEjercicios(ejercicios: ItemRutinaJson["ejercicios"]): string {
     .join(", ");
 }
 
+const NOMBRES_DIA = ["D", "L", "M", "M", "J", "V", "S"];
+
+function textoDias(diasSemana?: number[]): string {
+  if (!diasSemana || diasSemana.length === 0) return "";
+  return ` · días: ${diasSemana
+    .slice()
+    .sort((a, b) => a - b)
+    .map((d) => NOMBRES_DIA[d])
+    .join("")}`;
+}
+
 const ResumenRutina: React.FC<{ r: ItemRutinaJson; nivel: number }> = ({
   r,
   nivel,
@@ -52,6 +63,7 @@ const ResumenRutina: React.FC<{ r: ItemRutinaJson; nivel: number }> = ({
   <Fila nivel={nivel}>
     <span className="font-bold text-zinc-100">{r.nombre}</span> ({r.formato}) —{" "}
     {textoEjercicios(r.ejercicios)}
+    {textoDias(r.diasSemana)}
   </Fila>
 );
 

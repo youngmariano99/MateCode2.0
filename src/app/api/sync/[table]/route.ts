@@ -61,6 +61,7 @@ const tableMapper: Record<string, any> = {
   actividad: schema.actividadPersonal,
   personal_historial: schema.personalHistorial,
   fase_personal: schema.fasePersonal,
+  sesion_trabajo: schema.sesionTrabajo,
 };
 
 export async function POST(
@@ -133,6 +134,8 @@ export async function POST(
       "expiracion",
       "tiempoInicio",
       "tiempoFin",
+      "iniciadoEn",
+      "pausadoEn",
       "fechaUltimoContacto",
       "fecha",
       "volverFecha",

@@ -38,7 +38,7 @@ const HORIZONTES: {
 
 const breadcrumbs = [
   { label: "Personal", href: "/dashboard/personal/hoy" },
-  { label: "Hoy" },
+  { label: "Planificación" },
 ];
 
 const DESCRIPCION_HORIZONTE: Record<Horizonte, string> = {
