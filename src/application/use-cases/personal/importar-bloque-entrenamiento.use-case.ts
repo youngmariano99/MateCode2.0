@@ -189,54 +189,96 @@ export class ImportarBloqueEntrenamientoUseCase {
     return { id: res.valor };
   }
 
+  /**
+   * El JSON pegado puede traer UN Bloque ({bloque,...}) o VARIOS a la vez
+   * (array de esos mismos objetos — ej. varios meses planificados juntos).
+   * `ModalImportarJson` ya normaliza todo a array; acá se recorre entero
+   * (antes solo se miraba `items[0]`, así que pegar 2+ bloques silenciosamente
+   * creaba solo el primero). Se procesa SECUENCIAL, no en paralelo, por el
+   * mismo motivo que la resolución de Ejercicios/Rutinas: si dos Bloques del
+   * mismo pegado comparten una Rutina o Ejercicio nuevo, no puede haber
+   * carrera entre ellos.
+   */
   public async importarBloqueCompleto(
     items: unknown[]
   ): Promise<Resultado<string>> {
-    const parsed = importarBloqueCompletoSchema.safeParse(items[0] ?? {});
-    if (!parsed.success) {
+    if (items.length === 0) {
+      return Resultado.falla(
+        new ErrorDominio("No hay ningún bloque en el JSON.")
+      );
+    }
+
+    const resultados: string[] = [];
+    const erroresGenerales: string[] = [];
+
+    for (const item of items) {
+      const parsed = importarBloqueCompletoSchema.safeParse(item ?? {});
+      if (!parsed.success) {
+        erroresGenerales.push(
+          `El JSON no tiene la estructura esperada: ${mensajeDeIssues(parsed.error.issues)}`
+        );
+        continue;
+      }
+
+      const rutinasProgramadas: {
+        plantillaId: string;
+        diasSemana: number[];
+      }[] = [];
+      const errores: string[] = [];
+      for (const r of parsed.data.rutinas) {
+        const res = await this.resolverOCrearRutina(
+          r,
+          parsed.data.ejerciciosNuevos
+        );
+        if (res.id) {
+          // Sin "diasSemana" explícito en el JSON, asume días hábiles — el
+          // prompt siempre le pide a la IA que lo declare, esto es solo red
+          // de contención si lo omite.
+          rutinasProgramadas.push({
+            plantillaId: res.id,
+            diasSemana:
+              r.diasSemana && r.diasSemana.length > 0
+                ? r.diasSemana
+                : [1, 2, 3, 4, 5],
+          });
+        } else {
+          errores.push(res.error!);
+        }
+      }
+
+      const resBloque = await this.bloques.crearBloque({
+        nombre: parsed.data.bloque.nombre,
+        diaInicio: parsed.data.bloque.diaInicio ?? obtenerDiaTareaHoy(),
+        diaFin: parsed.data.bloque.diaFin,
+        ejeProgresionDefault: parsed.data.bloque.ejeProgresionDefault,
+        rutinasProgramadas,
+      });
+      if (!resBloque.ok) {
+        erroresGenerales.push(
+          `Bloque "${parsed.data.bloque.nombre}": ${resBloque.error!.mensaje}`
+        );
+        continue;
+      }
+
+      resultados.push(
+        `"${parsed.data.bloque.nombre}" (${rutinasProgramadas.length} rutina(s))` +
+          (errores.length > 0 ? ` — Con errores: ${errores.join(" — ")}` : "")
+      );
+    }
+
+    if (resultados.length === 0) {
       return Resultado.falla(
         new ErrorDominio(
-          `El JSON no tiene la estructura esperada: ${mensajeDeIssues(parsed.error.issues)}`
+          erroresGenerales.join(" — ") || "No se creó ningún bloque."
         )
       );
     }
 
-    const rutinasProgramadas: { plantillaId: string; diasSemana: number[] }[] =
-      [];
-    const errores: string[] = [];
-    for (const r of parsed.data.rutinas) {
-      const res = await this.resolverOCrearRutina(
-        r,
-        parsed.data.ejerciciosNuevos
-      );
-      if (res.id) {
-        // Sin "diasSemana" explícito en el JSON, asume días hábiles — el
-        // prompt siempre le pide a la IA que lo declare, esto es solo red
-        // de contención si lo omite.
-        rutinasProgramadas.push({
-          plantillaId: res.id,
-          diasSemana:
-            r.diasSemana && r.diasSemana.length > 0
-              ? r.diasSemana
-              : [1, 2, 3, 4, 5],
-        });
-      } else {
-        errores.push(res.error!);
-      }
-    }
-
-    const resBloque = await this.bloques.crearBloque({
-      nombre: parsed.data.bloque.nombre,
-      diaInicio: parsed.data.bloque.diaInicio ?? obtenerDiaTareaHoy(),
-      diaFin: parsed.data.bloque.diaFin,
-      ejeProgresionDefault: parsed.data.bloque.ejeProgresionDefault,
-      rutinasProgramadas,
-    });
-    if (!resBloque.ok) return resBloque;
-
     return Resultado.exito(
-      `Bloque "${parsed.data.bloque.nombre}" creado con ${rutinasProgramadas.length} rutina(s).` +
-        (errores.length > 0 ? ` Con errores: ${errores.join(" — ")}` : "")
+      `${resultados.length} bloque(s) creado(s): ${resultados.join("; ")}.` +
+        (erroresGenerales.length > 0
+          ? ` Con errores: ${erroresGenerales.join(" — ")}`
+          : "")
     );
   }
 

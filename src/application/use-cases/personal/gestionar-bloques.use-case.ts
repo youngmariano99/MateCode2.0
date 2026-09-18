@@ -36,6 +36,18 @@ export class GestionarBloquesUseCase {
     if (!parsed.success) {
       return Resultado.falla(new ErrorDominio(parsed.error.issues[0].message));
     }
+    // Un Bloque que arranca en el futuro, o que se crea mientras ya hay otro
+    // activo, nace "planificado" — nunca "activo" antes de su diaInicio real
+    // (si no, el calendario lo toma como vigente desde hoy, ignorando la
+    // fecha de inicio que se eligió).
+    const hoy = obtenerDiaTareaHoy();
+    const yaHayActivo = await db.bloque_entrenamiento
+      .where("estado")
+      .equals("activo")
+      .and((b) => !b.eliminado)
+      .first();
+    const estado =
+      !yaHayActivo && parsed.data.diaInicio <= hoy ? "activo" : "planificado";
     const ahora = Date.now();
     const id = idBloque();
     const registro: BloqueEntrenamiento = {
@@ -44,7 +56,7 @@ export class GestionarBloquesUseCase {
       diaInicio: parsed.data.diaInicio,
       diaFin: parsed.data.diaFin,
       ejeProgresionDefault: parsed.data.ejeProgresionDefault,
-      estado: "activo",
+      estado,
       rutinasProgramadas: parsed.data.rutinasProgramadas,
       eliminado: false,
       creadoEn: ahora,
@@ -60,6 +72,56 @@ export class GestionarBloquesUseCase {
       return Resultado.falla(
         new ErrorDominio(
           err instanceof Error ? err.message : "Error al crear el bloque."
+        )
+      );
+    }
+  }
+
+  /**
+   * Corrida al entrar a Entrenamiento (mismo criterio que
+   * marcarVencidosSiCorresponde/materializarUseCase en Planificación): si no
+   * hay ningún Bloque "activo" pero sí uno "planificado" cuyo diaInicio ya
+   * llegó, lo promueve — para que un Bloque creado con fecha futura arranque
+   * solo el día que corresponde, sin que el usuario tenga que volver a
+   * tocarlo a mano.
+   */
+  public async activarPendientes(hoy: string): Promise<Resultado<void>> {
+    try {
+      const yaHayActivo = await db.bloque_entrenamiento
+        .where("estado")
+        .equals("activo")
+        .and((b) => !b.eliminado)
+        .first();
+      if (yaHayActivo) return Resultado.exito(undefined);
+
+      const planificados = await db.bloque_entrenamiento
+        .where("estado")
+        .equals("planificado")
+        .and((b) => !b.eliminado && b.diaInicio <= hoy)
+        .toArray();
+      const siguiente = planificados.sort((a, b) =>
+        a.diaInicio < b.diaInicio ? -1 : 1
+      )[0];
+      if (!siguiente) return Resultado.exito(undefined);
+
+      const actualizadoEn = Date.now();
+      await db.bloque_entrenamiento.update(siguiente.id, {
+        estado: "activo",
+        actualizadoEn,
+      });
+      await QueueService.encolar(
+        "bloque_entrenamiento",
+        "editar",
+        siguiente.id,
+        { id: siguiente.id, estado: "activo", actualizadoEn }
+      );
+      return Resultado.exito(undefined);
+    } catch (err) {
+      return Resultado.falla(
+        new ErrorDominio(
+          err instanceof Error
+            ? err.message
+            : "Error al activar el bloque planificado."
         )
       );
     }

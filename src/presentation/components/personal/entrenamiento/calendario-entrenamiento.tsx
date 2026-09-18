@@ -111,9 +111,16 @@ export const CalendarioEntrenamiento: React.FC = () => {
       <div className="grid grid-cols-1 gap-2 overflow-x-auto sm:grid-cols-7">
         {diasSemana.map((dia) => {
           const esHoy = dia === hoy;
-          const rutinasDelDia = (bloqueActivo.rutinasProgramadas || []).filter(
-            (r) => aplicaHoyRutina(r.diasSemana, dia)
-          );
+          // El Bloque solo aplica dentro de su propia ventana — un día antes
+          // de diaInicio (o después de diaFin) nunca muestra sus rutinas,
+          // aunque el patrón semanal (diasSemana) matchee ese día de la semana.
+          const dentroDelBloque =
+            dia >= bloqueActivo.diaInicio && dia <= bloqueActivo.diaFin;
+          const rutinasDelDia = dentroDelBloque
+            ? (bloqueActivo.rutinasProgramadas || []).filter((r) =>
+                aplicaHoyRutina(r.diasSemana, dia)
+              )
+            : [];
           return (
             <div
               key={dia}

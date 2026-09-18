@@ -227,6 +227,7 @@ ${resumenProgresoBloqueActivo || "No hay bloque activo, o todavía no hay sesion
 4. ${NOTA_PESO_CORPORAL}
 5. El Bloque necesita nombre, fecha límite ("diaFin"), y eje de progresión — "diaInicio" es opcional (si no lo das, arranca hoy).
 6. Cada Rutina necesita "diasSemana": los días de la semana en que se repite dentro de este bloque, como números (0=domingo, 1=lunes, 2=martes, 3=miércoles, 4=jueves, 5=viernes, 6=sábado) — preguntame qué días le corresponden a cada una. Si no lo especificás, asumo de lunes a viernes.
+7. Si el usuario pide varios Bloques encadenados de una sola vez (ej. "planificame los próximos 3 meses"), cada uno con su propio "diaInicio"/"diaFin" consecutivo (el siguiente arranca el día después de que termina el anterior) — ver "output_requerido" para el formato con varios.
 </instrucciones>
 
 <output_requerido>
@@ -264,6 +265,7 @@ Cuando ya tengas todo confirmado, devolvé ÚNICAMENTE un objeto JSON con esta e
   ]
 }
 Nota: "ejercicios" para formatos de tiempo (tabata/emom/amrap/for_time/circuito/liss/pausa_activa) puede ser directamente un array de nombres (strings). "ejerciciosNuevos" puede quedar vacío ([]) si no hace falta ninguno.
+Si el usuario pidió varios Bloques a la vez, devolvé un ARRAY de objetos con esta misma estructura (uno por Bloque, en orden): [ { "bloque": {...}, "rutinas": [...], "ejerciciosNuevos": [...] }, { "bloque": {...}, "rutinas": [...], "ejerciciosNuevos": [...] } ] — cada uno se crea como un Bloque independiente.
 </output_requerido>`;
 }
 

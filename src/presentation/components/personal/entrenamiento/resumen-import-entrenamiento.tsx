@@ -79,24 +79,41 @@ const ResumenEjercicioNuevo: React.FC<{
   </Fila>
 );
 
+/** Un JSON pegado puede traer uno o varios Bloques a la vez (array) — se muestran todos, en el mismo orden en que se van a crear. */
 export function resumenBloqueCompleto(items: unknown[]): React.ReactNode {
-  const parsed = importarBloqueCompletoSchema.safeParse(items[0] ?? {});
-  if (!parsed.success) throw new Error(mensajeDeIssues(parsed.error.issues));
+  const parseados = items.map((item) =>
+    importarBloqueCompletoSchema.safeParse(item ?? {})
+  );
+  const primerError = parseados.find((p) => !p.success);
+  if (primerError && !primerError.success) {
+    throw new Error(mensajeDeIssues(primerError.error.issues));
+  }
   return (
-    <div className="flex flex-col gap-1">
-      <Fila nivel={0}>
-        <span className="font-bold text-emerald-400">
-          Bloque: {parsed.data.bloque.nombre}
-        </span>{" "}
-        — {parsed.data.bloque.diaInicio ?? "hoy"} → {parsed.data.bloque.diaFin}{" "}
-        · eje: {parsed.data.bloque.ejeProgresionDefault}
-      </Fila>
-      {parsed.data.rutinas.map((r, i) => (
-        <ResumenRutina key={i} r={r} nivel={1} />
-      ))}
-      {parsed.data.ejerciciosNuevos.map((e, i) => (
-        <ResumenEjercicioNuevo key={i} e={e} nivel={1} />
-      ))}
+    <div className="flex flex-col gap-2">
+      {parseados.map((p, idx) => {
+        if (!p.success) return null;
+        const parsed = p.data;
+        return (
+          <div
+            key={idx}
+            className="flex flex-col gap-1 border-b border-[#2A2A2E] pb-2 last:border-b-0 last:pb-0"
+          >
+            <Fila nivel={0}>
+              <span className="font-bold text-emerald-400">
+                Bloque: {parsed.bloque.nombre}
+              </span>{" "}
+              — {parsed.bloque.diaInicio ?? "hoy"} → {parsed.bloque.diaFin} ·
+              eje: {parsed.bloque.ejeProgresionDefault}
+            </Fila>
+            {parsed.rutinas.map((r, i) => (
+              <ResumenRutina key={i} r={r} nivel={1} />
+            ))}
+            {parsed.ejerciciosNuevos.map((e, i) => (
+              <ResumenEjercicioNuevo key={i} e={e} nivel={1} />
+            ))}
+          </div>
+        );
+      })}
       <p className="pl-2 text-[11px] text-zinc-600">
         Las Rutinas y Ejercicios con un nombre que ya existe se reusan o
         actualizan — no se duplican.

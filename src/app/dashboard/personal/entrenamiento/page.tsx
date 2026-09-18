@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { MainLayout } from "../../../../presentation/components/layout";
 import { Icono } from "../../../../presentation/components/icons";
 import { PanelBloques } from "../../../../presentation/components/personal/entrenamiento/panel-bloques";
+import { GestionarBloquesUseCase } from "../../../../application/use-cases/personal/gestionar-bloques.use-case";
+import { obtenerDiaTareaHoy } from "../../../../domain/entidades/personal.entity";
 import { CalendarioEntrenamiento } from "../../../../presentation/components/personal/entrenamiento/calendario-entrenamiento";
 import { EjecucionSesion } from "../../../../presentation/components/personal/entrenamiento/ejecucion-sesion";
 import { CrearPlantilla } from "../../../../presentation/components/personal/entrenamiento/crear-plantilla";
@@ -26,6 +28,8 @@ const breadcrumbs = [
   { label: "Entrenamiento" },
 ];
 
+const bloquesUseCase = new GestionarBloquesUseCase();
+
 /**
  * Bienestar y Entrenamiento — estaciones separadas porque este módulo no
  * tiene el ritmo diario de "Hoy": el Búnker/hábitos se resuelven todos los
@@ -33,6 +37,13 @@ const breadcrumbs = [
  */
 export default function EntrenamientoPage() {
   const [estacion, setEstacion] = useState<Estacion>("hoy");
+
+  // Se corre una vez al entrar — mismo criterio que marcarVencidosSiCorresponde
+  // en Planificación: si el Bloque activo se cerró y ya llegó la fecha de
+  // inicio del siguiente "planificado", lo activa solo.
+  useEffect(() => {
+    void bloquesUseCase.activarPendientes(obtenerDiaTareaHoy());
+  }, []);
 
   return (
     <MainLayout breadcrumbs={breadcrumbs}>

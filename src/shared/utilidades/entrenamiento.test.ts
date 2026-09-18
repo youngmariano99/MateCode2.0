@@ -13,6 +13,10 @@ import {
 } from "../../domain/entidades/ejercicio.entity";
 import { calcularMejoraEjercicio } from "../../domain/entidades/registro-actividad.entity";
 import type { RegistroActividad } from "../../domain/entidades/registro-actividad.entity";
+import {
+  obtenerDiaTareaHoy,
+  sumarDias,
+} from "../../domain/entidades/personal.entity";
 
 const bloques = new GestionarBloquesUseCase();
 const plantillas = new GestionarPlantillasRutinaUseCase();
@@ -229,6 +233,87 @@ describe("Entrenamiento: use-cases", () => {
     );
   });
 
+  test("Crear bloque con diaInicio futuro nace 'planificado', no 'activo'", async () => {
+    const hoy = obtenerDiaTareaHoy();
+    const enElFuturo = sumarDias(hoy, 7);
+    const creado = await bloques.crearBloque({
+      nombre: "Bloque futuro",
+      diaInicio: enElFuturo,
+      diaFin: sumarDias(enElFuturo, 27),
+      ejeProgresionDefault: "volumen",
+    });
+    assert.strictEqual(creado.ok, true);
+    const row = await db.bloque_entrenamiento.get(creado.valor);
+    assert.strictEqual(row?.estado, "planificado");
+  });
+
+  test("Crear un segundo bloque mientras ya hay uno activo lo deja 'planificado', aunque su diaInicio sea hoy", async () => {
+    const hoy = obtenerDiaTareaHoy();
+    await bloques.crearBloque({
+      nombre: "Bloque activo actual",
+      diaInicio: hoy,
+      diaFin: sumarDias(hoy, 27),
+      ejeProgresionDefault: "volumen",
+    });
+    const segundo = await bloques.crearBloque({
+      nombre: "Bloque nuevo",
+      diaInicio: hoy,
+      diaFin: sumarDias(hoy, 27),
+      ejeProgresionDefault: "carga",
+    });
+    assert.strictEqual(segundo.ok, true);
+    const row = await db.bloque_entrenamiento.get(segundo.valor);
+    assert.strictEqual(row?.estado, "planificado");
+  });
+
+  test("activarPendientes promueve un bloque planificado cuando ya llegó su diaInicio y no hay ninguno activo", async () => {
+    const hoy = obtenerDiaTareaHoy();
+    const creado = await bloques.crearBloque({
+      nombre: "Bloque que ya debería arrancar",
+      diaInicio: sumarDias(hoy, -1),
+      diaFin: sumarDias(hoy, 27),
+      ejeProgresionDefault: "volumen",
+    });
+    // Forzado a "planificado" para simular el caso real: se creó cuando
+    // había otro bloque activo, y ese ya se cerró sin promoverlo (o llegó su
+    // fecha después de haberse creado planificado por otra razón).
+    await db.bloque_entrenamiento.update(creado.valor!, {
+      estado: "planificado",
+    });
+
+    const res = await bloques.activarPendientes(hoy);
+    assert.strictEqual(res.ok, true);
+    const row = await db.bloque_entrenamiento.get(creado.valor);
+    assert.strictEqual(row?.estado, "activo");
+  });
+
+  test("activarPendientes no toca nada si ya hay un bloque activo", async () => {
+    const hoy = obtenerDiaTareaHoy();
+    const activo = await bloques.crearBloque({
+      nombre: "Ya activo",
+      diaInicio: hoy,
+      diaFin: sumarDias(hoy, 27),
+      ejeProgresionDefault: "volumen",
+    });
+    const planificado = await bloques.crearBloque({
+      nombre: "Planificado, no le toca todavía",
+      diaInicio: sumarDias(hoy, -1),
+      diaFin: sumarDias(hoy, 27),
+      ejeProgresionDefault: "carga",
+    });
+
+    await bloques.activarPendientes(hoy);
+
+    assert.strictEqual(
+      (await db.bloque_entrenamiento.get(activo.valor))?.estado,
+      "activo"
+    );
+    assert.strictEqual(
+      (await db.bloque_entrenamiento.get(planificado.valor))?.estado,
+      "planificado"
+    );
+  });
+
   test("Crear plantilla por series y registrar 'como planificado' en un tap", async () => {
     const plantilla = await plantillas.crearPlantilla({
       nombre: "Full Body A",
@@ -410,6 +495,53 @@ describe("Entrenamiento: import combinado Bloque + Rutinas + Ejercicios (Sprint 
       1,
       "no debe haber creado un ejercicio duplicado de 'Flexiones de pecho'"
     );
+  });
+
+  test("un JSON con varios Bloques a la vez (array) crea TODOS, no solo el primero", async () => {
+    const res = await importarBloque.importarBloqueCompleto([
+      {
+        bloque: {
+          nombre: "Bloque A",
+          diaInicio: "2026-01-01",
+          diaFin: "2026-01-28",
+          ejeProgresionDefault: "volumen",
+        },
+        rutinas: [
+          {
+            nombre: "Rutina A",
+            formato: "tradicional",
+            ejercicios: [{ nombre: "Flexiones de pecho", series: 3, reps: 10 }],
+          },
+        ],
+        ejerciciosNuevos: [],
+      },
+      {
+        bloque: {
+          nombre: "Bloque B",
+          diaInicio: "2026-01-29",
+          diaFin: "2026-02-25",
+          ejeProgresionDefault: "carga",
+        },
+        rutinas: [
+          {
+            nombre: "Rutina B",
+            formato: "tradicional",
+            ejercicios: [{ nombre: "Flexiones de pecho", series: 3, reps: 10 }],
+          },
+        ],
+        ejerciciosNuevos: [],
+      },
+    ]);
+    assert.strictEqual(res.ok, true);
+
+    const todos = await db.bloque_entrenamiento.toArray();
+    assert.strictEqual(todos.length, 2, "los 2 bloques del array se crearon");
+    assert.ok(todos.some((b) => b.nombre === "Bloque A"));
+    assert.ok(todos.some((b) => b.nombre === "Bloque B"));
+
+    // No debe haber duplicado "Flexiones de pecho" entre ambos bloques.
+    const todosLosEjercicios = await db.catalogo_ejercicio.toArray();
+    assert.strictEqual(todosLosEjercicios.length, 1);
   });
 
   test("crea un Ejercicio nuevo cuando no existe en el catálogo", async () => {
