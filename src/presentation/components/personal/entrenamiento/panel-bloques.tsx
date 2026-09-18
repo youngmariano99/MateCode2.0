@@ -384,13 +384,13 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
             <span className="text-[10px] font-bold tracking-wider text-zinc-500 uppercase">
               Rutinas de este bloque
             </span>
-            {activo.rutinasProgramadas.length === 0 && (
+            {(activo.rutinasProgramadas || []).length === 0 && (
               <span className="text-xs text-zinc-600">
                 Sin rutinas vinculadas todavía.
               </span>
             )}
             <div className="flex flex-col gap-1">
-              {activo.rutinasProgramadas.map((r) => (
+              {(activo.rutinasProgramadas || []).map((r) => (
                 <div
                   key={r.plantillaId}
                   className="flex items-center justify-between gap-2 rounded-lg border border-[#2A2A2E] px-2 py-1"

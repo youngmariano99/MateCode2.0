@@ -1183,6 +1183,32 @@ export class MateCodeDB extends Dexie {
       sesion_trabajo: "id, actividadId, diaTarea, estado",
     });
 
+    // El campo `plantillaIds` de BloqueEntrenamiento se renombró/reestructuró
+    // a `rutinasProgramadas` (Sprint 23, Grupo B) sin bump de versión en ese
+    // momento (no cambiaba ningún índice) — los Bloques creados antes de ese
+    // cambio quedaron con `plantillaIds` viejo y sin `rutinasProgramadas`,
+    // que la UI lee directo (`.filter`/`.map`) y explota con "undefined".
+    // Este upgrade backfillea: si ya tiene rutinasProgramadas, no se toca; si
+    // no, se arma desde plantillaIds (días hábiles por defecto, igual que el
+    // fallback que ya usa ImportarBloqueEntrenamientoUseCase) o queda [].
+    this.version(28)
+      .stores({})
+      .upgrade(async (tx) => {
+        const bloques = await tx.table("bloque_entrenamiento").toArray();
+        for (const b of bloques) {
+          if (b.rutinasProgramadas !== undefined) continue;
+          const plantillaIds: string[] = Array.isArray(b.plantillaIds)
+            ? b.plantillaIds
+            : [];
+          await tx.table("bloque_entrenamiento").update(b.id, {
+            rutinasProgramadas: plantillaIds.map((plantillaId: string) => ({
+              plantillaId,
+              diasSemana: [1, 2, 3, 4, 5],
+            })),
+          });
+        }
+      });
+
     this.on("populate", async () => {
       const ahoraPopulate = Date.now();
       await this.table("catalogo_etiquetas").bulkPut(

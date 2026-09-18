@@ -36,6 +36,7 @@ const entregables = new GestionarEntregablesUseCase();
 const actividades = new GestionarActividadesUseCase();
 const habitos = new GestionarHabitosUseCase();
 const eliminarNodo = new EliminarNodoPersonalUseCase();
+const fases = new GestionarFasesUseCase();
 const previewFecha = new PreviewarAjusteFechaUseCase();
 const aplicarFecha = new AplicarAjusteFechaUseCase();
 
@@ -280,6 +281,7 @@ describe("Borrado en cascada: conteo real y sin huérfanos", () => {
     await db.actividad.clear();
     await db.personal_historial.clear();
     await db.habito_definicion.clear();
+    await db.fase_personal.clear();
   });
 
   async function armarArbolDeEjemplo() {
@@ -319,6 +321,15 @@ describe("Borrado en cascada: conteo real y sin huérfanos", () => {
       objetivoId: objetivo.valor,
       entregableId: entregable.valor,
     });
+    const fase = await fases.crearFase({
+      entregableId: entregable.valor!,
+      titulo: "Semana 1",
+      orden: 0,
+      diaInicio: "2026-01-01",
+      diaLimite: "2026-01-07",
+      cantidadObjetivo: 5,
+      unidad: "wireframes",
+    });
     return {
       areaId: area.valor,
       objetivoId: objetivo.valor,
@@ -326,6 +337,7 @@ describe("Borrado en cascada: conteo real y sin huérfanos", () => {
       entregableId: entregable.valor,
       actividadId: actividad.valor,
       habitoId: habito.valor,
+      faseId: fase.valor,
     };
   }
 
@@ -351,6 +363,11 @@ describe("Borrado en cascada: conteo real y sin huérfanos", () => {
 
     assert.strictEqual(await db.entregable.get(arbol.entregableId), undefined);
     assert.strictEqual(await db.actividad.get(arbol.actividadId), undefined);
+    assert.strictEqual(
+      await db.fase_personal.get(arbol.faseId),
+      undefined,
+      "la Fase del entregable borrado también debe borrarse"
+    );
 
     const habito = await db.habito_definicion.get(arbol.habitoId);
     assert.notStrictEqual(habito, undefined, "el hábito no debe borrarse");
@@ -376,6 +393,11 @@ describe("Borrado en cascada: conteo real y sin huérfanos", () => {
     );
     assert.strictEqual(await db.entregable.get(arbol.entregableId), undefined);
     assert.strictEqual(await db.actividad.get(arbol.actividadId), undefined);
+    assert.strictEqual(
+      await db.fase_personal.get(arbol.faseId),
+      undefined,
+      "la Fase también debe borrarse al eliminar el Objetivo"
+    );
 
     // Ninguna fila viva debe seguir apuntando al objetivo borrado.
     const proyectosHuerfanos = await db.proyecto_personal
@@ -406,6 +428,11 @@ describe("Borrado en cascada: conteo real y sin huérfanos", () => {
     assert.strictEqual(
       await db.proyecto_personal.get(arbol.proyectoId),
       undefined
+    );
+    assert.strictEqual(
+      await db.fase_personal.get(arbol.faseId),
+      undefined,
+      "la Fase también debe borrarse al eliminar el Área (vía cascada del Objetivo)"
     );
   });
 });

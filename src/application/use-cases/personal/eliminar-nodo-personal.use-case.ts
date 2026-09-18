@@ -161,7 +161,13 @@ export class EliminarNodoPersonalUseCase {
     const actualizadoEn = Date.now();
     await db.transaction(
       "rw",
-      [db.entregable, db.actividad, db.habito_definicion, db.cola_eventos],
+      [
+        db.entregable,
+        db.actividad,
+        db.habito_definicion,
+        db.fase_personal,
+        db.cola_eventos,
+      ],
       async () => {
         const actividades = await db.actividad
           .where("entregableId")
@@ -170,6 +176,14 @@ export class EliminarNodoPersonalUseCase {
         for (const a of actividades) {
           await db.actividad.delete(a.id);
           await QueueService.encolar("actividad", "eliminar", a.id, {});
+        }
+        const fases = await db.fase_personal
+          .where("entregableId")
+          .equals(id)
+          .toArray();
+        for (const f of fases) {
+          await db.fase_personal.delete(f.id);
+          await QueueService.encolar("fase_personal", "eliminar", f.id, {});
         }
         const habitos = await db.habito_definicion
           .where("entregableId")
@@ -215,6 +229,7 @@ export class EliminarNodoPersonalUseCase {
         db.entregable,
         db.actividad,
         db.habito_definicion,
+        db.fase_personal,
         db.cola_eventos,
       ],
       async () => {
@@ -231,6 +246,14 @@ export class EliminarNodoPersonalUseCase {
           .equals(id)
           .toArray();
         for (const e of entregables) {
+          const fases = await db.fase_personal
+            .where("entregableId")
+            .equals(e.id)
+            .toArray();
+          for (const f of fases) {
+            await db.fase_personal.delete(f.id);
+            await QueueService.encolar("fase_personal", "eliminar", f.id, {});
+          }
           await db.entregable.delete(e.id);
           await QueueService.encolar("entregable", "eliminar", e.id, {});
         }
@@ -281,6 +304,7 @@ export class EliminarNodoPersonalUseCase {
         db.entregable,
         db.actividad,
         db.habito_definicion,
+        db.fase_personal,
         db.cola_eventos,
       ],
       async () => {
@@ -297,6 +321,14 @@ export class EliminarNodoPersonalUseCase {
           .equals(id)
           .toArray();
         for (const e of entregables) {
+          const fases = await db.fase_personal
+            .where("entregableId")
+            .equals(e.id)
+            .toArray();
+          for (const f of fases) {
+            await db.fase_personal.delete(f.id);
+            await QueueService.encolar("fase_personal", "eliminar", f.id, {});
+          }
           await db.entregable.delete(e.id);
           await QueueService.encolar("entregable", "eliminar", e.id, {});
         }

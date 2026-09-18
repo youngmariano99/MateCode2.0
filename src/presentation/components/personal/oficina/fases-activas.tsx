@@ -34,21 +34,33 @@ const COLOR_RITMO: Record<EstadoRitmoObjetivo, BadgeColor> = {
  * Cuánto falta HOY para no quedar atrás de cada Fase abierta — reusa
  * calcularRitmoObjetivo (mismo cálculo que WidgetObjetivo) porque
  * FasePersonal tiene el mismo shape cantidadObjetivo/progresoActual/
- * diaInicio/diaLimite. Fases ya vencidas sin cerrar siguen apareciendo acá
- * (badge "Vencido") además del aviso en Planificación — ese resuelve el
- * cierre, esto solo informa el ritmo mientras se trabaja.
+ * diaInicio/diaLimite. Solo se muestran Fases VIGENTES (diaInicio <= hoy <=
+ * diaLimite) de Entregables no archivados/cumplidos/vencidos — una Fase
+ * futura o ya vencida no aporta nada acá (las vencidas sin cerrar ya tienen
+ * su propio aviso en Planificación, que resuelve el cierre). Ordenadas por
+ * fecha límite más próxima primero.
  */
 export const FasesActivas: React.FC = () => {
   const hoy = obtenerDiaTareaHoy();
 
-  const fases =
+  const fasesAbiertas =
     useLiveQuery(() =>
       db.fase_personal.where("estado").equals("abierta").toArray()
     ) || SIN_FASES;
-  const entregablesPorId = useLiveQuery(async () => {
-    const todos = await db.entregable.toArray();
-    return new Map(todos.map((e) => [e.id, e.titulo]));
-  });
+  const entregables = useLiveQuery(() => db.entregable.toArray());
+  const entregablesPorId = new Map((entregables || []).map((e) => [e.id, e]));
+
+  const fases = fasesAbiertas
+    .filter((f) => {
+      const entregable = entregablesPorId.get(f.entregableId);
+      return (
+        entregable !== undefined &&
+        entregable.estado === "activo" &&
+        f.diaInicio <= hoy &&
+        f.diaLimite >= hoy
+      );
+    })
+    .sort((a, b) => (a.diaLimite < b.diaLimite ? -1 : 1));
 
   if (fases.length === 0) return null;
 
@@ -70,7 +82,8 @@ export const FasesActivas: React.FC = () => {
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-sm text-zinc-200">
-                  {entregablesPorId?.get(f.entregableId) ?? "…"} — {f.titulo}
+                  {entregablesPorId.get(f.entregableId)?.titulo ?? "…"} —{" "}
+                  {f.titulo}
                 </span>
                 <Badge color={COLOR_RITMO[ritmo.estado]}>
                   {ETIQUETA_RITMO[ritmo.estado]}

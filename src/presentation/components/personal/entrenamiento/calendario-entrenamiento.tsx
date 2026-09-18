@@ -111,8 +111,8 @@ export const CalendarioEntrenamiento: React.FC = () => {
       <div className="grid grid-cols-1 gap-2 overflow-x-auto sm:grid-cols-7">
         {diasSemana.map((dia) => {
           const esHoy = dia === hoy;
-          const rutinasDelDia = bloqueActivo.rutinasProgramadas.filter((r) =>
-            aplicaHoyRutina(r.diasSemana, dia)
+          const rutinasDelDia = (bloqueActivo.rutinasProgramadas || []).filter(
+            (r) => aplicaHoyRutina(r.diasSemana, dia)
           );
           return (
             <div
