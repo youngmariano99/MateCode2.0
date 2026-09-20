@@ -18,6 +18,7 @@ import {
 } from "../../../domain/entidades/fase-personal.entity";
 import { calcularNivelLogro } from "../../../domain/entidades/objetivo-cuantificable.entity";
 import { registrarHistorialPersonal } from "../../servicios/registrar-historial-personal.service";
+import { recomputarEntregable } from "../../servicios/recomputar-progreso-personal.service";
 
 function idFase(): string {
   return `fase_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -68,6 +69,9 @@ export class GestionarFasesUseCase {
         accion: "crear",
         descripcion: `Fase "${registro.titulo}" creada bajo "${entregable.titulo}".`,
       });
+      // Una Fase nueva puede caer sobre un rango donde ya hay Actividades
+      // cargadas — sin recalcular, quedaba en 0 hasta que se tocara alguna.
+      await recomputarEntregable(parsed.data.entregableId);
       return Resultado.exito(id);
     } catch (err) {
       return Resultado.falla(
@@ -131,6 +135,16 @@ export class GestionarFasesUseCase {
         )
       );
     }
+    if (
+      parsed.data.diaLimite !== undefined &&
+      parsed.data.diaLimite < fase.diaInicio
+    ) {
+      return Resultado.falla(
+        new ErrorDominio(
+          "La fecha límite no puede ser anterior al inicio de la fase."
+        )
+      );
+    }
     const actualizadoEn = Date.now();
     const cambios: Partial<FasePersonal> = { actualizadoEn };
     if (parsed.data.diaLimite !== undefined)
@@ -160,6 +174,8 @@ export class GestionarFasesUseCase {
         },
         campoNuevo: cambios,
       });
+      // Cambiar la fecha límite cambia qué Actividades caen en la Fase.
+      await recomputarEntregable(fase.entregableId);
       return Resultado.exito(undefined);
     } catch (err) {
       return Resultado.falla(

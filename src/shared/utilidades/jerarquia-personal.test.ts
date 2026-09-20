@@ -1205,6 +1205,102 @@ describe("Fases: progreso por rango de fechas y cierre con arrastre (Sprint 21)"
     return entregable.valor;
   }
 
+  test("una Fase creada DESPUÉS de cargar Actividades ya nace con su avance (no queda en 0)", async () => {
+    const entregableId = await crearCadena();
+    const act = await actividades.crearActividad({
+      entregableId,
+      tipo: "mantenimiento",
+      descripcion: "Contactos previos",
+      diaTarea: "2026-01-06",
+      cantidadObjetivo: 8,
+    });
+    await actividades.registrarAvance(act.valor, 8);
+
+    const fase = await fases.crearFase({
+      entregableId,
+      titulo: "Semana 1",
+      orden: 0,
+      diaInicio: "2026-01-05",
+      diaLimite: "2026-01-11",
+      cantidadObjetivo: 10,
+      unidad: "contactos",
+    });
+    assert.strictEqual(
+      (await db.fase_personal.get(fase.valor))?.progresoActual,
+      8
+    );
+  });
+
+  test("ajustarFase cambia meta/fecha, recalcula el avance y rechaza una fecha anterior al inicio", async () => {
+    const entregableId = await crearCadena();
+    const fase = await fases.crearFase({
+      entregableId,
+      titulo: "Semana 1",
+      orden: 0,
+      diaInicio: "2026-01-05",
+      diaLimite: "2026-01-07",
+      cantidadObjetivo: 10,
+      unidad: "contactos",
+    });
+    const act = await actividades.crearActividad({
+      entregableId,
+      tipo: "mantenimiento",
+      descripcion: "Contactos jueves",
+      diaTarea: "2026-01-08",
+      cantidadObjetivo: 4,
+    });
+    await actividades.registrarAvance(act.valor, 4);
+    assert.strictEqual(
+      (await db.fase_personal.get(fase.valor))?.progresoActual,
+      0
+    );
+
+    const res = await fases.ajustarFase({
+      id: fase.valor!,
+      diaLimite: "2026-01-11",
+      cantidadObjetivo: 12,
+    });
+    assert.strictEqual(res.ok, true);
+    const ajustada = await db.fase_personal.get(fase.valor);
+    assert.strictEqual(ajustada?.cantidadObjetivo, 12);
+    assert.strictEqual(
+      ajustada?.progresoActual,
+      4,
+      "la actividad del jueves ahora cae en la fase"
+    );
+
+    const invalida = await fases.ajustarFase({
+      id: fase.valor!,
+      diaLimite: "2026-01-01",
+    });
+    assert.strictEqual(invalida.ok, false);
+  });
+
+  test("cancelar y migrar una Actividad guardan el motivo en el historial", async () => {
+    const act = await actividades.crearActividad({
+      tipo: "mantenimiento",
+      descripcion: "Llamar al cliente",
+      diaTarea: "2026-01-06",
+    });
+    await actividades.cancelarActividad(act.valor!, "sin_tiempo");
+    const act2 = await actividades.crearActividad({
+      tipo: "mantenimiento",
+      descripcion: "Enviar propuesta",
+      diaTarea: "2026-01-06",
+    });
+    await actividades.migrarActividad({
+      id: act2.valor!,
+      nuevoDiaTarea: "2026-01-07",
+      motivo: "se_complico",
+    });
+
+    const historial = await db.personal_historial.toArray();
+    const motivos = historial
+      .map((h) => (h.campoNuevo as { motivo?: string } | undefined)?.motivo)
+      .filter(Boolean);
+    assert.deepStrictEqual(motivos.sort(), ["se_complico", "sin_tiempo"]);
+  });
+
   test("recomputarFasesDeEntregable solo cuenta Actividades dentro del rango de la Fase", async () => {
     const entregableId = await crearCadena();
     const fase1 = await fases.crearFase({

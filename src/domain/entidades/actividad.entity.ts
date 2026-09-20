@@ -96,9 +96,30 @@ export const crearActividadSchema = z
   });
 export type CrearActividadInput = z.input<typeof crearActividadSchema>;
 
+// Por qué se cancela o se pasa una tarea a otro día — opcional, un tap, se
+// guarda en el historial (personal_historial.campoNuevo.motivo) para poder ver
+// patrones de desvío en el repaso semanal ("siempre cancelo por falta de tiempo").
+export const MOTIVOS_DESVIO = [
+  "sin_tiempo",
+  "se_complico",
+  "sin_energia",
+  "cambio_prioridad",
+  "ya_no_aplica",
+] as const;
+export type MotivoDesvio = (typeof MOTIVOS_DESVIO)[number];
+
+export const ETIQUETA_MOTIVO_DESVIO: Record<MotivoDesvio, string> = {
+  sin_tiempo: "Sin tiempo",
+  se_complico: "Se complicó",
+  sin_energia: "Sin energía",
+  cambio_prioridad: "Cambió la prioridad",
+  ya_no_aplica: "Ya no aplica",
+};
+
 export const migrarActividadSchema = z.object({
   id: z.string(),
   nuevoDiaTarea: fechaISO,
+  motivo: z.enum(MOTIVOS_DESVIO).optional(),
 });
 export type MigrarActividadInput = z.input<typeof migrarActividadSchema>;
 

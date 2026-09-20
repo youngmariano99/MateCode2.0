@@ -5,6 +5,7 @@ import { MainLayout } from "../../../../presentation/components/layout";
 import { Icono } from "../../../../presentation/components/icons";
 import { CapturaInbox } from "../../../../presentation/components/personal/captura-inbox";
 import { BunkerDelDia } from "../../../../presentation/components/personal/bunker-del-dia";
+import { PanelRepasoSemanal } from "../../../../presentation/components/personal/panel-repaso-semanal";
 import { PanelPendientes } from "../../../../presentation/components/personal/panel-pendientes";
 import { PanelRetorno } from "../../../../presentation/components/personal/panel-retorno";
 import { AvisoFasesPendientes } from "../../../../presentation/components/personal/aviso-fases-pendientes";
@@ -119,6 +120,7 @@ export default function PersonalHoyPage() {
 
         {horizonte === "semana" && (
           <div className="flex flex-col gap-4">
+            <PanelRepasoSemanal />
             <PlanificarSemanaIA />
             <PanelPendientes />
           </div>

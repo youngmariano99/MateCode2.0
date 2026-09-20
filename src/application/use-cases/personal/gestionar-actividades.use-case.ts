@@ -10,6 +10,7 @@ import {
   migrarActividadSchema,
   type CrearActividadInput,
   type MigrarActividadInput,
+  type MotivoDesvio,
   type Actividad,
 } from "../../../domain/entidades/actividad.entity";
 import { registrarHistorialPersonal } from "../../servicios/registrar-historial-personal.service";
@@ -124,8 +125,11 @@ export class GestionarActividadesUseCase {
     return this.cambiarEstado(id, "completada");
   }
 
-  public async cancelarActividad(id: string): Promise<Resultado<void>> {
-    return this.cambiarEstado(id, "cancelada");
+  public async cancelarActividad(
+    id: string,
+    motivo?: MotivoDesvio
+  ): Promise<Resultado<void>> {
+    return this.cambiarEstado(id, "cancelada", motivo);
   }
 
   public async descartarActividad(id: string): Promise<Resultado<void>> {
@@ -134,7 +138,8 @@ export class GestionarActividadesUseCase {
 
   private async cambiarEstado(
     id: string,
-    estado: "completada" | "cancelada" | "descartada"
+    estado: "completada" | "cancelada" | "descartada",
+    motivo?: MotivoDesvio
   ): Promise<Resultado<void>> {
     const actividad = await db.actividad.get(id);
     if (!actividad) {
@@ -155,6 +160,7 @@ export class GestionarActividadesUseCase {
         entidadId: id,
         accion: "editar",
         descripcion: `Actividad "${actividad.descripcion}" → ${estado}.`,
+        campoNuevo: motivo ? { estado, motivo } : undefined,
       });
       if (actividad.entregableId) {
         await recomputarEntregable(actividad.entregableId);
@@ -275,6 +281,10 @@ export class GestionarActividadesUseCase {
         entidadId: nuevoId,
         accion: "crear",
         descripcion: `Migrada desde ${original.diaTarea} a ${parsed.data.nuevoDiaTarea}.`,
+        campoAnterior: { diaTarea: original.diaTarea },
+        campoNuevo: parsed.data.motivo
+          ? { diaTarea: parsed.data.nuevoDiaTarea, motivo: parsed.data.motivo }
+          : undefined,
       });
       return Resultado.exito(nuevoId);
     } catch (err) {

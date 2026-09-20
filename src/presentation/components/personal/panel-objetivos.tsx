@@ -12,6 +12,7 @@ import { GestionarObjetivosUseCase } from "../../../application/use-cases/person
 import { GestionarHabitosUseCase } from "../../../application/use-cases/personal/gestionar-habitos.use-case";
 import type { HabitoRegistro } from "../../../domain/entidades/habitos.entity";
 import { SelectorEtiquetas } from "../contacto-frio/selector-etiquetas";
+import { AjustarConIAModal } from "./ajustar-con-ia-modal";
 import {
   calcularRitmoObjetivo,
   AREAS_OBJETIVO,
@@ -69,6 +70,7 @@ const FilaObjetivo: React.FC<{ objetivo: ObjetivoCuantificable }> = ({
   const ritmo = calcularRitmoObjetivo(objetivo, hoy);
 
   const [editando, setEditando] = useState(false);
+  const [ajustandoConIA, setAjustandoConIA] = useState(false);
   const [avanceRapido, setAvanceRapido] = useState("");
   const [nuevaCantidad, setNuevaCantidad] = useState("");
   const [nuevaFecha, setNuevaFecha] = useState("");
@@ -175,9 +177,18 @@ const FilaObjetivo: React.FC<{ objetivo: ObjetivoCuantificable }> = ({
           </span>
           <button
             onClick={() => setEditando(!editando)}
+            title="Cambiar cantidad o fecha a mano"
             className="text-[10px] font-bold text-zinc-500 uppercase hover:text-zinc-300"
           >
             Ajustar
+          </button>
+          <button
+            onClick={() => setAjustandoConIA(true)}
+            title="Replantear todo el árbol de este objetivo (proyectos, entregables, fases) con una IA"
+            className="flex items-center gap-1 text-[10px] font-bold text-violet-400 uppercase hover:text-violet-300"
+          >
+            <Icono.Sparkles className="h-3 w-3" />
+            Replantear con IA
           </button>
           <button
             onClick={() => void archivar()}
@@ -279,6 +290,12 @@ const FilaObjetivo: React.FC<{ objetivo: ObjetivoCuantificable }> = ({
           </Button>
         </div>
       )}
+
+      <AjustarConIAModal
+        abierto={ajustandoConIA}
+        onCerrar={() => setAjustandoConIA(false)}
+        objetivo={objetivo}
+      />
     </div>
   );
 };

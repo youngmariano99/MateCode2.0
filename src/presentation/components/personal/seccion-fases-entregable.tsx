@@ -15,6 +15,7 @@ import { obtenerDiaTareaHoy } from "../../../domain/entidades/personal.entity";
 import { generarPromptFases } from "../../../domain/prompts/generar-prompt-jerarquia-personal";
 import { GenerarFasesModal } from "./generar-fases-modal";
 import { CerrarFaseModal } from "./cerrar-fase-modal";
+import { AjustarFaseModal } from "./ajustar-fase-modal";
 import { ModalImportarJson } from "../contenido/modal-importar-json";
 import { resumenFasesBajoEntregable } from "./resumen-import-jerarquia";
 
@@ -137,6 +138,7 @@ export const SeccionFasesEntregable: React.FC<{ entregable: Entregable }> = ({
   const [modalGenerarAbierto, setModalGenerarAbierto] = useState(false);
   const [modalImportarAbierto, setModalImportarAbierto] = useState(false);
   const [faseACerrar, setFaseACerrar] = useState<FasePersonal | null>(null);
+  const [faseAAjustar, setFaseAAjustar] = useState<FasePersonal | null>(null);
   const hoy = obtenerDiaTareaHoy();
 
   const copiarPrompt = () => {
@@ -230,6 +232,14 @@ export const SeccionFasesEntregable: React.FC<{ entregable: Entregable }> = ({
                   {f.diaInicio} → {f.diaLimite}
                 </span>
               </div>
+              {f.estado === "abierta" && f.progresoActual === 0 && (
+                <span className="text-[10px] text-zinc-600">
+                  El avance de esta fase se suma solo de las Actividades de este
+                  entregable con fecha entre {f.diaInicio} y {f.diaLimite}. Si
+                  el avance se carga en otro lado (objetivo, hábito), acá no se
+                  ve.
+                </span>
+              )}
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] text-zinc-400">
                   {f.progresoActual}/{f.cantidadObjetivo} {f.unidad}
@@ -240,12 +250,21 @@ export const SeccionFasesEntregable: React.FC<{ entregable: Entregable }> = ({
                   )}
                 </span>
                 {f.estado === "abierta" ? (
-                  <button
-                    onClick={() => setFaseACerrar(f)}
-                    className="rounded border border-zinc-800 px-2 py-0.5 text-[10px] font-bold text-zinc-400 uppercase hover:border-zinc-600 hover:text-zinc-200"
-                  >
-                    Cerrar fase
-                  </button>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => setFaseAAjustar(f)}
+                      title="Cambiar meta o fecha sin cerrar la fase"
+                      className="rounded border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
+                    >
+                      Ajustar
+                    </button>
+                    <button
+                      onClick={() => setFaseACerrar(f)}
+                      className="rounded border border-zinc-800 px-2 py-0.5 text-[10px] font-bold text-zinc-400 uppercase hover:border-zinc-600 hover:text-zinc-200"
+                    >
+                      Cerrar fase
+                    </button>
+                  </div>
                 ) : (
                   <span className="text-[10px] text-zinc-600">
                     Cerrada — {f.cierre?.decision}
@@ -273,6 +292,14 @@ export const SeccionFasesEntregable: React.FC<{ entregable: Entregable }> = ({
         cantidadSugerida={entregable.cantidadObjetivo ?? 0}
         onGenerado={() => {}}
       />
+      {faseAAjustar && (
+        <AjustarFaseModal
+          key={faseAAjustar.id}
+          abierto
+          fase={faseAAjustar}
+          onCerrar={() => setFaseAAjustar(null)}
+        />
+      )}
       {faseACerrar && (
         <CerrarFaseModal
           abierto

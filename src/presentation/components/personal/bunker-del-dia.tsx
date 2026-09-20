@@ -13,6 +13,9 @@ import {
   MAX_TAREAS_MANTENIMIENTO_POR_DIA,
   type Actividad,
   type EstadoActividad,
+  type MotivoDesvio,
+  MOTIVOS_DESVIO,
+  ETIQUETA_MOTIVO_DESVIO,
 } from "../../../domain/entidades/actividad.entity";
 import {
   obtenerDiaTareaHoy,
@@ -100,18 +103,65 @@ const FilaActividad: React.FC<{ actividad: Actividad }> = ({ actividad }) => {
     if (!res.ok) mostrarToast(res.error!.mensaje, "error");
   };
 
-  const migrarAMañana = async () => {
-    const res = await useCase.migrarActividad({
-      id: actividad.id,
-      nuevoDiaTarea: sumarDias(actividad.diaTarea!, 1),
-    });
+  // Al pasar a mañana o cancelar se pregunta el motivo (opcional, un tap) —
+  // queda en el historial para ver patrones de desvío en el repaso semanal.
+  const [pidiendoMotivo, setPidiendoMotivo] = useState<
+    "migrar" | "cancelar" | null
+  >(null);
+
+  const resolverConMotivo = async (motivo?: MotivoDesvio) => {
+    const accion = pidiendoMotivo;
+    setPidiendoMotivo(null);
+    const res =
+      accion === "migrar"
+        ? await useCase.migrarActividad({
+            id: actividad.id,
+            nuevoDiaTarea: sumarDias(actividad.diaTarea!, 1),
+            motivo,
+          })
+        : await useCase.cancelarActividad(actividad.id, motivo);
     if (!res.ok) mostrarToast(res.error!.mensaje, "error");
   };
 
-  const cancelar = async () => {
-    const res = await useCase.cancelarActividad(actividad.id);
-    if (!res.ok) mostrarToast(res.error!.mensaje, "error");
-  };
+  if (pidiendoMotivo) {
+    return (
+      <div className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-[#0D0D0F] p-3">
+        <span className="text-sm text-zinc-300">
+          {actividad.descripcion}{" "}
+          <span className="text-zinc-600">
+            —{" "}
+            {pidiendoMotivo === "migrar"
+              ? "pasa a mañana"
+              : "se cancela (no se borra)"}
+            . ¿Por qué?
+          </span>
+        </span>
+        <div className="flex flex-wrap gap-1.5">
+          {MOTIVOS_DESVIO.map((m) => (
+            <button
+              key={m}
+              onClick={() => void resolverConMotivo(m)}
+              className="flex min-h-11 items-center rounded border border-[#2A2A2E] px-3 text-[10px] font-bold text-zinc-300 uppercase hover:border-emerald-500/40"
+            >
+              {ETIQUETA_MOTIVO_DESVIO[m]}
+            </button>
+          ))}
+          <button
+            onClick={() => void resolverConMotivo(undefined)}
+            className="flex min-h-11 items-center rounded px-3 text-[10px] font-bold text-zinc-600 uppercase hover:text-zinc-300"
+          >
+            Omitir
+          </button>
+          <button
+            onClick={() => setPidiendoMotivo(null)}
+            className="flex min-h-11 items-center rounded px-3 text-[10px] font-bold text-zinc-600 uppercase hover:text-zinc-300"
+          >
+            Volver
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-[#0D0D0F] p-3 sm:flex-row sm:items-center sm:justify-between">
@@ -131,7 +181,7 @@ const FilaActividad: React.FC<{ actividad: Actividad }> = ({ actividad }) => {
           Hecha
         </button>
         <button
-          onClick={() => void migrarAMañana()}
+          onClick={() => setPidiendoMotivo("migrar")}
           title="Pasar a mañana"
           className="flex min-h-11 items-center justify-center gap-1 rounded border border-sky-500/20 bg-sky-500/10 px-3 text-[10px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
         >
@@ -139,7 +189,7 @@ const FilaActividad: React.FC<{ actividad: Actividad }> = ({ actividad }) => {
           Mañana
         </button>
         <button
-          onClick={() => void cancelar()}
+          onClick={() => setPidiendoMotivo("cancelar")}
           title="Cancelar — no se borra, queda marcada abajo (decisión estratégica, no fracaso)"
           className="flex min-h-11 items-center justify-center gap-1 rounded border border-zinc-800 px-3 text-[10px] font-bold text-zinc-500 uppercase hover:border-red-500/30 hover:text-red-400"
         >
