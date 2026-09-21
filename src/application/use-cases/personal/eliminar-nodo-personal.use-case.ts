@@ -127,6 +127,64 @@ export class EliminarNodoPersonalUseCase {
     }
   }
 
+  /**
+   * Limpia lo que quedó colgando de padres que ya no existen (borrados hechos
+   * antes de que existiera el borrado en cascada, o interrumpidos): Objetivos
+   * cuya Área no existe, Proyectos sin Objetivo, Entregables sin Proyecto. Cada
+   * uno se borra con su cascada normal (actividades, fases, vínculos de
+   * hábitos). Devuelve cuántos nodos se limpiaron por nivel.
+   */
+  public async limpiarHuerfanos(): Promise<{
+    objetivos: number;
+    proyectos: number;
+    entregables: number;
+  }> {
+    const conteo = { objetivos: 0, proyectos: 0, entregables: 0 };
+
+    const areas = new Set(
+      (await db.area_personal.toCollection().primaryKeys()) as string[]
+    );
+    for (const o of await db.objetivo_cuantificable.toArray()) {
+      if (o.areaId && !areas.has(o.areaId)) {
+        if ((await this.ejecutar("objetivo", o.id)).ok) conteo.objetivos++;
+      }
+    }
+
+    // Objetivos SIN área (datos viejos): el navegador solo baja Área →
+    // Objetivo, así que los Proyectos que cuelgan de ellos no se ven en ningún
+    // lado. Se limpian sus Proyectos (con su cascada); el Objetivo en sí se
+    // conserva porque puede seguir usándose desde el widget de otro módulo.
+    const sinArea = new Set(
+      (await db.objetivo_cuantificable.toArray())
+        .filter((o) => !o.areaId)
+        .map((o) => o.id)
+    );
+    for (const p of await db.proyecto_personal.toArray()) {
+      if (sinArea.has(p.objetivoId)) {
+        if ((await this.ejecutar("proyecto", p.id)).ok) conteo.proyectos++;
+      }
+    }
+
+    const objetivos = new Set(
+      (await db.objetivo_cuantificable.toCollection().primaryKeys()) as string[]
+    );
+    for (const p of await db.proyecto_personal.toArray()) {
+      if (!objetivos.has(p.objetivoId)) {
+        if ((await this.ejecutar("proyecto", p.id)).ok) conteo.proyectos++;
+      }
+    }
+
+    const proyectos = new Set(
+      (await db.proyecto_personal.toCollection().primaryKeys()) as string[]
+    );
+    for (const e of await db.entregable.toArray()) {
+      if (!proyectos.has(e.proyectoId)) {
+        if ((await this.ejecutar("entregable", e.id)).ok) conteo.entregables++;
+      }
+    }
+    return conteo;
+  }
+
   public async ejecutar(
     nivel: NivelJerarquiaPersonal,
     id: string

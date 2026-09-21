@@ -489,7 +489,27 @@ const VistaAreas: React.FC<{
       .toArray();
     const resumen = generarResumenPeriodo(habitos, registros, objetivos, hoy);
 
+    // Solo Fases alcanzables desde la jerarquía visible: Fase → Entregable →
+    // Proyecto → Objetivo → Área existente. Lo demás es basura de borrados
+    // viejos y no tiene que llegar a la IA.
+    const idsAreas = new Set(areas.map((a) => a.id));
+    const objetivosOk = new Set(
+      (await db.objetivo_cuantificable.toArray())
+        .filter((o) => o.areaId && idsAreas.has(o.areaId))
+        .map((o) => o.id)
+    );
+    const proyectosOk = new Set(
+      (await db.proyecto_personal.toArray())
+        .filter((p) => objetivosOk.has(p.objetivoId))
+        .map((p) => p.id)
+    );
+    const entregablesOk = new Set(
+      (await db.entregable.toArray())
+        .filter((e) => proyectosOk.has(e.proyectoId))
+        .map((e) => e.id)
+    );
     const todasLasFases = (await db.fase_personal.toArray())
+      .filter((f) => entregablesOk.has(f.entregableId))
       .sort((a, b) => b.actualizadoEn - a.actualizadoEn)
       .slice(0, 10);
     const resumenFases =

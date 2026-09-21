@@ -361,6 +361,26 @@ export class GestionarFasesUseCase {
     }
   }
 
+  /**
+   * Borra las Fases huérfanas: las que quedaron colgando de un Entregable que
+   * ya no existe (borrados hechos antes de que el borrado en cascada las
+   * incluyera). Ya nadie las ve en la interfaz, pero seguían apareciendo como
+   * activas en los prompts de IA. Devuelve cuántas se limpiaron.
+   */
+  public async limpiarFasesHuerfanas(): Promise<number> {
+    const entregables = new Set(
+      (await db.entregable.toCollection().primaryKeys()) as string[]
+    );
+    const huerfanas = (await db.fase_personal.toArray()).filter(
+      (f) => !entregables.has(f.entregableId)
+    );
+    for (const f of huerfanas) {
+      await db.fase_personal.delete(f.id);
+      await QueueService.encolar("fase_personal", "eliminar", f.id, {});
+    }
+    return huerfanas.length;
+  }
+
   /** Solo lectura — Fases vencidas que siguen abiertas, para el banner de aviso. Nunca cierra nada sola: cerrar exige la decisión del usuario. */
   public async detectarFasesPendientesDeCierre(
     hoy: string

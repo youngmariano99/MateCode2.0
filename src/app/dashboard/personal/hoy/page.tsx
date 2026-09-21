@@ -18,10 +18,14 @@ import { CalendarioSemanal } from "../../../../presentation/components/personal/
 import { CalendarioMensual } from "../../../../presentation/components/personal/calendario-mensual";
 import { GestionarObjetivosUseCase } from "../../../../application/use-cases/personal/gestionar-objetivos.use-case";
 import { MaterializarActividadesDelDiaUseCase } from "../../../../application/use-cases/personal/materializar-actividades-del-dia.use-case";
+import { EliminarNodoPersonalUseCase } from "../../../../application/use-cases/personal/eliminar-nodo-personal.use-case";
+import { GestionarFasesUseCase } from "../../../../application/use-cases/personal/gestionar-fases.use-case";
 import { obtenerDiaTareaHoy } from "../../../../domain/entidades/personal.entity";
 
 const objetivosUseCase = new GestionarObjetivosUseCase();
 const materializarUseCase = new MaterializarActividadesDelDiaUseCase();
+const fasesUseCase = new GestionarFasesUseCase();
+const eliminarNodoUseCase = new EliminarNodoPersonalUseCase();
 
 type Horizonte = "dia" | "semana" | "mes" | "cal_semana" | "cal_mes";
 
@@ -73,6 +77,9 @@ export default function PersonalHoyPage() {
     const hoy = obtenerDiaTareaHoy();
     void objetivosUseCase.marcarVencidosSiCorresponde(hoy);
     void materializarUseCase.ejecutar(hoy);
+    void eliminarNodoUseCase
+      .limpiarHuerfanos()
+      .then(() => fasesUseCase.limpiarFasesHuerfanas());
   }, []);
 
   return (

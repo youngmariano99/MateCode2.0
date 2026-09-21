@@ -1911,3 +1911,102 @@ describe("Planilla del día: categorías, reclasificar y pendientes sin cerrar",
     );
   });
 });
+
+describe("Fases huérfanas: limpieza", () => {
+  beforeEach(async () => {
+    await db.fase_personal.clear();
+    await db.entregable.clear();
+  });
+
+  test("borra las fases sin Entregable y conserva las que sí lo tienen", async () => {
+    const base = {
+      titulo: "F",
+      orden: 0,
+      diaInicio: "2027-01-01",
+      diaLimite: "2027-01-07",
+      cantidadObjetivo: 5,
+      unidad: "u",
+      progresoActual: 0,
+      estado: "abierta",
+      creadoEn: 1,
+      actualizadoEn: 1,
+    };
+    await db.entregable.add({ id: "ent_ok" } as never);
+    await db.fase_personal.add({
+      ...base,
+      id: "f_ok",
+      entregableId: "ent_ok",
+    } as never);
+    await db.fase_personal.add({
+      ...base,
+      id: "f_huerfana",
+      entregableId: "ent_borrado",
+    } as never);
+
+    const n = await new GestionarFasesUseCase().limpiarFasesHuerfanas();
+    assert.strictEqual(n, 1);
+    const ids = (await db.fase_personal.toArray()).map((f) => f.id);
+    assert.deepStrictEqual(ids, ["f_ok"]);
+  });
+});
+
+describe("Huérfanos de la jerarquía: limpieza en cadena", () => {
+  test("un Objetivo sin Área arrastra sus Proyectos, Entregables y Fases", async () => {
+    for (const t of [
+      db.area_personal,
+      db.objetivo_cuantificable,
+      db.proyecto_personal,
+      db.entregable,
+      db.fase_personal,
+      db.actividad,
+    ])
+      await t.clear();
+    await db.objetivo_cuantificable.add({
+      id: "o1",
+      areaId: "area_borrada",
+    } as never);
+    await db.proyecto_personal.add({ id: "p1", objetivoId: "o1" } as never);
+    await db.entregable.add({
+      id: "e1",
+      proyectoId: "p1",
+      objetivoId: "o1",
+    } as never);
+    await db.fase_personal.add({ id: "f1", entregableId: "e1" } as never);
+
+    const r = await new EliminarNodoPersonalUseCase().limpiarHuerfanos();
+    assert.deepStrictEqual(r.objetivos, 1);
+    assert.strictEqual(await db.proyecto_personal.count(), 0);
+    assert.strictEqual(await db.entregable.count(), 0);
+    assert.strictEqual(await db.fase_personal.count(), 0);
+  });
+});
+
+describe("Huérfanos: Proyectos de un Objetivo sin Área", () => {
+  test("se limpian el Proyecto, Entregable y Fase, pero el Objetivo se conserva", async () => {
+    for (const t of [
+      db.area_personal,
+      db.objetivo_cuantificable,
+      db.proyecto_personal,
+      db.entregable,
+      db.fase_personal,
+      db.actividad,
+    ])
+      await t.clear();
+    await db.objetivo_cuantificable.add({ id: "o_legacy" } as never);
+    await db.proyecto_personal.add({
+      id: "p1",
+      objetivoId: "o_legacy",
+    } as never);
+    await db.entregable.add({
+      id: "e1",
+      proyectoId: "p1",
+      objetivoId: "o_legacy",
+    } as never);
+    await db.fase_personal.add({ id: "f1", entregableId: "e1" } as never);
+
+    await new EliminarNodoPersonalUseCase().limpiarHuerfanos();
+    assert.strictEqual(await db.objetivo_cuantificable.count(), 1);
+    assert.strictEqual(await db.proyecto_personal.count(), 0);
+    assert.strictEqual(await db.fase_personal.count(), 0);
+  });
+});
