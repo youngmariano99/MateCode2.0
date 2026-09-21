@@ -165,6 +165,14 @@ export class GestionarActividadesUseCase {
     try {
       await db.actividad.update(id, local);
       await QueueService.encolar("actividad", "editar", id, remoto);
+      await registrarHistorialPersonal({
+        entidadTipo: "actividad",
+        entidadId: id,
+        accion: "editar",
+        descripcion: `Detalle de "${actividad.descripcion}" actualizado${
+          cambios.proyectoTrabajoId !== undefined ? " (proyecto)" : ""
+        }${cambios.nota !== undefined ? " (nota)" : ""}.`,
+      });
       return Resultado.exito(undefined);
     } catch (err) {
       return Resultado.falla(

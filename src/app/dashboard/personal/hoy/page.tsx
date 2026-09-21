@@ -20,6 +20,10 @@ import { PlanificarSemanaIA } from "../../../../presentation/components/personal
 import { TarjetaHabitos } from "../../../../presentation/components/personal/tarjeta-habitos";
 import { CalendarioSemanal } from "../../../../presentation/components/personal/calendario-semanal";
 import { CalendarioMensual } from "../../../../presentation/components/personal/calendario-mensual";
+import {
+  BotonNuevaTarea,
+  TareaRapida,
+} from "../../../../presentation/components/personal/tarea-rapida";
 import { GestionarObjetivosUseCase } from "../../../../application/use-cases/personal/gestionar-objetivos.use-case";
 import { MaterializarActividadesDelDiaUseCase } from "../../../../application/use-cases/personal/materializar-actividades-del-dia.use-case";
 import { EliminarNodoPersonalUseCase } from "../../../../application/use-cases/personal/eliminar-nodo-personal.use-case";
@@ -96,13 +100,16 @@ export default function PersonalHoyPage() {
   return (
     <MainLayout breadcrumbs={breadcrumbs}>
       <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-white">
-            Personal
-          </h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            {DESCRIPCION_HORIZONTE[horizonte]}
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-white">
+              Personal
+            </h1>
+            <p className="mt-1 text-sm text-zinc-500">
+              {DESCRIPCION_HORIZONTE[horizonte]}
+            </p>
+          </div>
+          <BotonNuevaTarea />
         </div>
 
         <div className="flex gap-1 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-1">
@@ -130,6 +137,7 @@ export default function PersonalHoyPage() {
             <AvisoFasesPendientes />
             <AvisoMinimos />
             <PanelRecuperarHabitos />
+            <TareaRapida />
             <BunkerDelDia />
             <PanelFondoFaltantes />
             <TarjetaHabitos />

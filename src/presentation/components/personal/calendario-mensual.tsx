@@ -11,6 +11,7 @@ import {
   ChipRecurrente,
 } from "./calendario-semanal";
 import { recurrentesDelDia } from "../../../domain/entidades/metas-periodo.entity";
+import { BotonNuevaTarea } from "./tarea-rapida";
 import {
   useColorPorObjetivo,
   useEntregablesRecurrentes,
@@ -212,9 +213,15 @@ export const CalendarioMensual: React.FC = () => {
 
       {diaSeleccionado && (
         <div className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-[#18181B] p-3">
-          <span className="text-xs font-bold text-zinc-300">
-            {diaSeleccionado}
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-bold text-zinc-300">
+              {diaSeleccionado}
+            </span>
+            <BotonNuevaTarea
+              dia={diaSeleccionado}
+              etiqueta="Agregar tarea a este día"
+            />
+          </div>
           {itemsDelSeleccionado.length === 0 && (
             <span className="text-xs text-zinc-600">
               Nada planificado este día.

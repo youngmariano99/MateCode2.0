@@ -6,11 +6,18 @@ import { db } from "../../../offline/dexie/db";
 import { Icono } from "../icons";
 import { useToast } from "../../hooks/useToast";
 import { GestionarActividadesUseCase } from "../../../application/use-cases/personal/gestionar-actividades.use-case";
-import type { Actividad } from "../../../domain/entidades/actividad.entity";
+import {
+  ETIQUETA_MOTIVO_DESVIO,
+  MOTIVOS_DESVIO,
+  type Actividad,
+  type MotivoDesvio,
+} from "../../../domain/entidades/actividad.entity";
 import type { Entregable } from "../../../domain/entidades/entregable.entity";
 import { obtenerDiaTareaHoy } from "../../../domain/entidades/personal.entity";
+import { sumarDias as sumarDiasISO } from "../../../domain/entidades/personal.entity";
 import { recurrentesDelDia } from "../../../domain/entidades/metas-periodo.entity";
 import { PanelMetasPeriodo } from "./panel-metas-periodo";
+import { BotonNuevaTarea } from "./tarea-rapida";
 import {
   useColorPorObjetivo,
   useEntregablesRecurrentes,
@@ -41,12 +48,70 @@ export const ChipActividad: React.FC<{
     if (!res.ok) mostrarToast(res.error!.mensaje, "error");
   };
 
-  const cancelar = async () => {
-    const res = await actividadesUseCase.cancelarActividad(actividad.id);
+  // Pasar a otro día o cancelar es un desvío: se pregunta el motivo (opcional,
+  // un tap) y queda en el historial para el repaso semanal. Nunca se borra.
+  const [pidiendoMotivo, setPidiendoMotivo] = useState<
+    "migrar" | "cancelar" | null
+  >(null);
+
+  const resolverConMotivo = async (motivo?: MotivoDesvio) => {
+    const accion = pidiendoMotivo;
+    setPidiendoMotivo(null);
+    const res =
+      accion === "migrar"
+        ? await actividadesUseCase.migrarActividad({
+            id: actividad.id,
+            nuevoDiaTarea: sumarDiasISO(
+              actividad.diaTarea ?? obtenerDiaTareaHoy(),
+              1
+            ),
+            motivo,
+          })
+        : await actividadesUseCase.cancelarActividad(actividad.id, motivo);
     if (!res.ok) mostrarToast(res.error!.mensaje, "error");
   };
 
   const resuelta = actividad.estado !== "pendiente";
+
+  if (pidiendoMotivo) {
+    return (
+      <div className="flex flex-col gap-1.5 rounded-lg border border-[#2A2A2E] bg-[#0D0D0F] p-2">
+        <span className="text-xs text-zinc-300">
+          {actividad.descripcion}{" "}
+          <span className="text-zinc-600">
+            —{" "}
+            {pidiendoMotivo === "migrar"
+              ? "pasa al día siguiente"
+              : "se cancela (no se borra)"}
+            . ¿Por qué?
+          </span>
+        </span>
+        <div className="flex flex-wrap gap-1">
+          {MOTIVOS_DESVIO.map((m) => (
+            <button
+              key={m}
+              onClick={() => void resolverConMotivo(m)}
+              className="rounded border border-[#2A2A2E] px-1.5 py-0.5 text-[10px] text-zinc-300 hover:border-zinc-500"
+            >
+              {ETIQUETA_MOTIVO_DESVIO[m]}
+            </button>
+          ))}
+          <button
+            onClick={() => void resolverConMotivo(undefined)}
+            className="text-[10px] font-bold text-zinc-500 uppercase hover:text-zinc-300"
+          >
+            Sin motivo
+          </button>
+          <button
+            onClick={() => setPidiendoMotivo(null)}
+            className="text-[10px] font-bold text-zinc-600 uppercase hover:text-zinc-300"
+          >
+            Volver
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -68,8 +133,17 @@ export const ChipActividad: React.FC<{
           >
             <Icono.Check className="h-3 w-3" />
           </button>
+          {actividad.tipo !== "backlog" && (
+            <button
+              onClick={() => setPidiendoMotivo("migrar")}
+              title="Pasar al día siguiente"
+              className="rounded p-0.5 text-zinc-600 hover:text-sky-400"
+            >
+              <Icono.ChevronRight className="h-3 w-3" />
+            </button>
+          )}
           <button
-            onClick={() => void cancelar()}
+            onClick={() => setPidiendoMotivo("cancelar")}
             title="Cancelar"
             className="rounded p-0.5 text-zinc-600 hover:text-red-400"
           >
@@ -240,8 +314,9 @@ export const CalendarioSemanal: React.FC = () => {
                     3
                   )}
                 </span>
-                <span className="text-[10px] text-zinc-600">
+                <span className="flex items-center gap-1 text-[10px] text-zinc-600">
                   {formatoDiaCorto(dia)}
+                  <BotonNuevaTarea dia={dia} compacto />
                 </span>
               </div>
               {itemsDelDia.length === 0 && (
