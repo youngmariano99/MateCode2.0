@@ -310,3 +310,164 @@ export function ordenarPorEtapa<T extends Contenido>(
   const dia = (c: T) => c.plan?.[etapa] ?? "9999-99-99";
   return piezas.slice().sort((a, b) => dia(a).localeCompare(dia(b)));
 }
+
+// ---------------------------------------------------------------------------
+// La cinta de planificación: qué se hizo y qué falta, paso por paso
+// ---------------------------------------------------------------------------
+
+/** Título genérico que crea la app ("Video 1", "Post 2"…): una pieza así, vacía, todavía no tiene contenido propio y puede ser completada por el plan. */
+export function esPiezaGenerica(
+  c: Pick<Contenido, "titulo" | "tipoContenido" | "guion" | "ideaId">
+): boolean {
+  return (
+    new RegExp(`^${c.tipoContenido} \\d+$`, "i").test(c.titulo.trim()) &&
+    !c.ideaId &&
+    Object.values(c.guion ?? {}).every((v) => !v?.trim())
+  );
+}
+
+export interface IdeaParaEstado {
+  id: string;
+  estado: "Backlog" | "Seleccionada" | "Descartada";
+  cicloId?: string;
+}
+
+export type EstadoPaso = "hecho" | "en_curso" | "pendiente";
+
+export interface PasoPlanificacion {
+  id: "ideas" | "piezas" | "guiones";
+  titulo: string;
+  estado: EstadoPaso;
+  /** Lo que ya hay, en una línea: "3 ideas elegidas · 1 sin usar". */
+  hecho: string;
+  /** Lo que falta, en una línea. Vacío si no falta nada. */
+  falta: string;
+}
+
+export interface EstadoPasosPlanificacion {
+  pasos: PasoPlanificacion[];
+  /** Qué conviene hacer ahora, en una frase. */
+  siguiente: string;
+  ideasDeLaSemana: number;
+  ideasSinUsar: number;
+  piezas: number;
+  piezasConGuion: number;
+}
+
+const plural = (n: number, uno: string, varios: string) =>
+  `${n} ${n === 1 ? uno : varios}`;
+
+/**
+ * Qué se hizo y qué falta de la planificación de la semana, en los 3 pasos:
+ * ① ideas (opcional, pero recomendadas), ② piezas y días, ③ guiones. Es lo
+ * que se muestra siempre, para saber por dónde seguir y no repetir nada.
+ */
+export function estadoPasosPlanificacion(
+  ciclo: CicloSemanal | undefined,
+  ideas: IdeaParaEstado[],
+  contenidos: Contenido[],
+  hoy: string
+): EstadoPasosPlanificacion {
+  const delCiclo = ciclo
+    ? contenidos.filter((c) => c.cicloId === ciclo.id)
+    : [];
+  const deLaSemana = ciclo
+    ? ideas.filter((i) => i.cicloId === ciclo.id && i.estado === "Seleccionada")
+    : [];
+  const usadas = new Set(delCiclo.map((c) => c.ideaId).filter(Boolean));
+  const sinUsar = deLaSemana.filter((i) => !usadas.has(i.id)).length;
+  const plan = estadoPlanificacion(ciclo, contenidos, hoy);
+  const conGuion = delCiclo.filter((c) =>
+    Object.values(c.guion ?? {}).some((v) => v?.trim())
+  ).length;
+  const backlog = ideas.filter((i) => i.estado === "Backlog").length;
+
+  const ideasPaso: PasoPlanificacion = {
+    id: "ideas",
+    titulo: "Ideas",
+    estado: deLaSemana.length > 0 || usadas.size > 0 ? "hecho" : "pendiente",
+    hecho:
+      deLaSemana.length > 0
+        ? `${plural(deLaSemana.length, "idea elegida", "ideas elegidas")} para esta semana${sinUsar > 0 ? ` · ${sinUsar} sin usar todavía` : ""}`
+        : "Ninguna idea elegida para esta semana",
+    falta:
+      deLaSemana.length === 0
+        ? backlog > 0
+          ? `Tenés ${plural(backlog, "idea", "ideas")} en el backlog para elegir, o cargá nuevas`
+          : "Cargá o pedile ideas a la IA (podés seguir sin ideas, pero conviene tenerlas)"
+        : "",
+  };
+
+  const totalObjetivo = Object.values(ciclo?.mezcla ?? {}).reduce(
+    (s, n) => s + (n || 0),
+    0
+  );
+  const piezasFaltan = Object.values(plan.faltanPorTipo).reduce(
+    (s, n) => s + (n || 0),
+    0
+  );
+  const faltasPiezas: string[] = [];
+  if (!ciclo) faltasPiezas.push("Armá la semana");
+  else if (totalObjetivo === 0)
+    faltasPiezas.push("Definí cuántas piezas de cada tipo");
+  if (piezasFaltan > 0) faltasPiezas.push(`faltan crear ${piezasFaltan}`);
+  if (plan.sinDiaDePublicacion > 0)
+    faltasPiezas.push(`${plan.sinDiaDePublicacion} sin día de publicación`);
+  const piezasPaso: PasoPlanificacion = {
+    id: "piezas",
+    titulo: "Piezas y días",
+    estado:
+      plan.estado === "planificado"
+        ? "hecho"
+        : delCiclo.length > 0
+          ? "en_curso"
+          : "pendiente",
+    hecho: `${plural(delCiclo.length, "pieza", "piezas")}${totalObjetivo > 0 ? ` de ${totalObjetivo} planificadas` : ""}`,
+    falta: faltasPiezas.join(" · "),
+  };
+
+  const guionesPaso: PasoPlanificacion = {
+    id: "guiones",
+    titulo: "Guiones",
+    estado:
+      delCiclo.length > 0 && conGuion === delCiclo.length
+        ? "hecho"
+        : conGuion > 0
+          ? "en_curso"
+          : "pendiente",
+    hecho: `${conGuion} de ${delCiclo.length} con guion`,
+    falta:
+      delCiclo.length === 0
+        ? "Primero armá las piezas"
+        : conGuion < delCiclo.length
+          ? `Faltan ${delCiclo.length - conGuion} guion(es)`
+          : "",
+  };
+
+  const pasos = [ideasPaso, piezasPaso, guionesPaso];
+  let siguiente: string;
+  if (!ciclo)
+    siguiente =
+      "Arrancá la semana: elegí qué semana es y cuántas piezas querés.";
+  else if (ideasPaso.estado === "pendiente" && delCiclo.length === 0)
+    siguiente =
+      "Paso 1: elegí o cargá las ideas de la semana (a mano o con IA).";
+  else if (piezasPaso.estado !== "hecho")
+    siguiente =
+      "Paso 2: armá las piezas y su día de cada etapa (a mano o con IA).";
+  else if (guionesPaso.estado !== "hecho")
+    siguiente =
+      "Paso 3: escribí los guiones (con IA, o uno por uno en la estación Guion).";
+  else
+    siguiente =
+      "La semana está planificada. Seguí con la estación Grabar cuando toque.";
+
+  return {
+    pasos,
+    siguiente,
+    ideasDeLaSemana: deLaSemana.length,
+    ideasSinUsar: sinUsar,
+    piezas: delCiclo.length,
+    piezasConGuion: conGuion,
+  };
+}

@@ -5,6 +5,7 @@ import { db } from "../../offline/dexie/db";
 import { GestionarContenidoUseCase } from "../../application/use-cases/contenido/gestionar-contenido.use-case";
 import {
   distribuirPublicaciones,
+  estadoPasosPlanificacion,
   estadoPlanificacion,
   etiquetaSemana,
   fechaDeDiaSemana,
@@ -194,7 +195,11 @@ describe("Semana de contenido: planificado / no planificado y flujo", () => {
     );
     assert.ok(plan.ok);
     const rp = await uc.importarPlanIA(ciclo, plan.data);
-    assert.deepStrictEqual(rp.valor, { creadas: 2, actualizadas: 0 });
+    assert.deepStrictEqual(rp.valor, {
+      creadas: 2,
+      actualizadas: 0,
+      completadas: 0,
+    });
     const video = (await db.contenido.toArray()).find(
       (c) => c.titulo === "Fiado en 60 segundos"
     )!;
@@ -437,5 +442,110 @@ describe("Cinta: grabar en lote y editar aparte", () => {
       "2026-09-22"
     ).filter((t) => t.etapa === "grabacion");
     assert.strictEqual(despues.length, 0);
+  });
+});
+
+describe("Planificar: una sola cinta sin duplicados", () => {
+  beforeEach(async () => {
+    for (const t of [db.ciclo_semanal, db.contenido, db.idea_contenido])
+      await t.clear();
+  });
+
+  test("el plan de IA completa las piezas genéricas en vez de duplicarlas", async () => {
+    const ciclo = (
+      await uc.iniciarCiclo(0, [], {
+        semanaInicio: LUNES,
+        mezcla: { Video: 2 },
+      })
+    ).valor!;
+    await uc.crearPiezasFaltantes(ciclo);
+    const plan = parsearPlanSemanaIA(
+      JSON.stringify({
+        piezas: [
+          { titulo: "Fiado en 60 segundos", tipoContenido: "Video" },
+          { titulo: "Cierre de caja", tipoContenido: "Video" },
+        ],
+      })
+    );
+    assert.ok(plan.ok);
+    const r = await uc.importarPlanIA(ciclo, plan.data);
+    assert.deepStrictEqual(r.valor, {
+      creadas: 0,
+      actualizadas: 0,
+      completadas: 2,
+    });
+    const piezas = await db.contenido.toArray();
+    assert.strictEqual(piezas.length, 2);
+    assert.deepStrictEqual(piezas.map((p) => p.titulo).sort(), [
+      "Cierre de caja",
+      "Fiado en 60 segundos",
+    ]);
+  });
+
+  test("limpiar: 'todo' borra piezas e ideas; 'devolver_ideas' las manda al backlog; lo publicado no se toca", async () => {
+    const armar = async () => {
+      const ciclo = (
+        await uc.iniciarCiclo(0, [], {
+          semanaInicio: LUNES,
+          mezcla: { Video: 2 },
+        })
+      ).valor!;
+      await uc.crearPiezasFaltantes(ciclo);
+      const idea = (await uc.crearIdea({ texto: "Idea A" })).valor!;
+      await uc.usarIdeaEstaSemana(idea, ciclo);
+      return { ciclo, idea };
+    };
+    const { ciclo, idea } = await armar();
+    const [p1] = await db.contenido.toArray();
+    await db.contenido.update(p1.id, { estado: "Publicado" });
+
+    const prev = await uc.previsualizarLimpieza(ciclo);
+    assert.strictEqual(prev.piezasABorrar, 1);
+    assert.strictEqual(prev.publicadas, 1);
+
+    await uc.limpiarPlanificacion(ciclo, "devolver_ideas");
+    assert.strictEqual(await db.contenido.count(), 1);
+    const i = await db.idea_contenido.get(idea);
+    assert.strictEqual(i?.estado, "Backlog");
+    assert.strictEqual(i?.cicloId, undefined);
+
+    await uc.usarIdeaEstaSemana(idea, ciclo);
+    const r = await uc.limpiarPlanificacion(ciclo, "todo");
+    assert.strictEqual(r.valor!.ideas, 1);
+    assert.strictEqual(await db.idea_contenido.get(idea), undefined);
+    assert.strictEqual(await db.contenido.count(), 1);
+  });
+
+  test("al cerrar la semana las ideas sin usar vuelven al backlog", async () => {
+    const ciclo = (await uc.iniciarCiclo(0, [], { semanaInicio: LUNES }))
+      .valor!;
+    const idea = (await uc.crearIdea({ texto: "Idea B" })).valor!;
+    await uc.usarIdeaEstaSemana(idea, ciclo);
+    await uc.cerrarSemanaYcrearNueva(ciclo, 0, []);
+    assert.strictEqual((await db.idea_contenido.get(idea))?.estado, "Backlog");
+  });
+
+  test("estadoPasosPlanificacion indica qué se hizo y qué falta", async () => {
+    const ciclo = (
+      await uc.iniciarCiclo(0, [], {
+        semanaInicio: LUNES,
+        mezcla: { Video: 1 },
+      })
+    ).valor!;
+    const c = await db.ciclo_semanal.get(ciclo);
+    const vacio = estadoPasosPlanificacion(c, [], [], LUNES);
+    assert.strictEqual(vacio.pasos.length, 3);
+    assert.strictEqual(vacio.piezas, 0);
+    assert.strictEqual(vacio.pasos[0].estado, "pendiente");
+    await uc.crearPiezasFaltantes(ciclo);
+    const con = estadoPasosPlanificacion(
+      c,
+      [],
+      await db.contenido.toArray(),
+      LUNES
+    );
+    assert.strictEqual(con.piezas, 1);
+    assert.strictEqual(con.piezasConGuion, 0);
+    assert.ok(con.pasos[2].falta);
   });
 });

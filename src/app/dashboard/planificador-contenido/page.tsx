@@ -6,7 +6,6 @@ import { db } from "../../../offline/dexie/db";
 import { MainLayout } from "../../../presentation/components/layout";
 import { Icono } from "../../../presentation/components/icons";
 import { Button } from "../../../presentation/components/button";
-import { EstacionIdeas } from "../../../presentation/components/contenido/estacion-ideas";
 import { SelectorCicloSemanal } from "../../../presentation/components/contenido/selector-ciclo-semanal";
 import { EstacionGuion } from "../../../presentation/components/contenido/estacion-guion";
 import { EstacionGrabacion } from "../../../presentation/components/contenido/estacion-grabacion";
@@ -15,8 +14,7 @@ import { EstacionPublicado } from "../../../presentation/components/contenido/es
 import { PanelMetricas } from "../../../presentation/components/contenido/panel-metricas";
 import { PanelCierreSemana } from "../../../presentation/components/contenido/panel-cierre-semana";
 import { EtiquetaSemana } from "../../../presentation/components/contenido/etiqueta-semana";
-import { PanelSemanaContenido } from "../../../presentation/components/contenido/panel-semana-contenido";
-import { AsistentePlanificacion } from "../../../presentation/components/contenido/asistente-planificacion";
+import { EstacionPlanificar } from "../../../presentation/components/contenido/estacion-planificar";
 import { CalendarioContenido } from "../../../presentation/components/contenido/calendario-contenido";
 import { GestionarContenidoUseCase } from "../../../application/use-cases/contenido/gestionar-contenido.use-case";
 import {
@@ -33,9 +31,7 @@ import {
 } from "../../../domain/entidades/personal.entity";
 
 type Estacion =
-  | "semana"
-  | "ia"
-  | "ideas"
+  | "planificar"
   | "guion"
   | "grabar"
   | "editar"
@@ -45,15 +41,13 @@ type Estacion =
 
 const ESTACIONES: { id: Estacion; label: string; icono: keyof typeof Icono }[] =
   [
-    { id: "semana", label: "Semana", icono: "ListTodo" },
-    { id: "ia", label: "Planificar con IA", icono: "Sparkles" },
-    { id: "ideas", label: "Ideas", icono: "Sparkles" },
-    { id: "guion", label: "Guion", icono: "Edit" },
-    { id: "grabar", label: "Grabar", icono: "Play" },
-    { id: "editar", label: "Editar y programar", icono: "Activity" },
-    { id: "publicado", label: "Publicado", icono: "TrendingUp" },
+    { id: "planificar", label: "① Planificar", icono: "ListTodo" },
+    { id: "guion", label: "② Guion", icono: "Edit" },
+    { id: "grabar", label: "③ Grabar", icono: "Play" },
+    { id: "editar", label: "④ Editar y programar", icono: "Activity" },
+    { id: "publicado", label: "⑤ Publicar", icono: "TrendingUp" },
     { id: "calendario", label: "Calendario", icono: "Calendario" },
-    { id: "panel", label: "Panel", icono: "History" },
+    { id: "panel", label: "Resultados", icono: "History" },
   ];
 
 const useCase = new GestionarContenidoUseCase();
@@ -74,7 +68,7 @@ const ESTACION_DE_ETAPA: Record<EtapaCinta, Estacion> = {
  * cambian semana a semana), la planificación con IA por etapas y el calendario.
  */
 export default function PlanificadorContenidoPage() {
-  const [estacion, setEstacion] = useState<Estacion>("semana");
+  const [estacion, setEstacion] = useState<Estacion>("planificar");
   const [mostrarCierre, setMostrarCierre] = useState(false);
   const hoy = obtenerDiaTareaHoy();
 
@@ -147,7 +141,9 @@ export default function PlanificadorContenidoPage() {
         )}
 
         {!cicloActivo ? (
-          <SelectorCicloSemanal onCicloCreado={() => setEstacion("semana")} />
+          <SelectorCicloSemanal
+            onCicloCreado={() => setEstacion("planificar")}
+          />
         ) : (
           <>
             <div className="flex flex-wrap gap-1 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-1">
@@ -170,13 +166,12 @@ export default function PlanificadorContenidoPage() {
               })}
             </div>
 
-            {estacion === "semana" && (
-              <PanelSemanaContenido cicloId={cicloActivo.id} />
+            {estacion === "planificar" && (
+              <EstacionPlanificar
+                cicloId={cicloActivo.id}
+                irAGuion={() => setEstacion("guion")}
+              />
             )}
-            {estacion === "ia" && (
-              <AsistentePlanificacion cicloId={cicloActivo.id} />
-            )}
-            {estacion === "ideas" && <EstacionIdeas />}
             {estacion === "guion" && <EstacionGuion cicloId={cicloActivo.id} />}
             {estacion === "grabar" && (
               <EstacionGrabacion cicloId={cicloActivo.id} />
@@ -198,7 +193,7 @@ export default function PlanificadorContenidoPage() {
             objetivoAnterior={cicloActivo.objetivoVideos}
             onCerrado={() => {
               setMostrarCierre(false);
-              setEstacion("semana");
+              setEstacion("planificar");
             }}
             onCancelar={() => setMostrarCierre(false)}
           />

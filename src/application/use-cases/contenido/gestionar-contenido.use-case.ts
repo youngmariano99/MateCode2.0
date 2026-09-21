@@ -24,6 +24,7 @@ import {
 import {
   distribuirPublicaciones,
   diaISODeMs,
+  esPiezaGenerica,
   planInicial,
   semanaDeCiclo,
   TAREA_GRABAR,
@@ -550,7 +551,9 @@ export class GestionarContenidoUseCase {
   public async importarPlanIA(
     cicloId: string,
     datos: PlanSemanaIA
-  ): Promise<Resultado<{ creadas: number; actualizadas: number }>> {
+  ): Promise<
+    Resultado<{ creadas: number; actualizadas: number; completadas: number }>
+  > {
     const ciclo = await db.ciclo_semanal.get(cicloId);
     if (!ciclo) {
       return Resultado.falla(
@@ -568,6 +571,8 @@ export class GestionarContenidoUseCase {
       .toArray();
     let creadas = 0;
     let actualizadas = 0;
+    let completadas = 0;
+    const adoptadas = new Set<string>();
     for (const p of datos.piezas) {
       const ficha: FichaContenido = {
         pilar: p.pilar,
@@ -590,6 +595,39 @@ export class GestionarContenidoUseCase {
       const idea = p.idea
         ? ideas.find((i) => mismoTitulo(i.texto, p.idea!))
         : undefined;
+      // Una pieza genérica vacía ("Video 1", creada a mano en el paso de
+      // piezas) se COMPLETA con esta pieza del plan en vez de crear otra al lado.
+      const generica = existentes.find(
+        (c) =>
+          c.tipoContenido === p.tipoContenido &&
+          !adoptadas.has(c.id) &&
+          esPiezaGenerica(c)
+      );
+      if (generica) {
+        adoptadas.add(generica.id);
+        const parche = {
+          titulo: p.titulo,
+          canales: p.canales,
+          ideaId: idea?.id,
+          actualizadoEn: Date.now(),
+        };
+        await db.contenido.update(generica.id, parche);
+        await QueueService.encolar("contenido", "editar", generica.id, parche);
+        await this.actualizarFicha(generica.id, ficha);
+        await this.asignarPlan(generica.id, plan);
+        if (idea && idea.estado !== "Seleccionada") {
+          await db.idea_contenido.update(idea.id, {
+            estado: "Seleccionada",
+            cicloId,
+          });
+          await QueueService.encolar("idea_contenido", "editar", idea.id, {
+            estado: "Seleccionada",
+            cicloId,
+          });
+        }
+        completadas++;
+        continue;
+      }
       if (idea && idea.estado !== "Seleccionada") {
         await db.idea_contenido.update(idea.id, {
           estado: "Seleccionada",
@@ -613,7 +651,7 @@ export class GestionarContenidoUseCase {
       );
       if (res.ok) creadas++;
     }
-    return Resultado.exito({ creadas, actualizadas });
+    return Resultado.exito({ creadas, actualizadas, completadas });
   }
 
   public async importarGuionesIA(
@@ -647,6 +685,139 @@ export class GestionarContenidoUseCase {
       }
     }
     return Resultado.exito({ creados, actualizados });
+  }
+
+  // ------------------------------------------------------------------------
+  // Ideas: sirven para esta semana o para otras
+  // ------------------------------------------------------------------------
+
+  /** Elige una idea (del backlog o descartada) para esta semana. */
+  public async usarIdeaEstaSemana(
+    ideaId: string,
+    cicloId: string
+  ): Promise<Resultado<void>> {
+    const idea = await db.idea_contenido.get(ideaId);
+    if (!idea)
+      return Resultado.falla(new ErrorNoEncontrado("No se encontró la idea."));
+    const parche = { estado: "Seleccionada" as const, cicloId };
+    await db.idea_contenido.update(ideaId, parche);
+    await QueueService.encolar("idea_contenido", "editar", ideaId, parche);
+    return Resultado.exito(undefined);
+  }
+
+  /**
+   * Devuelve una idea al backlog para poder usarla en otra semana. Si ya se
+   * armó una pieza con ella, la pieza sigue existiendo (solo se suelta el
+   * vínculo a la semana).
+   */
+  public async devolverIdeaAlBacklog(ideaId: string): Promise<Resultado<void>> {
+    const idea = await db.idea_contenido.get(ideaId);
+    if (!idea)
+      return Resultado.falla(new ErrorNoEncontrado("No se encontró la idea."));
+    await db.idea_contenido.update(ideaId, {
+      estado: "Backlog",
+      cicloId: undefined,
+    });
+    await QueueService.encolar("idea_contenido", "editar", ideaId, {
+      estado: "Backlog",
+      cicloId: null,
+    });
+    return Resultado.exito(undefined);
+  }
+
+  public async descartarIdea(ideaId: string): Promise<Resultado<void>> {
+    const idea = await db.idea_contenido.get(ideaId);
+    if (!idea)
+      return Resultado.falla(new ErrorNoEncontrado("No se encontró la idea."));
+    await db.idea_contenido.update(ideaId, {
+      estado: "Descartada",
+      cicloId: undefined,
+    });
+    await QueueService.encolar("idea_contenido", "editar", ideaId, {
+      estado: "Descartada",
+      cicloId: null,
+    });
+    return Resultado.exito(undefined);
+  }
+
+  public async eliminarIdea(ideaId: string): Promise<Resultado<void>> {
+    await db.idea_contenido.delete(ideaId);
+    await QueueService.encolar("idea_contenido", "eliminar", ideaId, {});
+    return Resultado.exito(undefined);
+  }
+
+  // ------------------------------------------------------------------------
+  // Limpiar la planificación de la semana (para rehacerla sin duplicados)
+  // ------------------------------------------------------------------------
+
+  /** Qué se tocaría al limpiar: se muestra antes de confirmar. Lo ya publicado nunca se toca. */
+  public async previsualizarLimpieza(cicloId: string): Promise<{
+    piezasABorrar: number;
+    publicadas: number;
+    ideasDeLaSemana: number;
+    ideasUsadasEnPublicadas: number;
+  }> {
+    const piezas = await db.contenido
+      .where("cicloId")
+      .equals(cicloId)
+      .toArray();
+    const publicadas = piezas.filter((c) => c.estado === "Publicado");
+    const usadasPublicadas = new Set(
+      publicadas.map((c) => c.ideaId).filter(Boolean)
+    );
+    const ideas = (
+      await db.idea_contenido.where("cicloId").equals(cicloId).toArray()
+    ).filter((i) => i.estado === "Seleccionada");
+    return {
+      piezasABorrar: piezas.length - publicadas.length,
+      publicadas: publicadas.length,
+      ideasDeLaSemana: ideas.filter((i) => !usadasPublicadas.has(i.id)).length,
+      ideasUsadasEnPublicadas: ideas.filter((i) => usadasPublicadas.has(i.id))
+        .length,
+    };
+  }
+
+  /**
+   * Borra las piezas de la semana (menos las ya publicadas) para volver a
+   * planificar desde cero.
+   *  - "todo": además elimina las ideas que se eligieron para esta semana.
+   *  - "devolver_ideas": las ideas de la semana vuelven al backlog, así se
+   *    pueden usar en otras semanas.
+   * En ambos casos las ideas que ya se usaron en una pieza publicada se dejan
+   * como están.
+   */
+  public async limpiarPlanificacion(
+    cicloId: string,
+    modo: "todo" | "devolver_ideas"
+  ): Promise<Resultado<{ piezas: number; ideas: number }>> {
+    const ciclo = await db.ciclo_semanal.get(cicloId);
+    if (!ciclo)
+      return Resultado.falla(
+        new ErrorNoEncontrado("No se encontró la semana.")
+      );
+    const piezas = await db.contenido
+      .where("cicloId")
+      .equals(cicloId)
+      .toArray();
+    const publicadas = piezas.filter((c) => c.estado === "Publicado");
+    const usadasPublicadas = new Set(
+      publicadas.map((c) => c.ideaId).filter(Boolean)
+    );
+    let nPiezas = 0;
+    for (const c of piezas) {
+      if (c.estado === "Publicado") continue;
+      await db.contenido.delete(c.id);
+      await QueueService.encolar("contenido", "eliminar", c.id, {});
+      nPiezas++;
+    }
+    const ideas = (
+      await db.idea_contenido.where("cicloId").equals(cicloId).toArray()
+    ).filter((i) => i.estado === "Seleccionada" && !usadasPublicadas.has(i.id));
+    for (const i of ideas) {
+      if (modo === "todo") await this.eliminarIdea(i.id);
+      else await this.devolverIdeaAlBacklog(i.id);
+    }
+    return Resultado.exito({ piezas: nPiezas, ideas: ideas.length });
   }
 
   /** Si la plantilla guardada sigue siendo la vieja (7 secciones), la pasa a la del SOP; si el usuario ya la editó, no la toca. */
@@ -879,6 +1050,13 @@ export class GestionarContenidoUseCase {
           }
         }
       }
+      // Las ideas de la semana que se cierra y no tuvieron decisión vuelven al
+      // backlog (no quedan escondidas en una semana cerrada): se pueden usar
+      // en otra planificación.
+      const huerfanas = (
+        await db.idea_contenido.where("cicloId").equals(cicloViejoId).toArray()
+      ).filter((i) => i.estado === "Seleccionada");
+      for (const i of huerfanas) await this.devolverIdeaAlBacklog(i.id);
       return Resultado.exito(nuevoCicloId);
     } catch (err) {
       return Resultado.falla(

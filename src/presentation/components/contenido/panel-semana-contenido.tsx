@@ -6,10 +6,9 @@ import { db } from "../../../offline/dexie/db";
 import { Button } from "../button";
 import { Input } from "../input";
 import { Select } from "../select";
-import { CampoFecha } from "./ficha-plan-pieza";
+import { TablaPiezasSemana } from "./tabla-piezas-semana";
 import { GestionarContenidoUseCase } from "../../../application/use-cases/contenido/gestionar-contenido.use-case";
 import {
-  ETAPAS_CINTA,
   ETIQUETA_ETAPA,
   TIPOS_CONTENIDO,
   type DiasCinta,
@@ -178,7 +177,7 @@ export const PanelSemanaContenido: React.FC<{ cicloId: string }> = ({
 
         <div className="flex flex-wrap gap-2">
           <Button onClick={crear} disabled={totalMezcla(mezcla) === 0}>
-            Crear las piezas que faltan
+            Crear las piezas que faltan (como «Video 1», «Post 2»…)
           </Button>
         </div>
       </div>
@@ -207,42 +206,7 @@ export const PanelSemanaContenido: React.FC<{ cicloId: string }> = ({
         </div>
       )}
 
-      {piezas.length > 0 && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-6">
-          <span className="text-xs font-bold tracking-wider text-zinc-500 uppercase">
-            Piezas de la semana — el día de cada etapa
-          </span>
-          {piezas.map((p) => (
-            <div
-              key={p.id}
-              className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-[#0D0D0F] p-3"
-            >
-              <span className="text-sm font-bold text-zinc-200">
-                {p.titulo}{" "}
-                <span className="text-xs font-normal text-zinc-500">
-                  · {p.tipoContenido} · {p.estado}
-                </span>
-              </span>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {ETAPAS_CINTA.map((etapa) => (
-                  <CampoFecha
-                    key={etapa}
-                    label={ETIQUETA_ETAPA[etapa]}
-                    value={
-                      etapa === "publicacion"
-                        ? (p.plan?.publicacion ?? p.diaEstimado)
-                        : p.plan?.[etapa]
-                    }
-                    onChange={(v) =>
-                      void useCase.asignarPlan(p.id, { [etapa]: v })
-                    }
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <TablaPiezasSemana cicloId={cicloId} />
       {mensaje && <p className="text-xs text-emerald-400">{mensaje}</p>}
     </div>
   );
