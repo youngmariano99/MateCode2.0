@@ -10,7 +10,13 @@ import {
   type ItemEntregableJson,
   type ItemActividadJson,
 } from "../../../domain/entidades/planificacion-jerarquica.entity";
+import { obtenerDiaTareaHoy } from "../../../domain/entidades/personal.entity";
 import { ajustesIAJsonSchema } from "../../../domain/entidades/ajuste-ia.entity";
+import {
+  expandirReparto,
+  type ContextoReparto,
+  type RepartoJson,
+} from "../../../domain/entidades/distribucion-personal.entity";
 
 /**
  * Resúmenes legibles del JSON de jerarquía Personal — se usan como
@@ -62,6 +68,48 @@ const ResumenActividad: React.FC<{ a: ItemActividadJson; nivel: number }> = ({
   </Fila>
 );
 
+/** Cuenta real de lo que va a generar un reparto: cuántas actividades, cuánto por día — para revisar antes de crear. */
+const ResumenReparto: React.FC<{
+  r: RepartoJson;
+  contexto: ContextoReparto;
+  nivel: number;
+}> = ({ r, contexto, nivel }) => {
+  const sinFechas =
+    !(r.diaInicio ?? contexto.diaInicio) ||
+    !(r.diaLimite ?? contexto.diaLimite);
+  if (sinFechas) {
+    return (
+      <Fila nivel={nivel}>
+        <span className="text-sky-400">▦ Reparto:</span> {r.descripcion} — se
+        reparte con las fechas y el total del entregable donde se cree
+      </Fila>
+    );
+  }
+  const exp = expandirReparto(r, contexto);
+  const total = exp.porDia.reduce((s, d) => s + d.cantidad, 0);
+  const cantidades = exp.porDia.map((d) => d.cantidad);
+  const min = Math.min(...cantidades);
+  const max = Math.max(...cantidades);
+  return (
+    <Fila nivel={nivel}>
+      <span className="text-sky-400">▦ Reparto:</span> {r.descripcion} —{" "}
+      {exp.porDia.length === 0 ? (
+        <span className="text-red-400">
+          sin días o sin cantidad (revisá fechas, días y total)
+        </span>
+      ) : (
+        <>
+          {exp.porDia.length} actividades ({total} {exp.unidad || ""} en total,
+          {min === max
+            ? ` ${min} por día`
+            : ` entre ${min} y ${max} por día`}),{" "}
+          {(r.diasSemana || []).map((d) => DIAS_SEMANA_CORTO[d]).join("/")}
+        </>
+      )}
+    </Fila>
+  );
+};
+
 const ResumenEntregable: React.FC<{ e: ItemEntregableJson; nivel: number }> = ({
   e,
   nivel,
@@ -84,6 +132,34 @@ const ResumenEntregable: React.FC<{ e: ItemEntregableJson; nivel: number }> = ({
         {f.diaInicio} → {f.diaLimite} · {f.cantidadObjetivo} {f.unidad}
       </Fila>
     ))}
+    {e.fases.map(
+      (f, i) =>
+        f.reparto && (
+          <ResumenReparto
+            key={`fr-${i}`}
+            r={f.reparto}
+            contexto={{
+              diaInicio: f.diaInicio,
+              diaLimite: f.diaLimite,
+              total: f.cantidadObjetivo,
+              unidad: f.unidad,
+            }}
+            nivel={nivel + 2}
+          />
+        )
+    )}
+    {e.reparto && (
+      <ResumenReparto
+        r={e.reparto}
+        contexto={{
+          diaInicio: e.diaInicio ?? obtenerDiaTareaHoy(),
+          diaLimite: e.diaLimite,
+          total: e.cantidadObjetivo,
+          unidad: e.unidad,
+        }}
+        nivel={nivel + 1}
+      />
+    )}
   </>
 );
 
@@ -189,6 +265,19 @@ export function resumenActividadesBajoEntregable(
       </Fila>
       {parsed.data.actividadesNuevas.map((a, i) => (
         <ResumenActividad key={i} a={a} nivel={1} />
+      ))}
+      {parsed.data.repartos.map((r, i) => (
+        <ResumenReparto
+          key={`rep-${i}`}
+          r={r}
+          contexto={{
+            diaInicio: r.diaInicio ?? "",
+            diaLimite: r.diaLimite ?? "",
+            total: r.cantidadTotal,
+            unidad: r.unidad,
+          }}
+          nivel={1}
+        />
       ))}
     </div>
   );

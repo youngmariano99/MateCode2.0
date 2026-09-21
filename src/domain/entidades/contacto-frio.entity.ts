@@ -45,6 +45,69 @@ export const TIENE_WEB_OPCIONES = [
 ] as const;
 export type TieneWebOpcion = (typeof TIENE_WEB_OPCIONES)[number];
 
+// ----------------------------------------------------------------------------
+// Cinta de contacto en frío (Mom Test): qué se acordó hacer, qué se mandó y
+// qué se aprendió en cada intercambio.
+// ----------------------------------------------------------------------------
+
+/** Lo que toca hacer con un lead y para cuándo (se guarda en el prospecto: "quedamos en mandar la demo el jueves"). */
+export const ACCIONES_PROXIMO_PASO = [
+  "seguir",
+  "mandar_demo",
+  "mandar_pack",
+  "pedir_productos",
+  "llamar",
+  "esperar",
+  "otro",
+] as const;
+export type AccionProximoPaso = (typeof ACCIONES_PROXIMO_PASO)[number];
+
+export const ETIQUETA_ACCION_PROXIMO_PASO: Record<AccionProximoPaso, string> = {
+  seguir: "Hacer seguimiento",
+  mandar_demo: "Mandar la demo",
+  mandar_pack: "Mandar el pack de Excel",
+  pedir_productos: "Que me manden los productos",
+  llamar: "Llamarlo",
+  esperar: "Esperar que escriba",
+  otro: "Otra cosa",
+};
+
+/** Qué tipo de mensaje MÍO fue — para contar cuántos seguimientos van y no confundirlos con aperturas. */
+export const TIPOS_ENVIO = [
+  "apertura",
+  "seguimiento",
+  "respuesta",
+  "demo",
+  "pack",
+  "otro",
+] as const;
+export type TipoEnvio = (typeof TIPOS_ENVIO)[number];
+
+/** Clasificación Mom Test de lo que dijo el prospecto: un hecho pasado concreto, una opinión, o humo (elogios, "algún día", promesas vagas). */
+export const TIPOS_DATO = ["dato_duro", "opinion", "humo"] as const;
+export type TipoDato = (typeof TIPOS_DATO)[number];
+
+export const ETIQUETA_TIPO_DATO: Record<TipoDato, string> = {
+  dato_duro: "Dato duro",
+  opinion: "Opinión",
+  humo: "Humo",
+};
+
+export const aprendizajeSchema = z.object({
+  /** Su frase literal sobre el problema. */
+  citaDolor: z.string().optional(),
+  /** La última vez concreta que le pasó. */
+  casoPasado: z.string().optional(),
+  /** Cómo lo resuelve hoy (con qué herramienta o a mano). */
+  comoLoResuelve: z.string().optional(),
+  /** Cuánto le cuesta en tiempo o plata. */
+  costo: z.string().optional(),
+  tipoDato: z.enum(TIPOS_DATO).optional(),
+  /** Qué puso en juego (tiempo, plata, reputación): aceptar la demo, mandar productos, presentar a alguien. */
+  compromiso: z.string().optional(),
+});
+export type Aprendizaje = z.infer<typeof aprendizajeSchema>;
+
 export const crearProspectoSchema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio."),
   rubro: z.string().optional(),
@@ -60,6 +123,12 @@ export interface PotencialCliente {
   estado: EstadoEmbudo;
   fechaUltimoContacto?: number;
   esHistoricoLegacy?: boolean;
+  /** Qué toca hacer con este lead y para cuándo (ms epoch). Vacío = todavía no hay nada acordado. */
+  proximoPasoAccion?: AccionProximoPaso;
+  proximoPasoFecha?: number;
+  proximoPasoNota?: string;
+  /** Cliente del CRM en que se convirtió (estado "Cliente Cerrado"). */
+  clienteId?: string;
   creadoEn: number;
   actualizadoEn: number;
 }
@@ -110,6 +179,10 @@ export const registrarIntentoSchema = z.object({
   respuestaTexto: z.string().optional(),
   tagsResultado: z.array(z.string()).default([]),
   proximoSeguimientoFecha: z.number().optional(),
+  /** Solo si el intento es un mensaje mío. */
+  tipoEnvio: z.enum(TIPOS_ENVIO).optional(),
+  /** Lo aprendido en este intercambio (Mom Test). */
+  aprendizaje: aprendizajeSchema.optional(),
 });
 export type RegistrarIntentoInput = z.infer<typeof registrarIntentoSchema>;
 

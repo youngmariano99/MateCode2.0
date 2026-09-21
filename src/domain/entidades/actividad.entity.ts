@@ -66,8 +66,28 @@ export interface Actividad {
   /** Si esta instancia nació de un Entregable recurrente (ver entregable.entity.ts) — permite rastrear el origen. */
   recurrenciaId?: string;
   origenInboxId?: string;
+  /**
+   * Fondo de faltantes: una Actividad tipo "backlog" que acumula lo que no se
+   * llegó a hacer de una tarea cuantificable (ej. 5 contactos), para
+   * repartirlo después en uno o varios días. Una por tarea (Entregable o
+   * descripción). Nunca suma progreso mientras está pendiente.
+   */
+  esFaltante?: boolean;
   creadoEn: number;
   actualizadoEn: number;
+}
+
+/**
+ * Reparte `total` en `dias` partes lo más parejas posible, sin perder ni
+ * inventar ninguna unidad: 5 en 2 días → [3, 2]; 5 en 3 → [2, 2, 1]. Si hay
+ * más días que unidades, se usan solo tantos días como unidades haya.
+ */
+export function repartirEnDias(total: number, dias: number): number[] {
+  const n = Math.max(1, Math.min(Math.floor(dias), Math.floor(total)));
+  if (!(total > 0)) return [];
+  const base = Math.floor(total / n);
+  const resto = total - base * n;
+  return Array.from({ length: n }, (_, i) => base + (i < resto ? 1 : 0));
 }
 
 const fechaISO = z
@@ -122,6 +142,48 @@ export const migrarActividadSchema = z.object({
   motivo: z.enum(MOTIVOS_DESVIO).optional(),
 });
 export type MigrarActividadInput = z.input<typeof migrarActividadSchema>;
+
+// Cómo se ordena y se distingue una tarea del día, sin campos nuevos:
+//  - "prioridad": tipo enfoque (lo más importante — recomendado 1)
+//  - "mantenimiento": tipo mantenimiento (lo que hay que hacer sí o sí)
+//  - "si_llego": prioridad "puede_esperar" (se hace si sobra tiempo)
+export const BUCKETS_DIA = ["prioridad", "mantenimiento", "si_llego"] as const;
+export type BucketDia = (typeof BUCKETS_DIA)[number];
+
+export const ETIQUETA_BUCKET: Record<BucketDia, string> = {
+  prioridad: "Prioridad",
+  mantenimiento: "Mantenimiento",
+  si_llego: "Si llego",
+};
+
+export function bucketDeActividad(
+  a: Pick<Actividad, "tipo" | "prioridad">
+): BucketDia {
+  if (a.prioridad === "puede_esperar") return "si_llego";
+  return a.tipo === "enfoque" ? "prioridad" : "mantenimiento";
+}
+
+// Qué hacer con lo que faltó de una tarea cuantificable al cerrarla con menos
+// de la meta: pasarlo a mañana (se suma a la tarea de mañana si ya existe),
+// dejarlo en el fondo de faltantes para repartirlo después, o descartarlo.
+export const DESTINOS_FALTANTE = ["manana", "fondo", "descartar"] as const;
+export type DestinoFaltante = (typeof DESTINOS_FALTANTE)[number];
+
+export const cerrarConCantidadSchema = z.object({
+  id: z.string(),
+  hecha: z.number().min(0, "La cantidad no puede ser negativa."),
+  destino: z.enum(DESTINOS_FALTANTE).optional(),
+  motivo: z.enum(MOTIVOS_DESVIO).optional(),
+});
+export type CerrarConCantidadInput = z.input<typeof cerrarConCantidadSchema>;
+
+export const repartirFondoSchema = z.object({
+  fondoId: z.string(),
+  reparto: z
+    .array(z.object({ dia: fechaISO, cantidad: z.number().positive() }))
+    .min(1, "Elegí al menos un día."),
+});
+export type RepartirFondoInput = z.input<typeof repartirFondoSchema>;
 
 // ============================================================================
 // Migración Sprint 5 (jerarquía Personal): funciones puras de mapeo,

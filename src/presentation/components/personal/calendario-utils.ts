@@ -30,6 +30,41 @@ export function useColorPorObjetivo(): (objetivoId?: string) => string {
   };
 }
 
+export interface AreaDeTarea {
+  id: string;
+  nombre: string;
+  color: string;
+}
+
+export const SIN_AREA: AreaDeTarea = {
+  id: "sin_area",
+  nombre: "Sin área",
+  color: COLOR_SIN_AREA,
+};
+
+/** Igual que useColorPorObjetivo pero devuelve también el nombre del Área — para distinguir tareas por área con color + etiqueta. */
+export function useAreaPorObjetivo(): (objetivoId?: string) => AreaDeTarea {
+  const objetivos = useLiveQuery(() => db.objetivo_cuantificable.toArray());
+  const areas = useLiveQuery(() => db.area_personal.toArray());
+
+  const areaPorId = new Map<string, AreaDeTarea>();
+  (areas || []).forEach((a) =>
+    areaPorId.set(a.id, {
+      id: a.id,
+      nombre: a.nombre,
+      color: colorDeAreaEfectivo(a),
+    })
+  );
+  const areaIdPorObjetivo = new Map<string, string | undefined>();
+  (objetivos || []).forEach((o) => areaIdPorObjetivo.set(o.id, o.areaId));
+
+  return (objetivoId?: string) => {
+    if (!objetivoId) return SIN_AREA;
+    const areaId = areaIdPorObjetivo.get(objetivoId);
+    return (areaId && areaPorId.get(areaId)) || SIN_AREA;
+  };
+}
+
 /** Lunes (YYYY-MM-DD) de la semana que contiene `diaISO`, ya existe en personal.entity.ts — se re-exporta acá para no acoplar los componentes de calendario a esa entidad directamente si cambia. */
 export {
   lunesDeLaSemana,

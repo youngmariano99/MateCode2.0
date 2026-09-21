@@ -16,6 +16,7 @@ import { generarPromptFases } from "../../../domain/prompts/generar-prompt-jerar
 import { GenerarFasesModal } from "./generar-fases-modal";
 import { CerrarFaseModal } from "./cerrar-fase-modal";
 import { AjustarFaseModal } from "./ajustar-fase-modal";
+import { RepartirEnDiasModal } from "./asistente-distribuir";
 import { ModalImportarJson } from "../contenido/modal-importar-json";
 import { resumenFasesBajoEntregable } from "./resumen-import-jerarquia";
 
@@ -139,6 +140,7 @@ export const SeccionFasesEntregable: React.FC<{ entregable: Entregable }> = ({
   const [modalImportarAbierto, setModalImportarAbierto] = useState(false);
   const [faseACerrar, setFaseACerrar] = useState<FasePersonal | null>(null);
   const [faseAAjustar, setFaseAAjustar] = useState<FasePersonal | null>(null);
+  const [faseARepartir, setFaseARepartir] = useState<FasePersonal | null>(null);
   const hoy = obtenerDiaTareaHoy();
 
   const copiarPrompt = () => {
@@ -252,6 +254,13 @@ export const SeccionFasesEntregable: React.FC<{ entregable: Entregable }> = ({
                 {f.estado === "abierta" ? (
                   <div className="flex gap-1.5">
                     <button
+                      onClick={() => setFaseARepartir(f)}
+                      title="Generar las actividades diarias de esta fase, con su cantidad"
+                      className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+                    >
+                      Repartir en días
+                    </button>
+                    <button
                       onClick={() => setFaseAAjustar(f)}
                       title="Cambiar meta o fecha sin cerrar la fase"
                       className="rounded border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
@@ -292,6 +301,14 @@ export const SeccionFasesEntregable: React.FC<{ entregable: Entregable }> = ({
         cantidadSugerida={entregable.cantidadObjetivo ?? 0}
         onGenerado={() => {}}
       />
+      {faseARepartir && (
+        <RepartirEnDiasModal
+          abierto
+          onCerrar={() => setFaseARepartir(null)}
+          entregable={entregable}
+          fase={faseARepartir}
+        />
+      )}
       {faseAAjustar && (
         <AjustarFaseModal
           key={faseAAjustar.id}

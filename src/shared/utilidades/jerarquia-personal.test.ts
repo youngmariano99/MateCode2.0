@@ -20,6 +20,8 @@ import { calcularNivelLogro } from "../../domain/entidades/objetivo-cuantificabl
 import { GestionarFasesUseCase } from "../../application/use-cases/personal/gestionar-fases.use-case";
 import { calcularDistribucionProgresiva } from "../../domain/entidades/fase-personal.entity";
 import {
+  repartirEnDias,
+  bucketDeActividad,
   mapearTareaDiariaAActividad,
   mapearTareaPendienteAActividad,
 } from "../../domain/entidades/actividad.entity";
@@ -824,7 +826,7 @@ describe("Import JSON con IA de la jerarquía (árbol completo y por nivel)", ()
                 entregables: [
                   {
                     titulo: "Contacto en frío",
-                    diaLimite: "2026-09-20",
+                    diaLimite: "2027-09-20",
                     cantidadObjetivo: 200,
                     unidad: "contactos",
                     recurrencia: {
@@ -835,14 +837,14 @@ describe("Import JSON con IA de la jerarquía (árbol completo y por nivel)", ()
                   },
                   {
                     titulo: "Wireframes",
-                    diaLimite: "2026-09-20",
+                    diaLimite: "2027-09-20",
                     cantidadObjetivo: 8,
                     unidad: "pantallas",
                     actividades: [
                       {
                         tipo: "enfoque",
                         descripcion: "Wireframe home",
-                        diaTarea: "2026-09-16",
+                        diaTarea: "2027-09-16",
                       },
                     ],
                   },
@@ -1573,5 +1575,339 @@ describe("Fases: progreso por rango de fechas y cierre con arrastre (Sprint 21)"
       await fases.detectarFasesPendientesDeCierre("2026-01-15");
     assert.strictEqual(pendientes.length, 1);
     assert.strictEqual(pendientes[0].id, vencida.valor);
+  });
+});
+
+describe("Tareas acumulables: cerrar con cantidad, faltante y fondo (Sprint 23)", () => {
+  beforeEach(async () => {
+    await db.area_personal.clear();
+    await db.objetivo_cuantificable.clear();
+    await db.proyecto_personal.clear();
+    await db.entregable.clear();
+    await db.actividad.clear();
+    await db.fase_personal.clear();
+    await db.personal_historial.clear();
+  });
+
+  async function entregableDeContactos(): Promise<{
+    entregableId: string;
+    objetivoId: string;
+  }> {
+    const objetivo = await objetivos.crearObjetivo({
+      titulo: "250 contactos",
+      unidad: "contactos",
+      cantidadObjetivo: 250,
+      diaInicio: "2026-01-01",
+      diaLimite: "2026-12-31",
+    });
+    const proyecto = await proyectos.crearProyecto({
+      objetivoId: objetivo.valor,
+      titulo: "Prospección",
+      diaInicio: "2026-01-01",
+      diaLimite: "2026-12-31",
+    });
+    const entregable = await entregables.crearEntregable({
+      proyectoId: proyecto.valor,
+      objetivoId: objetivo.valor,
+      titulo: "Contacto en frío",
+      diaInicio: "2026-01-01",
+      diaLimite: "2026-12-31",
+      cantidadObjetivo: 250,
+      unidad: "contactos",
+    });
+    return { entregableId: entregable.valor!, objetivoId: objetivo.valor! };
+  }
+
+  async function tareaDeContactos(
+    entregableId: string,
+    diaTarea: string,
+    cantidad = 2
+  ) {
+    const r = await actividades.crearActividad({
+      entregableId,
+      tipo: "mantenimiento",
+      descripcion: "Contactar clientes",
+      diaTarea,
+      cantidadObjetivo: cantidad,
+      unidad: "contactos",
+    });
+    assert.strictEqual(r.ok, true);
+    return r.valor!;
+  }
+
+  test("repartirEnDias reparte parejo sin perder ni inventar unidades", () => {
+    assert.deepStrictEqual(repartirEnDias(5, 2), [3, 2]);
+    assert.deepStrictEqual(repartirEnDias(5, 3), [2, 2, 1]);
+    assert.deepStrictEqual(repartirEnDias(3, 10), [1, 1, 1]);
+    assert.deepStrictEqual(repartirEnDias(4, 1), [4]);
+  });
+
+  test("migrar una tarea con avance pasa SOLO el faltante y el avance cuenta una sola vez (bug del doble conteo)", async () => {
+    const { entregableId } = await entregableDeContactos();
+    const id = await tareaDeContactos(entregableId, "2026-03-10");
+    await actividades.registrarAvance(id, 1);
+
+    const res = await actividades.migrarActividad({
+      id,
+      nuevoDiaTarea: "2026-03-11",
+    });
+    assert.strictEqual(res.ok, true);
+
+    const original = await db.actividad.get(id);
+    assert.strictEqual(original?.estado, "completada");
+    assert.strictEqual(original?.progresoActual, 1);
+
+    const copia = await db.actividad.get(res.valor!);
+    assert.strictEqual(copia?.cantidadObjetivo, 1, "solo lo que faltó");
+    assert.strictEqual(copia?.progresoActual, undefined);
+    assert.strictEqual(copia?.estado, "pendiente");
+
+    const entregable = await db.entregable.get(entregableId);
+    assert.strictEqual(entregable?.progresoActual, 1, "1 contacto, no 2");
+  });
+
+  test("migrar suma el faltante a la tarea de mañana si ya existe (2 + 1 = 3)", async () => {
+    const { entregableId } = await entregableDeContactos();
+    const hoy = await tareaDeContactos(entregableId, "2026-03-10");
+    const manana = await tareaDeContactos(entregableId, "2026-03-11");
+    await actividades.registrarAvance(hoy, 1);
+
+    const res = await actividades.migrarActividad({
+      id: hoy,
+      nuevoDiaTarea: "2026-03-11",
+    });
+    assert.strictEqual(res.valor, manana, "usa la de mañana, no crea otra");
+    assert.strictEqual((await db.actividad.get(manana))?.cantidadObjetivo, 3);
+    const deMañana = await db.actividad
+      .where("diaTarea")
+      .equals("2026-03-11")
+      .toArray();
+    assert.strictEqual(deMañana.length, 1);
+  });
+
+  test("cerrar con menos de la meta: pide destino, y 'fondo' acumula el faltante de varios días en un solo fondo", async () => {
+    const { entregableId } = await entregableDeContactos();
+    const dia1 = await tareaDeContactos(entregableId, "2026-03-10");
+    const dia2 = await tareaDeContactos(entregableId, "2026-03-11");
+
+    const sinDestino = await actividades.cerrarConCantidad({
+      id: dia1,
+      hecha: 1,
+    });
+    assert.strictEqual(sinDestino.ok, false);
+
+    await actividades.cerrarConCantidad({
+      id: dia1,
+      hecha: 1,
+      destino: "fondo",
+    });
+    await actividades.cerrarConCantidad({
+      id: dia2,
+      hecha: 1,
+      destino: "fondo",
+    });
+
+    assert.strictEqual((await db.actividad.get(dia1))?.estado, "completada");
+    const fondos = await db.actividad
+      .filter((a) => a.esFaltante === true)
+      .toArray();
+    assert.strictEqual(fondos.length, 1, "un solo fondo por tarea");
+    assert.strictEqual(fondos[0].cantidadObjetivo, 2);
+    assert.strictEqual(fondos[0].tipo, "backlog");
+    assert.strictEqual(
+      (await db.entregable.get(entregableId))?.progresoActual,
+      2,
+      "el fondo pendiente no suma progreso"
+    );
+  });
+
+  test("repartir el fondo en varios días crea/suma tareas y lo repartido sale del fondo", async () => {
+    const { entregableId } = await entregableDeContactos();
+    const id = await tareaDeContactos(entregableId, "2026-03-10", 5);
+    await actividades.cerrarConCantidad({ id, hecha: 0, destino: "fondo" });
+    const fondo = (
+      await db.actividad.filter((a) => a.esFaltante === true).toArray()
+    )[0];
+    assert.strictEqual(fondo.cantidadObjetivo, 5);
+
+    const demasiado = await actividades.repartirFondo({
+      fondoId: fondo.id,
+      reparto: [{ dia: "2026-03-12", cantidad: 9 }],
+    });
+    assert.strictEqual(demasiado.ok, false);
+
+    const res = await actividades.repartirFondo({
+      fondoId: fondo.id,
+      reparto: [
+        { dia: "2026-03-12", cantidad: 3 },
+        { dia: "2026-03-13", cantidad: 2 },
+      ],
+    });
+    assert.strictEqual(res.ok, true);
+
+    const d12 = await db.actividad
+      .where("diaTarea")
+      .equals("2026-03-12")
+      .toArray();
+    const d13 = await db.actividad
+      .where("diaTarea")
+      .equals("2026-03-13")
+      .toArray();
+    assert.strictEqual(d12[0].cantidadObjetivo, 3);
+    assert.strictEqual(d13[0].cantidadObjetivo, 2);
+    assert.strictEqual(
+      (await db.actividad.get(fondo.id))?.estado,
+      "descartada"
+    );
+    assert.strictEqual(
+      (await db.entregable.get(entregableId))?.progresoActual,
+      0
+    );
+  });
+
+  test("cerrar con la meta completa no deja faltante ni fondo", async () => {
+    const { entregableId } = await entregableDeContactos();
+    const id = await tareaDeContactos(entregableId, "2026-03-10");
+    const res = await actividades.cerrarConCantidad({ id, hecha: 2 });
+    assert.strictEqual(res.ok, true);
+    assert.strictEqual((await db.actividad.get(id))?.estado, "completada");
+    const fondos = await db.actividad
+      .filter((a) => a.esFaltante === true)
+      .toArray();
+    assert.strictEqual(fondos.length, 0);
+  });
+});
+
+describe("Planilla del día: categorías, reclasificar y pendientes sin cerrar", () => {
+  beforeEach(async () => {
+    await db.actividad.clear();
+    await db.personal_historial.clear();
+  });
+
+  test("bucketDeActividad: enfoque = Prioridad, mantenimiento = Mantenimiento, 'puede esperar' = Si llego", () => {
+    assert.strictEqual(bucketDeActividad({ tipo: "enfoque" }), "prioridad");
+    assert.strictEqual(
+      bucketDeActividad({ tipo: "mantenimiento" }),
+      "mantenimiento"
+    );
+    assert.strictEqual(
+      bucketDeActividad({ tipo: "mantenimiento", prioridad: "puede_esperar" }),
+      "si_llego"
+    );
+    assert.strictEqual(
+      bucketDeActividad({ tipo: "enfoque", prioridad: "puede_esperar" }),
+      "si_llego",
+      "'si llego' gana sobre el tipo"
+    );
+  });
+
+  test("reclasificarActividad mueve entre Prioridad / Mantenimiento / Si llego sin tocar fecha ni cantidad", async () => {
+    const r = await actividades.crearActividad({
+      tipo: "mantenimiento",
+      descripcion: "Contactar",
+      diaTarea: "2026-05-04",
+      cantidadObjetivo: 5,
+      unidad: "contactos",
+    });
+    const id = r.valor!;
+
+    await actividades.reclasificarActividad(id, "si_llego");
+    let fila = await db.actividad.get(id);
+    assert.strictEqual(bucketDeActividad(fila!), "si_llego");
+    assert.strictEqual(fila?.tipo, "mantenimiento");
+
+    await actividades.reclasificarActividad(id, "prioridad");
+    fila = await db.actividad.get(id);
+    assert.strictEqual(fila?.tipo, "enfoque");
+    assert.strictEqual(fila?.prioridad, undefined, "sale de 'si llego'");
+    assert.strictEqual(bucketDeActividad(fila!), "prioridad");
+
+    await actividades.reclasificarActividad(id, "mantenimiento");
+    fila = await db.actividad.get(id);
+    assert.strictEqual(bucketDeActividad(fila!), "mantenimiento");
+    assert.strictEqual(fila?.diaTarea, "2026-05-04");
+    assert.strictEqual(fila?.cantidadObjetivo, 5);
+
+    const hist = await db.personal_historial.toArray();
+    assert.ok(hist.some((h) => h.descripcion?.includes("reclasificada")));
+  });
+
+  test("solo se reclasifica una tarea pendiente", async () => {
+    const r = await actividades.crearActividad({
+      tipo: "mantenimiento",
+      descripcion: "Ya hecha",
+      diaTarea: "2026-05-04",
+    });
+    await actividades.completarActividad(r.valor!);
+    const res = await actividades.reclasificarActividad(r.valor!, "prioridad");
+    assert.strictEqual(res.ok, false);
+  });
+
+  test("pasarPendientesAHoy trae todo lo sin cerrar: suma faltantes cuantificados, completa lo ya cumplido y migra el resto", async () => {
+    const hoy = "2026-05-06";
+    const conAvance = await actividades.crearActividad({
+      tipo: "mantenimiento",
+      descripcion: "Contactar",
+      diaTarea: "2026-05-04",
+      cantidadObjetivo: 4,
+      unidad: "contactos",
+    });
+    await actividades.registrarAvance(conAvance.valor!, 1);
+    // registrarAvance(1) de 4 → sigue pendiente; ya cumplida:
+    const cumplida = await actividades.crearActividad({
+      tipo: "mantenimiento",
+      descripcion: "Cumplida sin cerrar",
+      diaTarea: "2026-05-03",
+      cantidadObjetivo: 2,
+    });
+    await db.actividad.update(cumplida.valor!, { progresoActual: 2 });
+    const simple = await actividades.crearActividad({
+      tipo: "enfoque",
+      descripcion: "Preparar propuesta",
+      diaTarea: "2026-05-05",
+    });
+    // Ya existe una "Contactar" de hoy: el faltante se suma (3 + 2 = 5)
+    const deHoy = await actividades.crearActividad({
+      tipo: "mantenimiento",
+      descripcion: "Contactar",
+      diaTarea: hoy,
+      cantidadObjetivo: 2,
+      unidad: "contactos",
+    });
+
+    const res = await actividades.pasarPendientesAHoy(hoy);
+    assert.strictEqual(res.ok, true);
+    assert.deepStrictEqual(res.valor, {
+      pasadas: 2,
+      completadas: 1,
+      errores: [],
+    });
+
+    const pendientesViejas = await db.actividad
+      .where("diaTarea")
+      .below(hoy)
+      .and((a) => a.estado === "pendiente")
+      .toArray();
+    assert.strictEqual(pendientesViejas.length, 0, "nada queda sin cerrar");
+    assert.strictEqual(
+      (await db.actividad.get(cumplida.valor!))?.estado,
+      "completada"
+    );
+    assert.strictEqual(
+      (await db.actividad.get(deHoy.valor!))?.cantidadObjetivo,
+      5
+    );
+    const copiaSimple = (
+      await db.actividad
+        .where("diaTarea")
+        .equals(hoy)
+        .and((a) => a.descripcion === "Preparar propuesta")
+        .toArray()
+    )[0];
+    assert.strictEqual(copiaSimple?.tipo, "enfoque", "conserva su categoría");
+    assert.strictEqual(
+      (await db.actividad.get(simple.valor!))?.estado,
+      "migrada"
+    );
   });
 });

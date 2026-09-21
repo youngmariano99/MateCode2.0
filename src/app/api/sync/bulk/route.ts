@@ -63,6 +63,7 @@ const tableMapper: Record<string, any> = {
   personal_historial: schema.personalHistorial,
   fase_personal: schema.fasePersonal,
   sesion_trabajo: schema.sesionTrabajo,
+  configuracion_oficina: schema.configuracionOficina,
 };
 
 const DATE_FIELDS = [
@@ -87,6 +88,7 @@ const DATE_FIELDS = [
   "fecha",
   "volverFecha",
   "proximoSeguimientoFecha",
+  "proximoPasoFecha",
   "fechaPublicacion",
 ];
 

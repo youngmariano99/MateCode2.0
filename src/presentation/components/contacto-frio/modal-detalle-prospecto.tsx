@@ -7,6 +7,7 @@ import { Dialog } from "../dialog";
 import { Badge } from "../badge";
 import { SeccionFichaDigital } from "./seccion-ficha-digital";
 import { SeccionFichaFisica } from "./seccion-ficha-fisica";
+import { CierreLead } from "./cierre-lead";
 import { SeccionHistorialIntentos } from "./seccion-historial-intentos";
 import { formatearFechaBA, haceDiasTexto } from "../../helpers/formatters";
 
@@ -63,6 +64,7 @@ export const ModalDetalleProspecto: React.FC<ModalDetalleProspectoProps> = ({
         )}
         <SeccionFichaFisica potencialClienteId={potencialClienteId} />
         <SeccionHistorialIntentos potencialClienteId={potencialClienteId} />
+        {!prospecto.esHistoricoLegacy && <CierreLead prospecto={prospecto} />}
       </div>
     </Dialog>
   );

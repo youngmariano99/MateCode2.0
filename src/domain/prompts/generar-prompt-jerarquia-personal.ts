@@ -9,13 +9,76 @@
  * validan la respuesta.
  */
 
-const NOTA_RECURRENCIA = `Si el Entregable es algo que se repite igual día tras día o semana tras semana (ej. "Contacto en frío, todos los días hábiles hasta llegar a la meta"), agregale "recurrencia": { "frecuencia": "diaria" | "dias_especificos", "diasSemana": [0-6, 0=domingo] } — no hace falta repetir "actividades" cada semana, el sistema las genera solo cada día que corresponda. Si es puntual (una sola vez), no pongas "recurrencia".
+import { obtenerDiaTareaHoy } from "../entidades/personal.entity";
+
+const NOMBRES_DIA_SEMANA = [
+  "domingo",
+  "lunes",
+  "martes",
+  "miércoles",
+  "jueves",
+  "viernes",
+  "sábado",
+];
+
+/** La IA no sabe qué día es hoy: sin esto no puede resolver "el lunes que viene" ni "las próximas 5 semanas". */
+function bloqueFechaActual(): string {
+  const hoy = obtenerDiaTareaHoy();
+  const [a, m, d] = hoy.split("-").map(Number);
+  const diaSemana = new Date(Date.UTC(a, m - 1, d)).getUTCDay();
+  return `<fecha_actual>
+Hoy es ${NOMBRES_DIA_SEMANA[diaSemana]} ${hoy} (formato YYYY-MM-DD). Usala para resolver "hoy", "mañana", "el lunes que viene", "las próximas 5 semanas", etc. Numeración de los días de la semana dentro del JSON: 0=domingo, 1=lunes, 2=martes, 3=miércoles, 4=jueves, 5=viernes, 6=sábado.
+</fecha_actual>`;
+}
+
+const REGLA_SOLO_CREA =
+  "- Esto solo CREA cosas nuevas: no edita ni borra nada de lo que ya existe. Si repetís algo que ya existe (mismo título bajo el mismo padre) el sistema lo reconoce y no lo duplica, pero tampoco le cambia los datos: para cambiar fechas o cantidades de algo existente se usa el ajuste. No incluyas nada que ya exista según el contexto.";
+const REGLA_SOLO_AJUSTA =
+  "- Esto solo AJUSTA fechas y cantidades de elementos que YA existen (por título exacto, tal como aparecen en el contexto): no crea ni borra nada. Cada ajuste lleva su motivo.";
+
+const REGLAS_JSON = `<reglas_del_json>
+- Devolvé UN solo objeto JSON válido, con EXACTAMENTE la estructura del <output_requerido> de ESTE prompt — no mezcles estructuras de otros prompts, no cambies los nombres de las claves, sin texto antes ni después y sin bloques de código (\`\`\`).
+- Usá SOLO las claves del ejemplo. Las que no existan se descartan en silencio: un error de tipeo en "diasSemana", por ejemplo, haría que se ignore y se asuma lunes a viernes sin avisar.
+- Los títulos de niveles que YA existen (Área, Objetivo, Proyecto, Entregable) tienen que coincidir EXACTO, letra por letra. Nunca inventes ids.
+- Fechas siempre en formato YYYY-MM-DD, reales (nada de "31 de febrero"), con la fecha límite igual o posterior a la de inicio. Lo que cuelga de un padre tiene que caer dentro del rango de fechas de ese padre.
+- Los números tienen que cerrar: las cantidades de los hijos suman la del padre (ej. 5 entregables de 40 para un proyecto de 200) — no repitas el total del padre en cada hijo. Misma unidad en toda la rama. Cantidades siempre positivas.
+__REGLA_MODO__
+- Si te falta un dato, preguntame; no lo inventes.
+</reglas_del_json>`;
+
+/** Inserta la fecha actual y las reglas comunes antes de las instrucciones — así ningún prompt puede quedar sin ellas. */
+function conContextoComun(
+  prompt: string,
+  modo: "crear" | "ajustar" = "crear"
+): string {
+  const marca = "<instrucciones>";
+  if (!prompt.includes(marca)) return prompt;
+  return prompt.replace(
+    marca,
+    `${bloqueFechaActual()}\n\n${REGLAS_JSON.replace(
+      "__REGLA_MODO__",
+      modo === "crear" ? REGLA_SOLO_CREA : REGLA_SOLO_AJUSTA
+    )}\n\n${marca}`
+  );
+}
+
+const NOTA_REPARTO = `Metas numéricas repartidas en días (ej. "contactar 200 en frío, de lunes a viernes, hasta tal fecha"): NO uses "recurrencia" — usá "reparto" (dentro del Entregable, o dentro de una Fase): { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5], "cantidadTotal": 40, "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "unidad": "contactos" }. El sistema genera UNA Actividad por día con su cantidad, repartiendo el total parejo entre los días elegidos sin perder ni inventar unidades (40 en 5 días = 8 por día) — vos NO escribas las actividades una por una ni hagas esa cuenta. Todo es opcional salvo "descripcion": si no ponés fechas, total o unidad, heredan las del Entregable (o de la Fase donde va). Cómo estructurarlo:
+- Cuota CONSTANTE (lo mismo cada semana): Proyecto → Entregables (ej. uno por semana, cada uno con su porción del total: 200 en 5 semanas = 5 entregables de 40) y cada Entregable con su "reparto". No hacen falta Fases.
+- Cuota PROGRESIVA (va subiendo, tipo pirámide): Proyecto → un Entregable con "fases" (cada Fase con su porción y sus fechas) y un "reparto" DENTRO de cada Fase.
+- Sin cantidad numérica (hitos, ej. "terminar el módulo X"): Entregables con "actividades" puntuales (con "diaTarea"), sin reparto.
+Una Actividad puntual también puede llevar "cantidadObjetivo" y "unidad" si se cuenta.`;
+
+const NOTA_RECURRENCIA_SIMPLE = `Recurrencia — SOLO para tareas que se repiten sin una cantidad por día que importe registrar (ej. "revisar mails"); para metas numéricas usá "reparto" (ver arriba). Si el Entregable es algo que se repite igual día tras día o semana tras semana (ej. "Contacto en frío, todos los días hábiles hasta llegar a la meta"), agregale "recurrencia": { "frecuencia": "diaria" | "dias_especificos", "diasSemana": [0-6, 0=domingo] } — no hace falta repetir "actividades" cada semana, el sistema las genera solo cada día que corresponda. Si es puntual (una sola vez), no pongas "recurrencia".
 
 Importante — repetitivo vs. evolutivo: si la actividad se mantiene igual a lo largo del tiempo, es un solo Entregable recurrente (no crees uno nuevo por semana). Pero si en algún momento la naturaleza o la cantidad cambia (ej. "esta semana contacto 10 por día" pasa a "la próxima subo a 15 por día", o cambia el enfoque de la tarea), eso es una etapa nueva: creá un Entregable nuevo y aparte (con su propio rango de fechas y, si corresponde, su propia recurrencia) para esa etapa, en vez de forzar un solo Entregable estático a cubrir algo que progresa.
 
 MUY IMPORTANTE — "cantidadObjetivo" en un Entregable recurrente es el TOTAL a acumular en todo el período, NUNCA la cuota de un solo día. Ejemplo: si el usuario quiere hacer 5 contactos por día, de Lunes a Viernes, durante 4 semanas, el "cantidadObjetivo" es 5×20=100 (el total), NO 5. Esto es crítico: el sistema deja de generar instancias nuevas en cuanto la suma de todos los días alcanza "cantidadObjetivo" — si ponés la cuota diaria en vez del total, el Entregable se da por cumplido y deja de aparecer casi al primer día bueno, arruinando la recurrencia. Siempre calculá el total vos mismo (cuota por día × días hábiles en el período) antes de escribir el JSON, y si la cuota diaria va a ir subiendo con el tiempo (progresión tipo pirámide, ej. "empiezo con 2 por día y subo 1 por semana hasta un tope de 10"), calculá el total sumando lo que corresponde a cada semana con su propia cuota — no multipliques la cuota final por todo el período.
 
 Importante — sub-tareas del mismo día: si un procedimiento tiene partes distintas que se hacen el mismo día (ej. "buscar contactos a la mañana" y "escribirles a la tarde"), cada parte es su propio Entregable recurrente, con su propio título y su propia cantidadObjetivo — no las combines en un solo Entregable, porque el sistema solo genera UNA actividad por día por cada Entregable (con un único título fijo), y perderías la distinción entre las partes.`;
+
+const NOTA_RECURRENCIA = `${NOTA_REPARTO}
+
+${NOTA_RECURRENCIA_SIMPLE}`;
 
 const NOTA_HABITO = `Antes de crear un Entregable recurrente, preguntate si en realidad es un Hábito: si lo que se describe NO tiene una meta final numérica a alcanzar y se sostiene indefinidamente en el tiempo sin fecha de corte real (ej. "caminar todos los días", "tomar agua", "meditar") — eso encaja mejor como Hábito (un módulo aparte de esta jerarquía, con seguimiento MIN/MED/MAX). Si notás que es este caso, avisá y preguntá si seguimos igual (creando el Entregable de todos modos, por alguna razón puntual) o si lo dejamos fuera de este árbol para cargarlo como Hábito en la pantalla correspondiente.`;
 
@@ -24,7 +87,7 @@ const NOTA_FASES = `Las Fases NO son un nivel nuevo de la jerarquía (sigue sien
 const INSTRUCCION_PREGUNTAR = `Antes de generar el JSON final, hacé todas las preguntas que necesites para no inventar nada: fechas, cantidades, si algo es recurrente o puntual. Esperá mi respuesta a cada pregunta. NO generes el JSON hasta que confirme que ya tenés todo lo necesario.`;
 
 /** Árbol completo: Área (nueva o existente) → Objetivo(s) → Proyecto(s) → Entregable(s) → Actividad(es), todo en un JSON. */
-export function generarPromptArbolCompleto(
+function construirPromptArbolCompleto(
   resumenHistorico: string,
   areasExistentes: string[]
 ): string {
@@ -49,7 +112,7 @@ ${areasTexto}
 - Objetivo: largo plazo (meses/año). SMART: cantidad + unidad + fecha límite obligatorias.
 - Proyecto: mediano plazo (~un mes), hijo de un Objetivo. Cantidad/unidad opcionales.
 - Entregable: corto plazo (~una semana), hijo de un Proyecto. ${NOTA_RECURRENCIA}
-- Actividad: día a día, hijo de un Entregable. Si el Entregable es recurrente, NO hace falta declarar actividades — se generan solas.
+- Actividad: día a día, hijo de un Entregable. Para metas numéricas, no las escribas una por una: usá "reparto" (ver arriba) y el sistema genera una por día con su cantidad.
 </como_funciona_la_jerarquia>
 
 <fases_opcionales>
@@ -76,12 +139,10 @@ Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta est
           "titulo": "...", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 120, "unidad": "horas",
           "entregables": [
             {
-              "titulo": "...", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 200, "unidad": "contactos",
-              "recurrencia": { "frecuencia": "dias_especificos", "diasSemana": [1,2,3,4,5] },
+              "titulo": "Contacto en frío — Semana 1", "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 40, "unidad": "contactos",
+              "reparto": { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5] },
               "actividades": [],
-              "fases": [
-                { "titulo": "Semana 1", "orden": 0, "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 10, "unidad": "contactos" }
-              ]
+              "fases": []
             },
             {
               "titulo": "...", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 8, "unidad": "pantallas",
@@ -101,7 +162,7 @@ Nota: "proyectos", "entregables", "actividades" y "fases" pueden quedar vacíos 
 }
 
 /** Solo un Objetivo (mismo formato que el árbol completo, sin nivel de Proyecto). */
-export function generarPromptObjetivo(
+function construirPromptObjetivo(
   resumenHistorico: string,
   areasExistentes: string[]
 ): string {
@@ -137,7 +198,7 @@ Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta est
 }
 
 /** Proyecto(s) bajo un Objetivo YA EXISTENTE. */
-export function generarPromptProyecto(
+function construirPromptProyecto(
   objetivoTitulo: string,
   objetivoRestante: string
 ): string {
@@ -168,7 +229,7 @@ Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta est
 }
 
 /** Entregable(s) bajo un Proyecto YA EXISTENTE. */
-export function generarPromptEntregable(
+function construirPromptEntregable(
   proyectoTitulo: string,
   proyectoRestante: string
 ): string {
@@ -190,8 +251,8 @@ Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta est
   "proyectoTitulo": "${proyectoTitulo}",
   "entregablesNuevos": [
     {
-      "titulo": "...", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 200, "unidad": "contactos",
-      "recurrencia": { "frecuencia": "dias_especificos", "diasSemana": [1,2,3,4,5] },
+      "titulo": "Semana 1", "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 40, "unidad": "contactos",
+      "reparto": { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5] },
       "actividades": [],
       "fases": []
     }
@@ -207,7 +268,7 @@ Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta est
  * cambios sugeridos, resueltos por TÍTULO EXACTO (nunca ids — la IA no los
  * conoce). Mismo criterio de vista previa antes de aplicar que el resto.
  */
-export function generarPromptAjusteIA(contextoCompleto: string): string {
+function construirPromptAjusteIA(contextoCompleto: string): string {
   return `<rol>
 Actúa como asistente de planificación personal, ayudando a reajustar un plan que se desvió de lo esperado.
 </rol>
@@ -238,7 +299,7 @@ Nota: cada ajuste necesita al menos "cantidadObjetivo" o "diaLimite" (pueden ir 
 }
 
 /** Fase(s) (checkpoints periódicos) bajo un Entregable YA EXISTENTE. */
-export function generarPromptFases(
+function construirPromptFases(
   entregableTitulo: string,
   entregableRestante: string
 ): string {
@@ -251,7 +312,7 @@ Estas Fases van a pertenecer al Entregable "${entregableTitulo}" (${entregableRe
 </entregable_padre>
 
 <instrucciones>
-Cada Fase tiene: título, orden (0, 1, 2...), fecha de inicio, fecha límite, cantidad objetivo PROPIA (no el total del Entregable — la parte que le toca a esa Fase) y unidad. Si la cuota va cambiando con el tiempo (ej. "empiezo en 2 por día y subo 1 por semana"), calculá vos la cantidad de cada Fase (días hábiles de esa Fase × la cuota que corresponde en ese momento) — no repitas el mismo número en todas. Opcionalmente, "bandaAceptable"/"bandaMejorable" (0-100, % de la meta de esa Fase) si el usuario quiere margen para no llegar al 100% y aun así avanzar. ${INSTRUCCION_PREGUNTAR}
+Cada Fase tiene: título, orden (0, 1, 2...), fecha de inicio, fecha límite, cantidad objetivo PROPIA (no el total del Entregable — la parte que le toca a esa Fase) y unidad. Si la cuota va cambiando con el tiempo (ej. "empiezo en 2 por día y subo 1 por semana"), calculá vos la cantidad de cada Fase (días hábiles de esa Fase × la cuota que corresponde en ese momento) — no repitas el mismo número en todas. Opcionalmente, "bandaAceptable"/"bandaMejorable" (0-100, % de la meta de esa Fase) si el usuario quiere margen para no llegar al 100% y aun así avanzar. Opcionalmente, cada Fase puede llevar su "reparto" para que el sistema genere las actividades diarias de esa Fase con su cantidad: { "descripcion": "...", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5] } — hereda las fechas, la cantidad y la unidad de la propia Fase, así que no las repitas. La suma de las cantidades de todas las Fases tiene que ser igual a la meta del Entregable. ${INSTRUCCION_PREGUNTAR}
 </instrucciones>
 
 <output_requerido>
@@ -262,7 +323,8 @@ Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta est
     {
       "titulo": "...", "orden": 0, "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD",
       "cantidadObjetivo": 10, "unidad": "contactos",
-      "bandaAceptable": 80, "bandaMejorable": 60
+      "bandaAceptable": 80, "bandaMejorable": 60,
+      "reparto": { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5] }
     }
   ]
 }
@@ -277,7 +339,7 @@ Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta est
  * objetivos activos, Fases abiertas/cerradas recientes) para que la IA no
  * proponga algo que ya existe o contradiga un cierre reciente.
  */
-export function generarPromptPlanificacionEnFases(
+function construirPromptPlanificacionEnFases(
   resumenHistorico: string,
   areasExistentes: string[],
   resumenFasesRecientes: string
@@ -315,7 +377,7 @@ Etapa 1 — Cuantificar: definí solo el/los Objetivo(s) SMART (cantidad + unida
 
 Etapa 2 — El ritmo: para cada Objetivo, pensá en voz alta cómo se llega al total con el tiempo — constante (lo mismo cada semana) o progresivo (arrancar despacio e ir subiendo, tipo pirámide). No hace falta el detalle fino todavía, pero sí el reparto semana a semana (o mes a mes) de cuánto corresponde en cada tramo. Confirmá conmigo ese reparto antes de seguir — en la Etapa 3 se va a convertir directamente en las "fases" del Entregable que corresponda.
 
-Etapa 3 — Estructura: recién acá bajá a Proyecto(s) → Entregable(s) → Actividad(es). El reparto que acordamos en la Etapa 2 va como "fases" ANIDADAS dentro del Entregable recurrente que corresponda (no como un nivel aparte). ${NOTA_RECURRENCIA}
+Etapa 3 — Estructura: recién acá bajá a Proyecto(s) → Entregable(s) → Actividad(es). Si el ritmo es CONSTANTE, armá Entregables (ej. uno por semana) cada uno con su "reparto", sin Fases. Si es PROGRESIVO, el reparto que acordamos en la Etapa 2 va como "fases" ANIDADAS dentro del Entregable que corresponda (no como un nivel aparte), y cada Fase lleva su propio "reparto". ${NOTA_RECURRENCIA}
 
 ${NOTA_HABITO}
 </flujo_obligatorio>
@@ -336,12 +398,13 @@ Recién al final de la Etapa 3, cuando confirme que todo está listo, devolvé �
           "titulo": "...", "diaLimite": "YYYY-MM-DD",
           "entregables": [
             {
-              "titulo": "...", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 200, "unidad": "contactos",
-              "recurrencia": { "frecuencia": "dias_especificos", "diasSemana": [1,2,3,4,5] },
+              "titulo": "Contacto en frío", "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 200, "unidad": "contactos",
               "actividades": [],
               "fases": [
-                { "titulo": "Semana 1", "orden": 0, "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 10, "unidad": "contactos" },
-                { "titulo": "Semana 2", "orden": 1, "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 15, "unidad": "contactos" }
+                { "titulo": "Semana 1", "orden": 0, "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 10, "unidad": "contactos",
+                  "reparto": { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5] } },
+                { "titulo": "Semana 2", "orden": 1, "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 15, "unidad": "contactos",
+                  "reparto": { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5] } }
               ]
             }
           ]
@@ -355,7 +418,7 @@ Nota: "fases" puede quedar vacío ([]) en los Entregables que no necesitan check
 }
 
 /** Actividad(es) bajo un Entregable YA EXISTENTE — no aplica si el Entregable es recurrente (esas se generan solas). */
-export function generarPromptActividades(
+function construirPromptActividades(
   entregableTitulo: string,
   entregableRestante: string
 ): string {
@@ -364,11 +427,11 @@ Actúa como asistente de planificación personal, ayudando a armar las actividad
 </rol>
 
 <entregable_padre>
-Esta/estas Actividad(es) van a pertenecer al Entregable "${entregableTitulo}" (${entregableRestante}). El título tiene que coincidir EXACTO con ese Entregable para que se vinculen bien — no inventes otro entregable. Si este Entregable es recurrente, NO hace falta este prompt: las actividades se generan solas cada día que corresponde.
+Esta/estas Actividad(es) van a pertenecer al Entregable "${entregableTitulo}" (${entregableRestante}). El título tiene que coincidir EXACTO con ese Entregable para que se vinculen bien — no inventes otro entregable.
 </entregable_padre>
 
 <instrucciones>
-Como guía general, "enfoque" (lo más importante del día) ronda 1 por día y "mantenimiento" ronda 3 por día — tratá de organizar el trabajo cerca de esa cantidad para que un mismo día no termine con 10 actividades encima, pero no es un límite estricto: si genuinamente hace falta más para no dejar nada afuera, no te sientas limitado a esos números. ${INSTRUCCION_PREGUNTAR}
+Como guía general, "enfoque" (lo más importante del día) ronda 1 por día y "mantenimiento" ronda 3 por día — tratá de organizar el trabajo cerca de esa cantidad para que un mismo día no termine con 10 actividades encima, pero no es un límite estricto: si genuinamente hace falta más para no dejar nada afuera, no te sientas limitado a esos números. ${NOTA_REPARTO} Acá podés combinar las dos formas: "actividadesNuevas" para tareas puntuales, y "repartos" para metas numéricas repartidas en días (cada reparto hereda fechas, total y unidad del Entregable si no las ponés). ${INSTRUCCION_PREGUNTAR}
 </instrucciones>
 
 <output_requerido>
@@ -376,8 +439,60 @@ Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta est
 {
   "entregableTitulo": "${entregableTitulo}",
   "actividadesNuevas": [
-    { "tipo": "enfoque" | "mantenimiento", "descripcion": "...", "diaTarea": "YYYY-MM-DD" }
+    { "tipo": "enfoque" | "mantenimiento", "descripcion": "...", "diaTarea": "YYYY-MM-DD", "cantidadObjetivo": 3, "unidad": "contactos" }
+  ],
+  "repartos": [
+    { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5] }
   ]
 }
+Cualquiera de las dos listas puede quedar vacía ([]), pero no las dos.
 </output_requerido>`;
+}
+
+export function generarPromptArbolCompleto(
+  ...args: Parameters<typeof construirPromptArbolCompleto>
+): string {
+  return conContextoComun(construirPromptArbolCompleto(...args));
+}
+
+export function generarPromptObjetivo(
+  ...args: Parameters<typeof construirPromptObjetivo>
+): string {
+  return conContextoComun(construirPromptObjetivo(...args));
+}
+
+export function generarPromptProyecto(
+  ...args: Parameters<typeof construirPromptProyecto>
+): string {
+  return conContextoComun(construirPromptProyecto(...args));
+}
+
+export function generarPromptEntregable(
+  ...args: Parameters<typeof construirPromptEntregable>
+): string {
+  return conContextoComun(construirPromptEntregable(...args));
+}
+
+export function generarPromptAjusteIA(
+  ...args: Parameters<typeof construirPromptAjusteIA>
+): string {
+  return conContextoComun(construirPromptAjusteIA(...args), "ajustar");
+}
+
+export function generarPromptFases(
+  ...args: Parameters<typeof construirPromptFases>
+): string {
+  return conContextoComun(construirPromptFases(...args));
+}
+
+export function generarPromptPlanificacionEnFases(
+  ...args: Parameters<typeof construirPromptPlanificacionEnFases>
+): string {
+  return conContextoComun(construirPromptPlanificacionEnFases(...args));
+}
+
+export function generarPromptActividades(
+  ...args: Parameters<typeof construirPromptActividades>
+): string {
+  return conContextoComun(construirPromptActividades(...args));
 }

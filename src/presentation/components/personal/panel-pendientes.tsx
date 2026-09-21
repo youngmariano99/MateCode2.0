@@ -118,7 +118,7 @@ export const PanelPendientes: React.FC = () => {
       db.actividad
         .where("estado")
         .equals("pendiente")
-        .and((a) => a.tipo === "backlog")
+        .and((a) => a.tipo === "backlog" && !a.esFaltante)
         .toArray()
     ) || SIN_PENDIENTES;
 

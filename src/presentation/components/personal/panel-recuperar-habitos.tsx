@@ -174,7 +174,7 @@ const FilaRecuperacion: React.FC<{
  * Recuperación de compromisos/hábitos tras un desvío: si volviste después de
  * no registrar (un día o varias semanas), acá aparece qué quedó suelto y
  * botones rápidos para resolverlo — sin listar día por día cuando el hueco
- * es demasiado grande. Mismo criterio que PanelRetorno: no se muestra nada
+ * es demasiado grande. Mismo criterio que los demás avisos del día: no se muestra nada
  * si no hace falta.
  */
 export const PanelRecuperarHabitos: React.FC = () => {

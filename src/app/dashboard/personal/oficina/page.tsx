@@ -6,6 +6,8 @@ import { SesionTrabajo } from "../../../../presentation/components/personal/ofic
 import { FasesActivas } from "../../../../presentation/components/personal/oficina/fases-activas";
 import { CapturaInbox } from "../../../../presentation/components/personal/captura-inbox";
 import { AccesosRapidos } from "../../../../presentation/components/personal/oficina/accesos-rapidos";
+import { ConfigPausas } from "../../../../presentation/components/personal/oficina/config-pausas";
+import { TiempoDedicado } from "../../../../presentation/components/personal/oficina/tiempo-dedicado";
 
 const breadcrumbs = [
   { label: "Personal", href: "/dashboard/personal/hoy" },
@@ -34,7 +36,9 @@ export default function OficinaPage() {
 
         <FasesActivas />
         <SesionTrabajo />
+        <ConfigPausas />
         <CapturaInbox />
+        <TiempoDedicado />
         <AccesosRapidos />
       </div>
     </MainLayout>

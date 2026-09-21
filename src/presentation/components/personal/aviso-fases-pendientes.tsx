@@ -13,7 +13,7 @@ const fasesUseCase = new GestionarFasesUseCase();
 const SIN_FASES: FasePersonal[] = [];
 
 /**
- * Aviso de Fases vencidas sin cerrar — mismo patrón que PanelRetorno (banner
+ * Aviso de Fases vencidas sin cerrar — mismo criterio que el resto de los avisos del día (banner
  * síncrono al cargar la página, sin jobs en segundo plano). Nunca cierra
  * nada sola: cerrar una Fase exige elegir qué hacer con el faltante.
  */

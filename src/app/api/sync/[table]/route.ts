@@ -62,6 +62,7 @@ const tableMapper: Record<string, any> = {
   personal_historial: schema.personalHistorial,
   fase_personal: schema.fasePersonal,
   sesion_trabajo: schema.sesionTrabajo,
+  configuracion_oficina: schema.configuracionOficina,
 };
 
 export async function POST(
@@ -140,6 +141,7 @@ export async function POST(
       "fecha",
       "volverFecha",
       "proximoSeguimientoFecha",
+      "proximoPasoFecha",
       "fechaPublicacion",
     ];
     for (const field of dateFields) {

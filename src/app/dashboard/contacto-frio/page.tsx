@@ -3,22 +3,16 @@
 import React, { useState } from "react";
 import { MainLayout } from "../../../presentation/components/layout";
 import { Icono } from "../../../presentation/components/icons";
-import { RegistroProspecto } from "../../../presentation/components/contacto-frio/registro-prospecto";
 import { StockProspectos } from "../../../presentation/components/contacto-frio/stock-prospectos";
-import { SeleccionContacto } from "../../../presentation/components/contacto-frio/seleccion-contacto";
-import { SeguimientoPendiente } from "../../../presentation/components/contacto-frio/seguimiento-pendiente";
-import { CintaDiaria } from "../../../presentation/components/contacto-frio/cinta-diaria";
+import { CintaProduccion } from "../../../presentation/components/contacto-frio/cinta-produccion";
 import { WidgetObjetivo } from "../../../presentation/components/personal/widget-objetivo";
 
-type Estacion = "hoy" | "registro" | "contacto" | "seguimiento" | "stock";
+type Estacion = "hoy" | "stock";
 
 const ESTACIONES: { id: Estacion; label: string; icono: keyof typeof Icono }[] =
   [
     { id: "hoy", label: "Hoy", icono: "Activity" },
-    { id: "registro", label: "Registro", icono: "Plus" },
-    { id: "contacto", label: "Contactar", icono: "Sparkles" },
-    { id: "seguimiento", label: "Seguimiento", icono: "Clock" },
-    { id: "stock", label: "Stock", icono: "Search" },
+    { id: "stock", label: "Stock e historial", icono: "Search" },
   ];
 
 /**
@@ -35,7 +29,8 @@ export default function ContactoFrioPage() {
         <div>
           <h1 className="text-xl font-bold text-zinc-100">Contacto en Frío</h1>
           <p className="text-sm text-zinc-500">
-            Prospección digital — procedimiento NODEXA-SOP-02.
+            Cinta diaria (Mom Test): ① Responder → ② Seguir → ③ Abrir → ④
+            Reponer.
           </p>
         </div>
 
@@ -66,10 +61,7 @@ export default function ContactoFrioPage() {
           })}
         </div>
 
-        {estacion === "hoy" && <CintaDiaria />}
-        {estacion === "registro" && <RegistroProspecto />}
-        {estacion === "contacto" && <SeleccionContacto />}
-        {estacion === "seguimiento" && <SeguimientoPendiente />}
+        {estacion === "hoy" && <CintaProduccion />}
         {estacion === "stock" && <StockProspectos />}
       </div>
     </MainLayout>

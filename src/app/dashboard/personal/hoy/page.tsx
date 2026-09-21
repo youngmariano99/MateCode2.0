@@ -6,8 +6,8 @@ import { Icono } from "../../../../presentation/components/icons";
 import { CapturaInbox } from "../../../../presentation/components/personal/captura-inbox";
 import { BunkerDelDia } from "../../../../presentation/components/personal/bunker-del-dia";
 import { PanelRepasoSemanal } from "../../../../presentation/components/personal/panel-repaso-semanal";
+import { PanelFondoFaltantes } from "../../../../presentation/components/personal/panel-fondo-faltantes";
 import { PanelPendientes } from "../../../../presentation/components/personal/panel-pendientes";
-import { PanelRetorno } from "../../../../presentation/components/personal/panel-retorno";
 import { AvisoFasesPendientes } from "../../../../presentation/components/personal/aviso-fases-pendientes";
 import { PanelRecuperarHabitos } from "../../../../presentation/components/personal/panel-recuperar-habitos";
 import { NavegadorJerarquico } from "../../../../presentation/components/personal/navegador-jerarquico";
@@ -43,7 +43,7 @@ const breadcrumbs = [
 ];
 
 const DESCRIPCION_HORIZONTE: Record<Horizonte, string> = {
-  dia: "Anotá lo que se te ocurra y resolvé el día con lo justo: 1 foco + hasta 3 de mantenimiento.",
+  dia: "Tu planilla de hoy: lo que sí o sí primero, por prioridad y área. Lo que quedó sin cerrar de antes está arriba, para pasarlo a hoy de una.",
   semana:
     "Lo que sí o sí tenés que hacer aunque no entre en el foco de hoy, ordenado por prioridad — como en una guardia.",
   mes: "Tus objetivos cuantitativos y el ritmo real para llegar a cada uno, recalculado solo.",
@@ -109,12 +109,12 @@ export default function PersonalHoyPage() {
 
         {horizonte === "dia" && (
           <div className="flex flex-col gap-6">
-            <PanelRetorno />
             <AvisoFasesPendientes />
             <PanelRecuperarHabitos />
+            <BunkerDelDia />
+            <PanelFondoFaltantes />
             <TarjetaHabitos />
             <CapturaInbox />
-            <BunkerDelDia />
           </div>
         )}
 

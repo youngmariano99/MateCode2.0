@@ -9,6 +9,10 @@ import { useToast } from "../../hooks/useToast";
 import { Dialog } from "../dialog";
 import { ModalImportarJson } from "../contenido/modal-importar-json";
 import { SeccionFasesEntregable } from "./seccion-fases-entregable";
+import {
+  DistribuirProyectoModal,
+  RepartirEnDiasModal,
+} from "./asistente-distribuir";
 import { AjustarConIAModal } from "./ajustar-con-ia-modal";
 import {
   resumenArbolCompleto,
@@ -51,7 +55,6 @@ import {
   obtenerDiaTareaHoy,
   sumarDias,
 } from "../../../domain/entidades/personal.entity";
-import { FRECUENCIAS_RECURRENCIA } from "../../../domain/entidades/entregable.entity";
 import { TIPOS_ACTIVIDAD } from "../../../domain/entidades/actividad.entity";
 import {
   colorDeAreaEfectivo,
@@ -1240,6 +1243,7 @@ const VistaEntregables: React.FC<{
 }> = ({ proyecto, onEntrar, onEliminar, onAjustarCantidad, onHistorial }) => {
   const { mostrarToast } = useToast();
   const [modalAbierto, setModalAbierto] = useState(false);
+  const [distribuirAbierto, setDistribuirAbierto] = useState(false);
   const todos =
     useLiveQuery(
       () => db.entregable.where("proyectoId").equals(proyecto.id).toArray(),
@@ -1269,7 +1273,14 @@ const VistaEntregables: React.FC<{
         <h3 className="text-xs font-bold tracking-wider text-zinc-400 uppercase">
           Entregables de {proyecto.titulo}
         </h3>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => setDistribuirAbierto(true)}
+            className="px-3 py-1.5 text-xs"
+            icono={<Icono.Calendario className="h-3.5 w-3.5" />}
+          >
+            Dividir en entregables
+          </Button>
           <Button
             variant="outline"
             onClick={copiarPrompt}
@@ -1287,6 +1298,11 @@ const VistaEntregables: React.FC<{
           </Button>
         </div>
       </div>
+      <DistribuirProyectoModal
+        abierto={distribuirAbierto}
+        onCerrar={() => setDistribuirAbierto(false)}
+        proyecto={proyecto}
+      />
       {entregables.length === 0 && (
         <p className="text-sm text-zinc-500">
           Sin entregables todavía bajo este proyecto.
@@ -1347,12 +1363,14 @@ const VistaEntregables: React.FC<{
             proyectoTitulo: proyecto.titulo,
             entregablesNuevos: [
               {
-                titulo: "...",
+                titulo: "Semana 1",
+                diaInicio: "YYYY-MM-DD",
                 diaLimite: "YYYY-MM-DD",
-                cantidadObjetivo: 200,
+                cantidadObjetivo: 40,
                 unidad: "contactos",
-                recurrencia: {
-                  frecuencia: FRECUENCIAS_RECURRENCIA[1],
+                reparto: {
+                  descripcion: "Contactar en frío",
+                  tipo: "mantenimiento",
                   diasSemana: [1, 2, 3, 4, 5],
                 },
                 actividades: [],
@@ -1372,7 +1390,8 @@ const VistaEntregables: React.FC<{
 
 const FormularioNuevaActividadEntregable: React.FC<{
   entregableId: string;
-}> = ({ entregableId }) => {
+  unidad?: string;
+}> = ({ entregableId, unidad = "" }) => {
   const { mostrarToast } = useToast();
   const [abierto, setAbierto] = useState(false);
   const [descripcion, setDescripcion] = useState("");
@@ -1380,20 +1399,25 @@ const FormularioNuevaActividadEntregable: React.FC<{
   const [tipo, setTipo] = useState<"enfoque" | "mantenimiento">(
     "mantenimiento"
   );
+  const [cantidad, setCantidad] = useState("");
   const [guardando, setGuardando] = useState(false);
 
   const crear = async () => {
     if (!descripcion.trim()) return;
     setGuardando(true);
+    const cantidadNum = Number(cantidad);
     const res = await actividadesUseCase.crearActividad({
       entregableId,
       tipo,
       descripcion,
       diaTarea,
+      cantidadObjetivo: cantidadNum > 0 ? cantidadNum : undefined,
+      unidad: cantidadNum > 0 && unidad.trim() ? unidad.trim() : undefined,
     });
     setGuardando(false);
     if (res.ok) {
       setDescripcion("");
+      setCantidad("");
       setAbierto(false);
     } else {
       mostrarToast(res.error!.mensaje, "error");
@@ -1424,6 +1448,14 @@ const FormularioNuevaActividadEntregable: React.FC<{
           value={diaTarea}
           onChange={setDiaTarea}
           placeholder=""
+        />
+        <input
+          type="number"
+          min={1}
+          value={cantidad}
+          onChange={(e) => setCantidad(e.target.value)}
+          placeholder={unidad ? `Cantidad (${unidad})` : "Cantidad (opcional)"}
+          className="w-36 rounded-lg border border-[#2A2A2E] bg-[#111113] px-2 py-1.5 text-sm text-zinc-200 outline-none focus:border-emerald-500/40"
         />
         <div className="flex gap-1.5">
           {(["enfoque", "mantenimiento"] as const).map((t) => (
@@ -1465,6 +1497,7 @@ const VistaActividades: React.FC<{ entregable: Entregable }> = ({
 }) => {
   const { mostrarToast } = useToast();
   const [modalAbierto, setModalAbierto] = useState(false);
+  const [repartirAbierto, setRepartirAbierto] = useState(false);
   const actividades =
     useLiveQuery(
       () => db.actividad.where("entregableId").equals(entregable.id).toArray(),
@@ -1496,6 +1529,15 @@ const VistaActividades: React.FC<{ entregable: Entregable }> = ({
         <h3 className="text-xs font-bold tracking-wider text-zinc-400 uppercase">
           Actividades de {entregable.titulo}
         </h3>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => setRepartirAbierto(true)}
+            className="px-3 py-1.5 text-xs"
+            icono={<Icono.Calendario className="h-3.5 w-3.5" />}
+          >
+            Repartir en días
+          </Button>
+        </div>
         {!entregable.recurrencia && (
           <div className="flex gap-2">
             <Button
@@ -1543,9 +1585,17 @@ const VistaActividades: React.FC<{ entregable: Entregable }> = ({
         ))}
       </div>
       {!entregable.recurrencia && (
-        <FormularioNuevaActividadEntregable entregableId={entregable.id} />
+        <FormularioNuevaActividadEntregable
+          entregableId={entregable.id}
+          unidad={entregable.unidad}
+        />
       )}
       <SeccionFasesEntregable entregable={entregable} />
+      <RepartirEnDiasModal
+        abierto={repartirAbierto}
+        onCerrar={() => setRepartirAbierto(false)}
+        entregable={entregable}
+      />
       <ModalImportarJson
         abierto={modalAbierto}
         onCerrar={() => setModalAbierto(false)}
@@ -1559,6 +1609,13 @@ const VistaActividades: React.FC<{ entregable: Entregable }> = ({
                 tipo: TIPOS_ACTIVIDAD[1],
                 descripcion: "...",
                 diaTarea: "YYYY-MM-DD",
+              },
+            ],
+            repartos: [
+              {
+                descripcion: "Contactar en frío",
+                tipo: "mantenimiento",
+                diasSemana: [1, 2, 3, 4, 5],
               },
             ],
           },

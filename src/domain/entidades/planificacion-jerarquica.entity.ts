@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TIPOS_ACTIVIDAD } from "./actividad.entity";
 import { FRECUENCIAS_RECURRENCIA } from "./entregable.entity";
+import { repartoJsonSchema } from "./distribucion-personal.entity";
 
 // ============================================================================
 // Contratos del JSON de "armar la jerarquía con IA" — un solo set de
@@ -46,6 +47,8 @@ export const itemFaseJsonSchema = z.object({
   unidad: z.string().trim().min(1, "Falta la unidad de la fase."),
   bandaAceptable: z.number().min(0).max(100).optional(),
   bandaMejorable: z.number().min(0).max(100).optional(),
+  /** Actividades diarias de ESTA fase, en forma compacta (ver repartoJsonSchema): hereda fechas, total y unidad de la fase. */
+  reparto: repartoJsonSchema.optional(),
 });
 export type ItemFaseJson = z.infer<typeof itemFaseJsonSchema>;
 
@@ -63,6 +66,8 @@ export const itemEntregableJsonSchema = z.object({
     .optional(),
   actividades: z.array(itemActividadJsonSchema).default([]),
   fases: z.array(itemFaseJsonSchema).default([]),
+  /** Actividades diarias con cantidad en forma compacta (ver repartoJsonSchema): hereda fechas, total y unidad del entregable. */
+  reparto: repartoJsonSchema.optional(),
 });
 export type ItemEntregableJson = z.infer<typeof itemEntregableJsonSchema>;
 
@@ -125,15 +130,20 @@ export type ImportarEntregableBajoProyectoInput = z.input<
   typeof importarEntregableBajoProyectoSchema
 >;
 
-export const importarActividadesBajoEntregableSchema = z.object({
-  entregableTitulo: z
-    .string()
-    .trim()
-    .min(1, "Falta el título del entregable padre."),
-  actividadesNuevas: z
-    .array(itemActividadJsonSchema)
-    .min(1, "No hay ninguna actividad para crear."),
-});
+export const importarActividadesBajoEntregableSchema = z
+  .object({
+    entregableTitulo: z
+      .string()
+      .trim()
+      .min(1, "Falta el título del entregable padre."),
+    actividadesNuevas: z.array(itemActividadJsonSchema).default([]),
+    /** Repartos compactos: cada uno se expande a una Actividad por día con su cantidad. */
+    repartos: z.array(repartoJsonSchema).default([]),
+  })
+  .refine((v) => v.actividadesNuevas.length > 0 || v.repartos.length > 0, {
+    message: "No hay ninguna actividad ni reparto para crear.",
+    path: ["actividadesNuevas"],
+  });
 export type ImportarActividadesBajoEntregableInput = z.input<
   typeof importarActividadesBajoEntregableSchema
 >;

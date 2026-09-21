@@ -477,6 +477,10 @@ export const potencialCliente = pgTable("potencial_cliente", {
   estado: varchar("estado", { length: 30 }).default("Nuevo").notNull(),
   fechaUltimoContacto: timestamp("fecha_ultimo_contacto"),
   esHistoricoLegacy: boolean("es_historico_legacy").default(false).notNull(),
+  proximoPasoAccion: varchar("proximo_paso_accion", { length: 30 }),
+  proximoPasoFecha: timestamp("proximo_paso_fecha"),
+  proximoPasoNota: text("proximo_paso_nota"),
+  clienteId: varchar("cliente_id", { length: 255 }),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
 });
@@ -527,6 +531,8 @@ export const intentoContacto = pgTable("intento_contacto", {
   respuestaTexto: text("respuesta_texto"),
   tagsResultado: jsonb("tags_resultado"), // string[]
   proximoSeguimientoFecha: timestamp("proximo_seguimiento_fecha"),
+  tipoEnvio: varchar("tipo_envio", { length: 30 }),
+  aprendizaje: jsonb("aprendizaje"),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
 });
 
@@ -1153,6 +1159,7 @@ export const actividadPersonal = pgTable("actividad_personal", {
   semanaId: varchar("semana_id", { length: 10 }),
   recurrenciaId: varchar("recurrencia_id", { length: 255 }),
   origenInboxId: varchar("origen_inbox_id", { length: 255 }),
+  esFaltante: boolean("es_faltante"), // fondo de faltantes — ver actividad.entity.ts
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   eliminadoEn: timestamp("eliminado_en"),
@@ -1198,12 +1205,27 @@ export const personalHistorial = pgTable("personal_historial", {
 // dateFields (ver src/app/api/sync/[table]/route.ts y .../bulk/route.ts).
 export const sesionTrabajo = pgTable("sesion_trabajo", {
   id: varchar("id", { length: 255 }).primaryKey(),
-  actividadId: varchar("actividad_id", { length: 255 }).notNull(),
+  actividadId: varchar("actividad_id", { length: 255 }),
+  descripcion: text("descripcion"),
   diaTarea: varchar("dia_tarea", { length: 10 }).notNull(),
+  modo: varchar("modo", { length: 20 }),
+  duracionPlanificadaSeg: integer("duracion_planificada_seg"),
   iniciadoEn: timestamp("iniciado_en").notNull(),
   pausadoEn: timestamp("pausado_en"),
+  tipoPausa: varchar("tipo_pausa", { length: 20 }),
   segundosAcumulados: integer("segundos_acumulados").default(0).notNull(),
   estado: varchar("estado", { length: 20 }).notNull(),
+  nota: text("nota"),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
+
+// Configuración de Oficina — una sola fila (id "oficina"), ver
+// configuracion-oficina.entity.ts.
+export const configuracionOficina = pgTable("configuracion_oficina", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  intervaloPausaMin: integer("intervalo_pausa_min").default(0).notNull(),
+  pausaAlAzar: boolean("pausa_al_azar").default(false).notNull(),
+  segundosDesdePausa: integer("segundos_desde_pausa").default(0).notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
 });

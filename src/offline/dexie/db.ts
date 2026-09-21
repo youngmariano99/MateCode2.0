@@ -59,6 +59,7 @@ import type {
 } from "../../domain/entidades/rutina.entity";
 import type { RegistroActividad } from "../../domain/entidades/registro-actividad.entity";
 import type { SesionTrabajo } from "../../domain/entidades/sesion-trabajo.entity";
+import type { ConfiguracionOficina } from "../../domain/entidades/configuracion-oficina.entity";
 
 export interface CatalogoErrorRow {
   codigo: string;
@@ -179,6 +180,7 @@ export class MateCodeDB extends Dexie {
   // Oficina (Sprint 23): sesión de trabajo enfocado con cronómetro, una sola
   // activa/pausada a la vez app-wide — ver sesion-trabajo.entity.ts.
   public sesion_trabajo!: Table<SesionTrabajo, string>;
+  public configuracion_oficina!: Table<ConfiguracionOficina, string>;
 
   constructor() {
     super("MateCodeLocalDB");
@@ -1208,6 +1210,12 @@ export class MateCodeDB extends Dexie {
           });
         }
       });
+
+    // Configuración de Oficina (intervalo de pausa activa, etc.): una sola
+    // fila con id fijo, sincronizada entre dispositivos. Tabla nueva.
+    this.version(29).stores({
+      configuracion_oficina: "id",
+    });
 
     this.on("populate", async () => {
       const ahoraPopulate = Date.now();
