@@ -26,6 +26,7 @@ import {
 } from "../../../../domain/entidades/configuracion-oficina.entity";
 import type { Resultado } from "../../../../shared/utilidades/resultado";
 import { PausaActivaRapida } from "./pausa-activa-rapida";
+import { DetalleActividad, useProyectosDeTrabajo } from "../detalle-actividad";
 import { avisar, pedirPermisoNotificaciones } from "./avisos";
 
 const sesionUseCase = new GestionarSesionTrabajoUseCase();
@@ -101,7 +102,11 @@ const SelectorModo: React.FC<{
 
 function iniciarInput(
   config: ConfigNueva,
-  base: { actividadId?: string; descripcion?: string }
+  base: {
+    actividadId?: string;
+    descripcion?: string;
+    proyectoTrabajoId?: string;
+  }
 ) {
   return {
     ...base,
@@ -144,6 +149,7 @@ const FilaComenzar: React.FC<{
           {actividad.cantidadObjetivo !== undefined &&
             ` · ${actividad.progresoActual ?? 0}/${actividad.cantidadObjetivo} ${actividad.unidad || ""}`}
         </span>
+        <DetalleActividad actividad={actividad} />
       </div>
       <Button
         variant="outline"
@@ -162,13 +168,18 @@ const FilaComenzar: React.FC<{
 const ComenzarSuelta: React.FC<{ config: ConfigNueva }> = ({ config }) => {
   const { mostrarToast } = useToast();
   const [descripcion, setDescripcion] = useState("");
+  const [proyectoId, setProyectoId] = useState("");
   const [iniciando, setIniciando] = useState(false);
+  const proyectos = useProyectosDeTrabajo();
 
   const comenzar = async () => {
     if (!descripcion.trim()) return;
     setIniciando(true);
     const res = await sesionUseCase.iniciarSesion(
-      iniciarInput(config, { descripcion })
+      iniciarInput(config, {
+        descripcion,
+        proyectoTrabajoId: proyectoId || undefined,
+      })
     );
     setIniciando(false);
     if (res.ok) setDescripcion("");
@@ -176,7 +187,7 @@ const ComenzarSuelta: React.FC<{ config: ConfigNueva }> = ({ config }) => {
   };
 
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       <input
         value={descripcion}
         onChange={(e) => setDescripcion(e.target.value)}
@@ -184,8 +195,21 @@ const ComenzarSuelta: React.FC<{ config: ConfigNueva }> = ({ config }) => {
           if (e.key === "Enter") void comenzar();
         }}
         placeholder="O empezá algo suelto: ¿en qué vas a trabajar?"
-        className="flex-1 rounded-lg border border-[#2A2A2E] bg-[#0D0D0F] px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-emerald-500/40"
+        className="min-w-48 flex-1 rounded-lg border border-[#2A2A2E] bg-[#0D0D0F] px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:border-emerald-500/40"
       />
+      <select
+        value={proyectoId}
+        onChange={(e) => setProyectoId(e.target.value)}
+        title="Proyecto al que se dedica (opcional)"
+        className="rounded-lg border border-[#2A2A2E] bg-[#0D0D0F] px-2 py-2 text-xs text-zinc-300 outline-none focus:border-emerald-500/40"
+      >
+        <option value="">Sin proyecto</option>
+        {proyectos.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.nombre}
+          </option>
+        ))}
+      </select>
       <Button
         variant="outline"
         onClick={() => void comenzar()}
@@ -307,6 +331,29 @@ interface SesionEnCursoProps {
  * celu se bloquee; el tick de 1s solo redibuja. Avisos (sonido/vibración/
  * notificación) solo suenan si la app está abierta — ver avisos.ts.
  */
+/** Proyecto de una sesión suelta: se ve y se puede cambiar mientras corre. */
+const ProyectoDeSesion: React.FC<{ sesion: SesionTrabajoRow }> = ({
+  sesion,
+}) => {
+  const proyectos = useProyectosDeTrabajo();
+  return (
+    <select
+      value={sesion.proyectoTrabajoId ?? ""}
+      onChange={(e) =>
+        void sesionUseCase.asignarProyecto(sesion.id, e.target.value || null)
+      }
+      className="self-start rounded border border-[#2A2A2E] bg-[#0D0D0F] px-2 py-1 text-xs text-zinc-300 outline-none focus:border-emerald-500/40"
+    >
+      <option value="">Sin proyecto</option>
+      {proyectos.map((p) => (
+        <option key={p.id} value={p.id}>
+          {p.nombre}
+        </option>
+      ))}
+    </select>
+  );
+};
+
 const SesionEnCurso: React.FC<SesionEnCursoProps> = ({
   sesion,
   actividad,
@@ -386,6 +433,11 @@ const SesionEnCurso: React.FC<SesionEnCursoProps> = ({
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
       <span className="text-sm text-zinc-300">{titulo}</span>
+      {actividad ? (
+        <DetalleActividad actividad={actividad} />
+      ) : (
+        <ProyectoDeSesion sesion={sesion} />
+      )}
 
       <div className="flex items-baseline gap-2">
         <span className="font-mono text-3xl font-bold text-emerald-400">

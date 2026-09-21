@@ -39,16 +39,108 @@ export const SECCIONES_GUION_DEFAULT: SeccionGuion[] = [
     grupo: "principal",
     orden: 3,
   },
-  { id: "descripcion", etiqueta: "Descripción", grupo: "extra", orden: 4 },
+  {
+    id: "seo_audio",
+    etiqueta: "SEO de audio (frase clave que decís fuerte en los primeros 3 s)",
+    grupo: "extra",
+    orden: 4,
+  },
   {
     id: "texto_pantalla",
-    etiqueta: "Palabra que va arriba del video",
+    etiqueta: "SEO visual (texto de anclaje que queda fijo arriba)",
     grupo: "extra",
     orden: 5,
   },
-  { id: "hashtags", etiqueta: "Hashtags", grupo: "extra", orden: 6 },
-  { id: "gancho_visual", etiqueta: "Gancho visual", grupo: "extra", orden: 7 },
+  {
+    id: "descripcion",
+    etiqueta: "Leyenda PEC-CTA (Problema ➔ Empatía ➔ Llamado a la acción)",
+    grupo: "extra",
+    orden: 6,
+  },
+  {
+    id: "bucle",
+    etiqueta: "Bucle: última frase inconclusa ➔ primera frase del gancho",
+    grupo: "extra",
+    orden: 7,
+  },
+  {
+    id: "gancho_visual",
+    etiqueta: "Visual / acción técnica (cortes, zooms, B-roll)",
+    grupo: "extra",
+    orden: 8,
+  },
+  { id: "hashtags", etiqueta: "Hashtags", grupo: "extra", orden: 9 },
 ];
+
+/** Los ids de la plantilla vieja (7 secciones): si la guardada es exactamente esa, se actualiza sola a la del SOP. */
+export const IDS_PLANTILLA_VIEJA = [
+  "gancho",
+  "desarrollo",
+  "cierre_cta",
+  "descripcion",
+  "texto_pantalla",
+  "hashtags",
+  "gancho_visual",
+];
+
+// ---------------------------------------------------------------------------
+// Planificación semanal dinámica: la mezcla de tipos y los días de la cinta se
+// arman semana a semana — nada está fijo.
+// ---------------------------------------------------------------------------
+
+/** Pilares del SOP (sección 3 y 5): Quips = detrás de escena, Tips = educación/hacks, Clips = demo. */
+export const PILARES_CONTENIDO = ["Quips", "Tips", "Clips"] as const;
+export type PilarContenido = (typeof PILARES_CONTENIDO)[number];
+export const DESCRIPCION_PILAR: Record<PilarContenido, string> = {
+  Quips: "Detrás de escena",
+  Tips: "Educación y hacks (CTA: PACK)",
+  Clips: "Demo del software (CTA: DEMO)",
+};
+
+export const PERSONAS_CONTENIDO = [
+  "Dueño Consolidado",
+  "Comerciante Desbordado",
+  "Emprendedor de Trinchera",
+] as const;
+export type PersonaContenido = (typeof PERSONAS_CONTENIDO)[number];
+
+export interface FichaContenido {
+  pilar?: PilarContenido;
+  persona?: PersonaContenido;
+  serie?: string;
+  modulo?: string;
+  keyword?: string;
+}
+
+/** Etapas de la cinta de una pieza, cada una con su propio día. */
+export const ETAPAS_CINTA = [
+  "guion",
+  "grabacion",
+  "edicion",
+  "publicacion",
+] as const;
+export type EtapaCinta = (typeof ETAPAS_CINTA)[number];
+export const ETIQUETA_ETAPA: Record<EtapaCinta, string> = {
+  guion: "Guion",
+  grabacion: "Grabar",
+  edicion: "Editar y programar",
+  publicacion: "Publicar",
+};
+
+/** Día (YYYY-MM-DD) en que toca cada etapa de ESTA pieza — se puede repetir el mismo día para varias piezas o varias etapas. */
+export type PlanPieza = Partial<Record<EtapaCinta, string>>;
+
+/** Cuántas piezas de cada tipo tiene esta semana (ej. 3 videos + 3 posts + 5 historias). Cambia semana a semana. */
+export type MezclaSemanal = Partial<Record<TipoContenido, number>>;
+
+/** Día de la semana (0=domingo…6=sábado) por defecto para cada etapa de las piezas nuevas de la semana. */
+export type DiasCinta = Partial<Record<EtapaCinta | "ideas", number>>;
+export const DIAS_CINTA_DEFAULT: DiasCinta = {
+  ideas: 0,
+  guion: 1,
+  grabacion: 2,
+  edicion: 3,
+};
 
 export interface PlantillaGuion {
   id: string;
@@ -68,7 +160,12 @@ export interface CicloSemanal {
   id: string;
   /** Lunes de la semana, epoch ms en horario de Buenos Aires. */
   fechaInicio: number;
+  /** Legacy: hoy el objetivo real es `mezcla`. Se mantiene igual a mezcla.Video. */
   objetivoVideos: number;
+  /** Lunes (YYYY-MM-DD) de la semana que planifica este ciclo. */
+  semanaInicio?: string;
+  mezcla?: MezclaSemanal;
+  diasCinta?: DiasCinta;
   estado: "activo" | "cerrado";
   creadoEn: number;
 }
@@ -112,7 +209,10 @@ export interface Contenido {
   estado: EstadoContenido;
   guion: Record<string, string>;
   plantillaGuionId?: string;
+  /** Día de publicación (YYYY-MM-DD) — igual a plan.publicacion. */
   diaEstimado?: string;
+  plan?: PlanPieza;
+  ficha?: FichaContenido;
   tareasPendientes: TareaPendiente[];
   fechaPublicacion?: number;
   metricas: Record<string, number>;

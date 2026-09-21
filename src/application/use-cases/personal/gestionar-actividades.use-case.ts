@@ -133,6 +133,48 @@ export class GestionarActividadesUseCase {
     }
   }
 
+  /**
+   * Nota ("voy a hacer" / "hice") y proyecto de trabajo de una actividad.
+   * Se puede editar antes de hacerla, al completarla o después. `null` borra
+   * el valor; `undefined` lo deja como está.
+   */
+  public async editarDetalle(
+    id: string,
+    cambios: { nota?: string | null; proyectoTrabajoId?: string | null }
+  ): Promise<Resultado<void>> {
+    const actividad = await db.actividad.get(id);
+    if (!actividad) {
+      return Resultado.falla(
+        new ErrorNoEncontrado("No se encontró la actividad.")
+      );
+    }
+    const local: Partial<Actividad> = { actualizadoEn: Date.now() };
+    const remoto: Record<string, unknown> = {
+      id,
+      actualizadoEn: local.actualizadoEn,
+    };
+    if (cambios.nota !== undefined) {
+      const nota = cambios.nota === null ? "" : cambios.nota.trim();
+      local.nota = nota === "" ? undefined : nota;
+      remoto.nota = nota === "" ? null : nota;
+    }
+    if (cambios.proyectoTrabajoId !== undefined) {
+      local.proyectoTrabajoId = cambios.proyectoTrabajoId ?? undefined;
+      remoto.proyectoTrabajoId = cambios.proyectoTrabajoId;
+    }
+    try {
+      await db.actividad.update(id, local);
+      await QueueService.encolar("actividad", "editar", id, remoto);
+      return Resultado.exito(undefined);
+    } catch (err) {
+      return Resultado.falla(
+        new ErrorDominio(
+          err instanceof Error ? err.message : "Error al guardar el detalle."
+        )
+      );
+    }
+  }
+
   public async completarActividad(id: string): Promise<Resultado<void>> {
     return this.cambiarEstado(id, "completada");
   }
@@ -423,10 +465,20 @@ export class GestionarActividadesUseCase {
           ? `Migrado el faltante (${faltante}) desde ${original.diaTarea} a ${parsed.data.nuevoDiaTarea}.`
           : `Migrada desde ${original.diaTarea} a ${parsed.data.nuevoDiaTarea}.`,
         campoAnterior: { diaTarea: original.diaTarea },
-        campoNuevo: parsed.data.motivo
-          ? { diaTarea: parsed.data.nuevoDiaTarea, motivo: parsed.data.motivo }
-          : undefined,
+        campoNuevo: { diaTarea: parsed.data.nuevoDiaTarea },
       });
+      // El motivo se guarda sobre la actividad ORIGINAL (la que no se hizo),
+      // no sobre la copia: así las estadísticas saben por qué se postergó
+      // cada una, y el repaso no lo cuenta dos veces.
+      if (parsed.data.motivo) {
+        await registrarHistorialPersonal({
+          entidadTipo: "actividad",
+          entidadId: original.id,
+          accion: "editar",
+          descripcion: `Pasada de ${original.diaTarea} a ${parsed.data.nuevoDiaTarea}.`,
+          campoNuevo: { estado: estadoOriginal, motivo: parsed.data.motivo },
+        });
+      }
       if (original.entregableId) {
         await recomputarEntregable(original.entregableId);
       }

@@ -79,6 +79,7 @@ export class GestionarSesionTrabajoUseCase {
       id,
       actividadId: parsed.data.actividadId,
       descripcion: parsed.data.descripcion,
+      proyectoTrabajoId: parsed.data.proyectoTrabajoId,
       diaTarea: obtenerDiaTareaHoy(),
       modo: parsed.data.modo,
       duracionPlanificadaSeg:
@@ -104,6 +105,30 @@ export class GestionarSesionTrabajoUseCase {
         )
       );
     }
+  }
+
+  /** Liga (o desliga, con null) la sesión a un proyecto de trabajo — también se puede hacer con la sesión en curso o ya terminada. */
+  public async asignarProyecto(
+    id: string,
+    proyectoTrabajoId: string | null
+  ): Promise<Resultado<void>> {
+    const sesion = await db.sesion_trabajo.get(id);
+    if (!sesion) {
+      return Resultado.falla(
+        new ErrorNoEncontrado("No se encontró la sesión.")
+      );
+    }
+    const actualizadoEn = Date.now();
+    await db.sesion_trabajo.update(id, {
+      proyectoTrabajoId: proyectoTrabajoId ?? undefined,
+      actualizadoEn,
+    });
+    await QueueService.encolar("sesion_trabajo", "editar", id, {
+      id,
+      proyectoTrabajoId,
+      actualizadoEn,
+    });
+    return Resultado.exito(undefined);
   }
 
   /**

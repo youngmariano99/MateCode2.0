@@ -33,6 +33,8 @@ export interface SesionTrabajo {
   actividadId?: string;
   /** Qué se hizo/se hace — obligatorio si no hay actividadId, opcional si la hay. */
   descripcion?: string;
+  /** Proyecto del módulo Proyectos al que se dedica la sesión — para las sesiones sueltas (sin actividad) que igual son de un proyecto. Si falta, cuenta el de la actividad. */
+  proyectoTrabajoId?: string;
   diaTarea: string; // YYYY-MM-DD
   /** Undefined en sesiones viejas = "libre". */
   modo?: ModoSesionTrabajo;
@@ -52,6 +54,7 @@ export const iniciarSesionSchema = z
   .object({
     actividadId: z.string().trim().min(1).optional(),
     descripcion: z.string().trim().min(1).optional(),
+    proyectoTrabajoId: z.string().trim().min(1).optional(),
     modo: z.enum(MODOS_SESION_TRABAJO).default("libre"),
     duracionMin: z
       .number()

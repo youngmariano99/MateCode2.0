@@ -50,8 +50,21 @@ export class MaterializarActividadesDelDiaUseCase {
         const yaExiste = await db.actividad.get(id);
         if (yaExiste) continue;
 
+        // El proyecto al que se venía dedicando esta recurrencia (ej. "Desarrollo")
+        // pasa solo al día siguiente; se puede cambiar cada día.
+        const ultima = (
+          await db.actividad
+            .where("entregableId")
+            .equals(entregable.id)
+            .filter(
+              (a) => a.recurrenciaId === entregable.id && !!a.proyectoTrabajoId
+            )
+            .toArray()
+        ).sort((a, b) => (b.diaTarea ?? "").localeCompare(a.diaTarea ?? ""))[0];
+
         const registro: Actividad = {
           id,
+          proyectoTrabajoId: ultima?.proyectoTrabajoId,
           entregableId: entregable.id,
           proyectoId: entregable.proyectoId,
           objetivoId: entregable.objetivoId,

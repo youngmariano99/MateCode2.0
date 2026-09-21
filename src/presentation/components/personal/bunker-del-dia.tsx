@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../../offline/dexie/db";
 import { Button } from "../button";
+import { DetalleActividad } from "./detalle-actividad";
 import { Icono } from "../icons";
 import { Badge, type BadgeColor } from "../badge";
 import { useToast } from "../../hooks/useToast";
@@ -390,6 +391,7 @@ const FilaActividad: React.FC<{
         {actividad.cantidadObjetivo !== undefined && (
           <AvanceParcial actividad={actividad} />
         )}
+        <DetalleActividad actividad={actividad} />
       </div>
       <div className="flex flex-wrap gap-1.5">
         <button
@@ -437,9 +439,12 @@ const FilaResuelta: React.FC<{ actividad: Actividad; area: AreaDeTarea }> = ({
       className="flex items-center justify-between gap-2 rounded-xl border border-l-[3px] border-[#2A2A2E]/60 bg-[#0D0D0F]/50 p-3"
       style={{ borderLeftColor: area.color }}
     >
-      <span className="text-sm text-zinc-500 line-through">
-        {actividad.descripcion}
-      </span>
+      <div className="flex flex-col gap-1">
+        <span className="text-sm text-zinc-500 line-through">
+          {actividad.descripcion}
+        </span>
+        <DetalleActividad actividad={actividad} />
+      </div>
       <Badge
         color={
           esParcial

@@ -63,6 +63,10 @@ export interface Actividad {
   cantidadMinima?: number;
   unidad?: string;
   progresoActual?: number;
+  /** Qué voy a hacer / qué hice — para actividades genéricas (ej. "Desarrollo") donde el detalle se decide día a día. Editable en cualquier momento. */
+  nota?: string;
+  /** Proyecto del módulo Proyectos al que se dedica esta actividad (ej. el sistema de un cliente) — el tiempo y las notas quedan ligados a él. */
+  proyectoTrabajoId?: string;
   /** Lunes (YYYY-MM-DD) de la semana asignada — mismo criterio que TareaPendiente.semanaId. */
   semanaId?: string;
   /** Si esta instancia nació de un Entregable recurrente (ver entregable.entity.ts) — permite rastrear el origen. */

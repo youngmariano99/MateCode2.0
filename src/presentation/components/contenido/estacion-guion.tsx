@@ -11,8 +11,12 @@ import { ModalImportarJson } from "./modal-importar-json";
 import { EditorPlantillaGuion } from "./editor-plantilla-guion";
 import { GestionarContenidoUseCase } from "../../../application/use-cases/contenido/gestionar-contenido.use-case";
 import { generarPromptTransformarContenido } from "../../../domain/prompts/generar-prompt-transformar-contenido";
+import { FichaPlanPieza } from "./ficha-plan-pieza";
+import { revisarGuion } from "../../../domain/entidades/revisar-guion";
 import {
   TIPOS_CONTENIDO,
+  type FichaContenido,
+  type PlanPieza,
   type TipoContenido,
 } from "../../../domain/entidades/contenido.entity";
 
@@ -55,11 +59,18 @@ export const EstacionGuion: React.FC<EstacionGuionProps> = ({ cicloId }) => {
   const [tipoContenido, setTipoContenido] = useState<TipoContenido>("Video");
   const [canales, setCanales] = useState<string[]>([]);
   const [valores, setValores] = useState<Record<string, string>>({});
+  const [ficha, setFicha] = useState<FichaContenido>({});
+  const [plan, setPlan] = useState<PlanPieza>({});
   const [modalJsonAbierto, setModalJsonAbierto] = useState(false);
   const [modalPlantillaAbierto, setModalPlantillaAbierto] = useState(false);
   const [promptTransformar, setPromptTransformar] = useState("");
   const [tipoDestino, setTipoDestino] = useState<TipoContenido>("Post");
   const [guardando, setGuardando] = useState(false);
+
+  const avisos = useMemo(
+    () => revisarGuion(valores, tipoContenido),
+    [valores, tipoContenido]
+  );
 
   const secciones = useMemo(
     () =>
@@ -74,6 +85,8 @@ export const EstacionGuion: React.FC<EstacionGuionProps> = ({ cicloId }) => {
     setTipoContenido("Video");
     setCanales([]);
     setValores({});
+    setFicha({});
+    setPlan({});
     setPromptTransformar("");
   };
 
@@ -86,6 +99,8 @@ export const EstacionGuion: React.FC<EstacionGuionProps> = ({ cicloId }) => {
     setTipoContenido(c.tipoContenido);
     setCanales(c.canales);
     setValores(c.guion);
+    setFicha(c.ficha ?? {});
+    setPlan(c.plan ?? {});
     setPromptTransformar("");
   };
 
@@ -94,7 +109,14 @@ export const EstacionGuion: React.FC<EstacionGuionProps> = ({ cicloId }) => {
     const input = { titulo, tipoContenido, canales, guion: valores };
     const res = contenidoActivoId
       ? await useCase.guardarGuion(contenidoActivoId, input)
-      : await useCase.crearContenidoDesdeIdea(cicloId, input, ideaOrigenId);
+      : await useCase.crearContenidoDesdeIdea(cicloId, input, ideaOrigenId, {
+          ficha,
+          plan,
+        });
+    if (res.ok && contenidoActivoId) {
+      await useCase.actualizarFicha(contenidoActivoId, ficha);
+      await useCase.asignarPlan(contenidoActivoId, plan);
+    }
     setGuardando(false);
     if (res.ok) {
       abrirNuevo();
@@ -233,6 +255,13 @@ export const EstacionGuion: React.FC<EstacionGuionProps> = ({ cicloId }) => {
           />
         </div>
 
+        <FichaPlanPieza
+          ficha={ficha}
+          onFicha={setFicha}
+          plan={plan}
+          onPlan={setPlan}
+        />
+
         <div className="flex flex-col gap-3 border-t border-[#2A2A2E] pt-3">
           <span className="text-xs font-bold tracking-wider text-zinc-400 uppercase">
             Principal
@@ -267,6 +296,16 @@ export const EstacionGuion: React.FC<EstacionGuionProps> = ({ cicloId }) => {
               />
             ))}
         </div>
+
+        {avisos.length > 0 && (
+          <ul className="flex flex-col gap-1 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+            {avisos.map((a) => (
+              <li key={a.regla + a.mensaje} className="text-xs text-amber-300">
+                {a.mensaje}
+              </li>
+            ))}
+          </ul>
+        )}
 
         <div className="flex items-center justify-end gap-2">
           {contenidoActivoId && (

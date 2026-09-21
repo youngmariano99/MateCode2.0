@@ -8,6 +8,8 @@ import { BunkerDelDia } from "../../../../presentation/components/personal/bunke
 import { PanelRepasoSemanal } from "../../../../presentation/components/personal/panel-repaso-semanal";
 import { PanelFondoFaltantes } from "../../../../presentation/components/personal/panel-fondo-faltantes";
 import { PanelPendientes } from "../../../../presentation/components/personal/panel-pendientes";
+import { PanelEstadisticasPersonal } from "../../../../presentation/components/personal/panel-estadisticas-personal";
+import { PanelTiempoProyectos } from "../../../../presentation/components/personal/panel-tiempo-proyectos";
 import { PanelMetasPeriodo } from "../../../../presentation/components/personal/panel-metas-periodo";
 import { AvisoMinimos } from "../../../../presentation/components/personal/aviso-minimos";
 import { AvisoFasesPendientes } from "../../../../presentation/components/personal/aviso-fases-pendientes";
@@ -33,7 +35,7 @@ const materializarUseCase = new MaterializarActividadesDelDiaUseCase();
 const fasesUseCase = new GestionarFasesUseCase();
 const eliminarNodoUseCase = new EliminarNodoPersonalUseCase();
 
-type Horizonte = "dia" | "semana" | "mes" | "cal_semana" | "cal_mes";
+type Horizonte = "dia" | "semana" | "mes" | "cal_semana" | "cal_mes" | "stats";
 
 const HORIZONTES: {
   id: Horizonte;
@@ -45,6 +47,7 @@ const HORIZONTES: {
   { id: "mes", label: "Mes", icono: "Target" },
   { id: "cal_semana", label: "Cal. semana", icono: "Calendario" },
   { id: "cal_mes", label: "Cal. mes", icono: "Calendario" },
+  { id: "stats", label: "Estadísticas", icono: "TrendingUp" },
 ];
 
 const breadcrumbs = [
@@ -61,6 +64,8 @@ const DESCRIPCION_HORIZONTE: Record<Horizonte, string> = {
     "La semana completa de un vistazo, coloreada por Área, para corroborar que la planificación quedó bien armada.",
   cal_mes:
     "El mes completo de un vistazo — click en un día para ver el detalle.",
+  stats:
+    "Cómo te fue por semana, mes o año: cumplimiento, qué no se hizo y por qué, y qué mejorar.",
 };
 
 /**
@@ -139,6 +144,11 @@ export default function PersonalHoyPage() {
               hasta={sumarDias(lunesDeLaSemana(obtenerDiaTareaHoy()), 6)}
               titulo="Metas de esta semana"
             />
+            <PanelTiempoProyectos
+              desde={lunesDeLaSemana(obtenerDiaTareaHoy())}
+              hasta={sumarDias(lunesDeLaSemana(obtenerDiaTareaHoy()), 6)}
+              titulo="Tiempo por proyecto (esta semana)"
+            />
             <PanelRepasoSemanal />
             <PlanificarSemanaIA />
             <PanelPendientes />
@@ -155,6 +165,8 @@ export default function PersonalHoyPage() {
         {horizonte === "cal_semana" && <CalendarioSemanal />}
 
         {horizonte === "cal_mes" && <CalendarioMensual />}
+
+        {horizonte === "stats" && <PanelEstadisticasPersonal />}
       </div>
     </MainLayout>
   );

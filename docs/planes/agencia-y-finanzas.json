@@ -347,17 +347,6 @@
                   "bandaAceptable": 60
                 }
               ]
-            },
-            {
-              "titulo": "Planificación de guiones e ideas (domingo)",
-              "diaInicio": "2026-09-21",
-              "diaLimite": "2027-02-28",
-              "recurrencia": {
-                "frecuencia": "dias_especificos",
-                "diasSemana": [0]
-              },
-              "actividades": [],
-              "fases": []
             }
           ]
         },
@@ -391,6 +380,17 @@
           "titulo": "Consolidación de Portfolio y Desarrollo",
           "diaLimite": "2027-02-28",
           "entregables": [
+            {
+              "titulo": "Desarrollo de Proyectos",
+              "diaInicio": "2026-09-21",
+              "diaLimite": "2027-02-28",
+              "recurrencia": {
+                "frecuencia": "dias_especificos",
+                "diasSemana": [1, 2, 3, 4, 5, 6]
+              },
+              "actividades": [],
+              "fases": []
+            },
             {
               "titulo": "Un proyecto terminado por mes",
               "diaInicio": "2026-09-21",
