@@ -42,6 +42,8 @@ export class GestionarPlantillasRutinaUseCase {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       estructura: parsed.data.estructura as any,
       calentamiento: parsed.data.calentamiento,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      calentamientoEstructura: parsed.data.calentamientoEstructura as any,
       eliminado: false,
       creadoEn: ahora,
       actualizadoEn: ahora,
@@ -91,6 +93,11 @@ export class GestionarPlantillasRutinaUseCase {
     }
     if (parsed.data.calentamiento !== undefined)
       cambios.calentamiento = parsed.data.calentamiento;
+    if (parsed.data.calentamientoEstructura !== undefined) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      cambios.calentamientoEstructura = parsed.data
+        .calentamientoEstructura as any;
+    }
     try {
       await db.plantilla_rutina.update(parsed.data.id, cambios);
       await QueueService.encolar("plantilla_rutina", "editar", parsed.data.id, {

@@ -40,7 +40,13 @@ function textoEjercicios(ejercicios: ItemRutinaJson["ejercicios"]): string {
     .map((ej) =>
       typeof ej === "string"
         ? ej
-        : `${ej.nombre}${ej.series ? ` (${ej.series}x${ej.reps ?? "?"})` : ""}`
+        : `${ej.nombre}${ej.series ? ` (${ej.series}x${ej.reps ?? "?"})` : ""}${
+            ej.progresion === "ninguna"
+              ? " · sin progresión"
+              : ej.progresion
+                ? ` · progresa: ${(Array.isArray(ej.progresion) ? ej.progresion : [ej.progresion]).map((r) => `${r.tipo} ${r.incremento > 0 ? "+" : ""}${r.incremento}`).join(", ")}`
+                : ""
+          }${ej.minimo ? " · con mínimo" : ""}`
     )
     .join(", ");
 }

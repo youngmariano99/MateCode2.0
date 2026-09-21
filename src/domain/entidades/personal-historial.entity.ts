@@ -15,6 +15,7 @@ export const TIPOS_ENTIDAD_HISTORIAL = [
   "actividad",
   "habito",
   "fase",
+  "bloque",
 ] as const;
 export type TipoEntidadHistorial = (typeof TIPOS_ENTIDAD_HISTORIAL)[number];
 
@@ -26,6 +27,15 @@ export const ACCIONES_HISTORIAL = [
   "ajustar_cantidad",
   "registrar_avance",
   "cerrar_fase",
+  // Entrenamiento: decisiones sobre el plan de un bloque (nunca se pierden, aunque el bloque cambie)
+  "repetir_semana",
+  "avanzar_semana",
+  "eliminar_semana",
+  "extender_bloque",
+  "ajustar_ritmo",
+  "mover_rutina",
+  "editar_progresion",
+  "reestructurar",
 ] as const;
 export type AccionHistorial = (typeof ACCIONES_HISTORIAL)[number];
 

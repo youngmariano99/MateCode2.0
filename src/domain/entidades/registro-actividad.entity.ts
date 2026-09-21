@@ -39,6 +39,10 @@ export interface RegistroActividad {
   diaTarea: string; // YYYY-MM-DD
   comoPlanificado: boolean;
   resultados: ResultadoEjercicio[];
+  /** Lo que estaba planificado ese día (con la progresión ya aplicada) al momento de registrar: permite comparar plan vs. realidad aunque después cambie el bloque. */
+  planificado?: ResultadoEjercicio[];
+  /** Paso de progresión del bloque en ese día. */
+  pasoBloque?: number;
   notas?: string;
   creadoEn: number;
 }
@@ -66,6 +70,8 @@ export const registrarActividadSchema = z.object({
   diaTarea: fechaISO,
   comoPlanificado: z.boolean(),
   resultados: z.array(resultadoEjercicioSchema).default([]),
+  planificado: z.array(resultadoEjercicioSchema).optional(),
+  pasoBloque: z.number().int().optional(),
   notas: z.string().optional(),
 });
 export type RegistrarActividadInput = z.input<typeof registrarActividadSchema>;

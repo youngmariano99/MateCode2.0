@@ -19,6 +19,14 @@ const ETIQUETA_ACCION: Record<AccionHistorial, string> = {
   ajustar_cantidad: "Cantidad ajustada",
   registrar_avance: "Avance registrado",
   cerrar_fase: "Fase cerrada",
+  repetir_semana: "Semana repetida",
+  avanzar_semana: "Semana avanzada",
+  eliminar_semana: "Semana eliminada",
+  extender_bloque: "Bloque extendido",
+  ajustar_ritmo: "Ritmo ajustado",
+  mover_rutina: "Rutina movida",
+  editar_progresion: "Progresión editada",
+  reestructurar: "Bloque reestructurado",
 };
 
 const COLOR_ACCION: Record<AccionHistorial, string> = {
@@ -29,6 +37,14 @@ const COLOR_ACCION: Record<AccionHistorial, string> = {
   ajustar_cantidad: "text-amber-400",
   registrar_avance: "text-emerald-400",
   cerrar_fase: "text-violet-400",
+  repetir_semana: "text-amber-400",
+  avanzar_semana: "text-emerald-400",
+  eliminar_semana: "text-red-400",
+  extender_bloque: "text-sky-400",
+  ajustar_ritmo: "text-amber-400",
+  mover_rutina: "text-sky-400",
+  editar_progresion: "text-violet-400",
+  reestructurar: "text-violet-400",
 };
 
 function formatearFecha(ts: number): string {

@@ -8,7 +8,8 @@ import { Button } from "../../button";
 import { useToast } from "../../../hooks/useToast";
 import { GestionarRegistroActividadUseCase } from "../../../../application/use-cases/personal/gestionar-registro-actividad.use-case";
 import { obtenerDiaTareaHoy } from "../../../../domain/entidades/personal.entity";
-import { aplicaHoyRutina } from "../../../../domain/entidades/rutina.entity";
+import { rutinasDelDia } from "../../../../domain/entidades/progresion-entrenamiento.entity";
+import { GestionarProgresionBloqueUseCase } from "../../../../application/use-cases/personal/gestionar-progresion-bloque.use-case";
 import {
   lunesDeLaSemana,
   sumarDias,
@@ -17,6 +18,7 @@ import {
 } from "../calendario-utils";
 
 const registroUseCase = new GestionarRegistroActividadUseCase();
+const progresionUseCase = new GestionarProgresionBloqueUseCase();
 const SIN_ITEMS: never[] = [];
 
 /**
@@ -31,6 +33,7 @@ export const CalendarioEntrenamiento: React.FC = () => {
   const hoy = obtenerDiaTareaHoy();
   const [ancla, setAncla] = useState(lunesDeLaSemana(hoy));
   const [registrando, setRegistrando] = useState<string | null>(null);
+  const [moviendo, setMoviendo] = useState<string | null>(null);
 
   const diasSemana = Array.from({ length: 7 }, (_, i) => sumarDias(ancla, i));
   const fin = diasSemana[6];
@@ -70,6 +73,19 @@ export const CalendarioEntrenamiento: React.FC = () => {
     setRegistrando(null);
     if (!res.ok) mostrarToast(res.error!.mensaje, "error");
     else mostrarToast("Sesión registrada.", "exito");
+  };
+
+  const mover = async (plantillaId: string, dia: string, aDia: string) => {
+    if (!bloqueActivo || !aDia) return;
+    const res = await progresionUseCase.moverRutina(
+      bloqueActivo.id,
+      plantillaId,
+      dia,
+      aDia
+    );
+    setMoviendo(null);
+    if (!res.ok) mostrarToast(res.error!.mensaje, "error");
+    else mostrarToast(`Rutina movida al ${aDia}.`, "exito");
   };
 
   if (!bloqueActivo) {
@@ -113,14 +129,9 @@ export const CalendarioEntrenamiento: React.FC = () => {
           const esHoy = dia === hoy;
           // El Bloque solo aplica dentro de su propia ventana — un día antes
           // de diaInicio (o después de diaFin) nunca muestra sus rutinas,
-          // aunque el patrón semanal (diasSemana) matchee ese día de la semana.
-          const dentroDelBloque =
-            dia >= bloqueActivo.diaInicio && dia <= bloqueActivo.diaFin;
-          const rutinasDelDia = dentroDelBloque
-            ? (bloqueActivo.rutinasProgramadas || []).filter((r) =>
-                aplicaHoyRutina(r.diasSemana, dia)
-              )
-            : [];
+          // aunque el patrón semanal (diasSemana) matchee ese día de la
+          // semana. Las rutinas movidas de un día a otro se respetan.
+          const rutinasDeEsteDia = rutinasDelDia(bloqueActivo, dia);
           return (
             <div
               key={dia}
@@ -143,12 +154,12 @@ export const CalendarioEntrenamiento: React.FC = () => {
                   {formatoDiaCorto(dia)}
                 </span>
               </div>
-              {rutinasDelDia.length === 0 && (
+              {rutinasDeEsteDia.length === 0 && (
                 <span className="text-[10px] text-zinc-700">
                   Sin rutina planificada
                 </span>
               )}
-              {rutinasDelDia.map((r) => {
+              {rutinasDeEsteDia.map((r) => {
                 const hecha = registros.some(
                   (reg) =>
                     reg.plantillaId === r.plantillaId && reg.diaTarea === dia
@@ -169,14 +180,37 @@ export const CalendarioEntrenamiento: React.FC = () => {
                       {nombrePorId.get(r.plantillaId) || r.plantillaId}
                     </span>
                     {!hecha && (
-                      <Button
-                        variant="outline"
-                        onClick={() => void marcarHecha(r.plantillaId, dia)}
-                        cargando={registrando === clave}
-                        className="px-2 py-1 text-[10px]"
-                      >
-                        Marcar hecha
-                      </Button>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex gap-1">
+                          <Button
+                            variant="outline"
+                            onClick={() => void marcarHecha(r.plantillaId, dia)}
+                            cargando={registrando === clave}
+                            className="flex-1 px-2 py-1 text-[10px]"
+                          >
+                            Marcar hecha
+                          </Button>
+                          <button
+                            onClick={() =>
+                              setMoviendo(moviendo === clave ? null : clave)
+                            }
+                            title="Pasarla a otro día"
+                            className="rounded-lg border border-[#2A2A2E] px-2 text-[10px] font-bold text-zinc-400 hover:text-zinc-200"
+                          >
+                            Mover
+                          </button>
+                        </div>
+                        {moviendo === clave && (
+                          <input
+                            type="date"
+                            defaultValue={sumarDias(dia, 1)}
+                            onChange={(e) =>
+                              void mover(r.plantillaId, dia, e.target.value)
+                            }
+                            className="rounded border border-[#2A2A2E] bg-[#111113] px-1.5 py-1 text-[10px] text-zinc-200"
+                          />
+                        )}
+                      </div>
                     )}
                   </div>
                 );

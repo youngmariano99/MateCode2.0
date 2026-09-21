@@ -16,6 +16,7 @@ import {
   generarPromptBloqueCompleto,
 } from "../../../../domain/prompts/generar-prompt-entrenamiento";
 import { resumenBloqueCompleto } from "./resumen-import-entrenamiento";
+import { armarUltimoPlanBloqueActivo } from "../../../../application/servicios/armar-contexto-entrenamiento.service";
 import { ConfirmarEliminarBloqueModal } from "./confirmar-eliminar-bloque-modal";
 import {
   EJES_PROGRESION,
@@ -225,7 +226,8 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
       equipamientoPropio.map((e) => e.etiqueta),
       rutinasExistentes,
       bloques,
-      resumenProgreso
+      resumenProgreso,
+      await armarUltimoPlanBloqueActivo()
     );
     navigator.clipboard.writeText(prompt);
     mostrarToast("Prompt copiado al portapapeles.", "exito");
@@ -519,14 +521,25 @@ export const PanelBloques: React.FC<PanelBloquesProps> = ({ onIrARutinas }) => {
               nombre: "Bloque 2 — Fuerza",
               diaFin: sumarDias(obtenerDiaTareaHoy(), 28),
               ejeProgresionDefault: "carga",
+              descargas: [{ paso: 4, factor: 0.7 }],
             },
             rutinas: [
               {
                 nombre: "Full Body A",
                 formato: "tradicional",
-                ejercicios: [
-                  { nombre: "Flexiones de pecho", series: 4, reps: 10 },
+                calentamiento: [
+                  { nombre: "Movilidad de hombro", series: 2, reps: 10 },
                 ],
+                ejercicios: [
+                  {
+                    nombre: "Flexiones de pecho",
+                    series: 4,
+                    reps: 10,
+                    progresion: { tipo: "reps", incremento: 1, tope: 15 },
+                    minimo: { reps: 8 },
+                  },
+                ],
+                diasSemana: [1, 3, 5],
               },
             ],
             ejerciciosNuevos: [],

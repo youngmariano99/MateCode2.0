@@ -57,7 +57,9 @@ export class GestionarBloquesUseCase {
       diaFin: parsed.data.diaFin,
       ejeProgresionDefault: parsed.data.ejeProgresionDefault,
       estado,
-      rutinasProgramadas: parsed.data.rutinasProgramadas,
+      rutinasProgramadas: parsed.data
+        .rutinasProgramadas as BloqueEntrenamiento["rutinasProgramadas"],
+      descargas: parsed.data.descargas,
       eliminado: false,
       creadoEn: ahora,
       actualizadoEn: ahora,

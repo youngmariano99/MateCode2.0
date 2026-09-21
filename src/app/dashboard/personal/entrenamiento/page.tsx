@@ -11,6 +11,7 @@ import { EjecucionSesion } from "../../../../presentation/components/personal/en
 import { CrearPlantilla } from "../../../../presentation/components/personal/entrenamiento/crear-plantilla";
 import { PanelPausasActivas } from "../../../../presentation/components/personal/entrenamiento/panel-pausas-activas";
 import { PanelEstadisticas } from "../../../../presentation/components/personal/entrenamiento/panel-estadisticas";
+import { PanelResumenSemanal } from "../../../../presentation/components/personal/entrenamiento/panel-resumen-semanal";
 import { PanelEquipamiento } from "../../../../presentation/components/personal/entrenamiento/panel-equipamiento";
 
 type Estacion = "hoy" | "rutinas" | "progreso" | "equipo";
@@ -83,6 +84,7 @@ export default function EntrenamientoPage() {
             <PanelBloques onIrARutinas={() => setEstacion("rutinas")} />
             <CalendarioEntrenamiento />
             <EjecucionSesion onIrARutinas={() => setEstacion("rutinas")} />
+            <PanelResumenSemanal />
           </div>
         )}
         {estacion === "rutinas" && (

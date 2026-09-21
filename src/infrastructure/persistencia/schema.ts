@@ -1022,6 +1022,7 @@ export const plantillaRutina = pgTable("plantilla_rutina", {
   tipoEstructura: varchar("tipo_estructura", { length: 20 }).notNull(),
   estructura: jsonb("estructura").notNull(),
   calentamiento: text("calentamiento"),
+  calentamientoEstructura: jsonb("calentamiento_estructura"), // ItemCalentamiento[]
   eliminado: boolean("eliminado").default(false).notNull(),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
@@ -1038,7 +1039,10 @@ export const bloqueEntrenamiento = pgTable("bloque_entrenamiento", {
     length: 20,
   }).notNull(),
   estado: varchar("estado", { length: 20 }).notNull(), // activo | cerrado
-  rutinasProgramadas: jsonb("rutinas_programadas").default([]).notNull(), // RutinaProgramada[] — {plantillaId, diasSemana}[]
+  rutinasProgramadas: jsonb("rutinas_programadas").default([]).notNull(), // RutinaProgramada[] — días + estructura base + progresiones
+  pasosSemana: jsonb("pasos_semana"), // number[] — paso de progresión de cada semana
+  descargas: jsonb("descargas"), // {paso, factor}[]
+  excepciones: jsonb("excepciones"), // {plantillaId, dia, aDia}[]
   eliminado: boolean("eliminado").default(false).notNull(),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
@@ -1052,6 +1056,8 @@ export const registroActividad = pgTable("registro_actividad", {
   diaTarea: varchar("dia_tarea", { length: 10 }).notNull(),
   comoPlanificado: boolean("como_planificado").notNull(),
   resultados: jsonb("resultados").notNull(), // ResultadoEjercicio[]
+  planificado: jsonb("planificado"), // ResultadoEjercicio[] — el plan de ese día con la progresión aplicada
+  pasoBloque: integer("paso_bloque"),
   notas: text("notas"),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   eliminadoEn: timestamp("eliminado_en"),
