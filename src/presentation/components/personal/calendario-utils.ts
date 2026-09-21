@@ -1,6 +1,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../../offline/dexie/db";
 import { colorDeAreaEfectivo } from "../../../domain/entidades/area-personal.entity";
+import type { Entregable } from "../../../domain/entidades/entregable.entity";
 
 /** Color neutro para Actividades/Entregables sueltos, sin Objetivo→Área arriba. */
 export const COLOR_SIN_AREA = "#71717A";
@@ -28,6 +29,19 @@ export function useColorPorObjetivo(): (objetivoId?: string) => string {
     if (!areaId) return COLOR_SIN_AREA;
     return mapaColorPorArea.get(areaId) || COLOR_SIN_AREA;
   };
+}
+
+/** Entregables recurrentes activos — para proyectar en el calendario lo que "toca" cada día aunque todavía no exista su Actividad. */
+export function useEntregablesRecurrentes(): Entregable[] {
+  return (
+    useLiveQuery(() =>
+      db.entregable
+        .where("estado")
+        .equals("activo")
+        .filter((e) => !!e.recurrencia)
+        .toArray()
+    ) || []
+  );
 }
 
 export interface AreaDeTarea {

@@ -13,7 +13,12 @@ import {
   type Entregable,
 } from "../../../domain/entidades/entregable.entity";
 import { registrarHistorialPersonal } from "../../servicios/registrar-historial-personal.service";
-import { recomputarProyecto } from "../../servicios/recomputar-progreso-personal.service";
+import {
+  recomputarEntregable,
+  recomputarProyecto,
+} from "../../servicios/recomputar-progreso-personal.service";
+import { obtenerDiaTareaHoy } from "../../../domain/entidades/personal.entity";
+import type { Actividad } from "../../../domain/entidades/actividad.entity";
 
 function idEntregable(): string {
   return `entr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -228,6 +233,60 @@ export class GestionarEntregablesUseCase {
       return Resultado.falla(
         new ErrorDominio(
           err instanceof Error ? err.message : "Error al registrar el avance."
+        )
+      );
+    }
+  }
+
+  /**
+   * "Hice 1 video": anota lo hecho como una Actividad ya completada (con su
+   * cantidad) en el día, para entregables cuyo trabajo diario se planifica
+   * en otro lado y acá solo se cuenta. Suma a la Fase de esa fecha, al
+   * Entregable y hacia arriba, como cualquier otra Actividad. No pasa por el
+   * tope de tareas del día: es un registro de lo hecho, no una tarea nueva.
+   */
+  public async anotarAvance(
+    entregableId: string,
+    cantidad: number,
+    dia: string = obtenerDiaTareaHoy()
+  ): Promise<Resultado<void>> {
+    if (!Number.isFinite(cantidad) || cantidad <= 0) {
+      return Resultado.falla(
+        new ErrorDominio("Ingresá una cantidad mayor a cero.")
+      );
+    }
+    const entregable = await db.entregable.get(entregableId);
+    if (!entregable) {
+      return Resultado.falla(
+        new ErrorNoEncontrado("No se encontró el entregable.")
+      );
+    }
+    const ahora = Date.now();
+    const id = `act_${ahora}_${Math.random().toString(36).substring(2, 6)}`;
+    const registro: Actividad = {
+      id,
+      entregableId,
+      proyectoId: entregable.proyectoId,
+      objetivoId: entregable.objetivoId,
+      tipo: "mantenimiento",
+      descripcion: `Avance: ${entregable.titulo}`,
+      diaTarea: dia,
+      estado: "completada",
+      cantidadObjetivo: cantidad,
+      progresoActual: cantidad,
+      unidad: entregable.unidad,
+      creadoEn: ahora,
+      actualizadoEn: ahora,
+    };
+    try {
+      await db.actividad.add(registro);
+      await QueueService.encolar("actividad", "crear", id, { ...registro });
+      await recomputarEntregable(entregableId);
+      return Resultado.exito(undefined);
+    } catch (err) {
+      return Resultado.falla(
+        new ErrorDominio(
+          err instanceof Error ? err.message : "Error al anotar el avance."
         )
       );
     }

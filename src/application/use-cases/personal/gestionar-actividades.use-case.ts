@@ -87,6 +87,7 @@ export class GestionarActividadesUseCase {
       area: parsed.data.area,
       estado: "pendiente",
       cantidadObjetivo: parsed.data.cantidadObjetivo,
+      cantidadMinima: parsed.data.cantidadMinima,
       unidad: parsed.data.unidad,
       semanaId: parsed.data.semanaId,
       recurrenciaId: parsed.data.recurrenciaId,

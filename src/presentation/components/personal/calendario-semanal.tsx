@@ -9,8 +9,11 @@ import { GestionarActividadesUseCase } from "../../../application/use-cases/pers
 import type { Actividad } from "../../../domain/entidades/actividad.entity";
 import type { Entregable } from "../../../domain/entidades/entregable.entity";
 import { obtenerDiaTareaHoy } from "../../../domain/entidades/personal.entity";
+import { recurrentesDelDia } from "../../../domain/entidades/metas-periodo.entity";
+import { PanelMetasPeriodo } from "./panel-metas-periodo";
 import {
   useColorPorObjetivo,
+  useEntregablesRecurrentes,
   lunesDeLaSemana,
   sumarDias,
   NOMBRES_DIA,
@@ -100,6 +103,23 @@ export const ChipEntregable: React.FC<{
   </div>
 );
 
+/** Compromiso recurrente que toca ese día (proyectado: todavía no es una Actividad, se materializa el propio día). */
+export const ChipRecurrente: React.FC<{
+  entregable: Entregable;
+  color: string;
+}> = ({ entregable, color }) => (
+  <div
+    className="flex items-start gap-1.5 rounded-lg border-l-2 border-dotted bg-[#0D0D0F] p-2"
+    style={{ borderLeftColor: color }}
+  >
+    <Icono.Repeat className="mt-0.5 h-3 w-3 shrink-0 text-zinc-500" />
+    <div className="flex-1">
+      <span className="block text-xs text-zinc-300">{entregable.titulo}</span>
+      <span className="text-[10px] text-zinc-600">Recurrente</span>
+    </div>
+  </div>
+);
+
 /**
  * Calendario semanal — 7 columnas (Lun-Dom), Actividades en su `diaTarea` +
  * Entregables como hito en su `diaLimite`, coloreados por Área (vía
@@ -111,6 +131,7 @@ export const CalendarioSemanal: React.FC = () => {
   const hoy = obtenerDiaTareaHoy();
   const [ancla, setAncla] = useState(lunesDeLaSemana(hoy));
   const colorPorObjetivo = useColorPorObjetivo();
+  const recurrentes = useEntregablesRecurrentes();
 
   const diasSemana = Array.from({ length: 7 }, (_, i) => sumarDias(ancla, i));
   const fin = diasSemana[6];
@@ -164,6 +185,12 @@ export const CalendarioSemanal: React.FC = () => {
         </span>
       </div>
 
+      <PanelMetasPeriodo
+        desde={ancla}
+        hasta={fin}
+        titulo="Metas de la semana"
+      />
+
       <div className="grid grid-cols-1 gap-2 overflow-x-auto sm:grid-cols-7">
         {diasSemana.map((dia) => {
           const esHoy = dia === hoy;
@@ -176,6 +203,16 @@ export const CalendarioSemanal: React.FC = () => {
                 color: colorPorObjetivo(a.objetivoId),
                 actividad: a,
               })),
+            ...recurrentesDelDia(
+              recurrentes,
+              actividades.filter((a) => a.diaTarea === dia),
+              dia
+            ).map((e) => ({
+              tipo: "recurrente" as const,
+              clave: `rec_${e.id}`,
+              color: colorPorObjetivo(e.objetivoId),
+              entregable: e,
+            })),
             ...entregables
               .filter((e) => e.diaLimite === dia)
               .map((e) => ({
@@ -215,6 +252,12 @@ export const CalendarioSemanal: React.FC = () => {
                   <ChipActividad
                     key={item.clave}
                     actividad={item.actividad}
+                    color={item.color}
+                  />
+                ) : item.tipo === "recurrente" ? (
+                  <ChipRecurrente
+                    key={item.clave}
+                    entregable={item.entregable}
                     color={item.color}
                   />
                 ) : (

@@ -353,6 +353,7 @@ describe("Borrado en cascada: conteo real y sin huérfanos", () => {
     assert.deepStrictEqual(conteo.valor, {
       proyectos: 1,
       entregables: 1,
+      fases: 1,
       actividades: 1,
       habitosVinculados: 1,
     });
@@ -2007,6 +2008,37 @@ describe("Huérfanos: Proyectos de un Objetivo sin Área", () => {
     await new EliminarNodoPersonalUseCase().limpiarHuerfanos();
     assert.strictEqual(await db.objetivo_cuantificable.count(), 1);
     assert.strictEqual(await db.proyecto_personal.count(), 0);
+    assert.strictEqual(await db.fase_personal.count(), 0);
+  });
+});
+
+describe("Borrado de un Área: el conteo incluye las Fases y se borran de verdad", () => {
+  test("contarDescendientes cuenta fases y ejecutar las elimina", async () => {
+    for (const t of [
+      db.area_personal,
+      db.objetivo_cuantificable,
+      db.proyecto_personal,
+      db.entregable,
+      db.fase_personal,
+      db.actividad,
+    ])
+      await t.clear();
+    await db.area_personal.add({ id: "a1", nombre: "A" } as never);
+    await db.objetivo_cuantificable.add({ id: "o1", areaId: "a1" } as never);
+    await db.proyecto_personal.add({ id: "p1", objetivoId: "o1" } as never);
+    await db.entregable.add({
+      id: "e1",
+      proyectoId: "p1",
+      objetivoId: "o1",
+    } as never);
+    await db.fase_personal.bulkAdd([
+      { id: "f1", entregableId: "e1" },
+      { id: "f2", entregableId: "e1" },
+    ] as never[]);
+    const uc = new EliminarNodoPersonalUseCase();
+    const conteo = await uc.contarDescendientes("area", "a1");
+    assert.strictEqual(conteo.valor?.fases, 2);
+    assert.ok((await uc.ejecutar("area", "a1")).ok);
     assert.strictEqual(await db.fase_personal.count(), 0);
   });
 });

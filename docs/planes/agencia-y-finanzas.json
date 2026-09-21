@@ -1,0 +1,458 @@
+{
+  "areaTitulo": "Agencia y Finanzas",
+  "objetivosNuevos": [
+    {
+      "titulo": "Alcanzar la independencia económica con la agencia (Punto de Equilibrio)",
+      "unidad": "ARS",
+      "cantidadObjetivo": 2900000,
+      "bandaAceptable": 75,
+      "diaLimite": "2027-09-20",
+      "proyectos": [
+        {
+          "titulo": "Motor de Prospección (Contacto en Frío)",
+          "diaLimite": "2027-02-28",
+          "entregables": [
+            {
+              "titulo": "Búsqueda y armado de pitch (Mañana)",
+              "diaInicio": "2026-09-21",
+              "diaLimite": "2027-02-28",
+              "cantidadObjetivo": 970,
+              "unidad": "contactos",
+              "bandaAceptable": 50,
+              "actividades": [],
+              "fases": [
+                {
+                  "titulo": "Semana 1",
+                  "orden": 0,
+                  "diaInicio": "2026-09-21",
+                  "diaLimite": "2026-09-27",
+                  "cantidadObjetivo": 10,
+                  "unidad": "contactos",
+                  "bandaAceptable": 50,
+                  "reparto": {
+                    "descripcion": "Buscar y armar pitch",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                },
+                {
+                  "titulo": "Semana 2",
+                  "orden": 1,
+                  "diaInicio": "2026-09-28",
+                  "diaLimite": "2026-10-04",
+                  "cantidadObjetivo": 15,
+                  "unidad": "contactos",
+                  "bandaAceptable": 50,
+                  "reparto": {
+                    "descripcion": "Buscar y armar pitch",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                },
+                {
+                  "titulo": "Semana 3",
+                  "orden": 2,
+                  "diaInicio": "2026-10-05",
+                  "diaLimite": "2026-10-11",
+                  "cantidadObjetivo": 20,
+                  "unidad": "contactos",
+                  "bandaAceptable": 50,
+                  "reparto": {
+                    "descripcion": "Buscar y armar pitch",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                },
+                {
+                  "titulo": "Semanas 4 a 8 (Escalado)",
+                  "orden": 3,
+                  "diaInicio": "2026-10-12",
+                  "diaLimite": "2026-11-15",
+                  "cantidadObjetivo": 175,
+                  "unidad": "contactos",
+                  "bandaAceptable": 50,
+                  "reparto": {
+                    "descripcion": "Buscar y armar pitch",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                },
+                {
+                  "titulo": "Semanas 9+ (Consolidación)",
+                  "orden": 4,
+                  "diaInicio": "2026-11-16",
+                  "diaLimite": "2027-02-28",
+                  "cantidadObjetivo": 750,
+                  "unidad": "contactos",
+                  "bandaAceptable": 50,
+                  "reparto": {
+                    "descripcion": "Buscar y armar pitch",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                }
+              ]
+            },
+            {
+              "titulo": "Envío de mensajes e interacción (Tarde)",
+              "diaInicio": "2026-09-21",
+              "diaLimite": "2027-02-28",
+              "cantidadObjetivo": 970,
+              "unidad": "contactos",
+              "bandaAceptable": 50,
+              "actividades": [],
+              "fases": [
+                {
+                  "titulo": "Semana 1",
+                  "orden": 0,
+                  "diaInicio": "2026-09-21",
+                  "diaLimite": "2026-09-27",
+                  "cantidadObjetivo": 10,
+                  "unidad": "contactos",
+                  "bandaAceptable": 50,
+                  "reparto": {
+                    "descripcion": "Enviar mensajes",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                },
+                {
+                  "titulo": "Semana 2",
+                  "orden": 1,
+                  "diaInicio": "2026-09-28",
+                  "diaLimite": "2026-10-04",
+                  "cantidadObjetivo": 15,
+                  "unidad": "contactos",
+                  "bandaAceptable": 50,
+                  "reparto": {
+                    "descripcion": "Enviar mensajes",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                },
+                {
+                  "titulo": "Semana 3",
+                  "orden": 2,
+                  "diaInicio": "2026-10-05",
+                  "diaLimite": "2026-10-11",
+                  "cantidadObjetivo": 20,
+                  "unidad": "contactos",
+                  "bandaAceptable": 50,
+                  "reparto": {
+                    "descripcion": "Enviar mensajes",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                },
+                {
+                  "titulo": "Semanas 4 a 8 (Escalado)",
+                  "orden": 3,
+                  "diaInicio": "2026-10-12",
+                  "diaLimite": "2026-11-15",
+                  "cantidadObjetivo": 175,
+                  "unidad": "contactos",
+                  "bandaAceptable": 50,
+                  "reparto": {
+                    "descripcion": "Enviar mensajes",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                },
+                {
+                  "titulo": "Semanas 9+ (Consolidación)",
+                  "orden": 4,
+                  "diaInicio": "2026-11-16",
+                  "diaLimite": "2027-02-28",
+                  "cantidadObjetivo": 750,
+                  "unidad": "contactos",
+                  "bandaAceptable": 50,
+                  "reparto": {
+                    "descripcion": "Enviar mensajes",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "titulo": "Creación de Contenido (Marca Nodexa)",
+          "diaLimite": "2027-02-28",
+          "entregables": [
+            {
+              "titulo": "Videos",
+              "diaInicio": "2026-09-21",
+              "diaLimite": "2027-02-28",
+              "cantidadObjetivo": 114,
+              "unidad": "videos",
+              "bandaAceptable": 60,
+              "actividades": [],
+              "fases": [
+                {
+                  "titulo": "Mes 1 (3 videos por semana)",
+                  "orden": 0,
+                  "diaInicio": "2026-09-21",
+                  "diaLimite": "2026-10-18",
+                  "cantidadObjetivo": 12,
+                  "unidad": "videos",
+                  "bandaAceptable": 60
+                },
+                {
+                  "titulo": "Mes 2 (4 videos por semana)",
+                  "orden": 1,
+                  "diaInicio": "2026-10-19",
+                  "diaLimite": "2026-11-15",
+                  "cantidadObjetivo": 16,
+                  "unidad": "videos",
+                  "bandaAceptable": 60
+                },
+                {
+                  "titulo": "Mes 3 (5 videos por semana)",
+                  "orden": 2,
+                  "diaInicio": "2026-11-16",
+                  "diaLimite": "2026-12-13",
+                  "cantidadObjetivo": 20,
+                  "unidad": "videos",
+                  "bandaAceptable": 60
+                },
+                {
+                  "titulo": "Mes 4 (6 videos por semana)",
+                  "orden": 3,
+                  "diaInicio": "2026-12-14",
+                  "diaLimite": "2027-01-10",
+                  "cantidadObjetivo": 24,
+                  "unidad": "videos",
+                  "bandaAceptable": 60
+                },
+                {
+                  "titulo": "Mes 5 y 6 (6 videos por semana)",
+                  "orden": 4,
+                  "diaInicio": "2027-01-11",
+                  "diaLimite": "2027-02-28",
+                  "cantidadObjetivo": 42,
+                  "unidad": "videos",
+                  "bandaAceptable": 60
+                }
+              ]
+            },
+            {
+              "titulo": "Posts",
+              "diaInicio": "2026-09-21",
+              "diaLimite": "2027-02-28",
+              "cantidadObjetivo": 69,
+              "unidad": "posts",
+              "bandaAceptable": 60,
+              "actividades": [],
+              "fases": [
+                {
+                  "titulo": "Mes 1 (3 posts por semana)",
+                  "orden": 0,
+                  "diaInicio": "2026-09-21",
+                  "diaLimite": "2026-10-18",
+                  "cantidadObjetivo": 12,
+                  "unidad": "posts",
+                  "bandaAceptable": 60
+                },
+                {
+                  "titulo": "Mes 2 (3 posts por semana)",
+                  "orden": 1,
+                  "diaInicio": "2026-10-19",
+                  "diaLimite": "2026-11-15",
+                  "cantidadObjetivo": 12,
+                  "unidad": "posts",
+                  "bandaAceptable": 60
+                },
+                {
+                  "titulo": "Mes 3 (3 posts por semana)",
+                  "orden": 2,
+                  "diaInicio": "2026-11-16",
+                  "diaLimite": "2026-12-13",
+                  "cantidadObjetivo": 12,
+                  "unidad": "posts",
+                  "bandaAceptable": 60
+                },
+                {
+                  "titulo": "Mes 4 (3 posts por semana)",
+                  "orden": 3,
+                  "diaInicio": "2026-12-14",
+                  "diaLimite": "2027-01-10",
+                  "cantidadObjetivo": 12,
+                  "unidad": "posts",
+                  "bandaAceptable": 60
+                },
+                {
+                  "titulo": "Mes 5 y 6 (3 posts por semana)",
+                  "orden": 4,
+                  "diaInicio": "2027-01-11",
+                  "diaLimite": "2027-02-28",
+                  "cantidadObjetivo": 21,
+                  "unidad": "posts",
+                  "bandaAceptable": 60
+                }
+              ]
+            },
+            {
+              "titulo": "Historias",
+              "diaInicio": "2026-09-21",
+              "diaLimite": "2027-02-28",
+              "cantidadObjetivo": 115,
+              "unidad": "historias",
+              "bandaAceptable": 60,
+              "actividades": [],
+              "fases": [
+                {
+                  "titulo": "Mes 1 (5 historias por semana)",
+                  "orden": 0,
+                  "diaInicio": "2026-09-21",
+                  "diaLimite": "2026-10-18",
+                  "cantidadObjetivo": 20,
+                  "unidad": "historias",
+                  "bandaAceptable": 60
+                },
+                {
+                  "titulo": "Mes 2 (5 historias por semana)",
+                  "orden": 1,
+                  "diaInicio": "2026-10-19",
+                  "diaLimite": "2026-11-15",
+                  "cantidadObjetivo": 20,
+                  "unidad": "historias",
+                  "bandaAceptable": 60
+                },
+                {
+                  "titulo": "Mes 3 (5 historias por semana)",
+                  "orden": 2,
+                  "diaInicio": "2026-11-16",
+                  "diaLimite": "2026-12-13",
+                  "cantidadObjetivo": 20,
+                  "unidad": "historias",
+                  "bandaAceptable": 60
+                },
+                {
+                  "titulo": "Mes 4 (5 historias por semana)",
+                  "orden": 3,
+                  "diaInicio": "2026-12-14",
+                  "diaLimite": "2027-01-10",
+                  "cantidadObjetivo": 20,
+                  "unidad": "historias",
+                  "bandaAceptable": 60
+                },
+                {
+                  "titulo": "Mes 5 y 6 (5 historias por semana)",
+                  "orden": 4,
+                  "diaInicio": "2027-01-11",
+                  "diaLimite": "2027-02-28",
+                  "cantidadObjetivo": 35,
+                  "unidad": "historias",
+                  "bandaAceptable": 60
+                }
+              ]
+            },
+            {
+              "titulo": "Planificación de guiones e ideas (domingo)",
+              "diaInicio": "2026-09-21",
+              "diaLimite": "2027-02-28",
+              "recurrencia": {
+                "frecuencia": "dias_especificos",
+                "diasSemana": [0]
+              },
+              "actividades": [],
+              "fases": []
+            }
+          ]
+        },
+        {
+          "titulo": "Planificación Operativa",
+          "diaLimite": "2027-02-28",
+          "entregables": [
+            {
+              "titulo": "Revisión Semanal",
+              "diaInicio": "2026-09-21",
+              "diaLimite": "2027-02-28",
+              "recurrencia": {
+                "frecuencia": "dias_especificos",
+                "diasSemana": [0]
+              },
+              "actividades": [],
+              "fases": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Consolidar cartera de clientes para validar la viabilidad full-time de Nodexa",
+      "unidad": "Clientes activos",
+      "cantidadObjetivo": 6,
+      "bandaAceptable": 67,
+      "diaLimite": "2027-02-28",
+      "proyectos": [
+        {
+          "titulo": "Consolidación de Portfolio y Desarrollo",
+          "diaLimite": "2027-02-28",
+          "entregables": [
+            {
+              "titulo": "Un proyecto terminado por mes",
+              "diaInicio": "2026-09-21",
+              "diaLimite": "2027-02-28",
+              "cantidadObjetivo": 6,
+              "unidad": "proyectos",
+              "bandaAceptable": 67,
+              "actividades": [],
+              "fases": [
+                {
+                  "titulo": "Mes 1: 1 proyecto terminado",
+                  "orden": 0,
+                  "diaInicio": "2026-09-21",
+                  "diaLimite": "2026-10-18",
+                  "cantidadObjetivo": 1,
+                  "unidad": "proyectos"
+                },
+                {
+                  "titulo": "Mes 2: 1 proyecto terminado",
+                  "orden": 1,
+                  "diaInicio": "2026-10-19",
+                  "diaLimite": "2026-11-15",
+                  "cantidadObjetivo": 1,
+                  "unidad": "proyectos"
+                },
+                {
+                  "titulo": "Mes 3: 1 proyecto terminado",
+                  "orden": 2,
+                  "diaInicio": "2026-11-16",
+                  "diaLimite": "2026-12-13",
+                  "cantidadObjetivo": 1,
+                  "unidad": "proyectos"
+                },
+                {
+                  "titulo": "Mes 4: 1 proyecto terminado",
+                  "orden": 3,
+                  "diaInicio": "2026-12-14",
+                  "diaLimite": "2027-01-10",
+                  "cantidadObjetivo": 1,
+                  "unidad": "proyectos"
+                },
+                {
+                  "titulo": "Mes 5: 1 proyecto terminado",
+                  "orden": 4,
+                  "diaInicio": "2027-01-11",
+                  "diaLimite": "2027-02-07",
+                  "cantidadObjetivo": 1,
+                  "unidad": "proyectos"
+                },
+                {
+                  "titulo": "Mes 6: 1 proyecto terminado",
+                  "orden": 5,
+                  "diaInicio": "2027-02-08",
+                  "diaLimite": "2027-02-28",
+                  "cantidadObjetivo": 1,
+                  "unidad": "proyectos"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -59,6 +59,8 @@ export interface Actividad {
   estado: EstadoActividad;
   fechaMigradaDesde?: string;
   cantidadObjetivo?: number;
+  /** Lo mínimo aceptable de `cantidadObjetivo` para dar el día por cumplido (el día que no hay ganas). Se calcula al generar el reparto. */
+  cantidadMinima?: number;
   unidad?: string;
   progresoActual?: number;
   /** Lunes (YYYY-MM-DD) de la semana asignada — mismo criterio que TareaPendiente.semanaId. */
@@ -105,6 +107,7 @@ export const crearActividadSchema = z
     prioridad: z.enum(PRIORIDADES_ACTIVIDAD).optional(),
     area: z.enum(AREAS_PENDIENTE).optional(),
     cantidadObjetivo: z.number().positive().optional(),
+    cantidadMinima: z.number().min(0).optional(),
     unidad: z.string().trim().optional(),
     semanaId: fechaISO.optional(),
     recurrenciaId: z.string().optional(),

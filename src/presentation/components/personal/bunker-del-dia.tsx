@@ -84,6 +84,12 @@ const AvanceParcial: React.FC<{ actividad: Actividad }> = ({ actividad }) => {
     <div className="flex items-center gap-1.5">
       <span className="text-[10px] text-zinc-500">
         {progreso}/{actividad.cantidadObjetivo} {actividad.unidad || ""}
+        {actividad.cantidadMinima !== undefined &&
+          actividad.cantidadMinima < (actividad.cantidadObjetivo ?? 0) && (
+            <span className="ml-1 text-sky-400">
+              · mín. {actividad.cantidadMinima}
+            </span>
+          )}
       </span>
       <input
         type="number"
@@ -162,6 +168,18 @@ const CierreConCantidad: React.FC<{
         <span>
           de {meta} {actividad.unidad || ""}
         </span>
+        {actividad.cantidadMinima !== undefined &&
+          actividad.cantidadMinima < meta && (
+            <button
+              onClick={() => {
+                setHecha(String(actividad.cantidadMinima));
+                setDestino("fondo");
+              }}
+              className="rounded border border-sky-500/30 bg-sky-500/10 px-2 py-1 text-[10px] font-bold text-sky-300 uppercase hover:bg-sky-500/20"
+            >
+              Solo el mínimo ({actividad.cantidadMinima})
+            </button>
+          )}
       </label>
       {faltante > 0 && (
         <div className="flex flex-col gap-1.5">

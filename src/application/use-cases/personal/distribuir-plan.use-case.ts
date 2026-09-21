@@ -81,6 +81,7 @@ export class DistribuirPlanUseCase {
         descripcion: reparto.descripcion,
         diaTarea: r.dia,
         cantidadObjetivo: r.cantidad,
+        cantidadMinima: r.minimo,
         unidad: reparto.unidad,
       });
       if (res.ok) creadas++;

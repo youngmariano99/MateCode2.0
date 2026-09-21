@@ -2,6 +2,7 @@ import { db } from "../../../offline/dexie/db";
 import { Resultado } from "../../../shared/utilidades/resultado";
 import { ErrorDominio } from "../../../domain/errores/error-base";
 import {
+  avisosMinimosDelArbol,
   importarArbolPersonalSchema,
   importarProyectoBajoObjetivoSchema,
   importarEntregableBajoProyectoSchema,
@@ -87,6 +88,7 @@ export class ImportarArbolPersonalUseCase {
       diaLimite: string;
       total?: number;
       unidad?: string;
+      bandaAceptable?: number;
     }
   ): Promise<ResultadoCreacion> {
     const expandido = expandirReparto(reparto, contexto);
@@ -182,6 +184,8 @@ export class ImportarArbolPersonalUseCase {
         diaLimite: item.diaLimite,
         cantidadObjetivo: item.cantidadObjetivo,
         unidad: item.unidad,
+        bandaAceptable: item.bandaAceptable,
+        bandaMejorable: item.bandaMejorable,
         recurrencia: item.recurrencia,
       });
       if (!res.ok) {
@@ -207,6 +211,7 @@ export class ImportarArbolPersonalUseCase {
             diaLimite: item.diaLimite,
             total: item.cantidadObjetivo,
             unidad: item.unidad,
+            bandaAceptable: item.bandaAceptable,
           }),
         ]
       : [];
@@ -240,6 +245,8 @@ export class ImportarArbolPersonalUseCase {
         diaLimite: item.diaLimite,
         cantidadObjetivo: item.cantidadObjetivo,
         unidad: item.unidad,
+        bandaAceptable: item.bandaAceptable,
+        bandaMejorable: item.bandaMejorable,
       });
       if (!res.ok) {
         return {
@@ -282,6 +289,8 @@ export class ImportarArbolPersonalUseCase {
         titulo: item.titulo,
         unidad: item.unidad,
         cantidadObjetivo: item.cantidadObjetivo,
+        bandaAceptable: item.bandaAceptable,
+        bandaMejorable: item.bandaMejorable,
         diaInicio: item.diaInicio ?? obtenerDiaTareaHoy(),
         diaLimite: item.diaLimite,
         areaId,
@@ -346,7 +355,13 @@ export class ImportarArbolPersonalUseCase {
         this.crearObjetivoConHijos(o, area.valor)
       )
     );
-    return this.resultadoFinal(combinar(...resultados), "objetivo");
+    const final = this.resultadoFinal(combinar(...resultados), "objetivo");
+    if (!final.ok) return final;
+    const avisos = avisosMinimosDelArbol(parsed.data.objetivosNuevos);
+    return Resultado.exito(
+      final.valor +
+        (avisos.length > 0 ? ` Ojo con los mínimos: ${avisos.join(" | ")}` : "")
+    );
   }
 
   /** Igual que importarArbol — nombre propio para el prompt "solo Objetivo" (misma estructura, sin nivel de Proyecto). */
@@ -517,6 +532,7 @@ export class ImportarArbolPersonalUseCase {
         diaLimite: item.diaLimite,
         total: item.cantidadObjetivo,
         unidad: item.unidad,
+        bandaAceptable: item.bandaAceptable,
       });
       return combinar(propio, hijos);
     }

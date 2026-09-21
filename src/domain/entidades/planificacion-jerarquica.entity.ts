@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TIPOS_ACTIVIDAD } from "./actividad.entity";
 import { FRECUENCIAS_RECURRENCIA } from "./entregable.entity";
 import { repartoJsonSchema } from "./distribucion-personal.entity";
+import { chequearCoherenciaMinimos } from "./minimos-personal.entity";
 
 // ============================================================================
 // Contratos del JSON de "armar la jerarquía con IA" — un solo set de
@@ -58,6 +59,8 @@ export const itemEntregableJsonSchema = z.object({
   diaLimite: fechaISO,
   cantidadObjetivo: z.number().positive().optional(),
   unidad: z.string().trim().optional(),
+  bandaAceptable: z.number().min(0).max(100).optional(),
+  bandaMejorable: z.number().min(0).max(100).optional(),
   recurrencia: z
     .object({
       frecuencia: z.enum(FRECUENCIAS_RECURRENCIA),
@@ -77,6 +80,8 @@ export const itemProyectoJsonSchema = z.object({
   diaLimite: fechaISO,
   cantidadObjetivo: z.number().positive().optional(),
   unidad: z.string().trim().optional(),
+  bandaAceptable: z.number().min(0).max(100).optional(),
+  bandaMejorable: z.number().min(0).max(100).optional(),
   entregables: z.array(itemEntregableJsonSchema).default([]),
 });
 export type ItemProyectoJson = z.infer<typeof itemProyectoJsonSchema>;
@@ -87,6 +92,8 @@ export const itemObjetivoJsonSchema = z.object({
   cantidadObjetivo: z
     .number()
     .positive("La cantidad objetivo tiene que ser mayor a 0."),
+  bandaAceptable: z.number().min(0).max(100).optional(),
+  bandaMejorable: z.number().min(0).max(100).optional(),
   diaInicio: fechaISO.optional(),
   diaLimite: fechaISO,
   proyectos: z.array(itemProyectoJsonSchema).default([]),
@@ -163,3 +170,35 @@ export const importarFasesBajoEntregableSchema = z.object({
 export type ImportarFasesBajoEntregableInput = z.input<
   typeof importarFasesBajoEntregableSchema
 >;
+
+/**
+ * Avisos de coherencia de mínimos de un árbol a importar: para cada
+ * Entregable con Fases, ¿los mínimos de las Fases alcanzan para el mínimo del
+ * Entregable? (Ej.: 20 semanas con mínimo 6 = 120 < 150 = 75% de 200.) Solo
+ * avisa: nunca frena la importación.
+ */
+export function avisosMinimosDelArbol(
+  objetivos: Pick<ItemObjetivoJson, "proyectos">[]
+): string[] {
+  const avisos: string[] = [];
+  for (const o of objetivos) {
+    for (const p of o.proyectos ?? []) {
+      for (const e of p.entregables ?? []) {
+        if (e.cantidadObjetivo === undefined || (e.fases ?? []).length === 0)
+          continue;
+        const aviso = chequearCoherenciaMinimos(
+          e.titulo,
+          e.cantidadObjetivo,
+          e.bandaAceptable,
+          e.fases.map((f) => ({
+            titulo: f.titulo,
+            meta: f.cantidadObjetivo,
+            bandaAceptable: f.bandaAceptable,
+          }))
+        );
+        if (aviso) avisos.push(aviso.mensaje);
+      }
+    }
+  }
+  return avisos;
+}

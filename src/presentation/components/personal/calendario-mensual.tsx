@@ -5,8 +5,17 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../../offline/dexie/db";
 import { Icono } from "../icons";
 import { obtenerDiaTareaHoy } from "../../../domain/entidades/personal.entity";
-import { ChipActividad, ChipEntregable } from "./calendario-semanal";
-import { useColorPorObjetivo, sumarDias } from "./calendario-utils";
+import {
+  ChipActividad,
+  ChipEntregable,
+  ChipRecurrente,
+} from "./calendario-semanal";
+import { recurrentesDelDia } from "../../../domain/entidades/metas-periodo.entity";
+import {
+  useColorPorObjetivo,
+  useEntregablesRecurrentes,
+  sumarDias,
+} from "./calendario-utils";
 
 const SIN_ITEMS: never[] = [];
 
@@ -56,6 +65,7 @@ export const CalendarioMensual: React.FC = () => {
   const [anioMes, setAnioMes] = useState(mesDe(hoy));
   const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null);
   const colorPorObjetivo = useColorPorObjetivo();
+  const recurrentes = useEntregablesRecurrentes();
 
   const inicioGrilla = primerDiaGrilla(anioMes);
   const finGrilla = sumarDias(inicioGrilla, 41); // 6 semanas x 7 días - 1
@@ -93,6 +103,16 @@ export const CalendarioMensual: React.FC = () => {
         color: colorPorObjetivo(a.objetivoId),
         actividad: a,
       })),
+    ...recurrentesDelDia(
+      recurrentes,
+      actividades.filter((a) => a.diaTarea === dia),
+      dia
+    ).map((e) => ({
+      tipo: "recurrente" as const,
+      clave: `rec_${e.id}`,
+      color: colorPorObjetivo(e.objetivoId),
+      entregable: e,
+    })),
     ...entregables
       .filter((e) => e.diaLimite === dia)
       .map((e) => ({
@@ -205,6 +225,12 @@ export const CalendarioMensual: React.FC = () => {
               <ChipActividad
                 key={item.clave}
                 actividad={item.actividad}
+                color={item.color}
+              />
+            ) : item.tipo === "recurrente" ? (
+              <ChipRecurrente
+                key={item.clave}
+                entregable={item.entregable}
                 color={item.color}
               />
             ) : (

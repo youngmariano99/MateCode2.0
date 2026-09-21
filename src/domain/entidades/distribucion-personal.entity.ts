@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { sumarDias } from "./personal.entity";
+import { minimoDe } from "./minimos-personal.entity";
 
 // ============================================================================
 // Distribución de una meta numérica — el "asistente de dos pasos":
@@ -60,6 +61,8 @@ export function repartirParejo(total: number, n: number): number[] {
 export interface CantidadPorDia {
   dia: string;
   cantidad: number;
+  /** Mínimo aceptable de ese día (ver bandaAceptable del reparto). */
+  minimo?: number;
 }
 
 /** Reparte un total en la lista de días dada (los días con 0 se omiten). */
@@ -193,6 +196,8 @@ export const repartoJsonSchema = z.object({
     .default(DIAS_HABILES),
   cantidadTotal: z.number().positive().optional(),
   unidad: z.string().trim().optional(),
+  /** % de la cantidad de CADA DÍA que alcanza como mínimo (ej. 50 → si toca 2, con 1 vale). Si falta, hereda la banda de la Fase/Entregable donde va. */
+  bandaAceptable: z.number().min(0).max(100).optional(),
 });
 export type RepartoJson = z.infer<typeof repartoJsonSchema>;
 
@@ -201,6 +206,8 @@ export interface ContextoReparto {
   diaLimite: string;
   total?: number;
   unidad?: string;
+  /** Banda mínima del padre (Fase/Entregable), si el reparto no trae la suya. */
+  bandaAceptable?: number;
 }
 
 export interface RepartoExpandido {
@@ -219,10 +226,14 @@ export function expandirReparto(
   const fin = reparto.diaLimite ?? contexto.diaLimite;
   const total = reparto.cantidadTotal ?? contexto.total ?? 0;
   const dias = diasDelRango(inicio, fin, reparto.diasSemana);
+  const banda = reparto.bandaAceptable ?? contexto.bandaAceptable;
   return {
     descripcion: reparto.descripcion,
     tipo: reparto.tipo,
     unidad: reparto.unidad ?? contexto.unidad,
-    porDia: repartirEnListaDeDias(total, dias),
+    porDia: repartirEnListaDeDias(total, dias).map((r) => ({
+      ...r,
+      minimo: banda === undefined ? undefined : minimoDe(r.cantidad, banda),
+    })),
   };
 }

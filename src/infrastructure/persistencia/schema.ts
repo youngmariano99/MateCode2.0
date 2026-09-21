@@ -1154,6 +1154,7 @@ export const actividadPersonal = pgTable("actividad_personal", {
   estado: varchar("estado", { length: 20 }).notNull(),
   fechaMigradaDesde: varchar("fecha_migrada_desde", { length: 10 }),
   cantidadObjetivo: doublePrecision("cantidad_objetivo"),
+  cantidadMinima: doublePrecision("cantidad_minima"),
   unidad: varchar("unidad", { length: 50 }),
   progresoActual: doublePrecision("progreso_actual"),
   semanaId: varchar("semana_id", { length: 10 }),

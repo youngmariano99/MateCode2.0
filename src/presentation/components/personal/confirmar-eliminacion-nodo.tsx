@@ -19,6 +19,7 @@ const ETIQUETA_CONTEO: Record<keyof ConteoDescendientesPersonal, string> = {
   objetivos: "Objetivo(s)",
   proyectos: "Proyecto(s)",
   entregables: "Entregable(s)",
+  fases: "Fase(s)",
   actividades: "Actividad(es)",
   habitosVinculados:
     "Hábito(s) vinculado(s) — quedan, solo se les saca el vínculo",
@@ -59,8 +60,15 @@ export const ConfirmarEliminacionNodo: React.FC<
     resultado && !resultado.ok ? resultado.error!.mensaje : null;
 
   const totalDependientes = conteo
-    ? Object.values(conteo).reduce((s, n) => s + (n || 0), 0)
+    ? Object.entries(conteo)
+        // Los hábitos vinculados NO se eliminan: no cuentan como "más".
+        .filter(([clave]) => clave !== "habitosVinculados")
+        .reduce((s, [, n]) => s + (n || 0), 0)
     : 0;
+
+  const hayAlgo = conteo
+    ? Object.values(conteo).some((n) => (n || 0) > 0)
+    : false;
 
   const confirmar = async () => {
     setEliminando(true);
@@ -108,12 +116,12 @@ export const ConfirmarEliminacionNodo: React.FC<
           </div>
         )}
         {errorConteo && <p className="text-sm text-red-400">{errorConteo}</p>}
-        {conteo && totalDependientes === 0 && (
+        {conteo && !hayAlgo && (
           <p className="text-sm text-zinc-400">
             No tiene nada debajo — se elimina solo.
           </p>
         )}
-        {conteo && totalDependientes > 0 && (
+        {conteo && hayAlgo && (
           <>
             <p className="text-sm text-zinc-300">
               Esto también elimina todo lo que depende de acá:

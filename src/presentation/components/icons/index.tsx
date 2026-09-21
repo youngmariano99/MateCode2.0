@@ -38,6 +38,7 @@ export const Icono = {
   TrendingDown: Lucide.TrendingDown,
   Info: Lucide.Info,
   Clock: Lucide.Clock,
+  Repeat: Lucide.Repeat,
   Play: Lucide.Play,
   Pause: Lucide.Pause,
   Coffee: Lucide.Coffee,

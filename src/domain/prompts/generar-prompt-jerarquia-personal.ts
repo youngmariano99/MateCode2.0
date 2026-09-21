@@ -86,6 +86,20 @@ const NOTA_FASES = `Las Fases NO son un nivel nuevo de la jerarquía (sigue sien
 
 const INSTRUCCION_PREGUNTAR = `Antes de generar el JSON final, hacé todas las preguntas que necesites para no inventar nada: fechas, cantidades, si algo es recurrente o puntual. Esperá mi respuesta a cada pregunta. NO generes el JSON hasta que confirme que ya tenés todo lo necesario.`;
 
+const NOTA_UNA_AREA = `UN JSON = UNA SOLA ÁREA. "areaTitulo" es un único nombre y todo lo que cuelga del JSON pertenece a esa área. Si lo que pido abarca varias áreas (ej. Agencia y Salud), entregá un JSON POR ÁREA, cada uno en su propio bloque de código y con su "areaTitulo" exacto — nunca los mezcles ni unifiques áreas con nombres compuestos ("Agencia, Finanzas y Salud").`;
+
+const NOTA_MINIMOS = `MÍNIMOS ACEPTABLES — todo nivel lleva un mínimo, para el día que no hay ganas de hacer el 100%. Se define con "bandaAceptable" (0-100: el % de su "cantidadObjetivo" que cuenta como mínimo aceptable) y, opcional, "bandaMejorable" (menor que la aceptable). Va en el Objetivo, el Proyecto, el Entregable y la Fase; y en el "reparto" la "bandaAceptable" es el mínimo de CADA DÍA (si falta, el reparto hereda la de su Fase/Entregable). Ejemplo: Objetivo 200 contactos con bandaAceptable 75 (mínimo 150) → mes de 50 con 60 (mínimo 30) → semana de 10 con 60 (mínimo 6) → día de 2 con 50 (mínimo 1). Preguntame qué mínimo quiero en cada nivel y proponé valores razonables. REGLA DE COHERENCIA: la suma de los mínimos de los tramos tiene que ser IGUAL O MAYOR al mínimo del total — si no, cumpliendo solo el mínimo de cada tramo nunca se llega al mínimo del total. Ej.: 20 semanas con mínimo 6 = 120, pero el mínimo del total es 150 → NO cierra: subí la bandaAceptable de los tramos (a 75) o bajá la del total. Verificalo en la tabla de control (columna "mínimo" y "suma de mínimos vs mínimo del total"). La aplicación después avisa sola cuando cumplir solo los mínimos diarios no alcanzaría para llegar al mínimo del período.`;
+
+const NOTA_METAS_SIN_ACTIVIDADES = `METAS SIN ACTIVIDADES DIARIAS — si el usuario ya planifica su día a día en otra herramienta (ej. contenido en un planificador aparte, o desarrollo de proyectos), NO uses "reparto" ni "actividades": dejá "actividades": [] y expresá la meta con "fases" (tramos con su "cantidadObjetivo" y fechas, SIN reparto) o, si es una sola cantidad, con "cantidadObjetivo" en el Entregable y sin fases. La app muestra esas metas en la vista de la semana y del mes, y el usuario anota lo hecho con un botón "+1". Para una cuota que progresa por mes (ej. semana 1er mes: 3 videos; 2do mes: 4; 3er mes: 5), armá UNA Fase por tramo con semanas completas (lunes a domingo) y "cantidadObjetivo" = cuota semanal × cantidad de semanas del tramo; la app calcula sola cuánto toca por semana. Si se repite un patrón semanal fijo (ej. "Lunes: video, martes: post"), es un Entregable con "recurrencia" (aparece en el calendario los días que toca) y la cantidad va en el Entregable o sus Fases.`;
+
+const NOTA_CONTROL_NUMEROS = `CONTROL DE NÚMEROS — antes de escribir el JSON, mostrame una tabla de control y esperá mi OK. No entregues nada que no cierre exacto:
+1. Total: la suma de "cantidadObjetivo" de todas las Fases de un Entregable tiene que ser IGUAL a su "cantidadObjetivo".
+2. Reparto entero: para cada Fase con "reparto", contá los días REALES entre "diaInicio" y "diaLimite" que caen en "diasSemana" y verificá que la cantidad se divida en enteros (cantidad ÷ días). Si no da entero (ej. 25 en 10 días = 2,5 por día), ajustá la cantidad al múltiplo más cercano y avisame el cambio; nunca dejes decimales.
+3. Sin huecos ni solapes: la primera Fase empieza el "diaInicio" del Entregable, cada Fase empieza al día siguiente del "diaLimite" de la anterior, y la última termina el "diaLimite" del Entregable. Las semanas van de lunes a domingo.
+4. Fechas: verificá que cada fecha caiga en el día de la semana que corresponde (0 = domingo … 6 = sábado) y que las fechas de un nivel estén dentro de las de su padre.
+5. Sin inventar: si un dato no lo dije (fechas, cuotas, feriados a descontar), preguntalo. Metas en otra unidad que no se calcula desde los Entregables (pesos, clientes) las cargo yo a mano: NO inventes Entregables ni cuentas para "forzar" que coincidan, solo dejá el Objetivo con su cantidad y unidad.
+6. Tabla de control (una fila por Fase): título · fechas · días que cuentan · cantidad · cantidad por día. Al final, la suma contra el total del Entregable.`;
+
 /** Árbol completo: Área (nueva o existente) → Objetivo(s) → Proyecto(s) → Entregable(s) → Actividad(es), todo en un JSON. */
 function construirPromptArbolCompleto(
   resumenHistorico: string,
@@ -125,6 +139,14 @@ ${NOTA_HABITO}
 
 <instrucciones>
 ${INSTRUCCION_PREGUNTAR} Preguntame primero qué Área es, y si es una de las existentes o una nueva.
+
+${NOTA_UNA_AREA}
+
+${NOTA_MINIMOS}
+
+${NOTA_METAS_SIN_ACTIVIDADES}
+
+${NOTA_CONTROL_NUMEROS}
 </instrucciones>
 
 <output_requerido>
@@ -133,14 +155,14 @@ Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta est
   "areaTitulo": "...",
   "objetivosNuevos": [
     {
-      "titulo": "...", "unidad": "...", "cantidadObjetivo": 5, "diaLimite": "YYYY-MM-DD",
+      "titulo": "...", "unidad": "...", "cantidadObjetivo": 5, "bandaAceptable": 75, "diaLimite": "YYYY-MM-DD",
       "proyectos": [
         {
-          "titulo": "...", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 120, "unidad": "horas",
+          "titulo": "...", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 120, "unidad": "horas", "bandaAceptable": 70,
           "entregables": [
             {
-              "titulo": "Contacto en frío — Semana 1", "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 40, "unidad": "contactos",
-              "reparto": { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5] },
+              "titulo": "Contacto en frío — Semana 1", "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 40, "unidad": "contactos", "bandaAceptable": 60,
+              "reparto": { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5], "bandaAceptable": 50 },
               "actividades": [],
               "fases": []
             },
@@ -183,7 +205,7 @@ ${areasTexto}
 </areas_existentes>
 
 <instrucciones>
-Un Objetivo es SMART: cantidad + unidad + fecha límite obligatorias, y pertenece a un Área (existente o nueva). ${INSTRUCCION_PREGUNTAR}
+Un Objetivo es SMART: cantidad + unidad + fecha límite obligatorias, y pertenece a un Área (existente o nueva). ${NOTA_UNA_AREA} ${INSTRUCCION_PREGUNTAR}
 </instrucciones>
 
 <output_requerido>
@@ -312,7 +334,9 @@ Estas Fases van a pertenecer al Entregable "${entregableTitulo}" (${entregableRe
 </entregable_padre>
 
 <instrucciones>
-Cada Fase tiene: título, orden (0, 1, 2...), fecha de inicio, fecha límite, cantidad objetivo PROPIA (no el total del Entregable — la parte que le toca a esa Fase) y unidad. Si la cuota va cambiando con el tiempo (ej. "empiezo en 2 por día y subo 1 por semana"), calculá vos la cantidad de cada Fase (días hábiles de esa Fase × la cuota que corresponde en ese momento) — no repitas el mismo número en todas. Opcionalmente, "bandaAceptable"/"bandaMejorable" (0-100, % de la meta de esa Fase) si el usuario quiere margen para no llegar al 100% y aun así avanzar. Opcionalmente, cada Fase puede llevar su "reparto" para que el sistema genere las actividades diarias de esa Fase con su cantidad: { "descripcion": "...", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5] } — hereda las fechas, la cantidad y la unidad de la propia Fase, así que no las repitas. La suma de las cantidades de todas las Fases tiene que ser igual a la meta del Entregable. ${INSTRUCCION_PREGUNTAR}
+Cada Fase tiene: título, orden (0, 1, 2...), fecha de inicio, fecha límite, cantidad objetivo PROPIA (no el total del Entregable — la parte que le toca a esa Fase) y unidad. Si la cuota va cambiando con el tiempo (ej. "empiezo en 2 por día y subo 1 por semana"), calculá vos la cantidad de cada Fase (días hábiles de esa Fase × la cuota que corresponde en ese momento) — no repitas el mismo número en todas. Opcionalmente, "bandaAceptable"/"bandaMejorable" (0-100, % de la meta de esa Fase) si el usuario quiere margen para no llegar al 100% y aun así avanzar. Opcionalmente, cada Fase puede llevar su "reparto" para que el sistema genere las actividades diarias de esa Fase con su cantidad: { "descripcion": "...", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5] } — hereda las fechas, la cantidad y la unidad de la propia Fase, así que no las repitas. La suma de las cantidades de todas las Fases tiene que ser igual a la meta del Entregable. ${NOTA_MINIMOS} ${INSTRUCCION_PREGUNTAR}
+
+${NOTA_CONTROL_NUMEROS}
 </instrucciones>
 
 <output_requerido>
@@ -383,7 +407,15 @@ ${NOTA_HABITO}
 </flujo_obligatorio>
 
 <instrucciones>
-${INSTRUCCION_PREGUNTAR} No generes NINGÚN JSON hasta terminar las 3 etapas — cada etapa se confirma en el chat antes de pasar a la siguiente. Al final se genera UN SOLO JSON con todo (objetivos, proyectos, entregables, actividades y fases juntos) — no hace falta pegar nada por separado.
+${INSTRUCCION_PREGUNTAR} No generes NINGÚN JSON hasta terminar las 3 etapas — cada etapa se confirma en el chat antes de pasar a la siguiente. Al final se genera UN SOLO JSON POR ÁREA con todo (objetivos, proyectos, entregables, actividades y fases juntos) — no hace falta pegar nada por separado.
+
+${NOTA_UNA_AREA}
+
+${NOTA_MINIMOS}
+
+${NOTA_METAS_SIN_ACTIVIDADES}
+
+${NOTA_CONTROL_NUMEROS}
 </instrucciones>
 
 <output_requerido>
@@ -392,19 +424,19 @@ Recién al final de la Etapa 3, cuando confirme que todo está listo, devolvé �
   "areaTitulo": "...",
   "objetivosNuevos": [
     {
-      "titulo": "...", "unidad": "...", "cantidadObjetivo": 5, "diaLimite": "YYYY-MM-DD",
+      "titulo": "...", "unidad": "...", "cantidadObjetivo": 5, "bandaAceptable": 75, "diaLimite": "YYYY-MM-DD",
       "proyectos": [
         {
-          "titulo": "...", "diaLimite": "YYYY-MM-DD",
+          "titulo": "...", "diaLimite": "YYYY-MM-DD", "bandaAceptable": 70,
           "entregables": [
             {
-              "titulo": "Contacto en frío", "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 200, "unidad": "contactos",
+              "titulo": "Contacto en frío", "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 200, "unidad": "contactos", "bandaAceptable": 75,
               "actividades": [],
               "fases": [
-                { "titulo": "Semana 1", "orden": 0, "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 10, "unidad": "contactos",
-                  "reparto": { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5] } },
-                { "titulo": "Semana 2", "orden": 1, "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 15, "unidad": "contactos",
-                  "reparto": { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5] } }
+                { "titulo": "Semana 1", "orden": 0, "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 10, "unidad": "contactos", "bandaAceptable": 75,
+                  "reparto": { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5], "bandaAceptable": 50 } },
+                { "titulo": "Semana 2", "orden": 1, "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "cantidadObjetivo": 15, "unidad": "contactos", "bandaAceptable": 75,
+                  "reparto": { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5], "bandaAceptable": 50 } }
               ]
             }
           ]

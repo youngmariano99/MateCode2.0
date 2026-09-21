@@ -1,0 +1,348 @@
+{
+  "areaTitulo": "Salud",
+  "objetivosNuevos": [
+    {
+      "titulo": "Consolidar el hábito de base metabólica y revertir el sedentarismo",
+      "unidad": "Bloques completados",
+      "cantidadObjetivo": 4,
+      "bandaAceptable": 75,
+      "diaLimite": "2027-02-28",
+      "proyectos": [
+        {
+          "titulo": "Escalera de Pasos NEAT y Pausas Activas",
+          "diaLimite": "2027-02-28",
+          "entregables": [
+            {
+              "titulo": "Caminata NEAT",
+              "diaInicio": "2026-09-21",
+              "diaLimite": "2027-02-28",
+              "cantidadObjetivo": 935900,
+              "unidad": "metros",
+              "bandaAceptable": 60,
+              "actividades": [],
+              "fases": [
+                {
+                  "titulo": "Semana 1",
+                  "orden": 0,
+                  "diaInicio": "2026-09-21",
+                  "diaLimite": "2026-09-27",
+                  "cantidadObjetivo": 18200,
+                  "unidad": "metros",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Caminata NEAT",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [0, 1, 2, 3, 4, 5, 6]
+                  }
+                },
+                {
+                  "titulo": "Semana 2",
+                  "orden": 1,
+                  "diaInicio": "2026-09-28",
+                  "diaLimite": "2026-10-04",
+                  "cantidadObjetivo": 21000,
+                  "unidad": "metros",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Caminata NEAT",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [0, 1, 2, 3, 4, 5, 6]
+                  }
+                },
+                {
+                  "titulo": "Semana 3",
+                  "orden": 2,
+                  "diaInicio": "2026-10-05",
+                  "diaLimite": "2026-10-11",
+                  "cantidadObjetivo": 23800,
+                  "unidad": "metros",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Caminata NEAT",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [0, 1, 2, 3, 4, 5, 6]
+                  }
+                },
+                {
+                  "titulo": "Semanas 4 a 5",
+                  "orden": 3,
+                  "diaInicio": "2026-10-12",
+                  "diaLimite": "2026-10-25",
+                  "cantidadObjetivo": 56000,
+                  "unidad": "metros",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Caminata NEAT",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [0, 1, 2, 3, 4, 5, 6]
+                  }
+                },
+                {
+                  "titulo": "Semanas 6 a 8",
+                  "orden": 4,
+                  "diaInicio": "2026-10-26",
+                  "diaLimite": "2026-11-15",
+                  "cantidadObjetivo": 102900,
+                  "unidad": "metros",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Caminata NEAT",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [0, 1, 2, 3, 4, 5, 6]
+                  }
+                },
+                {
+                  "titulo": "Semanas 9 a 11",
+                  "orden": 5,
+                  "diaInicio": "2026-11-16",
+                  "diaLimite": "2026-12-06",
+                  "cantidadObjetivo": 117600,
+                  "unidad": "metros",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Caminata NEAT",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [0, 1, 2, 3, 4, 5, 6]
+                  }
+                },
+                {
+                  "titulo": "Semanas 12 a 18",
+                  "orden": 6,
+                  "diaInicio": "2026-12-07",
+                  "diaLimite": "2027-01-24",
+                  "cantidadObjetivo": 323400,
+                  "unidad": "metros",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Caminata NEAT",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [0, 1, 2, 3, 4, 5, 6]
+                  }
+                },
+                {
+                  "titulo": "Semanas 19 a 23 (Febrero)",
+                  "orden": 7,
+                  "diaInicio": "2027-01-25",
+                  "diaLimite": "2027-02-28",
+                  "cantidadObjetivo": 273000,
+                  "unidad": "metros",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Caminata NEAT",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [0, 1, 2, 3, 4, 5, 6]
+                  }
+                }
+              ]
+            },
+            {
+              "titulo": "Pausas Activas de Escritorio",
+              "diaInicio": "2026-09-21",
+              "diaLimite": "2027-02-28",
+              "cantidadObjetivo": 510,
+              "unidad": "pausas",
+              "bandaAceptable": 60,
+              "actividades": [],
+              "fases": [
+                {
+                  "titulo": "Semana 1",
+                  "orden": 0,
+                  "diaInicio": "2026-09-21",
+                  "diaLimite": "2026-09-27",
+                  "cantidadObjetivo": 5,
+                  "unidad": "pausas",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Pausa activa de escritorio",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                },
+                {
+                  "titulo": "Semana 2",
+                  "orden": 1,
+                  "diaInicio": "2026-09-28",
+                  "diaLimite": "2026-10-04",
+                  "cantidadObjetivo": 5,
+                  "unidad": "pausas",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Pausa activa de escritorio",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                },
+                {
+                  "titulo": "Semana 3",
+                  "orden": 2,
+                  "diaInicio": "2026-10-05",
+                  "diaLimite": "2026-10-11",
+                  "cantidadObjetivo": 10,
+                  "unidad": "pausas",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Pausa activa de escritorio",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                },
+                {
+                  "titulo": "Semanas 4 a 5",
+                  "orden": 3,
+                  "diaInicio": "2026-10-12",
+                  "diaLimite": "2026-10-25",
+                  "cantidadObjetivo": 30,
+                  "unidad": "pausas",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Pausa activa de escritorio",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                },
+                {
+                  "titulo": "Semanas 6 a 8",
+                  "orden": 4,
+                  "diaInicio": "2026-10-26",
+                  "diaLimite": "2026-11-15",
+                  "cantidadObjetivo": 60,
+                  "unidad": "pausas",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Pausa activa de escritorio",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                },
+                {
+                  "titulo": "Semanas 9 a 11",
+                  "orden": 5,
+                  "diaInicio": "2026-11-16",
+                  "diaLimite": "2026-12-06",
+                  "cantidadObjetivo": 75,
+                  "unidad": "pausas",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Pausa activa de escritorio",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                },
+                {
+                  "titulo": "Semanas 12 a 18",
+                  "orden": 6,
+                  "diaInicio": "2026-12-07",
+                  "diaLimite": "2027-01-24",
+                  "cantidadObjetivo": 175,
+                  "unidad": "pausas",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Pausa activa de escritorio",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                },
+                {
+                  "titulo": "Semanas 19 a 23 (Febrero)",
+                  "orden": 7,
+                  "diaInicio": "2027-01-25",
+                  "diaLimite": "2027-02-28",
+                  "cantidadObjetivo": 150,
+                  "unidad": "pausas",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Pausa activa de escritorio",
+                    "tipo": "mantenimiento",
+                    "diasSemana": [1, 2, 3, 4, 5]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "titulo": "Preparación física, fuerza y prevención de lesiones para la pretemporada",
+      "unidad": "Bloques completados",
+      "cantidadObjetivo": 4,
+      "bandaAceptable": 75,
+      "diaLimite": "2027-02-28",
+      "proyectos": [
+        {
+          "titulo": "Sesiones de Fuerza y Estructura",
+          "diaLimite": "2027-02-28",
+          "entregables": [
+            {
+              "titulo": "Entrenamiento de Fuerza",
+              "diaInicio": "2026-09-21",
+              "diaLimite": "2027-02-28",
+              "cantidadObjetivo": 64,
+              "unidad": "sesiones",
+              "bandaAceptable": 60,
+              "actividades": [],
+              "fases": [
+                {
+                  "titulo": "Bloque 1: Fuerza Base",
+                  "orden": 0,
+                  "diaInicio": "2026-09-21",
+                  "diaLimite": "2026-10-25",
+                  "cantidadObjetivo": 10,
+                  "unidad": "sesiones",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Entrenamiento de fuerza",
+                    "tipo": "enfoque",
+                    "diasSemana": [3, 5]
+                  }
+                },
+                {
+                  "titulo": "Bloque 2: Fuerza Unilateral",
+                  "orden": 1,
+                  "diaInicio": "2026-10-26",
+                  "diaLimite": "2026-12-06",
+                  "cantidadObjetivo": 18,
+                  "unidad": "sesiones",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Entrenamiento de fuerza",
+                    "tipo": "enfoque",
+                    "diasSemana": [1, 3, 5]
+                  }
+                },
+                {
+                  "titulo": "Bloque 3: Potencia y RSA",
+                  "orden": 2,
+                  "diaInicio": "2026-12-07",
+                  "diaLimite": "2027-01-17",
+                  "cantidadObjetivo": 18,
+                  "unidad": "sesiones",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Entrenamiento de fuerza",
+                    "tipo": "enfoque",
+                    "diasSemana": [1, 3, 5]
+                  }
+                },
+                {
+                  "titulo": "Bloque 4: Pretemporada",
+                  "orden": 3,
+                  "diaInicio": "2027-01-18",
+                  "diaLimite": "2027-02-28",
+                  "cantidadObjetivo": 18,
+                  "unidad": "sesiones",
+                  "bandaAceptable": 60,
+                  "reparto": {
+                    "descripcion": "Entrenamiento de fuerza",
+                    "tipo": "enfoque",
+                    "diasSemana": [1, 3, 5]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

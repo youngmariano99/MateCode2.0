@@ -8,6 +8,8 @@ import { BunkerDelDia } from "../../../../presentation/components/personal/bunke
 import { PanelRepasoSemanal } from "../../../../presentation/components/personal/panel-repaso-semanal";
 import { PanelFondoFaltantes } from "../../../../presentation/components/personal/panel-fondo-faltantes";
 import { PanelPendientes } from "../../../../presentation/components/personal/panel-pendientes";
+import { PanelMetasPeriodo } from "../../../../presentation/components/personal/panel-metas-periodo";
+import { AvisoMinimos } from "../../../../presentation/components/personal/aviso-minimos";
 import { AvisoFasesPendientes } from "../../../../presentation/components/personal/aviso-fases-pendientes";
 import { PanelRecuperarHabitos } from "../../../../presentation/components/personal/panel-recuperar-habitos";
 import { NavegadorJerarquico } from "../../../../presentation/components/personal/navegador-jerarquico";
@@ -20,7 +22,11 @@ import { GestionarObjetivosUseCase } from "../../../../application/use-cases/per
 import { MaterializarActividadesDelDiaUseCase } from "../../../../application/use-cases/personal/materializar-actividades-del-dia.use-case";
 import { EliminarNodoPersonalUseCase } from "../../../../application/use-cases/personal/eliminar-nodo-personal.use-case";
 import { GestionarFasesUseCase } from "../../../../application/use-cases/personal/gestionar-fases.use-case";
-import { obtenerDiaTareaHoy } from "../../../../domain/entidades/personal.entity";
+import {
+  lunesDeLaSemana,
+  obtenerDiaTareaHoy,
+  sumarDias,
+} from "../../../../domain/entidades/personal.entity";
 
 const objetivosUseCase = new GestionarObjetivosUseCase();
 const materializarUseCase = new MaterializarActividadesDelDiaUseCase();
@@ -117,6 +123,7 @@ export default function PersonalHoyPage() {
         {horizonte === "dia" && (
           <div className="flex flex-col gap-6">
             <AvisoFasesPendientes />
+            <AvisoMinimos />
             <PanelRecuperarHabitos />
             <BunkerDelDia />
             <PanelFondoFaltantes />
@@ -127,6 +134,11 @@ export default function PersonalHoyPage() {
 
         {horizonte === "semana" && (
           <div className="flex flex-col gap-4">
+            <PanelMetasPeriodo
+              desde={lunesDeLaSemana(obtenerDiaTareaHoy())}
+              hasta={sumarDias(lunesDeLaSemana(obtenerDiaTareaHoy()), 6)}
+              titulo="Metas de esta semana"
+            />
             <PanelRepasoSemanal />
             <PlanificarSemanaIA />
             <PanelPendientes />

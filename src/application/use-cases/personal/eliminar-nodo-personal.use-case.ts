@@ -19,6 +19,7 @@ export interface ConteoDescendientesPersonal {
   objetivos?: number;
   proyectos?: number;
   entregables?: number;
+  fases?: number;
   actividades?: number;
   /** No se eliminan — quedan sin vínculo (ver Decisión A: hábitos son independientes de la jerarquía). */
   habitosVinculados?: number;
@@ -45,6 +46,13 @@ async function porAnyOf<T>(
  * les limpia el vínculo colgante, nunca se pierde el hábito en sí.
  */
 export class EliminarNodoPersonalUseCase {
+  private async contarFases(entregableIds: string[]): Promise<number> {
+    const fases = await porAnyOf(entregableIds, (ids) =>
+      db.fase_personal.where("entregableId").anyOf(ids).toArray()
+    );
+    return fases.length;
+  }
+
   public async contarDescendientes(
     nivel: NivelJerarquiaPersonal,
     id: string
@@ -73,6 +81,7 @@ export class EliminarNodoPersonalUseCase {
           objetivos: objetivoIds.length,
           proyectos: proyectos.length,
           entregables: entregables.length,
+          fases: await this.contarFases(entregables.map((e) => e.id)),
           actividades: actividades.length,
           habitosVinculados: habitos.length,
         });
@@ -89,6 +98,7 @@ export class EliminarNodoPersonalUseCase {
         return Resultado.exito({
           proyectos: proyectos.length,
           entregables: entregables.length,
+          fases: await this.contarFases(entregables.map((e) => e.id)),
           actividades: actividades.length,
           habitosVinculados: habitos.length,
         });
@@ -102,6 +112,7 @@ export class EliminarNodoPersonalUseCase {
         ]);
         return Resultado.exito({
           entregables: entregables.length,
+          fases: await this.contarFases(entregables.map((e) => e.id)),
           actividades: actividades.length,
           habitosVinculados: habitos.length,
         });
@@ -113,6 +124,7 @@ export class EliminarNodoPersonalUseCase {
         db.habito_definicion.where("entregableId").equals(id).toArray(),
       ]);
       return Resultado.exito({
+        fases: await this.contarFases([id]),
         actividades: actividades.length,
         habitosVinculados: habitos.length,
       });
