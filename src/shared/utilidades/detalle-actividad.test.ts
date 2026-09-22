@@ -192,4 +192,50 @@ describe("Detalle de actividad: nota y proyecto de trabajo", () => {
     await sesiones.asignarProyecto(id, null);
     assert.deepStrictEqual(await tiempoPorProyecto(hoy, hoy), []);
   });
+
+  test("una actividad puede tocar varios proyectos el mismo día, cada uno con su nota", async () => {
+    await db.proyectos.bulkAdd([
+      { id: "pro_a", nombre: "Proyecto A" },
+      { id: "pro_b", nombre: "Proyecto B" },
+    ] as never[]);
+    const id = (
+      await actividades.crearActividad({
+        tipo: "mantenimiento",
+        descripcion: "Desarrollo de Proyectos",
+        diaTarea: "2026-09-21",
+      })
+    ).valor!;
+    const res = await actividades.editarDetalle(id, {
+      proyectoTrabajoId: "pro_a",
+      nota: "Patitas en alerta",
+      otrosProyectos: [{ proyectoId: "pro_b", nota: "Deploy de nodexa core" }],
+    });
+    assert.ok(res.ok);
+    const a = (await db.actividad.get(id))!;
+    assert.strictEqual(a.proyectoTrabajoId, "pro_a");
+    assert.deepStrictEqual(a.otrosProyectos, [
+      { proyectoId: "pro_b", nota: "Deploy de nodexa core" },
+    ]);
+
+    const resumen = await tiempoPorProyecto("2026-09-21", "2026-09-21");
+    assert.strictEqual(resumen.length, 2);
+    const porNombre = new Map(resumen.map((r) => [r.nombre, r]));
+    assert.deepStrictEqual(
+      porNombre.get("Proyecto A")?.registros.map((r) => r.texto),
+      ["Patitas en alerta"]
+    );
+    assert.deepStrictEqual(
+      porNombre.get("Proyecto B")?.registros.map((r) => r.texto),
+      ["Deploy de nodexa core"]
+    );
+    assert.strictEqual(porNombre.get("Proyecto B")?.dias, 1);
+
+    // Quitar los proyectos extra los borra sin tocar el principal.
+    await actividades.editarDetalle(id, { otrosProyectos: null });
+    assert.strictEqual((await db.actividad.get(id))?.otrosProyectos, undefined);
+    assert.strictEqual(
+      (await db.actividad.get(id))?.proyectoTrabajoId,
+      "pro_a"
+    );
+  });
 });

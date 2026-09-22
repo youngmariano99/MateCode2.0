@@ -140,7 +140,12 @@ export class GestionarActividadesUseCase {
    */
   public async editarDetalle(
     id: string,
-    cambios: { nota?: string | null; proyectoTrabajoId?: string | null }
+    cambios: {
+      nota?: string | null;
+      proyectoTrabajoId?: string | null;
+      /** `null` borra todos los proyectos extra; una lista los reemplaza tal cual. */
+      otrosProyectos?: { proyectoId: string; nota?: string }[] | null;
+    }
   ): Promise<Resultado<void>> {
     const actividad = await db.actividad.get(id);
     if (!actividad) {
@@ -162,6 +167,16 @@ export class GestionarActividadesUseCase {
       local.proyectoTrabajoId = cambios.proyectoTrabajoId ?? undefined;
       remoto.proyectoTrabajoId = cambios.proyectoTrabajoId;
     }
+    if (cambios.otrosProyectos !== undefined) {
+      const limpios = (cambios.otrosProyectos ?? [])
+        .filter((o) => o.proyectoId)
+        .map((o) => ({
+          proyectoId: o.proyectoId,
+          nota: o.nota?.trim() || undefined,
+        }));
+      local.otrosProyectos = limpios.length > 0 ? limpios : undefined;
+      remoto.otrosProyectos = limpios.length > 0 ? limpios : null;
+    }
     try {
       await db.actividad.update(id, local);
       await QueueService.encolar("actividad", "editar", id, remoto);
@@ -171,7 +186,9 @@ export class GestionarActividadesUseCase {
         accion: "editar",
         descripcion: `Detalle de "${actividad.descripcion}" actualizado${
           cambios.proyectoTrabajoId !== undefined ? " (proyecto)" : ""
-        }${cambios.nota !== undefined ? " (nota)" : ""}.`,
+        }${cambios.nota !== undefined ? " (nota)" : ""}${
+          cambios.otrosProyectos !== undefined ? " (otros proyectos)" : ""
+        }.`,
       });
       return Resultado.exito(undefined);
     } catch (err) {

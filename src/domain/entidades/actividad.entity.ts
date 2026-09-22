@@ -67,6 +67,14 @@ export interface Actividad {
   nota?: string;
   /** Proyecto del módulo Proyectos al que se dedica esta actividad (ej. el sistema de un cliente) — el tiempo y las notas quedan ligados a él. */
   proyectoTrabajoId?: string;
+  /**
+   * Cuando una misma actividad genérica (ej. "Desarrollo") tocó MÁS de un
+   * proyecto en el día (algo frecuente: no siempre conviene abrir una
+   * Actividad por cada uno), cada entrada extra se anota acá con su propio
+   * "qué hice". `proyectoTrabajoId`/`nota` de arriba siguen siendo la
+   * entrada principal; esta lista es lo adicional.
+   */
+  otrosProyectos?: { proyectoId: string; nota?: string }[];
   /** Lunes (YYYY-MM-DD) de la semana asignada — mismo criterio que TareaPendiente.semanaId. */
   semanaId?: string;
   /** Si esta instancia nació de un Entregable recurrente (ver entregable.entity.ts) — permite rastrear el origen. */

@@ -159,9 +159,12 @@ describe("Semana de contenido: planificado / no planificado y flujo", () => {
       grabacion: "2026-09-22",
       edicion: "2026-09-22",
     });
+    // Recién cuando ya se grabó "toca" editarla ese día — antes de grabarla
+    // no es una tarea resoluble en Editar (ver EstacionProduccion).
+    await uc.marcarGrabado(piezas[0].id);
     const tareas = tareasDelDia(await db.contenido.toArray(), "2026-09-22");
-    // Ambas piezas graban el martes (plan inicial) + la primera también edita ese día.
-    assert.strictEqual(tareas.filter((t) => t.etapa === "grabacion").length, 2);
+    // La otra pieza sigue pendiente de grabar el martes (plan inicial).
+    assert.strictEqual(tareas.filter((t) => t.etapa === "grabacion").length, 1);
     assert.strictEqual(tareas.filter((t) => t.etapa === "edicion").length, 1);
   });
 
@@ -394,9 +397,12 @@ describe("Cinta: grabar en lote y editar aparte", () => {
     let piezas = await db.contenido.toArray();
     const video = piezas.find((p) => p.tipoContenido === "Video")!;
     const post = piezas.find((p) => p.tipoContenido === "Post")!;
-    // Los videos hay que grabarlos; el post no se graba.
+    // Los videos hay que grabarlos; el post no se graba, así que nace
+    // directo en Producción y ya está listo para editar de una.
     assert.strictEqual(piezas.filter(pendienteDeGrabar).length, 2);
     assert.ok(!pendienteDeGrabar(post));
+    assert.strictEqual(post.estado, "Producción");
+    assert.ok(pendienteDeEdicion(post));
 
     assert.ok((await uc.marcarGrabado(video.id)).ok);
     const grabado = (await db.contenido.get(video.id))!;
@@ -413,13 +419,8 @@ describe("Cinta: grabar en lote y editar aparte", () => {
       .map((p) => p.id);
     assert.strictEqual((await uc.marcarGrabadoLote(otros)).valor, 2);
     piezas = await db.contenido.toArray();
-    assert.strictEqual(piezas.filter(pendienteDeEdicion).length, 2);
-    // El post entra a edición recién cuando se envía a producción.
-    await uc.avanzarAProduccion(post.id);
-    assert.strictEqual(
-      (await db.contenido.toArray()).filter(pendienteDeEdicion).length,
-      3
-    );
+    // + el post, que ya estaba listo para editar desde que se creó.
+    assert.strictEqual(piezas.filter(pendienteDeEdicion).length, 3);
   });
 
   test("lo ya grabado no vuelve a figurar como 'grabar' en el día", async () => {
@@ -442,6 +443,81 @@ describe("Cinta: grabar en lote y editar aparte", () => {
       "2026-09-22"
     ).filter((t) => t.etapa === "grabacion");
     assert.strictEqual(despues.length, 0);
+  });
+});
+
+describe("Post e Historia no necesitan grabación: van directo a editar/publicar", () => {
+  beforeEach(async () => {
+    for (const t of [db.ciclo_semanal, db.contenido]) await t.clear();
+  });
+
+  test("un plan de IA con Post e Historia sin dias.grabacion/edicion queda listo para Editar y Publicar de una", async () => {
+    const ciclo = (await uc.iniciarCiclo(0, [], { semanaInicio: LUNES }))
+      .valor!;
+    const plan = parsearPlanSemanaIA(
+      JSON.stringify({
+        mezcla: { Video: 1, Post: 1, Historia: 1 },
+        piezas: [
+          {
+            titulo: "Video 1",
+            tipoContenido: "Video",
+            dias: {
+              guion: LUNES,
+              grabacion: "2026-09-22",
+              edicion: "2026-09-22",
+              publicacion: "2026-09-22",
+            },
+          },
+          {
+            // Un Post real (mismo JSON que reportó el usuario): trae las 4 fechas.
+            titulo: "Post 1 - Por qué no podés predecir tus ventas",
+            tipoContenido: "Post",
+            dias: {
+              guion: LUNES,
+              grabacion: "2026-09-22",
+              edicion: "2026-09-22",
+              publicacion: "2026-09-23",
+            },
+          },
+          {
+            // Una Historia: el prompt le dice a la IA que omita grabacion/edicion.
+            titulo: "Historia 1 - Encuesta",
+            tipoContenido: "Historia",
+            dias: { guion: LUNES, publicacion: "2026-09-22" },
+          },
+        ],
+      })
+    );
+    assert.ok(plan.ok);
+    const r = await uc.importarPlanIA(ciclo, plan.data);
+    assert.strictEqual(r.valor!.creadas, 3);
+
+    const piezas = await db.contenido.toArray();
+    const post = piezas.find((p) => p.tipoContenido === "Post")!;
+    const historia = piezas.find((p) => p.tipoContenido === "Historia")!;
+    const video = piezas.find((p) => p.tipoContenido === "Video")!;
+
+    // El video todavía necesita grabarse: sigue en Guion, no aparece a editar.
+    assert.strictEqual(video.estado, "Guion");
+    // Post e Historia nacen directo en Producción: ya se pueden editar y
+    // publicar sin quedar atascados esperando un "enviar a producción".
+    assert.strictEqual(post.estado, "Producción");
+    assert.strictEqual(historia.estado, "Producción");
+    assert.ok(pendienteDeEdicion(post));
+    assert.ok(pendienteDeEdicion(historia));
+    assert.ok(!pendienteDeGrabar(post));
+    assert.ok(!pendienteDeGrabar(historia));
+
+    // Lo que "Hoy toca" cuenta coincide con lo que la estación realmente
+    // muestra: nada de Editar/Publicar antes de que la pieza esté en
+    // Producción (el bug reportado: contaba de más).
+    const tareasHoy = tareasDelDia(piezas, "2026-09-22");
+    assert.deepStrictEqual(
+      tareasHoy.map((t) => t.etapa).sort(),
+      // Video: todavía falta grabarlo. Post: ya se puede editar (nació en
+      // Producción). Historia: ya se puede publicar ese día.
+      ["edicion", "grabacion", "publicacion"]
+    );
   });
 });
 

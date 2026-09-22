@@ -75,6 +75,9 @@ export default function PlanificadorContenidoPage() {
   useEffect(() => {
     // Si la plantilla de guion guardada es la vieja de 7 secciones, pasa a la del SOP.
     void useCase.asegurarPlantillaSop();
+    // Piezas que no necesitan grabación (Post, Carrusel, Historia) y quedaron
+    // atascadas en Guion de una importación anterior: las pasa a Producción.
+    void useCase.repararPiezasSinGrabacion();
   }, []);
 
   const cicloActivo = useLiveQuery(() =>

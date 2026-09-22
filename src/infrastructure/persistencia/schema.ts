@@ -1168,6 +1168,8 @@ export const actividadPersonal = pgTable("actividad_personal", {
   cantidadMinima: doublePrecision("cantidad_minima"),
   nota: text("nota"),
   proyectoTrabajoId: varchar("proyecto_trabajo_id", { length: 255 }),
+  // Otros proyectos que tocó esta misma actividad ese día (ver actividad.entity.ts).
+  otrosProyectos: jsonb("otros_proyectos"),
   unidad: varchar("unidad", { length: 50 }),
   progresoActual: doublePrecision("progreso_actual"),
   semanaId: varchar("semana_id", { length: 10 }),

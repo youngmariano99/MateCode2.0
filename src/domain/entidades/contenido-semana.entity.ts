@@ -213,11 +213,18 @@ export function tareasDelDia(
     if (!plan.publicacion && c.diaEstimado) plan.publicacion = c.diaEstimado;
     for (const etapa of ETAPAS_CINTA) {
       if (plan[etapa] !== dia) continue;
-      // Lo que ya se hizo no vuelve a aparecer como pendiente del día.
+      // Lo que ya se hizo no vuelve a aparecer como pendiente del día, y
+      // nada aparece como tarea de una estación donde todavía no se puede
+      // resolver (mismo filtro que usa cada estación para listar piezas).
       if (etapa === "guion" && c.estado !== "Guion") continue;
       if (
         etapa === "grabacion" &&
         (!necesitaGrabacion(c.tipoContenido) || estaGrabado(c))
+      )
+        continue;
+      if (
+        (etapa === "edicion" || etapa === "publicacion") &&
+        c.estado !== "Producción"
       )
         continue;
       tareas.push({ contenido: c, etapa });
@@ -273,9 +280,13 @@ export function sugerirMezcla(metas: MetaSemanalSimple[]): MezclaSemanal {
 /** Nombre de la tarea del checklist que marca "ya grabé esto" (la primera del checklist por defecto). */
 export const TAREA_GRABAR = "Grabar";
 
-/** Video e Historia se graban; Post y Carrusel se diseñan, así que saltan directo a la edición. */
+/**
+ * Solo el Video pasa por la sesión de grabación en lote; Historia se graba
+ * "en el momento" (sin sesión aparte, ver generar-prompt-contenido.ts) y
+ * Post/Carrusel se diseñan — las tres saltan directo a edición.
+ */
 export function necesitaGrabacion(tipo: TipoContenido): boolean {
-  return tipo === "Video" || tipo === "Historia";
+  return tipo === "Video";
 }
 
 export function estaGrabado(c: Pick<Contenido, "tareasPendientes">): boolean {

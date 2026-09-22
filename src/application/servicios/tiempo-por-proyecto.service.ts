@@ -53,7 +53,15 @@ export async function tiempoPorProyecto(
   const actividadesDeProyecto = actividades.filter(
     (a) => !!a.proyectoTrabajoId
   );
-  if (actividadesDeProyecto.length === 0 && sesiones.length === 0) return [];
+  const hayOtrosProyectos = actividades.some(
+    (a) => (a.otrosProyectos?.length ?? 0) > 0
+  );
+  if (
+    actividadesDeProyecto.length === 0 &&
+    sesiones.length === 0 &&
+    !hayOtrosProyectos
+  )
+    return [];
 
   const proyectos = new Map(
     (await db.proyectos.toArray()).map((p) => [
@@ -86,6 +94,16 @@ export async function tiempoPorProyecto(
     const r = de(a.proyectoTrabajoId!);
     if (a.diaTarea) r._dias.add(a.diaTarea);
     if (a.nota) r.registros.push({ dia: a.diaTarea ?? "", texto: a.nota });
+  }
+  // Otros proyectos que tocó la misma actividad ese día (ver
+  // actividad.entity.ts): no tienen tiempo propio del cronómetro (ese queda
+  // ligado a la actividad o a la sesión), pero sí cuentan el día y la nota.
+  for (const a of actividades) {
+    for (const o of a.otrosProyectos ?? []) {
+      const r = de(o.proyectoId);
+      if (a.diaTarea) r._dias.add(a.diaTarea);
+      if (o.nota) r.registros.push({ dia: a.diaTarea ?? "", texto: o.nota });
+    }
   }
   for (const { s, actividad, proyecto } of sesiones) {
     const r = de(proyecto!);

@@ -25,6 +25,7 @@ import {
   distribuirPublicaciones,
   diaISODeMs,
   esPiezaGenerica,
+  necesitaGrabacion,
   planInicial,
   semanaDeCiclo,
   TAREA_GRABAR,
@@ -153,6 +154,10 @@ export class GestionarContenidoUseCase {
     }
     const ahora = Date.now();
     const id = idUnico("cont");
+    // Lo que no se graba (Post, Carrusel, Historia — ver necesitaGrabacion)
+    // no pasa por la estación Guion a esperar un envío manual: nace directo
+    // en Producción, con su checklist, lista para editar y programar.
+    const saltaAProduccion = !necesitaGrabacion(parsed.data.tipoContenido);
     const registro = {
       id,
       ideaId,
@@ -160,13 +165,19 @@ export class GestionarContenidoUseCase {
       titulo: parsed.data.titulo.trim(),
       tipoContenido: parsed.data.tipoContenido,
       canales: parsed.data.canales,
-      estado: "Guion" as const,
+      estado: saltaAProduccion ? ("Producción" as const) : ("Guion" as const),
       guion: parsed.data.guion,
       plantillaGuionId: PLANTILLA_DEFAULT_ID,
       plan: extras.plan,
       ficha: extras.ficha,
       diaEstimado: extras.plan?.publicacion,
-      tareasPendientes: [] as TareaPendiente[],
+      tareasPendientes: (saltaAProduccion
+        ? TAREAS_PRODUCCION_DEFAULT.map((texto, i) => ({
+            id: `tarea_${ahora}_${i}`,
+            texto,
+            hecha: false,
+          }))
+        : []) as TareaPendiente[],
       metricas: {},
       creadoEn: ahora,
       actualizadoEn: ahora,
@@ -831,6 +842,23 @@ export class GestionarContenidoUseCase {
     if (ids !== [...IDS_PLANTILLA_VIEJA].sort().join(",")) return false;
     await this.editarPlantillaGuion(SECCIONES_GUION_DEFAULT);
     return true;
+  }
+
+  /**
+   * Corrige piezas que quedaron atascadas en Guion sin necesitar grabación
+   * (Post, Carrusel, Historia) — de una versión anterior donde eso no se
+   * resolvía solo, o de una importación vieja. Sin esto, la pieza nunca
+   * aparecía en Editar ni Publicar aunque "Hoy toca" la contara. Se corre
+   * una vez al entrar al planificador, igual que asegurarPlantillaSop.
+   */
+  public async repararPiezasSinGrabacion(): Promise<number> {
+    const atascadas = (await db.contenido.toArray()).filter(
+      (c) => c.estado === "Guion" && !necesitaGrabacion(c.tipoContenido)
+    );
+    for (const c of atascadas) {
+      await this.avanzarAProduccion(c.id);
+    }
+    return atascadas.length;
   }
 
   /**
