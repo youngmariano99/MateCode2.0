@@ -3,8 +3,10 @@ import { test, describe, beforeEach } from "node:test";
 import assert from "node:assert";
 import { db } from "../../offline/dexie/db";
 import { GestionarActividadesUseCase } from "../../application/use-cases/personal/gestionar-actividades.use-case";
+import { GestionarCatalogoEtiquetasUseCase } from "../../application/use-cases/shared/gestionar-catalogo-etiquetas.use-case";
 
 const uc = new GestionarActividadesUseCase();
+const catalogo = new GestionarCatalogoEtiquetasUseCase();
 
 describe("Tareas extra: alta, detalle, desvíos y registro", () => {
   beforeEach(async () => {
@@ -13,6 +15,7 @@ describe("Tareas extra: alta, detalle, desvíos y registro", () => {
       db.entregable,
       db.personal_historial,
       db.cola_eventos,
+      db.catalogo_etiquetas,
     ])
       await t.clear();
   });
@@ -101,6 +104,50 @@ describe("Tareas extra: alta, detalle, desvíos y registro", () => {
           (h.campoNuevo as { motivo?: string } | undefined)?.motivo ===
           "cambio_prioridad"
       )
+    );
+  });
+
+  test("un motivo de desvío nuevo (no de los 5 sugeridos) se puede usar y queda guardado para la próxima", async () => {
+    const id = (
+      await uc.crearActividad({
+        tipo: "mantenimiento",
+        descripcion: "Reunión con el proveedor",
+        diaTarea: "2026-09-25",
+      })
+    ).valor!;
+    // Antes de agregarlo no está en el catálogo.
+    assert.strictEqual(
+      (
+        await db.catalogo_etiquetas
+          .where("categoria")
+          .equals("motivo_desvio_actividad")
+          .toArray()
+      ).length,
+      0
+    );
+    const creado = await catalogo.crearEtiqueta(
+      "Esperando al proveedor",
+      "motivo_desvio_actividad"
+    );
+    assert.ok(creado.ok);
+    await uc.cancelarActividad(id, "Esperando al proveedor");
+    assert.strictEqual((await db.actividad.get(id))?.estado, "cancelada");
+    const hist = await historial(id);
+    assert.ok(
+      hist.some(
+        (h) =>
+          (h.campoNuevo as { motivo?: string } | undefined)?.motivo ===
+          "Esperando al proveedor"
+      )
+    );
+    // Queda guardado en el catálogo para elegirlo de nuevo sin volver a escribirlo.
+    const guardado = await db.catalogo_etiquetas
+      .where("categoria")
+      .equals("motivo_desvio_actividad")
+      .toArray();
+    assert.deepStrictEqual(
+      guardado.map((e) => e.etiqueta),
+      ["Esperando al proveedor"]
     );
   });
 });

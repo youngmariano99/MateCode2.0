@@ -134,6 +134,10 @@ export type CrearActividadInput = z.input<typeof crearActividadSchema>;
 // Por qué se cancela o se pasa una tarea a otro día — opcional, un tap, se
 // guarda en el historial (personal_historial.campoNuevo.motivo) para poder ver
 // patrones de desvío en el repaso semanal ("siempre cancelo por falta de tiempo").
+// Es texto libre (no un enum cerrado): estos 5 son solo los sugeridos de
+// entrada; el usuario puede agregar los suyos desde el selector, que quedan
+// guardados en el catálogo de etiquetas (categoría "motivo_desvio_actividad")
+// para elegirlos de nuevo la próxima vez sin escribirlos de cero.
 export const MOTIVOS_DESVIO = [
   "sin_tiempo",
   "se_complico",
@@ -141,9 +145,9 @@ export const MOTIVOS_DESVIO = [
   "cambio_prioridad",
   "ya_no_aplica",
 ] as const;
-export type MotivoDesvio = (typeof MOTIVOS_DESVIO)[number];
+export type MotivoDesvio = string;
 
-export const ETIQUETA_MOTIVO_DESVIO: Record<MotivoDesvio, string> = {
+export const ETIQUETA_MOTIVO_DESVIO: Record<string, string> = {
   sin_tiempo: "Sin tiempo",
   se_complico: "Se complicó",
   sin_energia: "Sin energía",
@@ -151,10 +155,15 @@ export const ETIQUETA_MOTIVO_DESVIO: Record<MotivoDesvio, string> = {
   ya_no_aplica: "Ya no aplica",
 };
 
+/** Etiqueta de un motivo: la de los sugeridos de base, o el texto tal cual si es uno agregado por el usuario. */
+export function etiquetaMotivoDesvio(motivo: string): string {
+  return ETIQUETA_MOTIVO_DESVIO[motivo] ?? motivo;
+}
+
 export const migrarActividadSchema = z.object({
   id: z.string(),
   nuevoDiaTarea: fechaISO,
-  motivo: z.enum(MOTIVOS_DESVIO).optional(),
+  motivo: z.string().trim().min(1).optional(),
 });
 export type MigrarActividadInput = z.input<typeof migrarActividadSchema>;
 
@@ -188,7 +197,7 @@ export const cerrarConCantidadSchema = z.object({
   id: z.string(),
   hecha: z.number().min(0, "La cantidad no puede ser negativa."),
   destino: z.enum(DESTINOS_FALTANTE).optional(),
-  motivo: z.enum(MOTIVOS_DESVIO).optional(),
+  motivo: z.string().trim().min(1).optional(),
 });
 export type CerrarConCantidadInput = z.input<typeof cerrarConCantidadSchema>;
 

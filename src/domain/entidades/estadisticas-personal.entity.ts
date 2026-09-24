@@ -1,5 +1,5 @@
 import type { Actividad, MotivoDesvio } from "./actividad.entity";
-import { ETIQUETA_MOTIVO_DESVIO } from "./actividad.entity";
+import { etiquetaMotivoDesvio } from "./actividad.entity";
 import {
   aplicaHoyEntregable,
   idInstanciaEntregableRecurrente,
@@ -344,9 +344,7 @@ export function contarMotivos(
     .map(([motivo, cantidad]) => ({
       motivo: motivo as MotivoContado["motivo"],
       etiqueta:
-        motivo === SIN_MOTIVO
-          ? "Sin motivo"
-          : ETIQUETA_MOTIVO_DESVIO[motivo as MotivoDesvio],
+        motivo === SIN_MOTIVO ? "Sin motivo" : etiquetaMotivoDesvio(motivo),
       cantidad,
     }))
     .sort((a, b) => b.cantidad - a.cantidad);

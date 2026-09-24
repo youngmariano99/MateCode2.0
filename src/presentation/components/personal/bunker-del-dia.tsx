@@ -5,6 +5,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../../offline/dexie/db";
 import { Button } from "../button";
 import { DetalleActividad } from "./detalle-actividad";
+import { ChipsMotivoDesvio } from "./chips-motivo-desvio";
 import { Icono } from "../icons";
 import { Badge, type BadgeColor } from "../badge";
 import { useToast } from "../../hooks/useToast";
@@ -14,8 +15,6 @@ import {
   MAX_TAREAS_MANTENIMIENTO_POR_DIA,
   BUCKETS_DIA,
   ETIQUETA_BUCKET,
-  MOTIVOS_DESVIO,
-  ETIQUETA_MOTIVO_DESVIO,
   bucketDeActividad,
   type Actividad,
   type BucketDia,
@@ -346,15 +345,7 @@ const FilaActividad: React.FC<{
           </span>
         </span>
         <div className="flex flex-wrap gap-1.5">
-          {MOTIVOS_DESVIO.map((m) => (
-            <button
-              key={m}
-              onClick={() => void resolverConMotivo(m)}
-              className="flex min-h-11 items-center rounded border border-[#2A2A2E] px-3 text-[10px] font-bold text-zinc-300 uppercase hover:border-emerald-500/40"
-            >
-              {ETIQUETA_MOTIVO_DESVIO[m]}
-            </button>
-          ))}
+          <ChipsMotivoDesvio onElegir={(m) => void resolverConMotivo(m)} />
           <button
             onClick={() => void resolverConMotivo(undefined)}
             className="flex min-h-11 items-center rounded px-3 text-[10px] font-bold text-zinc-600 uppercase hover:text-zinc-300"

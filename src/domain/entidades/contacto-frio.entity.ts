@@ -35,6 +35,11 @@ export const CATEGORIAS_ETIQUETA = [
   "area_personal",
   "motivo_incumplimiento",
   "equipamiento_propio",
+  // Motivos por los que se cancela o se pasa una Actividad a otro día (ver
+  // actividad.entity.ts): los 5 sugeridos de base ni siquiera viven acá
+  // (son un array fijo), esta categoría es solo para los que el usuario va
+  // agregando desde el selector, que quedan guardados para la próxima.
+  "motivo_desvio_actividad",
 ] as const;
 export type CategoriaEtiqueta = (typeof CATEGORIAS_ETIQUETA)[number];
 

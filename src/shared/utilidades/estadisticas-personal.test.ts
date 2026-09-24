@@ -180,6 +180,15 @@ describe("Estadísticas: cada actividad cae en un solo resultado", () => {
       ]
     );
   });
+
+  test("un motivo agregado por el usuario (texto libre) se cuenta y se muestra tal cual", () => {
+    const a1 = act({ id: "1", estado: "cancelada" });
+    const m = contarMotivos([a1], new Map([["1", "Esperando al cliente"]]));
+    assert.deepStrictEqual(
+      m.map((x) => [x.motivo, x.etiqueta, x.cantidad]),
+      [["Esperando al cliente", "Esperando al cliente", 1]]
+    );
+  });
 });
 
 describe("Estadísticas: lo que tocaba y no tiene registro", () => {

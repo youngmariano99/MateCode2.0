@@ -6,8 +6,7 @@ import { db } from "../../../offline/dexie/db";
 import { Icono } from "../icons";
 import { Badge } from "../badge";
 import {
-  ETIQUETA_MOTIVO_DESVIO,
-  MOTIVOS_DESVIO,
+  etiquetaMotivoDesvio,
   type Actividad,
   type MotivoDesvio,
 } from "../../../domain/entidades/actividad.entity";
@@ -96,7 +95,11 @@ export const PanelRepasoSemanal: React.FC = () => {
   const vencidasSinResolver = actividades.filter(
     (a) => a.estado === "pendiente" && (a.diaTarea ?? hoy) < hoy
   ).length;
-  const motivosPresentes = MOTIVOS_DESVIO.filter((m) => conteoMotivos[m]);
+  // Todos los que aparecieron en el historial, sugeridos o agregados por el
+  // usuario — no solo los 5 de base.
+  const motivosPresentes = Object.keys(conteoMotivos).filter(
+    (m) => conteoMotivos[m]
+  );
 
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-4">
@@ -126,7 +129,7 @@ export const PanelRepasoSemanal: React.FC = () => {
           <div className="flex flex-wrap gap-1.5">
             {motivosPresentes.map((m) => (
               <Badge key={m} color="amber">
-                {ETIQUETA_MOTIVO_DESVIO[m]}: {conteoMotivos[m]}
+                {etiquetaMotivoDesvio(m)}: {conteoMotivos[m]}
               </Badge>
             ))}
           </div>

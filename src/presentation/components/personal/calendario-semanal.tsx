@@ -7,11 +7,10 @@ import { Icono } from "../icons";
 import { useToast } from "../../hooks/useToast";
 import { GestionarActividadesUseCase } from "../../../application/use-cases/personal/gestionar-actividades.use-case";
 import {
-  ETIQUETA_MOTIVO_DESVIO,
-  MOTIVOS_DESVIO,
   type Actividad,
   type MotivoDesvio,
 } from "../../../domain/entidades/actividad.entity";
+import { ChipsMotivoDesvio } from "./chips-motivo-desvio";
 import type { Entregable } from "../../../domain/entidades/entregable.entity";
 import { obtenerDiaTareaHoy } from "../../../domain/entidades/personal.entity";
 import { sumarDias as sumarDiasISO } from "../../../domain/entidades/personal.entity";
@@ -87,15 +86,7 @@ export const ChipActividad: React.FC<{
           </span>
         </span>
         <div className="flex flex-wrap gap-1">
-          {MOTIVOS_DESVIO.map((m) => (
-            <button
-              key={m}
-              onClick={() => void resolverConMotivo(m)}
-              className="rounded border border-[#2A2A2E] px-1.5 py-0.5 text-[10px] text-zinc-300 hover:border-zinc-500"
-            >
-              {ETIQUETA_MOTIVO_DESVIO[m]}
-            </button>
-          ))}
+          <ChipsMotivoDesvio onElegir={(m) => void resolverConMotivo(m)} />
           <button
             onClick={() => void resolverConMotivo(undefined)}
             className="text-[10px] font-bold text-zinc-500 uppercase hover:text-zinc-300"
