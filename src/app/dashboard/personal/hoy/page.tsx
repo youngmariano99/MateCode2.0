@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { MainLayout } from "../../../../presentation/components/layout";
+import { Button } from "../../../../presentation/components/button";
 import { Icono } from "../../../../presentation/components/icons";
 import { CapturaInbox } from "../../../../presentation/components/personal/captura-inbox";
 import { BunkerDelDia } from "../../../../presentation/components/personal/bunker-del-dia";
@@ -14,20 +15,23 @@ import { PanelMetasPeriodo } from "../../../../presentation/components/personal/
 import { AvisoMinimos } from "../../../../presentation/components/personal/aviso-minimos";
 import { AvisoFasesPendientes } from "../../../../presentation/components/personal/aviso-fases-pendientes";
 import { PanelRecuperarHabitos } from "../../../../presentation/components/personal/panel-recuperar-habitos";
-import { NavegadorJerarquico } from "../../../../presentation/components/personal/navegador-jerarquico";
 import { PanelEstadoGeneral } from "../../../../presentation/components/personal/panel-estado-general";
-import { PlanificarSemanaIA } from "../../../../presentation/components/personal/planificar-con-ia";
 import { TarjetaHabitos } from "../../../../presentation/components/personal/tarjeta-habitos";
 import { CalendarioSemanal } from "../../../../presentation/components/personal/calendario-semanal";
 import { CalendarioMensual } from "../../../../presentation/components/personal/calendario-mensual";
+import { TareaRapida } from "../../../../presentation/components/personal/tarea-rapida";
+import { GuiaProcedimientoPlanificacion } from "../../../../presentation/components/personal/guia-procedimiento-planificacion";
+import { ArbolJerarquicoPersonal } from "../../../../presentation/components/personal/arbol-jerarquico-personal";
 import {
-  BotonNuevaTarea,
-  TareaRapida,
-} from "../../../../presentation/components/personal/tarea-rapida";
+  BotonCrearUniversal,
+  type TipoElementoCrear,
+} from "../../../../presentation/components/personal/modal-crear-elemento-personal";
+import { WizardPlanificacionPersonal } from "../../../../presentation/components/personal/wizard-planificacion-personal";
 import { GestionarObjetivosUseCase } from "../../../../application/use-cases/personal/gestionar-objetivos.use-case";
 import { MaterializarActividadesDelDiaUseCase } from "../../../../application/use-cases/personal/materializar-actividades-del-dia.use-case";
 import { EliminarNodoPersonalUseCase } from "../../../../application/use-cases/personal/eliminar-nodo-personal.use-case";
 import { GestionarFasesUseCase } from "../../../../application/use-cases/personal/gestionar-fases.use-case";
+import { rangoDelMes } from "../../../../domain/entidades/diagnostico-planificacion.entity";
 import {
   lunesDeLaSemana,
   obtenerDiaTareaHoy,
@@ -39,18 +43,17 @@ const materializarUseCase = new MaterializarActividadesDelDiaUseCase();
 const fasesUseCase = new GestionarFasesUseCase();
 const eliminarNodoUseCase = new EliminarNodoPersonalUseCase();
 
-type Horizonte = "dia" | "semana" | "mes" | "cal_semana" | "cal_mes" | "stats";
+type Horizonte = "dia" | "semana" | "mes" | "mapa" | "stats";
 
 const HORIZONTES: {
   id: Horizonte;
   label: string;
   icono: keyof typeof Icono;
 }[] = [
-  { id: "dia", label: "Día", icono: "Sunrise" },
-  { id: "semana", label: "Semana", icono: "ListTodo" },
+  { id: "dia", label: "Hoy", icono: "Sunrise" },
+  { id: "semana", label: "Semana", icono: "Calendario" },
   { id: "mes", label: "Mes", icono: "Target" },
-  { id: "cal_semana", label: "Cal. semana", icono: "Calendario" },
-  { id: "cal_mes", label: "Cal. mes", icono: "Calendario" },
+  { id: "mapa", label: "Anual / Mapa", icono: "Proyectos" },
   { id: "stats", label: "Estadísticas", icono: "TrendingUp" },
 ];
 
@@ -60,38 +63,34 @@ const breadcrumbs = [
 ];
 
 const DESCRIPCION_HORIZONTE: Record<Horizonte, string> = {
-  dia: "Tu planilla de hoy: lo que sí o sí primero, por prioridad y área. Lo que quedó sin cerrar de antes está arriba, para pasarlo a hoy de una.",
+  dia: "Ritual diario: resolvé lo pendiente de ayer, confirmá tu prioridad #1 de hoy y pasá a Oficina para enfocarte.",
   semana:
-    "Lo que sí o sí tenés que hacer aunque no entre en el foco de hoy, ordenado por prioridad — como en una guardia.",
-  mes: "Tus objetivos cuantitativos y el ritmo real para llegar a cada uno, recalculado solo.",
-  cal_semana:
-    "La semana completa de un vistazo, coloreada por Área, para corroborar que la planificación quedó bien armada.",
-  cal_mes:
-    "El mes completo de un vistazo — click en un día para ver el detalle.",
+    "Planificación semanal completa: repaso de desvíos, metas activas de la semana, calendario de 7 días y selección del backlog.",
+  mes: "Enfoque mensual: fases vigentes en el mes, radar de objetivos por área y distribución en el calendario mensual.",
+  mapa: "Estructura completa (Área → Objetivo → Proyecto → Entregable → Fases) en vista de árbol expandible para armar planes grandes o puntuales.",
   stats:
     "Cómo te fue por semana, mes o año: cumplimiento, qué no se hizo y por qué, y qué mejorar.",
 };
 
-/**
- * Área Personal separada por horizonte temporal — antes todo (retorno,
- * hábitos, bandeja, búnker, pendientes) vivía apilado en una sola pantalla,
- * mezclando lo que se resuelve hoy con lo que se revisa una vez por semana o
- * una vez por mes. Cada estación muestra solo lo que corresponde a su
- * horizonte, sin ritual de repaso completo para volver a estar al día.
- */
+const TIPO_CREAR_POR_HORIZONTE: Record<Horizonte, TipoElementoCrear> = {
+  dia: "tarea",
+  semana: "tarea",
+  mes: "fase",
+  mapa: "objetivo",
+  stats: "tarea",
+};
+
 export default function PersonalHoyPage() {
   const [horizonte, setHorizonte] = useState<Horizonte>("dia");
+  const [wizardAbierto, setWizardAbierto] = useState(false);
 
-  // Se corre una vez al entrar (no en segundo plano): marca vencidos los
-  // objetivos que ya pasaron su fecha límite, para que el panel de retorno
-  // y la vista de Mes los muestren de una sin que el usuario tenga que ir a
-  // buscarlos; y materializa la Actividad de hoy de cada Entregable
-  // recurrente aplicable (ver Sprint 20 §2/§4) — así "Contacto en frío
-  // Lun-Vie" aparece solo, sin recrearlo cada semana.
+  const hoy = obtenerDiaTareaHoy();
+  const { inicioMes, finMes } = rangoDelMes(hoy);
+
   useEffect(() => {
-    const hoy = obtenerDiaTareaHoy();
-    void objetivosUseCase.marcarVencidosSiCorresponde(hoy);
-    void materializarUseCase.ejecutar(hoy);
+    const fechaHoy = obtenerDiaTareaHoy();
+    void objetivosUseCase.marcarVencidosSiCorresponde(fechaHoy);
+    void materializarUseCase.ejecutar(fechaHoy);
     void eliminarNodoUseCase
       .limpiarHuerfanos()
       .then(() => fasesUseCase.limpiarFasesHuerfanas());
@@ -103,16 +102,27 @@ export default function PersonalHoyPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-white">
-              Personal
+              Planificación Personal
             </h1>
             <p className="mt-1 text-sm text-zinc-500">
               {DESCRIPCION_HORIZONTE[horizonte]}
             </p>
           </div>
-          <BotonNuevaTarea />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setWizardAbierto(true)}
+              icono={<Icono.Sparkles className="h-4 w-4" />}
+            >
+              Armar Plan (Paso a Paso)
+            </Button>
+            <BotonCrearUniversal
+              tipoPorDefecto={TIPO_CREAR_POR_HORIZONTE[horizonte]}
+            />
+          </div>
         </div>
 
-        <div className="flex gap-1 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-1">
+        <div className="flex flex-wrap gap-1 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-1">
           {HORIZONTES.map((h) => {
             const Icon = Icono[h.icono];
             return (
@@ -134,6 +144,10 @@ export default function PersonalHoyPage() {
 
         {horizonte === "dia" && (
           <div className="flex flex-col gap-6">
+            <GuiaProcedimientoPlanificacion
+              horizonte="dia"
+              onAbrirWizard={() => setWizardAbierto(true)}
+            />
             <AvisoFasesPendientes />
             <AvisoMinimos />
             <PanelRecuperarHabitos />
@@ -146,35 +160,57 @@ export default function PersonalHoyPage() {
         )}
 
         {horizonte === "semana" && (
-          <div className="flex flex-col gap-4">
-            <PanelMetasPeriodo
-              desde={lunesDeLaSemana(obtenerDiaTareaHoy())}
-              hasta={sumarDias(lunesDeLaSemana(obtenerDiaTareaHoy()), 6)}
-              titulo="Metas de esta semana"
-            />
-            <PanelTiempoProyectos
-              desde={lunesDeLaSemana(obtenerDiaTareaHoy())}
-              hasta={sumarDias(lunesDeLaSemana(obtenerDiaTareaHoy()), 6)}
-              titulo="Tiempo por proyecto (esta semana)"
+          <div className="flex flex-col gap-5">
+            <GuiaProcedimientoPlanificacion
+              horizonte="semana"
+              onAbrirWizard={() => setWizardAbierto(true)}
             />
             <PanelRepasoSemanal />
-            <PlanificarSemanaIA />
+            <CalendarioSemanal />
             <PanelPendientes />
+            <PanelTiempoProyectos
+              desde={lunesDeLaSemana(hoy)}
+              hasta={sumarDias(lunesDeLaSemana(hoy), 6)}
+              titulo="Tiempo por proyecto (esta semana)"
+            />
           </div>
         )}
 
         {horizonte === "mes" && (
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-5">
+            <GuiaProcedimientoPlanificacion
+              horizonte="mes"
+              onAbrirWizard={() => setWizardAbierto(true)}
+            />
+            <AvisoFasesPendientes />
+            <PanelMetasPeriodo
+              desde={inicioMes}
+              hasta={finMes}
+              titulo={`Metas de este mes (${inicioMes} → ${finMes})`}
+            />
             <PanelEstadoGeneral />
-            <NavegadorJerarquico />
+            <CalendarioMensual />
           </div>
         )}
 
-        {horizonte === "cal_semana" && <CalendarioSemanal />}
-
-        {horizonte === "cal_mes" && <CalendarioMensual />}
+        {horizonte === "mapa" && (
+          <div className="flex flex-col gap-5">
+            <GuiaProcedimientoPlanificacion
+              horizonte="mapa"
+              onAbrirWizard={() => setWizardAbierto(true)}
+            />
+            <ArbolJerarquicoPersonal
+              onAbrirWizard={() => setWizardAbierto(true)}
+            />
+          </div>
+        )}
 
         {horizonte === "stats" && <PanelEstadisticasPersonal />}
+
+        <WizardPlanificacionPersonal
+          abierto={wizardAbierto}
+          onCerrar={() => setWizardAbierto(false)}
+        />
       </div>
     </MainLayout>
   );

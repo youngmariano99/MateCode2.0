@@ -65,17 +65,32 @@ export const PanelEstadoGeneral: React.FC = () => {
         .toArray()
     ) || SIN_REGISTROS;
 
+  const areasEntidad =
+    useLiveQuery(() => db.area_personal.filter((a) => a.activa).toArray()) ||
+    [];
+
+  const nombreDeAreaDeObjetivo = (
+    o: (typeof objetivos)[number]
+  ): string | undefined => {
+    if (o.areaId) {
+      const encontrada = areasEntidad.find((a) => a.id === o.areaId);
+      if (encontrada) return encontrada.nombre;
+    }
+    return o.etiquetaArea;
+  };
+
   const areasDisponibles = Array.from(
     new Set(
       [
-        ...objetivos.map((o) => o.etiquetaArea),
+        ...areasEntidad.map((a) => a.nombre),
+        ...objetivos.map(nombreDeAreaDeObjetivo),
         ...habitosActivos.map((h) => h.etiquetaArea),
       ].filter((a): a is string => !!a)
     )
   );
 
   const objetivosFiltrados = filtroArea
-    ? objetivos.filter((o) => o.etiquetaArea === filtroArea)
+    ? objetivos.filter((o) => nombreDeAreaDeObjetivo(o) === filtroArea)
     : objetivos;
   const habitosFiltrados = filtroArea
     ? habitosActivos.filter((h) => h.etiquetaArea === filtroArea)
