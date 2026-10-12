@@ -6,7 +6,7 @@ Versión: 2.0
 
 # Nuestro principio
 
-MateCode no es un gestor de tareas.
+MateCode no es un gestor de tareas
 
 MateCode es el sistema operativo de una agencia.
 
