@@ -353,7 +353,7 @@ export const ArbolJerarquicoPersonal: React.FC<{
                 {!areaColapsada && (
                   <div className="flex flex-col gap-3 p-4">
                     {objsArea.length === 0 ? (
-                      <div className="flex items-center justify-between rounded-xl border border-dashed border-[#2A2A2E] p-3 text-xs text-zinc-500">
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-[#2A2A2E] p-3 text-xs text-zinc-500">
                         <span>Esta área no tiene objetivos todavía.</span>
                         <button
                           type="button"
@@ -515,7 +515,7 @@ export const ArbolJerarquicoPersonal: React.FC<{
                             {!objColapsado && (
                               <div className="mt-3 flex flex-col gap-2.5 border-l-2 border-[#232326] pl-4">
                                 {proysObj.length === 0 ? (
-                                  <div className="flex items-center justify-between rounded-lg border border-dashed border-zinc-800 px-3 py-2 text-xs text-zinc-500">
+                                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-zinc-800 px-3 py-2 text-xs text-zinc-500">
                                     <span>
                                       Sin proyectos bajo este objetivo.
                                     </span>

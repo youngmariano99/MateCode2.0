@@ -146,7 +146,7 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
               })}
             </div>
           )}
-          <DownIcon className="h-4 w-4 text-zinc-500" />
+          <DownIcon className="h-4 w-4 shrink-0 text-zinc-500" />
         </div>
 
         {open && (
@@ -157,14 +157,14 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
                 <div
                   key={opt.value}
                   onClick={() => handleToggleOption(opt.value)}
-                  className={`flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm transition-all ${
+                  className={`flex cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm transition-all ${
                     selected
                       ? "bg-emerald-500/10 font-bold text-emerald-400"
                       : "text-zinc-300 hover:bg-[#18181B]"
                   }`}
                 >
-                  {opt.label}
-                  {selected && <Icono.Check className="h-4 w-4" />}
+                  <span className="truncate">{opt.label}</span>
+                  {selected && <Icono.Check className="h-4 w-4 shrink-0" />}
                 </div>
               );
             })}
@@ -219,17 +219,19 @@ export const Combobox: React.FC<ComboboxProps> = ({
 
   return (
     <FieldWrapper label={label} descripcion={descripcion} error={error}>
-      <div ref={containerRef} className="relative w-full">
+      <div ref={containerRef} className="relative w-full min-w-0">
         <div
           onClick={() => setOpen(!open)}
-          className={`flex w-full cursor-pointer items-center justify-between rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm ${
+          className={`flex w-full min-w-0 cursor-pointer items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm ${
             open ? "border-[#10B981] ring-1 ring-[#10B981]/50" : ""
           } ${error ? "border-red-500" : ""}`}
         >
-          <span className={selectedLabel ? "text-zinc-100" : "text-zinc-600"}>
+          <span
+            className={`min-w-0 truncate ${selectedLabel ? "text-zinc-100" : "text-zinc-600"}`}
+          >
             {selectedLabel || placeholder}
           </span>
-          <Icono.ChevronDown className="h-4 w-4 text-zinc-500" />
+          <Icono.ChevronDown className="h-4 w-4 shrink-0 text-zinc-500" />
         </div>
 
         {open && (

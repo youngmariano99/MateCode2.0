@@ -509,30 +509,42 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
             <table className="w-full font-mono text-[8px] text-zinc-300">
               <thead>
                 <tr className="border-b border-zinc-900 text-zinc-500 uppercase">
-                  <th className="py-1 text-left">Rol</th>
-                  <th className="py-1 text-right">Tickets</th>
-                  <th className="py-1 text-right">Costo prom.</th>
-                  <th className="py-1 text-right">Tiempo prom.</th>
-                  <th className="py-1 text-right">Tokens prom.</th>
-                  <th className="py-1 text-right">Reintentos prom.</th>
+                  <th className="px-3 py-1 text-left whitespace-nowrap">Rol</th>
+                  <th className="px-3 py-1 text-right whitespace-nowrap">
+                    Tickets
+                  </th>
+                  <th className="px-3 py-1 text-right whitespace-nowrap">
+                    Costo prom.
+                  </th>
+                  <th className="px-3 py-1 text-right whitespace-nowrap">
+                    Tiempo prom.
+                  </th>
+                  <th className="px-3 py-1 text-right whitespace-nowrap">
+                    Tokens prom.
+                  </th>
+                  <th className="px-3 py-1 text-right whitespace-nowrap">
+                    Reintentos prom.
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {porRol.map((g) => (
                   <tr key={g.rol} className="border-b border-zinc-900/50">
-                    <td className="py-1">{g.rol}</td>
-                    <td className="py-1 text-right">{g.cantidad}</td>
-                    <td className="py-1 text-right text-emerald-400">
+                    <td className="px-3 py-1 whitespace-nowrap">{g.rol}</td>
+                    <td className="px-3 py-1 text-right whitespace-nowrap">
+                      {g.cantidad}
+                    </td>
+                    <td className="px-3 py-1 text-right whitespace-nowrap text-emerald-400">
                       {formatUsd(g.costoPromedio)}
                     </td>
-                    <td className="py-1 text-right text-sky-400">
+                    <td className="px-3 py-1 text-right whitespace-nowrap text-sky-400">
                       {formatMin(g.minutosPromedio)}
                     </td>
-                    <td className="py-1 text-right text-violet-400">
+                    <td className="px-3 py-1 text-right whitespace-nowrap text-violet-400">
                       {g.tokensPromedio.toLocaleString()}
                     </td>
                     <td
-                      className={`py-1 text-right ${g.reintentosPromedio > 1 ? "text-amber-400" : ""}`}
+                      className={`px-3 py-1 text-right whitespace-nowrap ${g.reintentosPromedio > 1 ? "text-amber-400" : ""}`}
                     >
                       {g.reintentosPromedio.toFixed(1)}
                     </td>
@@ -553,15 +565,27 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
           <table className="w-full font-mono text-[8px] text-zinc-300">
             <thead>
               <tr className="border-b border-zinc-900 text-zinc-500 uppercase">
-                <th className="py-1 text-left">Ticket</th>
-                <th className="py-1 text-left">Rol</th>
-                <th className="py-1 text-left">Estado</th>
-                <th className="py-1 text-right">Tiempo</th>
-                <th className="py-1 text-right">Costo</th>
-                <th className="py-1 text-right">Tokens</th>
-                <th className="py-1 text-right">Reint.</th>
-                <th className="py-1 text-center">CI</th>
-                <th className="py-1 text-center">PR</th>
+                <th className="px-3 py-1 text-left whitespace-nowrap">
+                  Ticket
+                </th>
+                <th className="px-3 py-1 text-left whitespace-nowrap">Rol</th>
+                <th className="px-3 py-1 text-left whitespace-nowrap">
+                  Estado
+                </th>
+                <th className="px-3 py-1 text-right whitespace-nowrap">
+                  Tiempo
+                </th>
+                <th className="px-3 py-1 text-right whitespace-nowrap">
+                  Costo
+                </th>
+                <th className="px-3 py-1 text-right whitespace-nowrap">
+                  Tokens
+                </th>
+                <th className="px-3 py-1 text-right whitespace-nowrap">
+                  Reint.
+                </th>
+                <th className="px-3 py-1 text-center whitespace-nowrap">CI</th>
+                <th className="px-3 py-1 text-center whitespace-nowrap">PR</th>
               </tr>
             </thead>
             <tbody>
@@ -570,33 +594,40 @@ export const MetricasIATab: React.FC<MetricasIATabProps> = ({
                   key={f.checkpointId}
                   className="border-b border-zinc-900/50"
                 >
-                  <td className="max-w-[220px] truncate py-1" title={f.titulo}>
+                  <td
+                    className="max-w-[220px] truncate px-3 py-1 whitespace-nowrap"
+                    title={f.titulo}
+                  >
                     {f.titulo}
                   </td>
-                  <td className="py-1 text-zinc-500">{f.rol}</td>
-                  <td className="py-1">
+                  <td className="px-3 py-1 whitespace-nowrap text-zinc-500">
+                    {f.rol}
+                  </td>
+                  <td className="px-3 py-1 whitespace-nowrap">
                     {ETIQUETA_ESTADO_CORTA[f.estado] || f.estado}
                   </td>
-                  <td className="py-1 text-right">{formatMin(f.minutos)}</td>
-                  <td className="py-1 text-right text-emerald-400">
+                  <td className="px-3 py-1 text-right whitespace-nowrap">
+                    {formatMin(f.minutos)}
+                  </td>
+                  <td className="px-3 py-1 text-right whitespace-nowrap text-emerald-400">
                     {formatUsd(f.costoUsd)}
                   </td>
-                  <td className="py-1 text-right text-violet-400">
+                  <td className="px-3 py-1 text-right whitespace-nowrap text-violet-400">
                     {(f.tokensInput + f.tokensOutput).toLocaleString()}
                   </td>
                   <td
-                    className={`py-1 text-right ${f.reintentos > 1 ? "text-amber-400" : ""}`}
+                    className={`px-3 py-1 text-right whitespace-nowrap ${f.reintentos > 1 ? "text-amber-400" : ""}`}
                   >
                     {f.reintentos}
                   </td>
-                  <td className="py-1 text-center">
+                  <td className="px-3 py-1 text-center whitespace-nowrap">
                     {f.ciEstado === "paso"
                       ? ""
                       : f.ciEstado === "fallo"
                         ? ""
                         : "—"}
                   </td>
-                  <td className="py-1 text-center">
+                  <td className="px-3 py-1 text-center whitespace-nowrap">
                     {f.prUrl ? (
                       <a
                         href={f.prUrl}

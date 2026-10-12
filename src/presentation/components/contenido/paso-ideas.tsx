@@ -77,7 +77,7 @@ export const PasoIdeas: React.FC<{ cicloId: string }> = ({ cicloId }) => {
             value={dolor}
             onChange={(e) => setDolor(e.target.value)}
             placeholder="Dolor que resuelve (opcional)"
-            className="w-64"
+            className="w-full sm:w-64"
           />
           <Button onClick={agregar} disabled={!texto.trim()}>
             Agregar

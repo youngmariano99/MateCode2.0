@@ -107,11 +107,13 @@ export const PanelCierreSemana: React.FC<PanelCierreSemanaProps> = ({
             {ideas.map((idea) => (
               <div
                 key={idea.id}
-                className="flex items-center justify-between gap-2 rounded-xl border border-[#2A2A2E] p-3"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#2A2A2E] p-3"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
                   <Badge color="zinc">Idea</Badge>
-                  <span className="text-sm text-zinc-200">{idea.texto}</span>
+                  <span className="min-w-0 flex-1 text-sm text-zinc-200">
+                    {idea.texto}
+                  </span>
                 </div>
                 <AccionesPendiente
                   idId={idea.id}
@@ -123,11 +125,13 @@ export const PanelCierreSemana: React.FC<PanelCierreSemanaProps> = ({
             {contenidos.map((c) => (
               <div
                 key={c.id}
-                className="flex items-center justify-between gap-2 rounded-xl border border-[#2A2A2E] p-3"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#2A2A2E] p-3"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
                   <Badge color="sky">{c.estado}</Badge>
-                  <span className="text-sm text-zinc-200">{c.titulo}</span>
+                  <span className="min-w-0 flex-1 text-sm text-zinc-200">
+                    {c.titulo}
+                  </span>
                 </div>
                 <AccionesPendiente
                   idId={c.id}
@@ -157,7 +161,7 @@ const AccionesPendiente: React.FC<{
   valor?: Accion;
   onElegir: (id: string, accion: Accion) => void;
 }> = ({ idId, valor, onElegir }) => (
-  <div className="flex gap-1">
+  <div className="flex flex-wrap gap-1">
     <button
       onClick={() => onElegir(idId, "completar")}
       className={`rounded border px-2 py-1 text-[10px] font-bold uppercase ${valor === "completar" ? "border-emerald-500 bg-emerald-500/20 text-emerald-400" : "border-zinc-800 text-zinc-400"}`}

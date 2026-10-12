@@ -173,7 +173,7 @@ export const DescargasPlanningTab: React.FC<DescargasPlanningTabProps> = ({
                     {doc.status ? "Armado" : "Pendiente"}
                   </span>
                 </div>
-                <p className="text-zinc-550 mt-2 text-[8px] leading-relaxed">
+                <p className="mt-2 text-[8px] leading-relaxed text-zinc-500">
                   {doc.desc}
                 </p>
               </div>
@@ -191,7 +191,7 @@ export const DescargasPlanningTab: React.FC<DescargasPlanningTabProps> = ({
         })}
       </div>
 
-      <div className="flex items-center justify-between rounded-xl border border-zinc-900 bg-zinc-950 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
         <div>
           <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
             Setup Inicializador del Proyecto (Terminal & Scripts)
@@ -201,7 +201,7 @@ export const DescargasPlanningTab: React.FC<DescargasPlanningTabProps> = ({
             base del proyecto en tu máquina.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => selectDocumentForEdit("SETUP.md")}
             className="rounded border border-sky-500/20 bg-sky-500/10 px-3 py-1.5 font-mono text-[9px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
@@ -224,12 +224,12 @@ export const DescargasPlanningTab: React.FC<DescargasPlanningTabProps> = ({
             <span className="text-[10px] font-bold text-zinc-100 uppercase">
               Editor Interactivo: {selectedDocName}
             </span>
-            <p className="text-zinc-550 mt-0.5 text-[9px]">
+            <p className="mt-0.5 text-[9px] text-zinc-500">
               Modifica y guarda los cambios de {selectedDocName} directamente en
               el proyecto.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => {
                 navigator.clipboard.writeText(docEditContent);
@@ -256,7 +256,7 @@ export const DescargasPlanningTab: React.FC<DescargasPlanningTabProps> = ({
           onChange={(e) => setDocEditContent(e.target.value)}
           rows={16}
           placeholder={`Contenido del archivo ${selectedDocName}...`}
-          className="border-zinc-850 w-full rounded border bg-zinc-900/50 p-3 font-mono text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500"
+          className="w-full rounded border border-[#2A2A2E] bg-zinc-900/50 p-3 font-mono text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500"
         />
       </div>
     </div>

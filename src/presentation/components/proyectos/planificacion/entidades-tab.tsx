@@ -42,7 +42,7 @@ export const EntidadesTab: React.FC<EntidadesTabProps> = ({
           onChange={(e) => setEntidades(e.target.value)}
           placeholder="Pegar aquí la especificación de entidades devuelta por la IA..."
           rows={12}
-          className="border-zinc-850 w-full rounded border bg-zinc-950 p-2 font-mono text-[10px] text-zinc-300 outline-none"
+          className="w-full rounded border border-[#2A2A2E] bg-zinc-950 p-2 font-mono text-[10px] text-zinc-300 outline-none"
         />
       </div>
     </div>

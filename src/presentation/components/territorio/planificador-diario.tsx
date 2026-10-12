@@ -295,7 +295,7 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
         </div>
 
         {/* Group and visited checklist filters */}
-        <div className="mb-4 grid grid-cols-2 gap-3 border-b border-[#2A2A2E]/50 pb-3">
+        <div className="mb-4 grid grid-cols-1 gap-3 border-b border-[#2A2A2E]/50 pb-3 sm:grid-cols-2">
           <Select
             label="Filtrar por Rubro"
             options={[
@@ -335,7 +335,7 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
                 className="cursor-pointer rounded border-[#2A2A2E] bg-zinc-950 text-emerald-500 focus:ring-emerald-500"
               />
               <div className="flex flex-col gap-0.5">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="font-bold text-zinc-100">{c.nombre}</span>
                   <span
                     className={`py-0.2 rounded px-1.5 text-[8px] font-bold uppercase ${
@@ -398,7 +398,7 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
           />
         </div>
 
-        <div className="mb-4 grid grid-cols-2 gap-3">
+        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Select
             label="Motor de cálculo"
             options={[
@@ -494,9 +494,9 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
             rutaResultado.puntos.map((p, idx) => (
               <div
                 key={p.id}
-                className="flex items-center justify-between rounded-xl border border-[#2A2A2E] bg-zinc-950 p-3 font-mono text-xs transition-all hover:border-zinc-800"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#2A2A2E] bg-zinc-950 p-3 font-mono text-xs transition-all hover:border-zinc-800"
               >
-                <div className="flex flex-col gap-0.5">
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <div className="flex items-center gap-1.5">
                     <span className="font-bold text-zinc-100">
                       Parada #{idx + 1}: {p.nombre}
@@ -519,7 +519,7 @@ export const PlanificadorDiario: React.FC<PlanificadorDiarioProps> = ({
                     Lat: {p.latitud.toFixed(5)} • Lng: {p.longitud.toFixed(5)}
                   </span>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex shrink-0 flex-wrap gap-2">
                   {p.id !== "mi_posicion_actual" && (
                     <button
                       onClick={() => onRegistrarVisitaClick(p)}

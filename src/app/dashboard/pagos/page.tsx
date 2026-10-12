@@ -139,7 +139,7 @@ export default function PagosPage() {
   return (
     <MainLayout>
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col flex-wrap justify-between gap-3 sm:flex-row sm:items-center">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-white">
               Gestión de Facturación y Pagos
@@ -188,11 +188,15 @@ export default function PagosPage() {
               <table className="w-full text-left font-mono text-xs">
                 <thead>
                   <tr className="border-b border-[#2A2A2E] text-zinc-500">
-                    <th className="py-2.5">Cliente</th>
-                    <th className="py-2.5">Monto</th>
-                    <th className="py-2.5">Vencimiento</th>
-                    <th className="py-2.5">Estado</th>
-                    <th className="py-2.5 text-right">Acciones</th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">Cliente</th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">Monto</th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">
+                      Vencimiento
+                    </th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">Estado</th>
+                    <th className="px-3 py-2.5 text-right whitespace-nowrap">
+                      Acciones
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -201,16 +205,16 @@ export default function PagosPage() {
                       key={p.id}
                       className="border-b border-[#2A2A2E]/50 transition-all last:border-0 hover:bg-[#18181B]"
                     >
-                      <td className="py-3 font-bold text-zinc-300">
+                      <td className="min-w-[180px] px-3 py-3 font-bold whitespace-nowrap text-zinc-300">
                         {p.clienteNombre}
                       </td>
-                      <td className="py-3 font-bold text-zinc-100">
+                      <td className="px-3 py-3 font-bold whitespace-nowrap text-zinc-100">
                         {p.moneda} ${p.monto.toLocaleString("es-AR")}
                       </td>
-                      <td className="py-3 text-zinc-400">
+                      <td className="px-3 py-3 whitespace-nowrap text-zinc-400">
                         {p.fechaVencimiento}
                       </td>
-                      <td className="py-3">
+                      <td className="px-3 py-3 whitespace-nowrap">
                         <span
                           className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${
                             p.estado === "Cobrado"
@@ -221,11 +225,11 @@ export default function PagosPage() {
                           {p.estado}
                         </span>
                       </td>
-                      <td className="py-3 text-right">
+                      <td className="px-3 py-3 text-right whitespace-nowrap">
                         <div className="flex justify-end gap-2">
                           <button
                             onClick={() => handleAlternarEstado(p.id, p.estado)}
-                            className={`rounded-lg px-2 py-1 text-[10px] font-bold text-white transition-all ${
+                            className={`shrink-0 rounded-lg px-2 py-1 text-[10px] font-bold whitespace-nowrap text-white transition-all ${
                               p.estado === "Cobrado"
                                 ? "bg-amber-600 hover:bg-amber-700"
                                 : "bg-emerald-600 hover:bg-emerald-700"
@@ -237,7 +241,7 @@ export default function PagosPage() {
                           </button>
                           <button
                             onClick={() => handleEliminarPago(p.id)}
-                            className="rounded-lg bg-zinc-800 p-1 text-zinc-400 transition-all hover:bg-zinc-700 hover:text-red-400"
+                            className="shrink-0 rounded-lg bg-zinc-800 p-1 whitespace-nowrap text-zinc-400 transition-all hover:bg-zinc-700 hover:text-red-400"
                           >
                             <Icono.Close className="h-3.5 w-3.5" />
                           </button>

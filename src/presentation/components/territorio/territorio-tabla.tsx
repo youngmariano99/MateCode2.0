@@ -86,10 +86,12 @@ export const TerritorioTabla: React.FC<TerritorioTablaProps> = ({
       <table className="w-full border-collapse text-left font-sans text-xs">
         <thead>
           <tr className="border-b border-[#2A2A2E] bg-zinc-900/50 font-mono text-[9px] font-bold text-zinc-400 uppercase">
-            <th className="p-3 pl-4">Prospecto</th>
-            <th className="p-3">Dirección</th>
-            <th className="p-3">Historial / Visitas</th>
-            <th className="p-3 pr-4 text-right">Acciones</th>
+            <th className="p-3 px-3 pl-4 whitespace-nowrap">Prospecto</th>
+            <th className="p-3 px-3 whitespace-nowrap">Dirección</th>
+            <th className="p-3 px-3 whitespace-nowrap">Historial / Visitas</th>
+            <th className="p-3 px-3 pr-4 text-right whitespace-nowrap">
+              Acciones
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#2A2A2E]/50">
@@ -98,7 +100,7 @@ export const TerritorioTabla: React.FC<TerritorioTablaProps> = ({
               key={p.id}
               className={`group hover:bg-zinc-900/20 ${p.convertido ? "opacity-60" : ""}`}
             >
-              <td className="p-3 pl-4 align-top">
+              <td className="p-3 px-3 pl-4 align-top whitespace-nowrap">
                 <div className="flex flex-col gap-1">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="font-mono text-xs font-bold text-zinc-100 group-hover:text-emerald-400">
@@ -149,12 +151,12 @@ export const TerritorioTabla: React.FC<TerritorioTablaProps> = ({
                   )}
                 </div>
               </td>
-              <td className="max-w-[220px] p-3 align-top">
+              <td className="max-w-[220px] p-3 px-3 align-top">
                 <div className="line-clamp-2 font-mono text-[11px] text-zinc-400">
                   {p.direccion || "Sin dirección — agregala si vas a visitarlo"}
                 </div>
               </td>
-              <td className="p-3 align-top">
+              <td className="p-3 px-3 align-top whitespace-nowrap">
                 <div className="flex flex-col gap-1 font-mono text-[10px] text-zinc-400">
                   {p.motivoNoVisita && (
                     <span className="text-[9px] text-red-400">
@@ -168,21 +170,21 @@ export const TerritorioTabla: React.FC<TerritorioTablaProps> = ({
                   )}
                 </div>
               </td>
-              <td className="p-3 pr-4 text-right align-top">
+              <td className="p-3 px-3 pr-4 text-right align-top whitespace-nowrap">
                 <div className="flex items-center justify-end gap-1.5">
                   {!p.convertido && (
                     <>
                       {p.direccionCalle && (
                         <button
                           onClick={() => onVisitaCampo(p)}
-                          className="rounded border border-amber-500/20 bg-amber-500/10 px-2 py-1 font-mono text-[9px] font-bold text-amber-400 hover:bg-amber-500 hover:text-black"
+                          className="shrink-0 rounded border border-amber-500/20 bg-amber-500/10 px-2 py-1 font-mono text-[9px] font-bold whitespace-nowrap text-amber-400 hover:bg-amber-500 hover:text-black"
                         >
                           Visita Campo
                         </button>
                       )}
                       <button
                         onClick={() => onPasarACrm(p)}
-                        className="rounded border border-blue-500/20 bg-blue-500/10 px-2 py-1 font-mono text-[9px] font-bold text-blue-400 hover:bg-blue-500 hover:text-black"
+                        className="shrink-0 rounded border border-blue-500/20 bg-blue-500/10 px-2 py-1 font-mono text-[9px] font-bold whitespace-nowrap text-blue-400 hover:bg-blue-500 hover:text-black"
                       >
                         Pasar a CRM
                       </button>
@@ -190,13 +192,13 @@ export const TerritorioTabla: React.FC<TerritorioTablaProps> = ({
                   )}
                   <button
                     onClick={() => onEditar(p)}
-                    className="rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-[9px] text-zinc-300 hover:border-zinc-700"
+                    className="shrink-0 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-[9px] whitespace-nowrap text-zinc-300 hover:border-zinc-700"
                   >
                     Editar
                   </button>
                   <button
                     onClick={() => onEliminar(p.id)}
-                    className="rounded border border-red-900/30 bg-red-950/20 px-2 py-1 font-mono text-[9px] text-red-400 hover:bg-red-900 hover:text-white"
+                    className="shrink-0 rounded border border-red-900/30 bg-red-950/20 px-2 py-1 font-mono text-[9px] whitespace-nowrap text-red-400 hover:bg-red-900 hover:text-white"
                   >
                     Borrar
                   </button>

@@ -178,7 +178,7 @@ export default function TerritorioPage() {
   return (
     <MainLayout breadcrumbs={breadcrumbs}>
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col justify-between gap-4 border-b border-[#2A2A2E] pb-5 md:flex-row md:items-center">
+        <div className="flex flex-col flex-wrap justify-between gap-3 border-b border-[#2A2A2E] pb-5 md:flex-row md:items-center">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-white">
               Prospección Física (Mapa y Ruteo)
@@ -188,7 +188,7 @@ export default function TerritorioPage() {
               en Contacto en Frío.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => {
                 setProspectoEdicion(null);

@@ -28,7 +28,7 @@ export const ModalCancelarSprint: React.FC<ModalCancelarSprintProps> = ({
           </span>
           <button
             onClick={onClose}
-            className="hover:text-zinc-350 text-[9px] text-zinc-500 uppercase"
+            className="text-[9px] text-zinc-500 uppercase hover:text-zinc-400"
           >
             Cerrar
           </button>
@@ -82,7 +82,7 @@ export const ModalCancelarSprint: React.FC<ModalCancelarSprintProps> = ({
           <div className="mt-4 flex gap-2">
             <button
               onClick={onClose}
-              className="text-zinc-450 flex-1 rounded border border-zinc-800 bg-zinc-900 py-2 text-center text-[9px] font-bold uppercase transition-all hover:text-zinc-200"
+              className="flex-1 rounded border border-zinc-800 bg-zinc-900 py-2 text-center text-[9px] font-bold text-zinc-400 uppercase transition-all hover:text-zinc-200"
             >
               Volver atrás
             </button>

@@ -199,12 +199,12 @@ export const FinancialPanel: React.FC<FinancialPanelProps> = ({
                 return (
                   <div
                     key={ep.id}
-                    className="flex items-center justify-between font-mono text-[10px] text-zinc-400"
+                    className="flex items-center justify-between gap-2 font-mono text-[10px] text-zinc-400"
                   >
-                    <span>
+                    <span className="min-w-0 truncate">
                       {idx + 1}. {ep.nombre}
                     </span>
-                    <span>
+                    <span className="shrink-0 whitespace-nowrap">
                       {moneda} {epPrice.toLocaleString()}
                     </span>
                   </div>

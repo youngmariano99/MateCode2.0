@@ -36,7 +36,7 @@ export const SeccionFichaFisica: React.FC<SeccionFichaFisicaProps> = ({
 
   return (
     <section className="flex flex-col gap-3 rounded-xl border border-[#2A2A2E] p-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-xs font-bold tracking-wider text-zinc-400 uppercase">
           Ficha física
         </h3>
@@ -55,7 +55,7 @@ export const SeccionFichaFisica: React.FC<SeccionFichaFisicaProps> = ({
           {fichaFisica.direccionCalle} {fichaFisica.direccionCiudad}
         </span>
       ) : mostrarFormulario ? (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Input
             value={direccionCalle}
             onChange={(e) => setDireccionCalle(e.target.value)}

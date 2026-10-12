@@ -79,7 +79,7 @@ export const ModalExtenderBacklog: React.FC<ModalExtenderBacklogProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="hover:text-zinc-350 text-[10px] font-bold text-zinc-500 uppercase"
+            className="text-[10px] font-bold text-zinc-500 uppercase hover:text-zinc-400"
           >
             Cerrar
           </button>
@@ -98,7 +98,7 @@ export const ModalExtenderBacklog: React.FC<ModalExtenderBacklogProps> = ({
               className={`rounded-lg border px-3 py-1.5 text-[9px] font-bold uppercase transition-all ${
                 extensionTab === t.id
                   ? "border-sky-500/30 bg-sky-500/10 text-sky-400"
-                  : "hover:text-zinc-350 border-transparent text-zinc-500 hover:bg-zinc-900/40"
+                  : "border-transparent text-zinc-500 hover:bg-zinc-900/40 hover:text-zinc-400"
               }`}
             >
               {t.label}

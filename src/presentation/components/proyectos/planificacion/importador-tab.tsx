@@ -114,7 +114,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
           <span className="font-mono text-[10px] font-bold text-red-400 uppercase">
             Zona de Peligro: Reiniciar Planificación
           </span>
-          <p className="text-zinc-550 mt-1 font-mono text-[9px]">
+          <p className="mt-1 font-mono text-[9px] text-zinc-500">
             ¿Quieres volver a empezar? Esta opción eliminará permanentemente
             todo el backlog (Épicas, Historias y Tareas/Actividades) y Sprints
             asociados a este proyecto.
@@ -135,7 +135,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
           className={`px-4 py-2 font-mono text-[10px] font-bold uppercase transition-all ${
             tipoImportacion === "modular"
               ? "border-b-2 border-emerald-500 text-emerald-400"
-              : "text-zinc-550 hover:text-zinc-300"
+              : "text-zinc-500 hover:text-zinc-300"
           }`}
         >
           Paso a Paso Modular (Recomendado)
@@ -145,7 +145,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
           className={`px-4 py-2 font-mono text-[10px] font-bold uppercase transition-all ${
             tipoImportacion === "unificada"
               ? "border-b-2 border-emerald-500 text-emerald-400"
-              : "text-zinc-550 hover:text-zinc-300"
+              : "text-zinc-500 hover:text-zinc-300"
           }`}
         >
           Ingesta Unificada (JSON Único)
@@ -155,7 +155,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
       {/* Unified Bulk Importer */}
       {tipoImportacion === "unificada" && (
         <div className="flex flex-col gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
                 Importación Masiva de Backlog (Épicas / Historias / Actividades)
@@ -177,7 +177,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
             onChange={(e) => setBacklogJson(e.target.value)}
             placeholder="Pega aquí el JSON devuelto por la IA..."
             rows={5}
-            className="border-zinc-855 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none"
+            className="w-full rounded border border-[#2A2A2E] bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none"
           />
           <button
             onClick={handleImportarBacklog}
@@ -220,7 +220,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
               onChange={(e) => setEpicasJson(e.target.value)}
               placeholder="Pega aquí el JSON de Épicas devuelto por la IA..."
               rows={4}
-              className="border-zinc-855 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none"
+              className="w-full rounded border border-[#2A2A2E] bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none"
             />
             <div className="flex justify-end gap-2">
               {epicasCount > 0 && (
@@ -273,7 +273,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
               onChange={(e) => setHistoriasJson(e.target.value)}
               placeholder="Pega aquí el JSON de Historias de Usuario devuelto por la IA..."
               rows={4}
-              className="border-zinc-855 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none disabled:opacity-50"
+              className="w-full rounded border border-[#2A2A2E] bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none disabled:opacity-50"
             />
             <div className="flex justify-end gap-2">
               {historiasCount > 0 && (
@@ -327,7 +327,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
               onChange={(e) => setActividadesJson(e.target.value)}
               placeholder="Pega aquí el JSON de Actividades Técnicas devuelto por la IA..."
               rows={4}
-              className="border-zinc-855 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none disabled:opacity-50"
+              className="w-full rounded border border-[#2A2A2E] bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none disabled:opacity-50"
             />
             <div className="flex justify-end gap-2">
               {tareasCount > 0 && (
@@ -352,7 +352,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
           <div
             className={`flex flex-col gap-2 rounded-xl border p-4 ${tareasCount === 0 ? "border-zinc-900 bg-zinc-950/20 opacity-50" : "border-zinc-900 bg-zinc-950"}`}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
@@ -382,7 +382,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
               onChange={(e) => setConfigJson(e.target.value)}
               placeholder="Pega aquí el JSON de configuración técnica de actividades..."
               rows={5}
-              className="border-zinc-855 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none disabled:opacity-50"
+              className="w-full rounded border border-[#2A2A2E] bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none disabled:opacity-50"
             />
             <div className="flex justify-end gap-2">
               {configCount > 0 && (
@@ -407,7 +407,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
           <div
             className={`flex flex-col gap-3 rounded-xl border p-4 ${tareasCount === 0 ? "border-zinc-900 bg-zinc-950/20 opacity-50" : "border-zinc-900 bg-zinc-950"}`}
           >
-            <div className="flex items-center justify-between border-b border-zinc-900 pb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-900 pb-2">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
@@ -435,7 +435,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
             <div className="grid grid-cols-1 gap-4 md:grid-cols-12">
               {/* Import Box */}
               <div className="flex flex-col gap-2 md:col-span-6">
-                <span className="text-zinc-455 mb-1 block font-mono text-[8px] font-bold uppercase">
+                <span className="mb-1 block font-mono text-[8px] font-bold text-zinc-400 uppercase">
                   Importador de Criterios (JSON)
                 </span>
                 <textarea
@@ -444,7 +444,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
                   onChange={(e) => setCriteriosJson(e.target.value)}
                   placeholder="Pega aquí el JSON de criterios de aceptación..."
                   rows={6}
-                  className="border-zinc-855 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none focus:border-emerald-500/30 disabled:opacity-50"
+                  className="w-full rounded border border-[#2A2A2E] bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none focus:border-emerald-500/30 disabled:opacity-50"
                 />
                 <div className="flex justify-end gap-2">
                   {criteriosCount > 0 && (
@@ -467,7 +467,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
 
               {/* Visualizer list */}
               <div className="flex flex-col gap-2 border-t border-zinc-900 pt-4 md:col-span-6 md:border-t-0 md:border-l md:pt-0 md:pl-4">
-                <span className="text-zinc-455 mb-1 block font-mono text-[8px] font-bold uppercase">
+                <span className="mb-1 block font-mono text-[8px] font-bold text-zinc-400 uppercase">
                   Visualizador de Criterios Vinculados
                 </span>
 
@@ -559,7 +559,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
           <div
             className={`flex flex-col gap-2 rounded-xl border p-4 ${historiasCount === 0 ? "border-zinc-900 bg-zinc-950/20 opacity-50" : "border-zinc-900 bg-zinc-950"}`}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
@@ -588,7 +588,7 @@ export const ImportadorTab: React.FC<ImportadorTabProps> = ({
               onChange={(e) => setSprintsJson(e.target.value)}
               placeholder="Pega aquí el JSON de configuración de Sprints..."
               rows={5}
-              className="border-zinc-855 w-full rounded border bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none disabled:opacity-50"
+              className="w-full rounded border border-[#2A2A2E] bg-zinc-900 p-2 font-mono text-[9px] text-zinc-300 outline-none disabled:opacity-50"
             />
             <div className="flex justify-end gap-2">
               {sprintsCount > 0 && (

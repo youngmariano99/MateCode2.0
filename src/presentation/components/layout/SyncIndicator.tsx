@@ -41,10 +41,10 @@ export const SyncIndicator: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center gap-4 select-none">
+    <div className="flex shrink-0 items-center gap-2 whitespace-nowrap select-none sm:gap-4">
       <div className="flex items-center gap-2">
         <div
-          className={`h-2.5 w-2.5 rounded-full transition-all duration-300 ${
+          className={`h-2.5 w-2.5 shrink-0 rounded-full transition-all duration-300 ${
             sincronizando
               ? "animate-pulse bg-amber-400 shadow-md shadow-amber-500/50"
               : !online
@@ -52,7 +52,7 @@ export const SyncIndicator: React.FC = () => {
                 : "bg-emerald-500 shadow-md shadow-emerald-500/50"
           }`}
         />
-        <span className="font-mono text-xs font-bold text-zinc-400">
+        <span className="hidden font-mono text-xs font-bold text-zinc-400 sm:inline">
           {sincronizando
             ? "Sincronizando..."
             : !online
@@ -69,15 +69,17 @@ export const SyncIndicator: React.FC = () => {
         <button
           onClick={handleRespaldarCompleto}
           disabled={respaldando}
-          className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-zinc-300 transition-all duration-200 hover:bg-zinc-800 hover:text-white ${
+          className={`flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold whitespace-nowrap text-zinc-300 transition-all duration-200 hover:bg-zinc-800 hover:text-white ${
             respaldando
               ? "animate-pulse cursor-not-allowed opacity-50"
               : "cursor-pointer"
           }`}
           title="Respaldar todos los datos locales en Supabase"
         >
-          <CloudUpload className="h-3.5 w-3.5" />
-          <span>{respaldando ? "Respaldando..." : "Respaldar Nube"}</span>
+          <CloudUpload className="h-3.5 w-3.5 shrink-0" />
+          <span className="hidden md:inline">
+            {respaldando ? "Respaldando..." : "Respaldar Nube"}
+          </span>
         </button>
       )}
     </div>

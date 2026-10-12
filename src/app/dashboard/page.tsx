@@ -97,10 +97,14 @@ export default function DashboardPage() {
                 <table className="w-full text-left font-mono text-xs">
                   <thead>
                     <tr className="border-b border-[#2A2A2E] text-zinc-500">
-                      <th className="py-2.5">Cliente</th>
-                      <th className="py-2.5">Monto</th>
-                      <th className="py-2.5">Vencimiento</th>
-                      <th className="py-2.5 text-right">Acción</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap">Cliente</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap">Monto</th>
+                      <th className="px-3 py-2.5 whitespace-nowrap">
+                        Vencimiento
+                      </th>
+                      <th className="px-3 py-2.5 text-right whitespace-nowrap">
+                        Acción
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -109,15 +113,18 @@ export default function DashboardPage() {
                         key={p.id}
                         className="border-b border-[#2A2A2E]/50 transition-all last:border-0 hover:bg-[#18181B]"
                       >
-                        <td className="py-3 font-bold text-zinc-300">
+                        <td className="px-3 py-3 font-bold whitespace-nowrap text-zinc-300">
                           {p.cliente}
                         </td>
-                        <td className="py-3 font-bold text-emerald-400">
+                        <td className="px-3 py-3 font-bold whitespace-nowrap text-emerald-400">
                           ${p.monto.toLocaleString("es-AR")}
                         </td>
-                        <td className="py-3 text-zinc-400">{p.fecha}</td>
-                        <td className="py-3 text-right">
+                        <td className="px-3 py-3 whitespace-nowrap text-zinc-400">
+                          {p.fecha}
+                        </td>
+                        <td className="px-3 py-3 text-right whitespace-nowrap">
                           <Button
+                            className="shrink-0 whitespace-nowrap"
                             onClick={() =>
                               alert(`Cobro registrado para ${p.cliente}`)
                             }
@@ -155,7 +162,7 @@ export default function DashboardPage() {
                       key={l.id}
                       className="flex flex-col border-b border-[#2A2A2E]/40 pb-2 last:border-0"
                     >
-                      <span className="text-xs font-bold text-zinc-300">
+                      <span className="min-w-0 text-xs font-bold break-words text-zinc-300">
                         {l.mensaje}
                       </span>
                       <span className="mt-0.5 font-mono text-[9px] text-zinc-500">

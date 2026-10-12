@@ -37,7 +37,7 @@ export const VistaKanban: React.FC<VistaKanbanProps> = ({
   onAlternarFavorito,
 }) => {
   return (
-    <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-5">
+    <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {estados.map((colName) => {
         const enColumna = clientes.filter((c) => c.estado === colName);
         return (
@@ -45,11 +45,11 @@ export const VistaKanban: React.FC<VistaKanbanProps> = ({
             key={colName}
             className="flex min-h-[400px] flex-col gap-3 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-4"
           >
-            <div className="mb-1 flex items-center justify-between border-b border-[#2A2A2E] pb-2">
-              <span className="block font-mono text-[10px] font-extrabold tracking-wider text-zinc-300 uppercase">
+            <div className="mb-1 flex items-center justify-between gap-2 border-b border-[#2A2A2E] pb-2">
+              <span className="block truncate font-mono text-[10px] font-extrabold tracking-wider text-zinc-300 uppercase">
                 {colName}
               </span>
-              <span className="rounded border border-[#2A2A2E] bg-zinc-950 px-1.5 py-0.5 font-mono text-[10px] font-bold text-zinc-500">
+              <span className="shrink-0 rounded border border-[#2A2A2E] bg-zinc-950 px-1.5 py-0.5 font-mono text-[10px] font-bold text-zinc-500">
                 {enColumna.length}
               </span>
             </div>
@@ -68,7 +68,7 @@ export const VistaKanban: React.FC<VistaKanbanProps> = ({
                     <div className="flex items-start justify-between gap-2">
                       <span
                         onClick={() => onEdicion(c)}
-                        className="cursor-pointer text-xs font-bold text-zinc-200 transition-all group-hover:text-emerald-400"
+                        className="cursor-pointer truncate text-xs font-bold text-zinc-200 transition-all group-hover:text-emerald-400"
                       >
                         {c.nombre}
                       </span>
@@ -79,7 +79,7 @@ export const VistaKanban: React.FC<VistaKanbanProps> = ({
                             ? "Quitar de favoritos"
                             : "Marcar como favorito"
                         }
-                        className={`flex min-h-11 min-w-11 items-center justify-center ${
+                        className={`flex min-h-11 min-w-11 shrink-0 items-center justify-center ${
                           c.favorito
                             ? "text-amber-400"
                             : "text-zinc-600 hover:text-zinc-400"
@@ -91,7 +91,7 @@ export const VistaKanban: React.FC<VistaKanbanProps> = ({
                         />
                       </button>
                     </div>
-                    <span className="font-mono text-[10px] text-zinc-500">
+                    <span className="truncate font-mono text-[10px] text-zinc-500">
                       {c.empresa || "Sin compañía"}
                     </span>
 
@@ -108,11 +108,11 @@ export const VistaKanban: React.FC<VistaKanbanProps> = ({
                       </div>
                     )}
 
-                    <div className="mt-1 flex justify-end gap-2 border-t border-[#2A2A2E]/50 pt-2">
+                    <div className="mt-1 flex flex-wrap justify-end gap-1.5 border-t border-[#2A2A2E]/50 pt-2">
                       {c.telefono && (
                         <a
                           href={`tel:${c.telefono}`}
-                          className="p-1 text-zinc-500 hover:text-emerald-400"
+                          className="shrink-0 p-1 whitespace-nowrap text-zinc-500 hover:text-emerald-400"
                         >
                           <Icono.Phone className="h-3.5 w-3.5" />
                         </a>
@@ -120,20 +120,20 @@ export const VistaKanban: React.FC<VistaKanbanProps> = ({
                       {c.correo && (
                         <a
                           href={`mailto:${c.correo}`}
-                          className="p-1 text-zinc-500 hover:text-emerald-400"
+                          className="shrink-0 p-1 whitespace-nowrap text-zinc-500 hover:text-emerald-400"
                         >
                           <Icono.Mail className="h-3.5 w-3.5" />
                         </a>
                       )}
                       <button
                         onClick={() => onEdicion(c)}
-                        className="p-1 text-zinc-500 hover:text-emerald-400"
+                        className="shrink-0 p-1 whitespace-nowrap text-zinc-500 hover:text-emerald-400"
                       >
                         <Icono.Edit className="h-3.5 w-3.5" />
                       </button>
                       <button
                         onClick={() => onEliminar(c.id)}
-                        className="p-1 text-zinc-500 hover:text-red-400"
+                        className="shrink-0 p-1 whitespace-nowrap text-zinc-500 hover:text-red-400"
                       >
                         <Icono.Trash className="h-3.5 w-3.5" />
                       </button>

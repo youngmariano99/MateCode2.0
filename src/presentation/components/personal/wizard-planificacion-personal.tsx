@@ -237,7 +237,7 @@ export const WizardPlanificacionPersonal: React.FC<
       titulo="Asistente de Planificación Paso a Paso"
       maxWidth="xl"
       footer={
-        <div className="flex w-full items-center justify-between">
+        <div className="flex w-full flex-wrap items-center justify-between gap-2">
           <div>
             {paso > 1 && (
               <Button
@@ -248,7 +248,7 @@ export const WizardPlanificacionPersonal: React.FC<
               </Button>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={onCerrar}
               className="min-h-11 rounded-lg px-3 py-1.5 text-xs font-bold text-zinc-500 uppercase hover:text-zinc-300"
@@ -323,7 +323,7 @@ export const WizardPlanificacionPersonal: React.FC<
                 y pegá el JSON final acá.
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
                 onClick={copiarPromptIA}
@@ -359,7 +359,7 @@ export const WizardPlanificacionPersonal: React.FC<
                   </button>
                 ))}
               </div>
-              <div className="mt-1 flex gap-2">
+              <div className="mt-1 flex flex-wrap gap-2 sm:flex-nowrap">
                 <input
                   value={nuevaAreaNombre}
                   onChange={(e) => setNuevaAreaNombre(e.target.value)}
@@ -388,13 +388,13 @@ export const WizardPlanificacionPersonal: React.FC<
                       key={o.id}
                       type="button"
                       onClick={() => setObjetivoId(o.id)}
-                      className={`flex items-center justify-between rounded-lg border p-2.5 text-left text-xs ${
+                      className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2.5 text-left text-xs ${
                         objetivoId === o.id
                           ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-200"
                           : "border-[#2A2A2E] bg-[#0D0D0F] text-zinc-300 hover:border-zinc-700"
                       }`}
                     >
-                      <span className="font-bold">{o.titulo}</span>
+                      <span className="min-w-0 font-bold">{o.titulo}</span>
                       <span className="text-zinc-500">
                         {o.progresoActual}/{o.cantidadObjetivo} {o.unidad} ·
                         vence {o.diaLimite}
@@ -589,9 +589,9 @@ export const WizardPlanificacionPersonal: React.FC<
               {entregablesDelProyecto.map((e) => (
                 <div
                   key={e.id}
-                  className="flex items-center justify-between rounded-xl border border-[#2A2A2E] bg-[#0D0D0F] p-3"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#2A2A2E] bg-[#0D0D0F] p-3"
                 >
-                  <span className="text-sm font-bold text-zinc-200">
+                  <span className="min-w-0 text-sm font-bold text-zinc-200">
                     {e.titulo}
                   </span>
                   <span className="text-xs text-zinc-400">

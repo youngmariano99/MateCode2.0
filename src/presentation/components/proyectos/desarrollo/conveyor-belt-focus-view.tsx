@@ -179,7 +179,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
         </div>
         <button
           onClick={onClose}
-          className="text-zinc-350 hover:bg-zinc-850 rounded border border-zinc-800 bg-zinc-900 px-3.5 py-1.5 font-mono text-[9px] font-bold uppercase transition-all hover:text-zinc-100"
+          className="rounded border border-zinc-800 bg-zinc-900 px-3.5 py-1.5 font-mono text-[9px] font-bold text-zinc-400 uppercase transition-all hover:bg-[#18181B] hover:text-zinc-100"
         >
           ⬅ Volver al Tablero
         </button>
@@ -532,7 +532,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
 
             {aiEngine === "claude_manual" && (
               <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-zinc-650 font-mono text-[8px]">
+                <span className="font-mono text-[8px] text-zinc-500">
                   * El JSON se usará para auditar la entrega y registrar los
                   cambios técnicos de la actividad.
                 </span>
@@ -595,7 +595,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
               </div>
 
               <div className="flex items-center justify-between gap-3 rounded border border-zinc-900 bg-zinc-950 p-2.5">
-                <code className="text-zinc-450 font-mono text-[9px] break-all select-all">
+                <code className="font-mono text-[9px] break-all text-zinc-400 select-all">
                   {`git add . && git commit -m "feat(mc-${shortId}): implementa ${currentItem.titulo.toLowerCase().replace(/"/g, "")}" && git checkout main && git merge ${branchName} && git push origin main`}
                 </code>
                 <button
@@ -662,7 +662,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
             <span className="text-[10px] font-bold text-sky-400 uppercase">
               Carril de Iteraciones ({stationIterations.length})
             </span>
-            <p className="text-zinc-550 text-[8px]">
+            <p className="text-[8px] text-zinc-500">
               Registra feedback para que la IA refine o ajuste detalles del
               código generado.
             </p>
@@ -738,14 +738,14 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                     {activeBug.logs}
                   </pre>
                   {activeBug.comportamientoEsperado && (
-                    <div className="text-zinc-350 mt-2">
-                      <span className="text-zinc-550 font-bold">Esperado:</span>{" "}
+                    <div className="mt-2 text-zinc-400">
+                      <span className="font-bold text-zinc-500">Esperado:</span>{" "}
                       {activeBug.comportamientoEsperado}
                     </div>
                   )}
                   {activeBug.comportamientoReal && (
-                    <div className="text-zinc-350 mt-1">
-                      <span className="text-zinc-550 font-bold">Obtenido:</span>{" "}
+                    <div className="mt-1 text-zinc-400">
+                      <span className="font-bold text-zinc-500">Obtenido:</span>{" "}
                       {activeBug.comportamientoReal}
                     </div>
                   )}
@@ -774,7 +774,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
               </div>
             ) : (
               <div className="flex flex-col gap-2">
-                <p className="text-zinc-550 text-[8px]">
+                <p className="text-[8px] text-zinc-500">
                   Si el código generado produce algún crash o error en
                   terminal/consola, repórtalo aquí.
                 </p>
@@ -853,7 +853,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
             </span>
 
             {allHandoffs.length === 0 ? (
-              <p className="text-zinc-550 mt-2 text-[8px]">
+              <p className="mt-2 text-[8px] text-zinc-500">
                 Aún no se han completado entregas de handoffs para este ticket.
               </p>
             ) : (
@@ -869,12 +869,12 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                           ? "Handoff registrado"
                           : `Estación: ${stationName}`}
                       </span>
-                      <span className="text-zinc-550">
+                      <span className="text-zinc-500">
                         [{data.fecha || "Completada"}]
                       </span>
                     </div>
                     {data.archivos_creados_o_modificados && (
-                      <div className="text-zinc-550 mt-1 text-[8px]">
+                      <div className="mt-1 text-[8px] text-zinc-500">
                         <b>Archivos:</b>{" "}
                         {Array.isArray(data.archivos_creados_o_modificados)
                           ? data.archivos_creados_o_modificados.join(", ")
@@ -882,7 +882,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
                       </div>
                     )}
                     {data.resumen_tecnico && (
-                      <div className="text-zinc-350 mt-0.5 text-[8px] italic">
+                      <div className="mt-0.5 text-[8px] text-zinc-400 italic">
                         <b>Resumen:</b> {data.resumen_tecnico}
                       </div>
                     )}
@@ -903,7 +903,7 @@ export const ConveyorBeltFocusView: React.FC<ConveyorBeltFocusViewProps> = ({
               </span>
               <button
                 onClick={() => setIsCicdModalOpen(false)}
-                className="hover:text-zinc-350 text-[9px] text-zinc-500 uppercase"
+                className="text-[9px] text-zinc-500 uppercase hover:text-zinc-400"
               >
                 Cerrar
               </button>

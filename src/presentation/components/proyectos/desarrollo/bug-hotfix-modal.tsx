@@ -40,7 +40,7 @@ export const BugHotfixModal: React.FC<BugHotfixModalProps> = ({
 
   return (
     <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="border-zinc-850 w-[500px] rounded-xl border bg-zinc-950 p-5 shadow-2xl">
+      <div className="w-[500px] rounded-xl border border-[#2A2A2E] bg-zinc-950 p-5 shadow-2xl">
         <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-3">
           <span className="font-mono text-xs font-bold text-red-400 uppercase">
             Registrar Bug / Hotfix
@@ -63,7 +63,7 @@ export const BugHotfixModal: React.FC<BugHotfixModalProps> = ({
               value={bugNombre}
               onChange={(e) => setBugNombre(e.target.value)}
               placeholder="Ej: CRM-404 error filtro de clientes..."
-              className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+              className="rounded border border-[#2A2A2E] bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
             />
           </div>
 
@@ -77,7 +77,7 @@ export const BugHotfixModal: React.FC<BugHotfixModalProps> = ({
                 onChange={(e) =>
                   setBugType(e.target.value as "bugfix" | "hotfix")
                 }
-                className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+                className="rounded border border-[#2A2A2E] bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
               >
                 <option value="bugfix">Bugfix (Normal - Staging)</option>
                 <option value="hotfix">Hotfix (Urgente - Producción)</option>
@@ -90,7 +90,7 @@ export const BugHotfixModal: React.FC<BugHotfixModalProps> = ({
               <select
                 value={linkedTicketId}
                 onChange={(e) => setLinkedTicketId(e.target.value)}
-                className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+                className="rounded border border-[#2A2A2E] bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
               >
                 <option value="">Ninguno...</option>
                 {ticketExecutions.map((t) => (
@@ -111,7 +111,7 @@ export const BugHotfixModal: React.FC<BugHotfixModalProps> = ({
               onChange={(e) => setBugLogs(e.target.value)}
               placeholder="Pega aquí los logs de consola o errores detectados..."
               rows={4}
-              className="border-zinc-850 rounded border bg-zinc-900 p-1.5 font-mono text-[10px] text-zinc-200 outline-none"
+              className="rounded border border-[#2A2A2E] bg-zinc-900 p-1.5 font-mono text-[10px] text-zinc-200 outline-none"
             />
           </div>
 

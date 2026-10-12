@@ -44,21 +44,21 @@ export const VistaTarjetas: React.FC<VistaTarjetasProps> = ({
         clientes.map((c) => (
           <Card key={c.id}>
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <span className="block text-xs font-bold text-zinc-200">
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-bold text-zinc-200">
                   {c.nombre}
                 </span>
-                <span className="mt-0.5 block font-mono text-[10px] text-zinc-500">
+                <span className="mt-0.5 block truncate font-mono text-[10px] text-zinc-500">
                   {c.empresa || "Sin compañía"} • {c.cargo || "Sin cargo"}
                 </span>
               </div>
-              <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] font-bold text-emerald-400">
+              <span className="shrink-0 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] font-bold whitespace-nowrap text-emerald-400">
                 {c.estado}
               </span>
             </div>
 
             <div className="mt-4 flex flex-col gap-1.5 border-t border-[#2A2A2E]/60 pt-3 font-mono text-xs text-zinc-400">
-              <span>{c.correo}</span>
+              <span className="truncate">{c.correo}</span>
               <span>{c.telefono || "Sin teléfono"}</span>
               {c.responsable && <span>Asignado: {c.responsable}</span>}
             </div>

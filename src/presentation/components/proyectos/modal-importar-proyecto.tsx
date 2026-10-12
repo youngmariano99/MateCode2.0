@@ -395,7 +395,7 @@ Estructura requerida:
                   onClick={() =>
                     copiarAlPortapapeles(promptAI, setCopiandoPrompt)
                   }
-                  className="hover:bg-zinc-850 flex items-center gap-1 rounded bg-zinc-900 px-2 py-1 font-mono text-[9px] text-emerald-400"
+                  className="flex items-center gap-1 rounded bg-zinc-900 px-2 py-1 font-mono text-[9px] text-emerald-400 hover:bg-[#18181B]"
                 >
                   {copiandoPrompt ? "¡Copiado!" : "Copiar Prompt"}
                 </button>
@@ -414,7 +414,7 @@ Estructura requerida:
                   onClick={() =>
                     copiarAlPortapapeles(jsonEjemplo, setCopiandoJson)
                   }
-                  className="hover:bg-zinc-850 flex items-center gap-1 rounded bg-zinc-900 px-2 py-1 font-mono text-[9px] text-emerald-400"
+                  className="flex items-center gap-1 rounded bg-zinc-900 px-2 py-1 font-mono text-[9px] text-emerald-400 hover:bg-[#18181B]"
                 >
                   {copiandoJson ? "¡Copiado!" : "Copiar Plantilla"}
                 </button>

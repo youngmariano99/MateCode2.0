@@ -400,7 +400,7 @@ export const SprintPlanner: React.FC<SprintPlannerProps> = ({ proyectoId }) => {
           </div>
           <div className="flex max-h-[70vh] flex-col gap-2.5 overflow-y-auto pr-1">
             {backlogStories.length === 0 ? (
-              <span className="text-zinc-650 border-zinc-850 rounded-xl border border-dashed py-4 text-center font-mono text-[10px] italic">
+              <span className="rounded-xl border border-dashed border-[#2A2A2E] py-4 text-center font-mono text-[10px] text-zinc-500 italic">
                 No hay historias en el backlog.
               </span>
             ) : (
@@ -458,7 +458,7 @@ export const SprintPlanner: React.FC<SprintPlannerProps> = ({ proyectoId }) => {
 
           <div className="flex flex-col gap-5">
             {sprints.filter((s) => s.estado !== "finalizado").length === 0 ? (
-              <span className="text-zinc-650 border-zinc-850 rounded-2xl border border-dashed py-8 text-center font-mono text-[10px] italic">
+              <span className="rounded-2xl border border-dashed border-[#2A2A2E] py-8 text-center font-mono text-[10px] text-zinc-500 italic">
                 No hay sprints planificados ni activos. Crea uno arriba.
               </span>
             ) : (
@@ -479,7 +479,7 @@ export const SprintPlanner: React.FC<SprintPlannerProps> = ({ proyectoId }) => {
                       className={`flex flex-col gap-4.5 rounded-2xl border p-4.5 font-mono text-xs ${
                         sp.estado === "activo"
                           ? "border-emerald-500/30 bg-emerald-950/5"
-                          : "border-zinc-850 bg-zinc-950/20"
+                          : "border-[#2A2A2E] bg-zinc-950/20"
                       }`}
                     >
                       {/* Sprint Card Header */}
@@ -491,7 +491,7 @@ export const SprintPlanner: React.FC<SprintPlannerProps> = ({ proyectoId }) => {
                               className={`rounded px-1.5 py-0.5 text-[8px] font-bold ${
                                 sp.estado === "activo"
                                   ? "animate-pulse border border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
-                                  : "bg-zinc-850 text-zinc-400"
+                                  : "bg-[#18181B] text-zinc-400"
                               }`}
                             >
                               {sp.estado.toUpperCase()}
@@ -614,7 +614,7 @@ export const SprintPlanner: React.FC<SprintPlannerProps> = ({ proyectoId }) => {
 
               {historias.filter((h) => h.sprintId === sprintCerrandoId)
                 .length === 0 ? (
-                <div className="text-zinc-650 py-6 text-center italic">
+                <div className="py-6 text-center text-zinc-500 italic">
                   No hay historias registradas en este sprint.
                 </div>
               ) : (
@@ -635,7 +635,7 @@ export const SprintPlanner: React.FC<SprintPlannerProps> = ({ proyectoId }) => {
                         key={h.id}
                         className={`flex flex-col gap-3 rounded-2xl border p-4 ${
                           esIncompleta
-                            ? "border-zinc-850 bg-zinc-950/20"
+                            ? "border-[#2A2A2E] bg-zinc-950/20"
                             : "border-emerald-500/20 bg-emerald-950/5"
                         }`}
                       >
@@ -766,7 +766,7 @@ export const SprintPlanner: React.FC<SprintPlannerProps> = ({ proyectoId }) => {
                                       <option
                                         key={s.id}
                                         value={s.id}
-                                        className="text-zinc-350 bg-[#121214]"
+                                        className="bg-[#121214] text-zinc-400"
                                       >
                                         Mover a {s.nombre}
                                       </option>

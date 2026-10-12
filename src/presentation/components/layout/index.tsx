@@ -20,20 +20,22 @@ export const Breadcrumb: React.FC<{ items: BreadcrumbItem[] }> = ({
 }) => {
   const ChevronRight = Icono.ChevronRight;
   return (
-    <nav className="flex items-center gap-1.5 font-mono text-xs text-zinc-500">
+    <nav className="flex min-w-0 items-center gap-1.5 overflow-hidden font-mono text-xs text-zinc-500">
       {items.map((item, index) => {
         const isLast = index === items.length - 1;
         return (
           <React.Fragment key={index}>
-            {index > 0 && <ChevronRight className="h-3.5 w-3.5" />}
+            {index > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
             {isLast || !item.href ? (
-              <span className={isLast ? "font-bold text-zinc-300" : ""}>
+              <span
+                className={`truncate ${isLast ? "font-bold text-zinc-300" : ""}`}
+              >
                 {item.label}
               </span>
             ) : (
               <Link
                 href={item.href}
-                className="transition-all hover:text-zinc-300"
+                className="truncate transition-all hover:text-zinc-300"
               >
                 {item.label}
               </Link>
@@ -168,20 +170,20 @@ export const Header: React.FC<{
   const [profileOpen, setProfileOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-30 flex h-[65px] w-full items-center justify-between border-b border-[#2A2A2E] bg-zinc-900/10 px-6 py-4 backdrop-blur-md">
-      <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-30 flex h-[65px] w-full items-center justify-between gap-2 border-b border-[#2A2A2E] bg-zinc-900/10 px-4 py-4 backdrop-blur-md sm:px-6">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <button
           onClick={onOpenMobile}
-          className="rounded-lg p-1.5 text-zinc-400 transition-all hover:bg-zinc-800 hover:text-zinc-200 focus:outline-none md:hidden"
+          className="shrink-0 rounded-lg p-1.5 text-zinc-400 transition-all hover:bg-zinc-800 hover:text-zinc-200 focus:outline-none md:hidden"
         >
           <Icono.Menu className="h-5 w-5" />
         </button>
         <Breadcrumb items={breadcrumbs} />
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex shrink-0 items-center gap-2.5 sm:gap-4">
         {agenciaActiva && (
-          <span className="hidden rounded border border-[#2A2A2E] bg-[#18181B] px-2 py-0.5 font-mono text-[10px] font-bold text-zinc-400 sm:inline-flex">
+          <span className="hidden max-w-[160px] truncate rounded border border-[#2A2A2E] bg-[#18181B] px-2 py-0.5 font-mono text-[10px] font-bold text-zinc-400 sm:inline-flex">
             {agenciaActiva.nombreComercial}
           </span>
         )}
@@ -256,7 +258,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   }, [pathname]);
 
   return (
-    <div className="flex min-h-screen bg-[#09090B] text-zinc-100">
+    <div className="flex min-h-screen w-full overflow-x-hidden bg-[#09090B] text-zinc-100">
       <Sidebar colapsado={colapsado} setColapsado={setColapsado} />
 
       {mobileOpen && (
@@ -305,7 +307,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
       )}
 
       <div
-        className={`flex flex-1 flex-col transition-all duration-300 ${
+        className={`flex min-w-0 flex-1 flex-col overflow-x-hidden transition-all duration-300 ${
           colapsado ? "md:pl-16" : "md:pl-64"
         }`}
       >
@@ -314,7 +316,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           onOpenMobile={() => setMobileOpen(true)}
           breadcrumbs={breadcrumbs}
         />
-        <main className="mx-auto w-full max-w-7xl flex-1 p-6 md:p-8">
+        <main className="mx-auto w-full max-w-7xl min-w-0 flex-1 p-4 sm:p-6 md:p-8">
           {children}
         </main>
       </div>

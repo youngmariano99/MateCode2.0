@@ -136,12 +136,14 @@ export const VistaArchivos: React.FC<VistaArchivosProps> = ({ proyectoId }) => {
           archivos.map((a) => (
             <div
               key={a.id}
-              className="flex items-center justify-between rounded-xl border border-[#2A2A2E] bg-zinc-950 p-3 font-mono text-xs transition-all hover:border-zinc-800"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#2A2A2E] bg-zinc-950 p-3 font-mono text-xs transition-all hover:border-zinc-800"
             >
-              <div className="flex flex-col gap-0.5">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-zinc-200">{a.nombre}</span>
-                  <span className="text-[9px] text-zinc-500">
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="truncate font-bold text-zinc-200">
+                    {a.nombre}
+                  </span>
+                  <span className="shrink-0 text-[9px] text-zinc-500">
                     ({a.tamanio})
                   </span>
                 </div>

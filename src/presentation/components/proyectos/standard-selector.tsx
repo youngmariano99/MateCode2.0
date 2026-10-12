@@ -472,17 +472,17 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
 
   return (
     <Card>
-      <div className="mb-4 flex items-start justify-between border-b border-[#2A2A2E] pb-3">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-[#2A2A2E] pb-3">
         <div>
           <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
             Estándares y Prácticas de Ingeniería
           </h3>
-          <p className="text-zinc-550 mt-0.5 font-mono text-[10px]">
+          <p className="mt-0.5 font-mono text-[10px] text-zinc-500">
             Estandariza los procedimientos del equipo. Selecciona presets o crea
             nuevas categorías de ingeniería.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setShowNuevaCatModal(true)}
@@ -539,11 +539,11 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
       </div>
 
       {/* JSON actions toggle */}
-      <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-900 pb-2">
         <span className="font-mono text-[9px] font-bold text-zinc-500 uppercase">
           Importación Rápida por JSON / Prompt IA
         </span>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={copiarPlantillaJSON}
@@ -556,7 +556,7 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
             onClick={() => setShowJsonArea(!showJsonArea)}
             className="font-mono text-[9px] font-bold text-sky-400 hover:text-sky-300"
           >
-            {showJsonArea ? "Ocultar Input JSON" : "Pagar JSON de la IA"}
+            {showJsonArea ? "Ocultar Input JSON" : "Pegar JSON de la IA"}
           </button>
         </div>
       </div>
@@ -568,7 +568,7 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
             onChange={(e) => setJsonText(e.target.value)}
             placeholder="Pega aquí la estructura JSON devuelta por la IA..."
             rows={4}
-            className="border-zinc-850 w-full rounded border bg-zinc-950 p-2 font-mono text-[9px] text-zinc-300 outline-none"
+            className="w-full rounded border border-[#2A2A2E] bg-zinc-950 p-2 font-mono text-[9px] text-zinc-300 outline-none"
           />
           <button
             type="button"
@@ -653,7 +653,7 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
                     e.key === "Enter" &&
                     (e.preventDefault(), handleAddManual(category))
                   }
-                  className="border-zinc-850 flex-1 rounded border bg-zinc-950 px-2 py-1 font-mono text-[9px] text-zinc-200 outline-none"
+                  className="flex-1 rounded border border-[#2A2A2E] bg-zinc-950 px-2 py-1 font-mono text-[9px] text-zinc-200 outline-none"
                 />
                 <button
                   type="button"
@@ -676,7 +676,7 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
                       <button
                         type="button"
                         onClick={() => removeSelected(category, itemVal)}
-                        className="text-zinc-550 font-bold hover:text-red-400"
+                        className="font-bold text-zinc-500 hover:text-red-400"
                       >
                         ×
                       </button>
@@ -716,7 +716,7 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
       {/* Modal for creating a new custom category */}
       {showNuevaCatModal && (
         <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="border-zinc-850 w-[420px] rounded-xl border bg-zinc-950 p-5 shadow-2xl">
+          <div className="mx-4 w-full max-w-md rounded-xl border border-[#2A2A2E] bg-zinc-950 p-5 shadow-2xl">
             <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-3">
               <span className="font-mono text-xs font-bold text-emerald-400 uppercase">
                 + Crear Nueva Categoría de Estándares
@@ -743,7 +743,7 @@ export const StandardSelector: React.FC<StandardSelectorProps> = ({
                     (e.preventDefault(), handleCrearCategoria())
                   }
                   placeholder="Ej: Usabilidad & Accesibilidad, Rendimiento & Caching..."
-                  className="border-zinc-850 rounded border bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none"
+                  className="rounded border border-[#2A2A2E] bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none"
                 />
               </div>
 

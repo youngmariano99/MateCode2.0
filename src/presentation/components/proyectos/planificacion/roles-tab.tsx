@@ -41,7 +41,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({
           onChange={(e) => setRolesMarkdown(e.target.value)}
           placeholder="Pega aquí la especificación de roles y permisos devuelta por la IA..."
           rows={15}
-          className="border-zinc-850 w-full rounded border bg-zinc-950 p-3 font-mono text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500"
+          className="w-full rounded border border-[#2A2A2E] bg-zinc-950 p-3 font-mono text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500"
         />
       </div>
     </div>

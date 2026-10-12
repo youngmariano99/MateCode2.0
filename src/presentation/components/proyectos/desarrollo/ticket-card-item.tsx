@@ -418,14 +418,14 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
       {/* Header Bar */}
       <div
         onClick={onToggleExpand}
-        className="flex cursor-pointer items-center justify-between border-b border-zinc-900 bg-zinc-900/60 p-3 hover:bg-zinc-900"
+        className="flex cursor-pointer flex-wrap items-center justify-between gap-2 border-b border-zinc-900 bg-zinc-900/60 p-3 hover:bg-zinc-900"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <span className="font-mono text-[10px] font-bold text-zinc-400">
             {isExpanded ? "▲" : "▼"}
           </span>
           <span
-            className={`rounded px-2 py-0.5 font-mono text-[8px] font-bold ${
+            className={`shrink-0 rounded px-2 py-0.5 font-mono text-[8px] font-bold ${
               ticket.estado === "COMPLETED"
                 ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
                 : (ticket.titulo || "").startsWith("BUG") ||
@@ -436,12 +436,12 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
           >
             {ticket.estado}
           </span>
-          <h4 className="font-mono text-[11px] font-bold text-zinc-200 uppercase">
+          <h4 className="min-w-0 truncate font-mono text-[11px] font-bold text-zinc-200 uppercase">
             {ticket.titulo}
           </h4>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="hidden font-mono text-[8px] text-zinc-500 sm:inline">
             Encargado: {ticket.usuarioAsignadoId}
           </span>
@@ -479,7 +479,7 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
                   key={st.id}
                   className="flex items-center justify-between border-b border-zinc-900/60 pb-1.5 last:border-none"
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
                     <input
                       type="checkbox"
                       checked={st.completado}
@@ -505,8 +505,8 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
           {ticket.estado === "IN_PROGRESS" && (
             <>
               {/* Prompt Compiler box */}
-              <div className="flex items-center justify-between rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
-                <div>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
+                <div className="min-w-0">
                   <span className="block font-mono text-[9px] font-bold text-zinc-400 uppercase">
                     1. Prompt Base para la IA
                   </span>
@@ -534,9 +534,9 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
                   onChange={(e) => setRefinamientoInput(e.target.value)}
                   placeholder="Escribe las correcciones sobre lo que hizo la IA (ej: 'Cambia el botón a verde y ajusta el padding')..."
                   rows={2}
-                  className="border-zinc-850 w-full rounded border bg-zinc-950 p-2 font-mono text-[9px] text-zinc-200 outline-none"
+                  className="w-full rounded border border-[#2A2A2E] bg-zinc-950 p-2 font-mono text-[9px] text-zinc-200 outline-none"
                 />
-                <div className="flex justify-end gap-2">
+                <div className="flex flex-wrap justify-end gap-2">
                   <button
                     type="button"
                     onClick={registrarIteracionRefinamiento}
@@ -566,7 +566,7 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
                           (it: IteracionRefinamiento, idx: number) => (
                             <div
                               key={idx}
-                              className="border-zinc-850 rounded border bg-zinc-950/60 p-1.5 font-mono text-[8px] text-zinc-300"
+                              className="rounded border border-[#2A2A2E] bg-zinc-950/60 p-1.5 font-mono text-[8px] text-zinc-300"
                             >
                               <span className="font-bold text-sky-400">
                                 [{it.fecha}]
@@ -590,7 +590,7 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
                   onChange={(e) => setChecklistJsonInput(e.target.value)}
                   placeholder='Pega el JSON devuelto por la IA para auto-tildar los pasos... (ej: {"checklist": [{"paso": 1, "completado": true}], "resumen_ia": "..."})'
                   rows={2}
-                  className="border-zinc-850 w-full rounded border bg-zinc-950 p-2 font-mono text-[9px] text-zinc-300 outline-none"
+                  className="w-full rounded border border-[#2A2A2E] bg-zinc-950 p-2 font-mono text-[9px] text-zinc-300 outline-none"
                 />
                 <button
                   type="button"
@@ -611,7 +611,7 @@ export const TicketCardItem: React.FC<TicketCardItemProps> = ({
                   onChange={(e) => setAiSummaryInput(e.target.value)}
                   placeholder="Resume qué archivos cambiaste y qué lógica agregaste..."
                   rows={2}
-                  className="border-zinc-850 w-full rounded border bg-zinc-950 p-2 font-mono text-[10px] text-zinc-300 outline-none"
+                  className="w-full rounded border border-[#2A2A2E] bg-zinc-950 p-2 font-mono text-[10px] text-zinc-300 outline-none"
                 />
                 <button
                   type="button"

@@ -22,7 +22,7 @@ export const ImportDesvioModal: React.FC<ImportDesvioModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/80 p-4 backdrop-blur-sm">
-      <div className="border-zinc-850 flex w-full max-w-lg flex-col gap-4 rounded-xl border bg-zinc-950 p-5 font-mono shadow-2xl">
+      <div className="flex w-full max-w-lg flex-col gap-4 rounded-xl border border-[#2A2A2E] bg-zinc-950 p-5 font-mono shadow-2xl">
         <div className="flex items-center justify-between border-b border-zinc-900 pb-2">
           <span className="text-[10px] font-bold text-zinc-100 uppercase">
             Importar Historia de Desvío (JSON)
@@ -57,7 +57,7 @@ export const ImportDesvioModal: React.FC<ImportDesvioModalProps> = ({
             onChange={(e) => setDesvioJsonText(e.target.value)}
             placeholder="Pega aquí el JSON devuelto..."
             rows={8}
-            className="border-zinc-850 w-full rounded border bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500/20"
+            className="w-full rounded border border-[#2A2A2E] bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500/20"
           />
         </div>
 

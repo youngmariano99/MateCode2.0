@@ -267,7 +267,7 @@ export const VistaComentarios: React.FC<VistaComentariosProps> = ({
                 setTitulo("");
                 setTexto("");
               }}
-              className="hover:bg-emerald-450 rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase"
+              className="rounded bg-emerald-500 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-950 uppercase hover:bg-emerald-400"
             >
               + Agregar Garantía
             </button>
@@ -331,7 +331,7 @@ export const VistaComentarios: React.FC<VistaComentariosProps> = ({
                   value={titulo}
                   onChange={(e) => setTitulo(e.target.value)}
                   placeholder="Ej: Corregir redirección del botón de checkout"
-                  className="border-zinc-850 w-full rounded border bg-zinc-950 p-2 font-mono text-[10px] text-zinc-200 outline-none"
+                  className="w-full rounded border border-[#2A2A2E] bg-zinc-950 p-2 font-mono text-[10px] text-zinc-200 outline-none"
                 />
               </div>
 
@@ -350,7 +350,7 @@ El botón de checkout no redirige al webhook de éxito.
 - [ ] Validar variables de entorno en producción.
 - [ ] Probar callback de pasarela.`}
                   rows={8}
-                  className="border-zinc-850 w-full resize-none rounded border bg-zinc-950 p-2 font-mono text-[10px] text-zinc-200 outline-none"
+                  className="w-full resize-none rounded border border-[#2A2A2E] bg-zinc-950 p-2 font-mono text-[10px] text-zinc-200 outline-none"
                 />
               </div>
 
@@ -381,7 +381,7 @@ El botón de checkout no redirige al webhook de éxito.
                   dangerouslySetInnerHTML={{ __html: parseMarkdown(texto) }}
                 />
               ) : (
-                <p className="text-zinc-650 py-12 text-center font-mono text-[8px] italic">
+                <p className="py-12 text-center font-mono text-[8px] text-zinc-500 italic">
                   Escribe en el panel izquierdo para previsualizar el render de
                   Markdown.
                 </p>
@@ -394,7 +394,7 @@ El botón de checkout no redirige al webhook de éxito.
         {!formAbierto && (
           <div className="mt-3 flex flex-col gap-2">
             {filteredItems.length === 0 ? (
-              <p className="text-zinc-550 py-12 text-center font-mono text-[9px]">
+              <p className="py-12 text-center font-mono text-[9px] text-zinc-500">
                 No hay ítems registrados en este filtro.
               </p>
             ) : (
@@ -406,7 +406,7 @@ El botón de checkout no redirige al webhook de éxito.
                     className={`flex flex-col rounded-xl border bg-zinc-950/20 transition-all ${
                       item.completado
                         ? "border-zinc-900 bg-zinc-950/10 opacity-70"
-                        : "border-zinc-850 hover:border-zinc-800"
+                        : "border-[#2A2A2E] hover:border-zinc-800"
                     }`}
                   >
                     {/* Collapsed top bar */}
@@ -430,7 +430,7 @@ El botón de checkout no redirige al webhook de éxito.
                       </div>
 
                       <div className="flex shrink-0 items-center gap-3">
-                        <span className="text-zinc-550 font-mono text-[8px]">
+                        <span className="font-mono text-[8px] text-zinc-500">
                           {item.fecha}
                         </span>
                         <button
@@ -453,7 +453,7 @@ El botón de checkout no redirige al webhook de éxito.
                             __html: parseMarkdown(item.texto),
                           }}
                         />
-                        <div className="text-zinc-550 flex flex-wrap items-center justify-between gap-2 text-[8px]">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-[8px] text-zinc-500">
                           <div>
                             <span>Registrado por: </span>
                             <span className="font-bold text-emerald-400">

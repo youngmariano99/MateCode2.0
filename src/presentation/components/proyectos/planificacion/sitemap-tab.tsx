@@ -51,7 +51,7 @@ export const SitemapTab: React.FC<SitemapTabProps> = ({
   return (
     <div className="flex flex-col gap-5">
       {/* Sitemap Mode Selector */}
-      <div className="flex gap-2 rounded-xl border border-zinc-900 bg-zinc-950/40 p-2">
+      <div className="flex flex-wrap gap-2 rounded-xl border border-zinc-900 bg-zinc-950/40 p-2">
         <button
           type="button"
           onClick={() => setSitemapMode("sistema")}
@@ -79,7 +79,7 @@ export const SitemapTab: React.FC<SitemapTabProps> = ({
       {sitemapMode === "sistema" ? (
         <div className="flex flex-col gap-4">
           {/* Prompt Generator Banner for System Sitemap */}
-          <div className="flex items-start justify-between rounded-xl border border-zinc-900 bg-zinc-950 p-3">
+          <div className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-3">
             <div>
               <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
                 Generador de Sitemap del Sistema / SaaS (Rutas & Navegación)
@@ -110,14 +110,14 @@ export const SitemapTab: React.FC<SitemapTabProps> = ({
               onChange={(e) => setSitemapSystemMarkdown(e.target.value)}
               placeholder="Pega aquí la especificación Markdown del sitemap del sistema (rutas Next.js App Router)..."
               rows={15}
-              className="border-zinc-850 w-full rounded border bg-zinc-950 p-3 font-mono text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500"
+              className="w-full rounded border border-[#2A2A2E] bg-zinc-950 p-3 font-mono text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-emerald-500"
             />
           </div>
         </div>
       ) : (
         <div className="flex flex-col gap-5">
           {/* Prompt Generator Banner */}
-          <div className="flex items-start justify-between rounded-xl border border-zinc-900 bg-zinc-950 p-3">
+          <div className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-3">
             <div>
               <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
                 Generador de Sitemap por Secciones con IA ({"{{SECCION}}"})
@@ -139,7 +139,7 @@ export const SitemapTab: React.FC<SitemapTabProps> = ({
 
           {/* Tag Parser Area */}
           <div className="flex flex-col gap-2 rounded-xl border border-sky-500/20 bg-sky-500/5 p-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-mono text-[9px] font-bold text-sky-400 uppercase">
                 Marcado Rápido con Etiquetas ({"{{HERO}}"})
               </span>
@@ -152,7 +152,7 @@ export const SitemapTab: React.FC<SitemapTabProps> = ({
               onChange={(e) => setSitemapMarkup(e.target.value)}
               placeholder={`Ejemplo:\n{{HERO}}\nTítulo de alto impacto, CTA de contacto y video de fondo.\n{{/HERO}}\n\n{{SERVICIOS}}\nTarjetas con los 4 servicios principales.\n{{/SERVICIOS}}`}
               rows={5}
-              className="border-zinc-850 w-full rounded border bg-zinc-950 p-2 font-mono text-[10px] text-zinc-300 outline-none"
+              className="w-full rounded border border-[#2A2A2E] bg-zinc-950 p-2 font-mono text-[10px] text-zinc-300 outline-none"
             />
             <button
               type="button"
@@ -165,7 +165,7 @@ export const SitemapTab: React.FC<SitemapTabProps> = ({
 
           {/* Dynamic Section Cards List */}
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between border-b border-zinc-900 pb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-900 pb-2">
               <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
                 Estructura de Secciones ({seccionesSitemap.length})
               </span>
@@ -178,7 +178,7 @@ export const SitemapTab: React.FC<SitemapTabProps> = ({
             </div>
 
             {seccionesSitemap.length === 0 ? (
-              <div className="border-zinc-850 rounded-xl border border-dashed bg-zinc-950/40 p-8 text-center">
+              <div className="rounded-xl border border-dashed border-[#2A2A2E] bg-zinc-950/40 p-8 text-center">
                 <p className="font-mono text-[10px] text-zinc-500">
                   No hay secciones definidas aún. Copia el prompt para la IA,
                   pega el marcado con etiquetas o presiona &quot;+ Agregar
@@ -192,7 +192,7 @@ export const SitemapTab: React.FC<SitemapTabProps> = ({
                     key={sec.id}
                     className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-zinc-950/60 p-3"
                   >
-                    <div className="flex items-center justify-between gap-2 border-b border-zinc-900 pb-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-900 pb-2">
                       <div className="flex flex-1 items-center gap-2">
                         <span className="font-mono text-[9px] font-bold text-emerald-400 uppercase">
                           {"{{"}
@@ -234,7 +234,7 @@ export const SitemapTab: React.FC<SitemapTabProps> = ({
                       }
                       placeholder="Descripción detallada e indicaciones de lo que incluye esta sección..."
                       rows={3}
-                      className="border-zinc-850 w-full rounded border bg-zinc-900 p-2 font-mono text-[10px] text-zinc-300 outline-none"
+                      className="w-full rounded border border-[#2A2A2E] bg-zinc-900 p-2 font-mono text-[10px] text-zinc-300 outline-none"
                     />
                   </div>
                 ))}

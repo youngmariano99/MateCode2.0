@@ -64,7 +64,7 @@ export const SprintDashboardGrid: React.FC<SprintDashboardGridProps> = ({
                 </span>
                 <div className="flex shrink-0 items-center gap-1.5">
                   <span
-                    className={`py-0.2 rounded border px-1.5 text-[7px] font-bold uppercase ${
+                    className={`rounded border px-1.5 py-0.5 text-[7px] font-bold uppercase ${
                       s.estado === "activo"
                         ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
                         : s.estado === "completado"
@@ -83,7 +83,7 @@ export const SprintDashboardGrid: React.FC<SprintDashboardGridProps> = ({
                       e.stopPropagation();
                       handleEliminarSprintSoft(s.id);
                     }}
-                    className="text-zinc-650 flex min-h-11 min-w-11 items-center justify-center rounded transition-colors hover:bg-red-500/10 hover:text-red-400"
+                    className="flex min-h-11 min-w-11 items-center justify-center rounded text-zinc-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
                     title="Eliminar Sprint (Soft Delete)"
                   >
                     <Icono.Trash className="h-3.5 w-3.5" />
@@ -101,7 +101,7 @@ export const SprintDashboardGrid: React.FC<SprintDashboardGridProps> = ({
                   <span className="block text-[7px] text-zinc-600 uppercase">
                     Capacidad
                   </span>
-                  <span className="text-zinc-350 font-bold">
+                  <span className="font-bold text-zinc-400">
                     {s.capacidad || 0} Ptos
                   </span>
                 </div>
@@ -109,7 +109,7 @@ export const SprintDashboardGrid: React.FC<SprintDashboardGridProps> = ({
                   <span className="block text-[7px] text-zinc-600 uppercase">
                     Duración
                   </span>
-                  <span className="text-zinc-350 font-bold">
+                  <span className="font-bold text-zinc-400">
                     {s.duracionSemanas || 2} Semanas
                   </span>
                 </div>
@@ -117,7 +117,7 @@ export const SprintDashboardGrid: React.FC<SprintDashboardGridProps> = ({
                   <span className="block text-[7px] text-zinc-600 uppercase">
                     Tareas
                   </span>
-                  <span className="text-zinc-350 font-bold">
+                  <span className="font-bold text-zinc-400">
                     {completedCount}/{stories.length}
                   </span>
                 </div>
@@ -127,7 +127,7 @@ export const SprintDashboardGrid: React.FC<SprintDashboardGridProps> = ({
               <div className="mb-3 flex flex-col gap-0.5 border-b border-zinc-900/40 pb-2.5 font-mono text-[8px] text-zinc-500">
                 {s.fechaInicio && (
                   <div className="flex justify-between">
-                    <span className="text-zinc-650">INICIO:</span>
+                    <span className="text-zinc-500">INICIO:</span>
                     <span className="font-bold text-zinc-400">
                       {new Date(s.fechaInicio).toLocaleDateString("es-AR")}
                     </span>
@@ -135,7 +135,7 @@ export const SprintDashboardGrid: React.FC<SprintDashboardGridProps> = ({
                 )}
                 {s.fechaFin && s.estado !== "completado" && (
                   <div className="flex justify-between">
-                    <span className="text-zinc-650">FIN ESTIMADO:</span>
+                    <span className="text-zinc-500">FIN ESTIMADO:</span>
                     <span className="font-bold text-zinc-400">
                       {new Date(s.fechaFin).toLocaleDateString("es-AR")}
                     </span>
@@ -143,7 +143,7 @@ export const SprintDashboardGrid: React.FC<SprintDashboardGridProps> = ({
                 )}
                 {s.finalizadoEn && (
                   <div className="flex justify-between">
-                    <span className="text-zinc-650 text-emerald-500/80">
+                    <span className="text-emerald-500/80 text-zinc-500">
                       COMPLETADO:
                     </span>
                     <span className="font-bold text-emerald-400">

@@ -11,7 +11,7 @@ export const Card: React.FC<CardProps> = ({
   ...props
 }) => (
   <div
-    className={`rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-6 shadow-xl ${className}`}
+    className={`min-w-0 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-4 shadow-xl sm:p-6 ${className}`}
     {...props}
   >
     {children}
@@ -39,33 +39,41 @@ export const StatCard: React.FC<StatCardProps> = ({
   const BajaIcon = Icono.TrendingDown;
 
   return (
-    <Card className={`flex flex-col justify-between ${className}`} {...props}>
-      <div>
-        <span className="mb-1 block font-mono text-xs tracking-wider text-zinc-500 uppercase">
+    <Card
+      className={`flex min-w-0 flex-col justify-between overflow-hidden ${className}`}
+      {...props}
+    >
+      <div className="min-w-0">
+        <span className="mb-1 block truncate font-mono text-xs tracking-wider text-zinc-500 uppercase">
           {titulo}
         </span>
-        <span className="text-3xl font-extrabold tracking-tight text-zinc-100">
+        <span
+          className="block truncate text-2xl font-extrabold tracking-tight text-zinc-100 sm:text-3xl"
+          title={String(valor)}
+        >
           {valor}
         </span>
       </div>
       {cambio ? (
-        <div className="mt-4 flex items-center gap-1.5">
+        <div className="mt-4 flex flex-wrap items-center gap-1.5">
           <span
-            className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-bold ${
+            className={`inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-bold whitespace-nowrap ${
               cambio.tipo === "sube"
                 ? "border border-emerald-500/10 bg-emerald-500/10 text-emerald-400"
                 : "border border-red-500/10 bg-red-500/10 text-red-400"
             }`}
           >
             {cambio.tipo === "sube" ? (
-              <SubeIcon className="h-3.5 w-3.5" />
+              <SubeIcon className="h-3.5 w-3.5 shrink-0" />
             ) : (
-              <BajaIcon className="h-3.5 w-3.5" />
+              <BajaIcon className="h-3.5 w-3.5 shrink-0" />
             )}
             {cambio.porcentaje}%
           </span>
           {cambio.texto ? (
-            <span className="text-xs text-zinc-500">{cambio.texto}</span>
+            <span className="truncate text-xs text-zinc-500">
+              {cambio.texto}
+            </span>
           ) : null}
         </div>
       ) : null}
@@ -87,17 +95,17 @@ export const QuickActionCard: React.FC<QuickActionCardProps> = ({
   ...props
 }) => (
   <button
-    className={`group flex w-full items-start gap-4 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-5 text-left shadow-xl transition-all hover:border-zinc-700 hover:bg-[#232326] focus:ring-1 focus:ring-emerald-500/50 focus:outline-none ${className}`}
+    className={`group flex w-full min-w-0 items-start gap-4 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-4 text-left shadow-xl transition-all hover:border-zinc-700 hover:bg-[#232326] focus:ring-1 focus:ring-emerald-500/50 focus:outline-none sm:p-5 ${className}`}
     {...props}
   >
-    <div className="rounded-xl border border-[#2A2A2E] bg-zinc-900/80 p-3 text-emerald-400 transition-all group-hover:border-zinc-700 group-hover:text-emerald-300">
+    <div className="shrink-0 rounded-xl border border-[#2A2A2E] bg-zinc-900/80 p-3 text-emerald-400 transition-all group-hover:border-zinc-700 group-hover:text-emerald-300">
       {icono}
     </div>
-    <div className="flex-1">
-      <h4 className="text-sm font-bold text-zinc-100 transition-all group-hover:text-emerald-400">
+    <div className="min-w-0 flex-1">
+      <h4 className="truncate text-sm font-bold text-zinc-100 transition-all group-hover:text-emerald-400">
         {titulo}
       </h4>
-      <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-zinc-500">
         {descripcion}
       </p>
     </div>

@@ -259,7 +259,7 @@ export default function ClientesPage() {
   return (
     <MainLayout breadcrumbs={breadcrumbs}>
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+        <div className="flex flex-col flex-wrap justify-between gap-3 md:flex-row md:items-center">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-white">
               CRM Comercial Inteligente
@@ -268,7 +268,7 @@ export default function ClientesPage() {
               Fidelización, leads, visitas y embudo de conversión comercial.
             </p>
           </div>
-          <div className="flex gap-2.5">
+          <div className="flex flex-wrap gap-2.5">
             <button
               onClick={() => setModalImportarAbierto(true)}
               className="flex items-center gap-1.5 rounded-xl border border-[#2A2A2E] bg-zinc-950 px-4 py-2.5 font-mono text-xs font-bold text-zinc-300 transition-all hover:bg-[#18181B] hover:text-white"
@@ -313,10 +313,10 @@ export default function ClientesPage() {
             onChange={(val) => setFiltroResponsable(val)}
           />
 
-          <div className="mb-2.5 flex items-center gap-3.5">
+          <div className="flex items-center gap-3.5">
             <button
               onClick={() => setFiltroFavorito(!filtroFavorito)}
-              className={`flex w-full items-center justify-center gap-1.5 rounded-xl border px-4 py-2.5 font-mono text-xs font-bold transition-all select-none ${
+              className={`flex h-[42px] w-full items-center justify-center gap-1.5 rounded-xl border px-4 py-2.5 font-mono text-xs font-bold transition-all select-none ${
                 filtroFavorito
                   ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
                   : "border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-zinc-200"
@@ -357,38 +357,60 @@ export default function ClientesPage() {
               {seleccionados.length} elementos seleccionados
             </span>
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Select
-                  options={ESTADOS.map((e) => ({ value: e, label: e }))}
-                  value={bulkEstado}
-                  onChange={(val) => setBulkEstado(val)}
-                />
-                <Button onClick={handleBulkEstado}>Mover Estado</Button>
+              <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+                <div className="min-w-[160px] flex-1">
+                  <Select
+                    className="min-w-[160px] flex-1"
+                    options={ESTADOS.map((e) => ({ value: e, label: e }))}
+                    value={bulkEstado}
+                    onChange={(val) => setBulkEstado(val)}
+                  />
+                </div>
+                <Button
+                  className="shrink-0 whitespace-nowrap"
+                  onClick={handleBulkEstado}
+                >
+                  Mover Estado
+                </Button>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Select
-                  options={RESPONSABLES.map((r) => ({ value: r, label: r }))}
-                  value={bulkResponsable}
-                  onChange={(val) => setBulkResponsable(val)}
-                />
-                <Button onClick={handleBulkResponsable}>
+              <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+                <div className="min-w-[160px] flex-1">
+                  <Select
+                    className="min-w-[160px] flex-1"
+                    options={RESPONSABLES.map((r) => ({ value: r, label: r }))}
+                    value={bulkResponsable}
+                    onChange={(val) => setBulkResponsable(val)}
+                  />
+                </div>
+                <Button
+                  className="shrink-0 whitespace-nowrap"
+                  onClick={handleBulkResponsable}
+                >
                   Asignar Propietario
                 </Button>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Input
-                  value={bulkEtiquetas}
-                  onChange={(e) => setBulkEtiquetas(e.target.value)}
-                  placeholder="Etiqueta1, Etiqueta2"
-                />
-                <Button onClick={handleBulkEtiquetas}>Añadir Tags</Button>
+              <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+                <div className="min-w-[160px] flex-1">
+                  <Input
+                    className="min-w-[160px] flex-1"
+                    value={bulkEtiquetas}
+                    onChange={(e) => setBulkEtiquetas(e.target.value)}
+                    placeholder="Etiqueta1, Etiqueta2"
+                  />
+                </div>
+                <Button
+                  className="shrink-0 whitespace-nowrap"
+                  onClick={handleBulkEtiquetas}
+                >
+                  Añadir Tags
+                </Button>
               </div>
 
               <button
                 onClick={handleBulkEliminar}
-                className="rounded-xl border border-red-500/20 bg-red-500/10 px-3.5 py-2.5 font-mono text-xs font-bold text-red-400 transition-all hover:bg-red-500/20"
+                className="shrink-0 rounded-xl border border-red-500/20 bg-red-500/10 px-3.5 py-2.5 font-mono text-xs font-bold whitespace-nowrap text-red-400 transition-all hover:bg-red-500/20"
               >
                 Eliminar
               </button>

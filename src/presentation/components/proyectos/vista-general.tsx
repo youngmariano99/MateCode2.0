@@ -44,7 +44,7 @@ export const VistaGeneral: React.FC<VistaGeneralProps> = ({ proyecto }) => {
               href={`https://${proyecto.repositorio}`}
               target="_blank"
               rel="noreferrer"
-              className="mt-1 block text-emerald-400 hover:underline"
+              className="mt-1 block truncate text-emerald-400 hover:underline"
             >
               {proyecto.repositorio}
             </a>
@@ -59,7 +59,7 @@ export const VistaGeneral: React.FC<VistaGeneralProps> = ({ proyecto }) => {
               href={proyecto.urlProduccion}
               target="_blank"
               rel="noreferrer"
-              className="mt-1 block text-emerald-400 hover:underline"
+              className="mt-1 block truncate text-emerald-400 hover:underline"
             >
               {proyecto.urlProduccion}
             </a>
@@ -76,7 +76,7 @@ export const VistaGeneral: React.FC<VistaGeneralProps> = ({ proyecto }) => {
               href={proyecto.urlDesarrollo}
               target="_blank"
               rel="noreferrer"
-              className="mt-1 block text-emerald-400 hover:underline"
+              className="mt-1 block truncate text-emerald-400 hover:underline"
             >
               {proyecto.urlDesarrollo}
             </a>

@@ -97,7 +97,7 @@ export const SprintKanbanBoard: React.FC<SprintKanbanBoardProps> = ({
           <p className="text-[10px] text-zinc-400">
             Este sprint se encuentra actualmente en **Planificación**.
           </p>
-          <p className="text-zinc-650 mt-1 text-[8px]">
+          <p className="mt-1 text-[8px] text-zinc-500">
             Revisa los ítems asignados o haz clic en &quot;Comenzar Sprint&quot;
             en la barra de control para habilitar el Kanban de ejecución.
           </p>
@@ -109,9 +109,15 @@ export const SprintKanbanBoard: React.FC<SprintKanbanBoardProps> = ({
             <table className="w-full border-collapse font-mono text-[9px] text-zinc-400">
               <thead>
                 <tr className="border-b border-zinc-900 text-zinc-500 uppercase">
-                  <th className="p-2 text-left">Historia de Usuario</th>
-                  <th className="p-2 text-left">Estimación</th>
-                  <th className="p-2 text-left">Actividades asignadas</th>
+                  <th className="p-2 text-left whitespace-nowrap">
+                    Historia de Usuario
+                  </th>
+                  <th className="p-2 text-left whitespace-nowrap">
+                    Estimación
+                  </th>
+                  <th className="p-2 text-left whitespace-nowrap">
+                    Actividades asignadas
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -119,15 +125,15 @@ export const SprintKanbanBoard: React.FC<SprintKanbanBoardProps> = ({
                   const sub = tareas.filter((t) => t.historiaId === h.id);
                   return (
                     <tr key={h.id} className="border-b border-zinc-900/40">
-                      <td className="p-2 font-bold text-zinc-300">
+                      <td className="p-2 font-bold whitespace-nowrap text-zinc-300">
                         {h.titulo}
                       </td>
-                      <td className="p-2">{h.estimacion}h</td>
-                      <td className="p-2">
+                      <td className="p-2 whitespace-nowrap">{h.estimacion}h</td>
+                      <td className="p-2 whitespace-nowrap">
                         {sub.length > 0 ? (
                           <div className="flex flex-col gap-1 text-[8px]">
                             {sub.map((t) => (
-                              <div key={t.id} className="text-zinc-450">
+                              <div key={t.id} className="text-zinc-400">
                                 • {t.titulo}{" "}
                                 <span className="text-[7px] text-zinc-600">
                                   ({t.rol})
@@ -146,7 +152,10 @@ export const SprintKanbanBoard: React.FC<SprintKanbanBoardProps> = ({
                 })}
                 {historiasSprint.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="py-4 text-center text-zinc-600">
+                    <td
+                      colSpan={3}
+                      className="py-4 text-center whitespace-nowrap text-zinc-600"
+                    >
                       No hay historias asignadas a este sprint.
                     </td>
                   </tr>
@@ -157,7 +166,7 @@ export const SprintKanbanBoard: React.FC<SprintKanbanBoardProps> = ({
         </div>
       ) : (
         /* KANBAN BOARD VIEW */
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {KANBAN_COLUMNS.map((col) => {
             const acts = getActividadesByCol(col.key);
             return (
@@ -172,7 +181,7 @@ export const SprintKanbanBoard: React.FC<SprintKanbanBoardProps> = ({
                   >
                     {col.label}
                   </span>
-                  <span className="py-0.2 rounded border border-zinc-800 bg-zinc-900 px-1.5 font-mono text-[8px] font-bold text-zinc-400">
+                  <span className="rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[8px] font-bold text-zinc-400">
                     {acts.length}
                   </span>
                 </div>
@@ -268,7 +277,7 @@ export const SprintKanbanBoard: React.FC<SprintKanbanBoardProps> = ({
                                     "Sin descripción",
                                 })
                               }
-                              className="py-0.2 rounded border border-sky-500/20 bg-sky-500/5 px-1 font-mono text-[7px] text-sky-400 uppercase transition-all hover:bg-sky-500/10"
+                              className="rounded border border-sky-500/20 bg-sky-500/5 px-1 py-0.5 font-mono text-[7px] text-sky-400 uppercase transition-all hover:bg-sky-500/10"
                               title="Ver Épica"
                             >
                               {matchedEpic.nombre.slice(0, 15)}...
@@ -285,7 +294,7 @@ export const SprintKanbanBoard: React.FC<SprintKanbanBoardProps> = ({
                                     "Sin descripción de criterios de aceptación.",
                                 })
                               }
-                              className="py-0.2 rounded border border-purple-500/20 bg-purple-500/5 px-1 font-mono text-[7px] text-purple-400 uppercase transition-all hover:bg-purple-500/10"
+                              className="rounded border border-purple-500/20 bg-purple-500/5 px-1 py-0.5 font-mono text-[7px] text-purple-400 uppercase transition-all hover:bg-purple-500/10"
                               title="Ver Historia de Usuario"
                             >
                               HU-{matchedStory.id.slice(-4).toUpperCase()}

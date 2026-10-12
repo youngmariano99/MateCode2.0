@@ -842,7 +842,7 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
           {viewMode === "kanban" && (
             <button
               onClick={() => setViewMode("dashboard")}
-              className="text-zinc-350 hover:bg-zinc-850 rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 font-mono text-[9px] font-bold uppercase transition-all hover:text-zinc-100"
+              className="rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 font-mono text-[9px] font-bold text-zinc-400 uppercase transition-all hover:bg-[#18181B] hover:text-zinc-100"
             >
               Ver Sprints
             </button>
@@ -977,7 +977,7 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
       {/* Sutil Context Modal for Epics / HUs */}
       {activeModalContext && (
         <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm duration-200">
-          <div className="w-[450px] rounded-xl border border-zinc-800 bg-zinc-950/90 p-5 font-mono shadow-2xl">
+          <div className="mx-4 w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-950/90 p-5 font-mono shadow-2xl">
             <div className="mb-3 flex items-center justify-between border-b border-zinc-900 pb-2">
               <span className="text-[10px] font-bold text-sky-400 uppercase">
                 Contexto:{" "}
@@ -987,7 +987,7 @@ export const SprintEnfoqueTab: React.FC<SprintEnfoqueTabProps> = ({
               </span>
               <button
                 onClick={() => setActiveModalContext(null)}
-                className="hover:text-zinc-350 text-[9px] text-zinc-500 uppercase"
+                className="text-[9px] text-zinc-500 uppercase hover:text-zinc-400"
               >
                 Cerrar
               </button>

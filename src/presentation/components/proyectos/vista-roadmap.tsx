@@ -94,7 +94,7 @@ export const VistaRoadmap: React.FC<VistaRoadmapProps> = ({ proyectoId }) => {
         <Button onClick={() => setModalAbierto(true)}>Nueva Tarea</Button>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-4">
         {ESTADOS_TAREAS.map((colName) => {
           const enCol = tareas.filter((t) => t.estado === colName);
           return (
@@ -123,7 +123,7 @@ export const VistaRoadmap: React.FC<VistaRoadmapProps> = ({ proyectoId }) => {
                       className="flex flex-col gap-2 rounded-xl border border-zinc-800 bg-zinc-950 p-3"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <span className="text-xs font-bold text-zinc-200">
+                        <span className="min-w-0 text-xs font-bold break-words text-zinc-200">
                           {t.titulo}
                         </span>
                         <button

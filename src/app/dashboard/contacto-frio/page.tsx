@@ -25,7 +25,7 @@ export default function ContactoFrioPage() {
 
   return (
     <MainLayout>
-      <div className="flex flex-col gap-6 p-6">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6">
         <div>
           <h1 className="text-xl font-bold text-zinc-100">Contacto en Frío</h1>
           <p className="text-sm text-zinc-500">

@@ -104,7 +104,7 @@ export default function PlanificadorContenidoPage() {
 
   return (
     <MainLayout>
-      <div className="flex flex-col gap-6 p-6">
+      <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold text-zinc-100">

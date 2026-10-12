@@ -99,7 +99,7 @@ export function DataTable<T extends Record<string, unknown>>({
                 <th
                   key={String(col.key)}
                   onClick={() => col.sortable && handleSort(String(col.key))}
-                  className={`px-5 py-3 text-xs font-bold tracking-wider text-zinc-400 uppercase ${
+                  className={`px-4 py-3 text-xs font-bold tracking-wider whitespace-nowrap text-zinc-400 uppercase sm:px-5 ${
                     col.sortable
                       ? "cursor-pointer select-none hover:text-zinc-200"
                       : ""
@@ -110,9 +110,9 @@ export function DataTable<T extends Record<string, unknown>>({
                     {col.sortable &&
                       sortKey === String(col.key) &&
                       (sortOrder === "asc" ? (
-                        <Up className="h-3.5 w-3.5" />
+                        <Up className="h-3.5 w-3.5 shrink-0" />
                       ) : (
-                        <Down className="h-3.5 w-3.5" />
+                        <Down className="h-3.5 w-3.5 shrink-0" />
                       ))}
                   </div>
                 </th>
@@ -138,7 +138,7 @@ export function DataTable<T extends Record<string, unknown>>({
                   {columns.map((col) => (
                     <td
                       key={String(col.key)}
-                      className="px-5 py-3.5 text-sm text-zinc-300"
+                      className="px-4 py-3.5 align-middle text-sm text-zinc-300 sm:px-5"
                     >
                       {col.render
                         ? col.render(item)
@@ -153,7 +153,7 @@ export function DataTable<T extends Record<string, unknown>>({
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-2">
           <span className="text-xs font-medium text-zinc-500">
             Página {currentPage} de {totalPages} ({filteredData.length}{" "}
             registros)
@@ -161,17 +161,17 @@ export function DataTable<T extends Record<string, unknown>>({
           <div className="flex gap-2">
             <Button
               variant="outline"
+              size="sm"
               disabled={currentPage === 1}
               onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-              className="px-3 py-1 text-xs"
             >
               Anterior
             </Button>
             <Button
               variant="outline"
+              size="sm"
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-              className="px-3 py-1 text-xs"
             >
               Siguiente
             </Button>

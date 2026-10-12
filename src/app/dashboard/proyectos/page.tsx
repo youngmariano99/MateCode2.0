@@ -141,7 +141,7 @@ const ProyectoCard: React.FC<ProyectoCardProps> = ({
     progressText = "Sin tareas planificadas";
   }
 
-  let timeBadgeColor = "border-zinc-850 bg-zinc-900/40 text-zinc-400";
+  let timeBadgeColor = "border-[#2A2A2E] bg-zinc-900/40 text-zinc-400";
   let timeText = "Sin fecha límite";
 
   if (proyecto.fechaEntrega) {
@@ -180,13 +180,15 @@ const ProyectoCard: React.FC<ProyectoCardProps> = ({
   return (
     <Card>
       <div className="flex items-start justify-between gap-3">
-        <h3
-          onClick={() => onSelect(proyecto)}
-          className="block cursor-pointer text-xs font-bold text-zinc-200 transition-all hover:text-emerald-400"
-        >
-          {proyecto.nombre}
-        </h3>
-        <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] font-bold text-emerald-400">
+        <div className="min-w-0 pr-2">
+          <h3
+            onClick={() => onSelect(proyecto)}
+            className="block cursor-pointer truncate text-xs font-bold text-zinc-200 transition-all hover:text-emerald-400"
+          >
+            {proyecto.nombre}
+          </h3>
+        </div>
+        <span className="shrink-0 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-[9px] font-bold whitespace-nowrap text-emerald-400">
           {proyecto.estado}
         </span>
       </div>
@@ -203,7 +205,7 @@ const ProyectoCard: React.FC<ProyectoCardProps> = ({
       {/* Progress Bar */}
       <div className="mt-4 flex flex-col gap-1">
         <div className="flex items-center justify-between font-mono text-[9px]">
-          <span className="text-zinc-550">Progreso</span>
+          <span className="text-zinc-500">Progreso</span>
           <span className="font-bold text-emerald-400">{progressPercent}%</span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full border border-zinc-800/40 bg-zinc-900">
@@ -238,7 +240,7 @@ const ProyectoCard: React.FC<ProyectoCardProps> = ({
         <div className="flex gap-2">
           <button
             onClick={() => onEdit(proyecto)}
-            className="text-zinc-450 rounded-xl border border-zinc-800 bg-transparent px-3 py-1.5 font-mono text-[10px] hover:bg-zinc-900 hover:text-zinc-200"
+            className="rounded-xl border border-zinc-800 bg-transparent px-3 py-1.5 font-mono text-[10px] text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
           >
             Editar
           </button>
@@ -671,10 +673,10 @@ export default function ProyectosPage() {
             </div>
 
             {/* Time and Progress Quick Indicator */}
-            <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-[#2A2A2E]/50 bg-zinc-950/40 px-4 py-3 md:min-w-[320px] lg:min-w-[400px]">
+            <div className="flex w-full min-w-[200px] flex-1 flex-wrap items-center gap-4 rounded-2xl border border-[#2A2A2E]/50 bg-zinc-950/40 px-4 py-3 md:max-w-xs">
               <div className="flex flex-1 flex-col gap-1">
                 <div className="flex justify-between font-mono text-[10px]">
-                  <span className="text-zinc-550">Progreso</span>
+                  <span className="text-zinc-500">Progreso</span>
                   <span className="font-bold text-emerald-400">
                     {selProgressPercent}%
                   </span>
@@ -696,7 +698,7 @@ export default function ProyectosPage() {
               </div>
             </div>
 
-            <div className="flex shrink-0 gap-2">
+            <div className="flex shrink-0 flex-wrap gap-2">
               <span className="inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 font-mono text-xs font-bold text-emerald-400 select-none">
                 Estado: {proyectoSeleccionado.estado}
               </span>
@@ -715,7 +717,7 @@ export default function ProyectosPage() {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
               {[
                 {
                   id: "negocio",
@@ -759,9 +761,9 @@ export default function ProyectosPage() {
                         : "border-[#2A2A2E] bg-zinc-950/60 text-zinc-500 hover:border-zinc-800"
                     }`}
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
                       <span
-                        className={`flex h-5.5 w-5.5 items-center justify-center rounded-full text-[10px] font-bold ${
+                        className={`flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
                           isActive
                             ? "bg-emerald-500 font-extrabold text-black"
                             : "bg-zinc-900 text-zinc-500"
@@ -769,7 +771,7 @@ export default function ProyectosPage() {
                       >
                         {step.num}
                       </span>
-                      <span className="text-[10px] font-bold text-zinc-200">
+                      <span className="truncate text-[10px] font-bold text-zinc-200">
                         {step.title}
                       </span>
                     </div>
@@ -989,7 +991,7 @@ export default function ProyectosPage() {
               contexto para IA.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setImportarModalAbierto(true)}
               className="flex items-center justify-center gap-1.5 rounded-xl border border-zinc-800 bg-transparent px-4 py-2 font-mono text-xs font-bold text-zinc-300 transition-all select-none hover:bg-zinc-900 hover:text-zinc-100"

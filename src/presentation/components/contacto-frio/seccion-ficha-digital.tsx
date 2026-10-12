@@ -70,7 +70,7 @@ export const SeccionFichaDigital: React.FC<SeccionFichaDigitalProps> = ({
       <h3 className="text-xs font-bold tracking-wider text-zinc-400 uppercase">
         Ficha digital
       </h3>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Input
           label="Instagram"
           value={instagram}

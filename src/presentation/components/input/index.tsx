@@ -14,9 +14,9 @@ export const FieldWrapper: React.FC<FieldWrapperProps> = ({
   error,
   children,
 }) => (
-  <div className="flex w-full flex-col gap-1.5">
+  <div className="flex w-full min-w-0 flex-col gap-1.5">
     {label && (
-      <label className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">
+      <label className="truncate text-xs font-semibold tracking-wider text-zinc-400 uppercase">
         {label}
       </label>
     )}
@@ -44,11 +44,11 @@ export const Input: React.FC<InputProps> = ({
   ...props
 }) => {
   const baseInputStyle =
-    "w-full bg-zinc-950 border border-zinc-800 focus:border-[#10B981] focus:ring-1 focus:ring-[#10B981]/50 rounded-xl px-4 py-2.5 text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all text-sm disabled:opacity-50 disabled:pointer-events-none";
+    "w-full min-w-0 bg-zinc-950 border border-zinc-800 focus:border-[#10B981] focus:ring-1 focus:ring-[#10B981]/50 rounded-xl px-4 py-2.5 text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all text-sm disabled:opacity-50 disabled:pointer-events-none";
 
   return (
     <FieldWrapper label={label} descripcion={descripcion} error={error}>
-      <div className="relative w-full">
+      <div className="relative w-full min-w-0">
         {icono && (
           <div className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-zinc-500">
             {icono}
@@ -80,10 +80,10 @@ export const InputPassword: React.FC<InputProps> = ({
 
   return (
     <FieldWrapper label={label} descripcion={descripcion} error={error}>
-      <div className="relative w-full">
+      <div className="relative w-full min-w-0">
         <input
           type={show ? "text" : "password"}
-          className={`w-full rounded-xl border border-zinc-800 bg-zinc-950 py-2.5 pr-10 pl-4 text-sm text-zinc-100 placeholder-zinc-600 transition-all focus:border-[#10B981] focus:ring-1 focus:ring-[#10B981]/50 focus:outline-none disabled:opacity-50 ${
+          className={`w-full min-w-0 rounded-xl border border-zinc-800 bg-zinc-950 py-2.5 pr-10 pl-4 text-sm text-zinc-100 placeholder-zinc-600 transition-all focus:border-[#10B981] focus:ring-1 focus:ring-[#10B981]/50 focus:outline-none disabled:opacity-50 ${
             error ? "border-red-500" : ""
           } ${className}`}
           {...props}
@@ -126,7 +126,8 @@ export const InputCurrency: React.FC<CurrencyProps> = ({
   const Dollar = Icono.Pagos;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = Number(e.target.value.replace(/[^0-9.]/g, ""));
+    const soloDigitos = e.target.value.replace(/\D/g, "");
+    const val = soloDigitos ? Number(soloDigitos) : 0;
     if (onChange) onChange(isNaN(val) ? 0 : val);
   };
 
@@ -136,7 +137,8 @@ export const InputCurrency: React.FC<CurrencyProps> = ({
       descripcion={descripcion}
       error={error}
       type="text"
-      value={value !== undefined ? `$ ${value.toLocaleString()}` : ""}
+      inputMode="numeric"
+      value={value !== undefined ? `$ ${value.toLocaleString("es-AR")}` : ""}
       onChange={handleChange}
       icono={<Dollar className="h-4 w-4" />}
       className={className}

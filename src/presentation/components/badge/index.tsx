@@ -40,7 +40,7 @@ export const Badge: React.FC<BadgeProps> = ({
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${colors[color]} ${className}`}
+      className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-bold whitespace-nowrap ${colors[color]} ${className}`}
       {...props}
     >
       {children}
@@ -60,17 +60,28 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   className = "",
   ...props
 }) => {
-  const normEstado = estado.toLowerCase().replace(" ", "_");
+  const normEstado = estado.toLowerCase().trim().replaceAll(/\s+/g, "_");
 
   const statusMap: Record<string, { label: string; color: BadgeColor }> = {
     lead: { label: "Lead", color: "blue" },
     contacto: { label: "Contacto Realizado", color: "sky" },
+    contacto_detectado: { label: "Contacto Detectado", color: "sky" },
+    contactado: { label: "Contactado", color: "sky" },
     propuesta: { label: "Propuesta Enviada", color: "violet" },
+    negociacion: { label: "En Negociación", color: "violet" },
     aceptado: { label: "Aceptado", color: "emerald" },
+    cliente_activo: { label: "Cliente Activo", color: "emerald" },
+    activo: { label: "Activo", color: "emerald" },
+    pagado: { label: "Pagado", color: "emerald" },
+    completado: { label: "Completado", color: "emerald" },
     en_progreso: { label: "En Progreso", color: "orange" },
     seguimiento: { label: "Seguimiento", color: "amber" },
+    pendiente: { label: "Pendiente", color: "amber" },
+    pausado: { label: "Pausado", color: "amber" },
     terminado: { label: "Terminado", color: "zinc" },
     rechazado: { label: "Rechazado", color: "red" },
+    perdido: { label: "Perdido", color: "red" },
+    vencido: { label: "Vencido", color: "red" },
   };
 
   const resolvedColor = (statusMap[normEstado]?.color || "zinc") as BadgeColor;

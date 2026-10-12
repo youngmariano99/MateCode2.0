@@ -452,7 +452,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
       {/* Visual Controls for Compact / Simplified View */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-900 bg-zinc-950 p-4 font-mono text-xs">
         <div className="flex items-center gap-2">
-          <span className="text-zinc-550 text-[10px] uppercase">
+          <span className="text-[10px] text-zinc-500 uppercase">
             Modo de visualización:
           </span>
           <div className="flex rounded-lg border border-zinc-800 bg-zinc-900 p-0.5">
@@ -484,13 +484,13 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
           <div className="flex gap-2">
             <button
               onClick={collapseAllEpics}
-              className="text-zinc-450 rounded border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-[9px] hover:bg-zinc-900 hover:text-zinc-200"
+              className="rounded border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-[9px] text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
             >
               Colapsar Épicas
             </button>
             <button
               onClick={expandAllEpics}
-              className="text-zinc-450 rounded border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-[9px] hover:bg-zinc-900 hover:text-zinc-200"
+              className="rounded border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-[9px] text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
             >
               Expandir Épicas
             </button>
@@ -521,7 +521,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
               return (
                 <div
                   key={ep.id}
-                  className="hover:border-zinc-850 rounded-xl border border-zinc-900 bg-zinc-950 p-4 transition-colors"
+                  className="rounded-xl border border-zinc-900 bg-zinc-950 p-4 transition-colors hover:border-[#2A2A2E]"
                 >
                   {/* Compact Epic Header */}
                   <div
@@ -529,7 +529,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                     className="flex cursor-pointer items-center justify-between gap-4 font-mono select-none"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-zinc-550 text-[10px]">
+                      <span className="text-[10px] text-zinc-500">
                         {isCollapsed ? "▶" : "▼"}
                       </span>
                       <span className="text-xs font-bold text-white uppercase">
@@ -625,7 +625,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                                     actText = "In Progress";
                                   } else {
                                     actColor =
-                                      "border-rose-500/20 bg-rose-500/10 text-rose-450";
+                                      "border-rose-500/20 bg-rose-500/10 text-rose-400";
                                     actText = "To Do";
                                   }
 
@@ -634,7 +634,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                                       key={act.id}
                                       className="flex items-center justify-between gap-3 text-[10px]"
                                     >
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex min-w-0 items-center gap-2">
                                         <input
                                           type="checkbox"
                                           checked={act.estado === "done"}
@@ -644,20 +644,20 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                                               act.estado
                                             )
                                           }
-                                          className="h-3 w-3 cursor-pointer rounded border-zinc-800 bg-zinc-900 text-emerald-500 focus:ring-emerald-500/20 focus:ring-offset-zinc-950"
+                                          className="h-3 w-3 shrink-0 cursor-pointer rounded border-zinc-800 bg-zinc-900 text-emerald-500 focus:ring-emerald-500/20 focus:ring-offset-zinc-950"
                                         />
                                         <span
-                                          className={
+                                          className={`min-w-0 truncate ${
                                             act.estado === "done"
                                               ? "text-zinc-600 line-through select-none"
                                               : "text-zinc-400 select-none"
-                                          }
+                                          }`}
                                         >
                                           {act.titulo}
                                         </span>
                                       </div>
                                       <span
-                                        className={`py-0.2 rounded border px-1.5 text-[8px] font-bold uppercase ${actColor}`}
+                                        className={`shrink-0 rounded border px-1.5 py-0.5 text-[8px] font-bold whitespace-nowrap uppercase ${actColor}`}
                                       >
                                         {actText}
                                       </span>
@@ -681,7 +681,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                 className="rounded-2xl border border-[#2A2A2E] bg-zinc-950/20 p-5 transition-colors hover:border-zinc-800"
               >
                 {/* Epic Header with Epic Progress bar and CRUD triggers */}
-                <div className="flex flex-col justify-between gap-3 border-b border-zinc-900 pb-3 md:flex-row md:items-center">
+                <div className="flex flex-col flex-wrap justify-between gap-3 border-b border-zinc-900 pb-3 md:flex-row md:items-center">
                   <div className="min-w-0 flex-1">
                     {isEpicEditing ? (
                       <div className="mt-1 flex max-w-lg flex-col gap-2 font-mono text-xs">
@@ -691,13 +691,13 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                           onChange={(e) =>
                             setEpicEditandoNombre(e.target.value)
                           }
-                          className="border-zinc-850 rounded border bg-zinc-900 p-1 text-zinc-200 outline-none"
+                          className="rounded border border-[#2A2A2E] bg-zinc-900 p-1 text-zinc-200 outline-none"
                         />
                         <input
                           type="text"
                           value={epicEditandoDesc}
                           onChange={(e) => setEpicEditandoDesc(e.target.value)}
-                          className="border-zinc-850 rounded border bg-zinc-900 p-1 text-zinc-200 outline-none"
+                          className="rounded border border-[#2A2A2E] bg-zinc-900 p-1 text-zinc-200 outline-none"
                         />
                         <div className="mt-1 flex gap-2">
                           <button
@@ -715,8 +715,8 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                         </div>
                       </div>
                     ) : (
-                      <div className="group/epicHead flex items-center gap-3">
-                        <div>
+                      <div className="group/epicHead flex flex-wrap items-center gap-3">
+                        <div className="min-w-0">
                           <h5 className="font-mono text-xs font-bold text-white uppercase">
                             {ep.nombre}
                           </h5>
@@ -747,11 +747,11 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                       </div>
                     )}
                   </div>
-                  <div className="flex shrink-0 items-center gap-3">
+                  <div className="flex shrink-0 flex-wrap items-center gap-3">
                     <span className="font-mono text-[10px] text-zinc-400">
                       {doneEp}/{totalEp} Historias ({progresoEp})%
                     </span>
-                    <div className="border-zinc-850 h-2 w-24 overflow-hidden rounded-full border bg-zinc-900">
+                    <div className="h-2 w-24 overflow-hidden rounded-full border border-[#2A2A2E] bg-zinc-900">
                       <div
                         className="h-full bg-emerald-500 transition-all duration-300"
                         style={{ width: `${progresoEp}%` }}
@@ -763,7 +763,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                           nuevaHistoriaEpicId === ep.id ? null : ep.id
                         )
                       }
-                      className="hover:bg-zinc-850 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-[9px] font-bold text-emerald-400 transition-all select-none active:scale-95"
+                      className="rounded border border-zinc-800 bg-zinc-900 px-2 py-1 font-mono text-[9px] font-bold text-emerald-400 transition-all select-none hover:bg-[#18181B] active:scale-95"
                     >
                       ＋ Historia
                     </button>
@@ -772,7 +772,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
 
                 {/* Form to create user story under this epic */}
                 {nuevaHistoriaEpicId === ep.id && (
-                  <div className="border-zinc-850 mt-4 flex flex-col gap-3 rounded-xl border bg-zinc-950/60 p-4 font-mono text-xs">
+                  <div className="mt-4 flex flex-col gap-3 rounded-xl border border-[#2A2A2E] bg-zinc-950/60 p-4 font-mono text-xs">
                     <span className="font-bold text-white uppercase">
                       ＋ Nueva Historia de Usuario
                     </span>
@@ -796,7 +796,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                         <select
                           value={nuevaHistPrio}
                           onChange={(e) => setNuevaHistPrio(e.target.value)}
-                          className="text-zinc-250 rounded border border-zinc-800 bg-zinc-900 p-1.5 outline-none"
+                          className="rounded border border-zinc-800 bg-zinc-900 p-1.5 text-zinc-200 outline-none"
                         >
                           <option value="Alta">Alta</option>
                           <option value="Media">Media</option>
@@ -849,13 +849,13 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                 {/* Associated User Stories List */}
                 <div className="mt-4 flex flex-col gap-2">
                   {historiasEpica.length === 0 ? (
-                    <div className="text-zinc-650 py-2 text-center font-mono text-[9px] italic">
+                    <div className="py-2 text-center font-mono text-[9px] text-zinc-500 italic">
                       No hay historias vinculadas a esta épica.
                     </div>
                   ) : (
                     historiasEpica.map((h) => {
                       let statusBadge =
-                        "bg-zinc-900 text-zinc-500 border-zinc-850";
+                        "bg-zinc-900 text-zinc-500 border-[#2A2A2E]";
                       let dotColor = "bg-zinc-600";
 
                       if (h.estado === "Done" || h.estado === "done") {
@@ -923,7 +923,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                                       onChange={(e) =>
                                         setHistoriaEditandoPrio(e.target.value)
                                       }
-                                      className="border-zinc-850 rounded border bg-zinc-900 p-0.5 text-zinc-200 outline-none"
+                                      className="rounded border border-[#2A2A2E] bg-zinc-900 p-0.5 text-zinc-200 outline-none"
                                     >
                                       <option value="Alta">Alta</option>
                                       <option value="Media">Media</option>
@@ -942,7 +942,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                                           Number(e.target.value)
                                         )
                                       }
-                                      className="border-zinc-850 w-12 rounded border bg-zinc-900 p-0.5 text-zinc-200 outline-none"
+                                      className="w-12 rounded border border-[#2A2A2E] bg-zinc-900 p-0.5 text-zinc-200 outline-none"
                                     />
                                   </div>
                                   <button
@@ -1083,7 +1083,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                                           guardarEdicionActividad(act.id)
                                         }
                                         autoFocus
-                                        className="border-zinc-850 w-full rounded border bg-zinc-900 px-2 py-0.5 font-mono text-[10px] text-zinc-200 outline-none"
+                                        className="w-full rounded border border-[#2A2A2E] bg-zinc-900 px-2 py-0.5 font-mono text-[10px] text-zinc-200 outline-none"
                                       />
                                     ) : (
                                       <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -1097,8 +1097,8 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                                             }}
                                             className={`cursor-pointer truncate font-mono text-[10px] font-bold select-none ${
                                               act.estado === "done"
-                                                ? "text-zinc-650 line-through"
-                                                : "text-zinc-450 hover:text-zinc-300"
+                                                ? "text-zinc-500 line-through"
+                                                : "text-zinc-400 hover:text-zinc-300"
                                             }`}
                                             title="Doble clic para editar"
                                           >
@@ -1113,7 +1113,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                                                 {(act as any).etiquetas.map(
                                                   (tag: string) => {
                                                     let colorClass =
-                                                      "bg-zinc-850 text-zinc-400 border-zinc-800";
+                                                      "bg-[#18181B] text-zinc-400 border-zinc-800";
                                                     if (
                                                       tag.toUpperCase() ===
                                                       "FRONTEND"
@@ -1143,7 +1143,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                                                     return (
                                                       <span
                                                         key={tag}
-                                                        className={`py-0.2 rounded border px-1 font-mono text-[6px] font-bold uppercase ${colorClass}`}
+                                                        className={`rounded border px-1 py-0.5 font-mono text-[6px] font-bold uppercase ${colorClass}`}
                                                       >
                                                         {tag}
                                                       </span>
@@ -1196,7 +1196,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                                     )}
                                     <button
                                       onClick={() => borrarActividad(act.id)}
-                                      className="text-zinc-750 hover:text-rose-450 flex min-h-11 min-w-11 items-center justify-center font-mono text-[9px]"
+                                      className="flex min-h-11 min-w-11 items-center justify-center font-mono text-[9px] text-zinc-600 hover:text-rose-400"
                                       title="Borrar"
                                     >
                                       <Icono.Trash className="h-3.5 w-3.5" />
@@ -1221,7 +1221,7 @@ export const PlanoGeneralBacklog: React.FC<PlanoGeneralBacklogProps> = ({
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") crearActividad(h.id);
                                 }}
-                                className="placeholder-zinc-750 flex-1 border-none bg-transparent font-mono text-[9px] text-zinc-500 outline-none focus:text-zinc-400 focus:placeholder-zinc-500"
+                                className="flex-1 border-none bg-transparent font-mono text-[9px] text-zinc-500 placeholder-zinc-600 outline-none focus:text-zinc-400 focus:placeholder-zinc-500"
                               />
                             </div>
                           </div>

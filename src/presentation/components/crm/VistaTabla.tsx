@@ -45,7 +45,7 @@ export const VistaTabla: React.FC<VistaTablaProps> = ({
         <table className="w-full text-left font-mono text-xs">
           <thead>
             <tr className="border-b border-[#2A2A2E] text-zinc-500">
-              <th className="py-2.5 pl-3">
+              <th className="px-3 py-2.5 whitespace-nowrap">
                 <input
                   type="checkbox"
                   checked={
@@ -56,13 +56,15 @@ export const VistaTabla: React.FC<VistaTablaProps> = ({
                   className="rounded border-[#2A2A2E] bg-zinc-950"
                 />
               </th>
-              <th className="py-2.5">Nombre</th>
-              <th className="py-2.5">Empresa</th>
-              <th className="py-2.5">Email</th>
-              <th className="py-2.5">Teléfono</th>
-              <th className="py-2.5">Responsable</th>
-              <th className="py-2.5">Estado</th>
-              <th className="py-2.5 pr-3 text-right">Acciones</th>
+              <th className="px-3 py-2.5 whitespace-nowrap">Nombre</th>
+              <th className="px-3 py-2.5 whitespace-nowrap">Empresa</th>
+              <th className="px-3 py-2.5 whitespace-nowrap">Email</th>
+              <th className="px-3 py-2.5 whitespace-nowrap">Teléfono</th>
+              <th className="px-3 py-2.5 whitespace-nowrap">Responsable</th>
+              <th className="px-3 py-2.5 whitespace-nowrap">Estado</th>
+              <th className="px-3 py-2.5 text-right whitespace-nowrap">
+                Acciones
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -70,7 +72,7 @@ export const VistaTabla: React.FC<VistaTablaProps> = ({
               <tr>
                 <td
                   colSpan={8}
-                  className="py-6 text-center text-zinc-500 italic"
+                  className="px-3 py-6 text-center whitespace-nowrap text-zinc-500 italic"
                 >
                   No se encontraron clientes para mostrar.
                 </td>
@@ -81,7 +83,7 @@ export const VistaTabla: React.FC<VistaTablaProps> = ({
                   key={c.id}
                   className="border-b border-[#2A2A2E]/50 transition-all last:border-0 hover:bg-[#18181B]"
                 >
-                  <td className="py-3 pl-3">
+                  <td className="px-3 py-3 whitespace-nowrap">
                     <input
                       type="checkbox"
                       checked={seleccionados.includes(c.id)}
@@ -89,26 +91,36 @@ export const VistaTabla: React.FC<VistaTablaProps> = ({
                       className="rounded border-[#2A2A2E] bg-zinc-950"
                     />
                   </td>
-                  <td className="py-3 font-bold text-zinc-300">{c.nombre}</td>
-                  <td className="py-3 text-zinc-400">{c.empresa || "-"}</td>
-                  <td className="py-3 text-zinc-400">{c.correo}</td>
-                  <td className="py-3 text-zinc-400">{c.telefono || "-"}</td>
-                  <td className="py-3 text-zinc-400">{c.responsable || "-"}</td>
-                  <td className="py-3">
+                  <td className="max-w-[220px] truncate px-3 py-3 font-bold whitespace-nowrap text-zinc-300">
+                    {c.nombre}
+                  </td>
+                  <td className="px-3 py-3 whitespace-nowrap text-zinc-400">
+                    {c.empresa || "-"}
+                  </td>
+                  <td className="max-w-[220px] truncate px-3 py-3 whitespace-nowrap text-zinc-400">
+                    {c.correo}
+                  </td>
+                  <td className="px-3 py-3 whitespace-nowrap text-zinc-400">
+                    {c.telefono || "-"}
+                  </td>
+                  <td className="px-3 py-3 whitespace-nowrap text-zinc-400">
+                    {c.responsable || "-"}
+                  </td>
+                  <td className="px-3 py-3 whitespace-nowrap">
                     <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
                       {c.estado}
                     </span>
                   </td>
-                  <td className="flex justify-end gap-2.5 py-3 pr-3 text-right">
+                  <td className="flex justify-end gap-2.5 px-3 py-3 text-right whitespace-nowrap">
                     <button
                       onClick={() => onEdicion(c)}
-                      className="text-zinc-500 hover:text-emerald-400"
+                      className="shrink-0 whitespace-nowrap text-zinc-500 hover:text-emerald-400"
                     >
                       <Icono.Edit className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => onEliminar(c.id)}
-                      className="text-zinc-500 hover:text-red-400"
+                      className="shrink-0 whitespace-nowrap text-zinc-500 hover:text-red-400"
                     >
                       <Icono.Trash className="h-4 w-4" />
                     </button>

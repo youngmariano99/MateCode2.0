@@ -33,7 +33,7 @@ export const ModalRolloverSprint: React.FC<ModalRolloverSprintProps> = ({
           </span>
           <button
             onClick={onClose}
-            className="hover:text-zinc-350 text-[9px] text-zinc-500 uppercase"
+            className="text-[9px] text-zinc-500 uppercase hover:text-zinc-400"
           >
             Cancelar
           </button>

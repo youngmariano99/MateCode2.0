@@ -256,7 +256,7 @@ export const CalendarioSemanal: React.FC = () => {
         titulo="Metas de la semana"
       />
 
-      <div className="grid grid-cols-1 gap-2 overflow-x-auto sm:grid-cols-7">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         {diasSemana.map((dia) => {
           const esHoy = dia === hoy;
           const itemsDelDia = [
@@ -290,7 +290,7 @@ export const CalendarioSemanal: React.FC = () => {
           return (
             <div
               key={dia}
-              className={`flex min-w-[140px] flex-col gap-2 rounded-xl border p-2 ${
+              className={`flex min-w-0 flex-col gap-2 rounded-xl border p-2 ${
                 esHoy
                   ? "border-emerald-500/30 bg-emerald-500/5"
                   : "border-[#2A2A2E] bg-[#18181B]"

@@ -536,11 +536,11 @@ export const BacklogBoard: React.FC<BacklogBoardProps> = ({ proyectoId }) => {
                         {h.titulo}
                       </span>
                       {ep && (
-                        <span className="py-0.2 rounded border border-zinc-800 bg-zinc-900 px-1.5 text-[8px] font-bold text-zinc-400 uppercase">
+                        <span className="rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[8px] font-bold text-zinc-400 uppercase">
                           {ep.nombre}
                         </span>
                       )}
-                      <span className="py-0.2 rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 text-[8px] font-bold text-emerald-400 uppercase">
+                      <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-bold text-emerald-400 uppercase">
                         {h.estado}
                       </span>
                     </div>

@@ -318,7 +318,7 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
         <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
           Taller de Relevamiento del Cliente
         </h3>
-        <p className="text-zinc-550 mt-0.5 font-mono text-[10px] leading-relaxed">
+        <p className="mt-0.5 font-mono text-[10px] leading-relaxed text-zinc-500">
           Junta transcripciones de reuniones, audios, enlaces de inspiración y
           el copy de marca. Pásalo a la IA y guarda el resumen estructurado para
           utilizarlo de contexto en todo el desarrollo.
@@ -367,7 +367,7 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
                   e.key === "Enter" && (e.preventDefault(), handleAgregarLink())
                 }
                 placeholder="https://dribbble.com/shots/... o https://sitio.com"
-                className="border-zinc-850 flex-1 rounded border bg-zinc-950 px-2 py-1 font-mono text-[9px] text-zinc-200 outline-none"
+                className="flex-1 rounded border border-[#2A2A2E] bg-zinc-950 px-2 py-1 font-mono text-[9px] text-zinc-200 outline-none"
               />
               <button
                 type="button"
@@ -396,7 +396,7 @@ export const RelevamientoWorkspace: React.FC<RelevamientoWorkspaceProps> = ({
                     <button
                       type="button"
                       onClick={() => handleEliminarLink(link)}
-                      className="text-zinc-550 font-bold hover:text-red-400"
+                      className="font-bold text-zinc-500 hover:text-red-400"
                     >
                       ×
                     </button>

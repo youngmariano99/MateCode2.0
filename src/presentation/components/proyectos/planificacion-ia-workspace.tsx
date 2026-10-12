@@ -1463,7 +1463,7 @@ Formato JSON esperado:
 
   return (
     <Card>
-      <div className="mb-4 flex items-start justify-between border-b border-[#2A2A2E] pb-3">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-[#2A2A2E] pb-3">
         <div>
           <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
             Taller de Planificación y Requerimientos (IA Workspace)
@@ -1473,7 +1473,7 @@ Formato JSON esperado:
             inyectar a tus herramientas de desarrollo.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => handleSave()}
             className="rounded border border-zinc-800 bg-zinc-900 px-3 py-1 font-mono text-[9px] font-bold text-zinc-300 uppercase transition-all hover:bg-zinc-800"

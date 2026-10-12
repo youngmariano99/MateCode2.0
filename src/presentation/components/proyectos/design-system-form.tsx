@@ -215,12 +215,12 @@ export const DesignSystemForm: React.FC<DesignSystemFormProps> = ({
 
   return (
     <Card className="flex flex-col gap-4">
-      <div className="flex items-center justify-between border-b border-[#2A2A2E] pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#2A2A2E] pb-3">
         <div>
           <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
             Sistema de Diseño del Proyecto (IA Design System)
           </h3>
-          <p className="text-zinc-550 mt-0.5 font-mono text-[9px]">
+          <p className="mt-0.5 font-mono text-[9px] text-zinc-500">
             Genera un prompt de diseño visual, pásalo a la IA y guarda las
             directrices visuales en formato Markdown
           </p>
@@ -237,12 +237,12 @@ export const DesignSystemForm: React.FC<DesignSystemFormProps> = ({
       </div>
 
       <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-900 bg-zinc-950/40 p-3">
           <div>
             <span className="block font-mono text-[9px] font-bold text-zinc-400 uppercase">
               Generador de Prompt para la IA
             </span>
-            <span className="text-zinc-650 mt-0.5 block text-[8px]">
+            <span className="mt-0.5 block text-[8px] text-zinc-500">
               Une el Relevamiento con instrucciones detalladas para armar el
               Design System
             </span>

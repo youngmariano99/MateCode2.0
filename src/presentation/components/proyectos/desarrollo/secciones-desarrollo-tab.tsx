@@ -60,7 +60,7 @@ export const SeccionesDesarrolloTab: React.FC<SeccionesDesarrolloTabProps> = ({
           <select
             value={seccionNombre}
             onChange={(e) => handleSeleccionarSeccion(e.target.value)}
-            className="border-zinc-850 rounded border bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none"
+            className="rounded border border-[#2A2A2E] bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none"
           >
             {seccionesDisponibles.map((sec) => (
               <option key={sec} value={sec}>
@@ -80,7 +80,7 @@ export const SeccionesDesarrolloTab: React.FC<SeccionesDesarrolloTabProps> = ({
               value={seccionNombreCustom}
               onChange={(e) => setSeccionNombreCustom(e.target.value)}
               placeholder="Ej: Calculadora de Tarifas..."
-              className="border-zinc-850 rounded border bg-zinc-900 p-2 text-[10px] text-zinc-200 outline-none"
+              className="rounded border border-[#2A2A2E] bg-zinc-900 p-2 text-[10px] text-zinc-200 outline-none"
             />
           </div>
         )}
@@ -94,7 +94,7 @@ export const SeccionesDesarrolloTab: React.FC<SeccionesDesarrolloTabProps> = ({
             onChange={(e) => setSeccionDescripcion(e.target.value)}
             placeholder="Escribe cómo deseas que sea esta sección (ej: fondo oscuro con degradado, botón verde esmeralda centrado)..."
             rows={3}
-            className="border-zinc-850 rounded border bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none"
+            className="rounded border border-[#2A2A2E] bg-zinc-900 p-2 font-mono text-[10px] text-zinc-200 outline-none"
           />
         </div>
 
@@ -107,7 +107,7 @@ export const SeccionesDesarrolloTab: React.FC<SeccionesDesarrolloTabProps> = ({
               type="text"
               value={ticketMiembro}
               onChange={(e) => setTicketMiembro(e.target.value)}
-              className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+              className="rounded border border-[#2A2A2E] bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -117,7 +117,7 @@ export const SeccionesDesarrolloTab: React.FC<SeccionesDesarrolloTabProps> = ({
             <select
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value)}
-              className="border-zinc-850 rounded border bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
+              className="rounded border border-[#2A2A2E] bg-zinc-900 p-1.5 text-[10px] text-zinc-200 outline-none"
             >
               {ROLES.map((r) => (
                 <option key={r.key} value={r.key}>

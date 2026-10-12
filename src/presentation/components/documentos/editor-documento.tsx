@@ -131,7 +131,7 @@ export const EditorDocumento: React.FC<EditorDocumentoProps> = ({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-col justify-between gap-4 border-b border-[#2A2A2E] pb-4 md:flex-row md:items-center">
+      <div className="flex flex-col flex-wrap justify-between gap-3 border-b border-[#2A2A2E] pb-4 md:flex-row md:items-center">
         <div>
           <button
             onClick={onVolver}
@@ -144,7 +144,7 @@ export const EditorDocumento: React.FC<EditorDocumentoProps> = ({
           </h2>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button onClick={() => setVerVersiones(!verVersiones)}>
             Ver Versiones ({documento.versiones?.length || 1})
           </Button>

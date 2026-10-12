@@ -23,7 +23,7 @@ export const RequisitosTab: React.FC<RequisitosTabProps> = ({
 }) => {
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between rounded-xl border border-zinc-900 bg-zinc-950 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-900 bg-zinc-950 p-3">
         <div>
           <span className="font-mono text-[10px] font-bold text-zinc-300 uppercase">
             Generador de Requerimientos y Sitemap con IA
@@ -51,7 +51,7 @@ export const RequisitosTab: React.FC<RequisitosTabProps> = ({
             onChange={(e) => setRequisitosFuncionales(e.target.value)}
             placeholder="Pegar aquí la lista de requisitos funcionales devueltos por la IA..."
             rows={10}
-            className="border-zinc-850 w-full rounded border bg-zinc-950 p-2 font-mono text-[10px] text-zinc-300 outline-none"
+            className="w-full rounded border border-[#2A2A2E] bg-zinc-950 p-2 font-mono text-[10px] text-zinc-300 outline-none"
           />
         </div>
 
@@ -64,7 +64,7 @@ export const RequisitosTab: React.FC<RequisitosTabProps> = ({
             onChange={(e) => setRequisitosNoFuncionales(e.target.value)}
             placeholder="Rendimiento, seguridad, SEO, accesibilidad..."
             rows={10}
-            className="border-zinc-850 w-full rounded border bg-zinc-950 p-2 font-mono text-[10px] text-zinc-300 outline-none"
+            className="w-full rounded border border-[#2A2A2E] bg-zinc-950 p-2 font-mono text-[10px] text-zinc-300 outline-none"
           />
         </div>
       </div>
@@ -78,7 +78,7 @@ export const RequisitosTab: React.FC<RequisitosTabProps> = ({
           onChange={(e) => setSitemap(e.target.value)}
           placeholder="Descripción general de páginas y rutas del sistema..."
           rows={4}
-          className="border-zinc-850 w-full rounded border bg-zinc-950 p-2 font-mono text-[10px] text-zinc-300 outline-none"
+          className="w-full rounded border border-[#2A2A2E] bg-zinc-950 p-2 font-mono text-[10px] text-zinc-300 outline-none"
         />
       </div>
     </div>

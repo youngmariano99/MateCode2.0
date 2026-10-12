@@ -1401,12 +1401,12 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
       />
 
       {/* Header bar with controls */}
-      <div className="flex items-center justify-between border-b border-[#2A2A2E] pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#2A2A2E] pb-3">
         <div>
           <h2 className="font-mono text-sm font-bold tracking-wider text-zinc-100 uppercase">
             Taller de Ejecución & Desarrollo Seccional
           </h2>
-          <p className="text-zinc-555 font-mono text-[10px]">
+          <p className="font-mono text-[10px] text-zinc-500">
             Inicia tickets por sección o por sprints, abre múltiples tarjetas
             desplegables y genera prompts limpios para la IA.
           </p>
@@ -1422,7 +1422,7 @@ export const DesarrolloWorkspace: React.FC<DesarrolloWorkspaceProps> = ({
       </div>
 
       {/* Mode switcher tabs */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setActiveTabMode("secciones")}
           className={`rounded-lg px-3 py-1.5 font-mono text-[10px] font-bold uppercase transition-all ${

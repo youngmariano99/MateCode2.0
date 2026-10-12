@@ -39,22 +39,22 @@ export const WidgetAgenda: React.FC<WidgetAgendaProps> = ({ items }) => {
           items.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between rounded-xl border border-[#2A2A2E] bg-zinc-950 p-3 transition-all hover:border-zinc-800"
+              className="flex items-center justify-between gap-2 rounded-xl border border-[#2A2A2E] bg-zinc-950 p-3 transition-all hover:border-zinc-800"
             >
-              <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-400">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <div className="shrink-0 rounded-lg bg-emerald-500/10 p-2 text-emerald-400">
                   <User className="h-4 w-4" />
                 </div>
-                <div>
-                  <span className="block text-xs font-bold text-zinc-200">
+                <div className="min-w-0 flex-1">
+                  <span className="block truncate text-xs font-bold text-zinc-200">
                     {item.titulo}
                   </span>
-                  <span className="mt-0.5 block font-mono text-[10px] text-zinc-500">
+                  <span className="mt-0.5 block truncate font-mono text-[10px] text-zinc-500">
                     {item.cliente}
                   </span>
                 </div>
               </div>
-              <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-xs font-bold text-emerald-400">
+              <span className="shrink-0 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-xs font-bold whitespace-nowrap text-emerald-400">
                 {item.hora}
               </span>
             </div>

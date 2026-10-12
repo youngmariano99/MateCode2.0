@@ -405,7 +405,7 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
         <h3 className="font-mono text-xs font-bold tracking-wider text-zinc-100 uppercase">
           Stack Tecnológico Seleccionado
         </h3>
-        <p className="text-zinc-550 mt-0.5 font-mono text-[10px]">
+        <p className="mt-0.5 font-mono text-[10px] text-zinc-500">
           Define las tecnologías que componen el proyecto. Selecciona presets o
           añade tecnologías a medida.
         </p>
@@ -466,11 +466,11 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
       </div>
 
       {/* JSON Import/Export Bar */}
-      <div className="mb-4 flex items-center justify-between border-b border-zinc-900 pb-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-zinc-900 pb-2">
         <span className="font-mono text-[9px] font-bold text-zinc-500 uppercase">
           Importación Rápida por JSON / IA
         </span>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={copiarPlantillaJSON}
@@ -483,7 +483,7 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
             onClick={() => setShowJsonArea(!showJsonArea)}
             className="font-mono text-[9px] font-bold text-sky-400 hover:text-sky-300"
           >
-            {showJsonArea ? "Ocultar Input JSON" : "Pagar JSON de la IA"}
+            {showJsonArea ? "Ocultar Input JSON" : "Pegar JSON de la IA"}
           </button>
         </div>
       </div>
@@ -495,7 +495,7 @@ export const StackSelector: React.FC<StackSelectorProps> = ({
             onChange={(e) => setJsonText(e.target.value)}
             placeholder="Pega aquí la estructura JSON de stack devuelta por la IA..."
             rows={4}
-            className="border-zinc-850 w-full rounded border bg-zinc-950 p-2 font-mono text-[9px] text-zinc-300 outline-none"
+            className="w-full rounded border border-[#2A2A2E] bg-zinc-950 p-2 font-mono text-[9px] text-zinc-300 outline-none"
           />
           <button
             type="button"

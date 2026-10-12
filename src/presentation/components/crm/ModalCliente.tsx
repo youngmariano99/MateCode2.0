@@ -400,8 +400,11 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
                   Redes Sociales
                 </label>
                 {redesList.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <div className="w-1/3">
+                  <div
+                    key={idx}
+                    className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center"
+                  >
+                    <div className="w-full sm:w-1/3">
                       <Select
                         options={[
                           { value: "Instagram", label: "Instagram" },
