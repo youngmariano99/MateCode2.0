@@ -160,6 +160,9 @@ export const ModalCrearElementoPersonal: React.FC<
   const [colorArea, setColorArea] = useState<string>(PALETA_COLORES_AREA[4]);
 
   // Exclusivos de Entregable
+  const [modoEntregable, setModoEntregable] = useState<
+    "cuantificable" | "continua_hasta_completar" | "puntual"
+  >("cuantificable");
   const [esRecurrente, setEsRecurrente] = useState(false);
   const [diasSemana, setDiasSemana] = useState<number[]>([1, 2, 3, 4, 5]);
 
@@ -243,16 +246,27 @@ export const ModalCrearElementoPersonal: React.FC<
           );
           return;
         }
+        const usarRecurrencia =
+          modoEntregable === "continua_hasta_completar" || esRecurrente;
+        const usarCantidad =
+          modoEntregable === "cuantificable" && Boolean(cantidad);
+        const fechaFinEfectiva =
+          modoEntregable === "continua_hasta_completar"
+            ? proy.diaLimite > diaInicio
+              ? proy.diaLimite
+              : sumarDias(diaInicio, 180)
+            : diaLimite;
+
         const res = await entregablesUseCase.crearEntregable({
           proyectoId: proy.id,
           objetivoId: proy.objetivoId,
           titulo,
           descripcion: descripcion || undefined,
           diaInicio,
-          diaLimite,
-          cantidadObjetivo: cantidad ? Number(cantidad) : undefined,
-          unidad: cantidad ? unidad : undefined,
-          recurrencia: esRecurrente
+          diaLimite: fechaFinEfectiva,
+          cantidadObjetivo: usarCantidad ? Number(cantidad) : undefined,
+          unidad: usarCantidad ? unidad || "unidades" : undefined,
+          recurrencia: usarRecurrencia
             ? { frecuencia: "dias_especificos", diasSemana }
             : undefined,
         });
@@ -604,88 +618,167 @@ export const ModalCrearElementoPersonal: React.FC<
           </div>
         )}
 
-        {/* Fechas de inicio y límite para Objetivo / Proyecto / Entregable / Fase */}
-        {tipo !== "area" && tipo !== "tarea" && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1">
-              <span className={rotulo}>Fecha de inicio</span>
-              <input
-                type="date"
-                value={diaInicio}
-                onChange={(e) => setDiaInicio(e.target.value)}
-                className={campo}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className={rotulo}>Fecha límite</span>
-              <input
-                type="date"
-                value={diaLimite}
-                onChange={(e) => setDiaLimite(e.target.value)}
-                className={campo}
-              />
+        {/* Selector de modo para Entregable */}
+        {tipo === "entregable" && (
+          <div className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-[#141417] p-3">
+            <span className={rotulo}>¿Cómo funciona este entregable?</span>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => setModoEntregable("cuantificable")}
+                className={`flex flex-col items-start gap-0.5 rounded-lg border p-2.5 text-left transition-all ${
+                  modoEntregable === "cuantificable"
+                    ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
+                    : "border-[#2A2A2E] bg-[#0D0D0F] text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <span className="text-xs font-bold">1. Por cantidad</span>
+                <span className="text-[11px] opacity-80">
+                  Ej: 200 contactos, 12 videos (podés armar fases).
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setModoEntregable("continua_hasta_completar");
+                  setEsRecurrente(true);
+                }}
+                className={`flex flex-col items-start gap-0.5 rounded-lg border p-2.5 text-left transition-all ${
+                  modoEntregable === "continua_hasta_completar"
+                    ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
+                    : "border-[#2A2A2E] bg-[#0D0D0F] text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <span className="text-xs font-bold">
+                  2. Continua hasta terminar
+                </span>
+                <span className="text-[11px] opacity-80">
+                  Aparece Lun–Vie para anotar en el día qué hiciste hasta darle
+                  Terminado.
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setModoEntregable("puntual");
+                  setEsRecurrente(false);
+                }}
+                className={`flex flex-col items-start gap-0.5 rounded-lg border p-2.5 text-left transition-all ${
+                  modoEntregable === "puntual"
+                    ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
+                    : "border-[#2A2A2E] bg-[#0D0D0F] text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <span className="text-xs font-bold">3. Hito / Plazo fijo</span>
+                <span className="text-[11px] opacity-80">
+                  Entregable puntual con fecha límite sin cuota diaria.
+                </span>
+              </button>
             </div>
           </div>
         )}
 
-        {/* Cantidad y unidad */}
-        {tipo !== "area" && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="flex flex-col gap-1">
-              <span className={rotulo}>
-                Cantidad meta{" "}
-                {tipo === "objetivo" || tipo === "fase"
-                  ? "(obligatoria)"
-                  : "(opcional)"}
-              </span>
-              <input
-                type="number"
-                min={1}
-                value={cantidad}
-                onChange={(e) => setCantidad(e.target.value)}
-                placeholder="Ej: 100"
-                className={campo}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className={rotulo}>Unidad</span>
-              <input
-                value={unidad}
-                onChange={(e) => setUnidad(e.target.value)}
-                placeholder="Ej: contactos, ARS, videos"
-                className={campo}
-              />
-            </div>
-            {(tipo === "objetivo" || tipo === "fase") && (
+        {/* Fechas de inicio y límite para Objetivo / Proyecto / Entregable / Fase */}
+        {tipo !== "area" &&
+          tipo !== "tarea" &&
+          !(
+            tipo === "entregable" &&
+            modoEntregable === "continua_hasta_completar"
+          ) && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1">
-                <span className={rotulo}>% Aceptable</span>
+                <span className={rotulo}>Fecha de inicio</span>
                 <input
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={bandaAceptable}
-                  onChange={(e) => setBandaAceptable(e.target.value)}
-                  placeholder="75"
+                  type="date"
+                  value={diaInicio}
+                  onChange={(e) => setDiaInicio(e.target.value)}
                   className={campo}
                 />
               </div>
-            )}
-          </div>
-        )}
+              <div className="flex flex-col gap-1">
+                <span className={rotulo}>Fecha límite</span>
+                <input
+                  type="date"
+                  value={diaLimite}
+                  onChange={(e) => setDiaLimite(e.target.value)}
+                  className={campo}
+                />
+              </div>
+            </div>
+          )}
+
+        {/* Cantidad y unidad */}
+        {tipo !== "area" &&
+          !(
+            tipo === "entregable" &&
+            (modoEntregable === "continua_hasta_completar" ||
+              modoEntregable === "puntual")
+          ) && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="flex flex-col gap-1">
+                <span className={rotulo}>
+                  Cantidad meta{" "}
+                  {tipo === "objetivo" ||
+                  tipo === "fase" ||
+                  (tipo === "entregable" && modoEntregable === "cuantificable")
+                    ? "(obligatoria)"
+                    : "(opcional)"}
+                </span>
+                <input
+                  type="number"
+                  min={1}
+                  value={cantidad}
+                  onChange={(e) => setCantidad(e.target.value)}
+                  placeholder="Ej: 100"
+                  className={campo}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className={rotulo}>Unidad</span>
+                <input
+                  value={unidad}
+                  onChange={(e) => setUnidad(e.target.value)}
+                  placeholder="Ej: contactos, ARS, videos"
+                  className={campo}
+                />
+              </div>
+              {(tipo === "objetivo" || tipo === "fase") && (
+                <div className="flex flex-col gap-1">
+                  <span className={rotulo}>% Aceptable</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={bandaAceptable}
+                    onChange={(e) => setBandaAceptable(e.target.value)}
+                    placeholder="75"
+                    className={campo}
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
         {/* Recurrencia para Entregable */}
-        {tipo === "entregable" && (
+        {tipo === "entregable" && modoEntregable !== "puntual" && (
           <div className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-[#141417] p-3">
-            <label className="flex items-center gap-2 text-xs text-zinc-300">
-              <input
-                type="checkbox"
-                checked={esRecurrente}
-                onChange={(e) => setEsRecurrente(e.target.checked)}
-              />
-              Se repite automáticamente ciertos días de la semana
-            </label>
-            {esRecurrente && (
-              <div className="flex gap-1.5">
+            {modoEntregable === "continua_hasta_completar" ? (
+              <span className={rotulo}>
+                ¿Qué días querés que aparezca hasta que la des por terminada?
+              </span>
+            ) : (
+              <label className="flex items-center gap-2 text-xs text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={esRecurrente}
+                  onChange={(e) => setEsRecurrente(e.target.checked)}
+                />
+                Generar automáticamente en días fijos de la semana
+              </label>
+            )}
+            {(modoEntregable === "continua_hasta_completar" ||
+              esRecurrente) && (
+              <div className="flex flex-wrap gap-1.5">
                 {DIAS_SEMANA_OPTS.map((d) => {
                   const activo = diasSemana.includes(d.v);
                   return (

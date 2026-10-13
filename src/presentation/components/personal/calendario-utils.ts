@@ -95,6 +95,9 @@ export const NOMBRES_DIA = [
   "Sábado",
 ];
 
+/** Etiquetas cortas de Lunes a Domingo (índice 0 = Lunes … 6 = Domingo). */
+export const DIAS_CORTOS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
 /** YYYY-MM-DD → "12 sep" (es-AR, sin año — el calendario nunca muestra más de unos meses de rango). */
 export function formatoDiaCorto(diaISO: string): string {
   const [, mes, dia] = diaISO.split("-").map(Number);

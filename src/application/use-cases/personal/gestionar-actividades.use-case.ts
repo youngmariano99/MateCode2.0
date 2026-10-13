@@ -738,4 +738,238 @@ export class GestionarActividadesUseCase {
       );
     }
   }
+
+  /**
+   * Ajuste rápido inline de una actividad: permite cambiar en 1 clic su
+   * cantidad objetivo del día, su descripción o su fecha sin abrir modales.
+   */
+  public async ajustarActividad(
+    id: string,
+    cambios: {
+      descripcion?: string;
+      cantidadObjetivo?: number | null;
+      diaTarea?: string;
+    }
+  ): Promise<Resultado<void>> {
+    const actividad = await db.actividad.get(id);
+    if (!actividad) {
+      return Resultado.falla(
+        new ErrorNoEncontrado("No se encontró la actividad.")
+      );
+    }
+    const ahora = Date.now();
+    const local: Partial<Actividad> = { actualizadoEn: ahora };
+    const remoto: Record<string, unknown> = { id, actualizadoEn: ahora };
+
+    if (cambios.descripcion !== undefined && cambios.descripcion.trim()) {
+      local.descripcion = cambios.descripcion.trim();
+      remoto.descripcion = local.descripcion;
+    }
+    if (cambios.cantidadObjetivo !== undefined) {
+      if (cambios.cantidadObjetivo === null || cambios.cantidadObjetivo <= 0) {
+        local.cantidadObjetivo = undefined;
+        remoto.cantidadObjetivo = null;
+      } else {
+        local.cantidadObjetivo = cambios.cantidadObjetivo;
+        remoto.cantidadObjetivo = cambios.cantidadObjetivo;
+        if (
+          actividad.estado === "pendiente" &&
+          (actividad.progresoActual ?? 0) >= cambios.cantidadObjetivo
+        ) {
+          local.estado = "completada";
+          remoto.estado = "completada";
+        }
+      }
+    }
+    if (cambios.diaTarea !== undefined && cambios.diaTarea) {
+      local.diaTarea = cambios.diaTarea;
+      remoto.diaTarea = cambios.diaTarea;
+    }
+
+    try {
+      await db.actividad.update(id, local);
+      await QueueService.encolar("actividad", "editar", id, remoto);
+      await registrarHistorialPersonal({
+        entidadTipo: "actividad",
+        entidadId: id,
+        accion: "editar",
+        descripcion: `Actividad "${actividad.descripcion}" ajustada.`,
+        campoAnterior: {
+          cantidadObjetivo: actividad.cantidadObjetivo,
+          diaTarea: actividad.diaTarea,
+        },
+        campoNuevo: remoto,
+      });
+      if (actividad.entregableId) {
+        await recomputarEntregable(actividad.entregableId);
+      }
+      return Resultado.exito(undefined);
+    } catch (err) {
+      return Resultado.falla(
+        new ErrorDominio(
+          err instanceof Error ? err.message : "Error al ajustar la actividad."
+        )
+      );
+    }
+  }
+
+  /**
+   * Checkpoint Semanal (estilo videojuego): resuelve de una sola vez todas
+   * las actividades pendientes de una meta semanal con una de las 3 opciones:
+   * - "dejar_asi": cierra las pendientes con lo que se haya hecho hasta ahora y descarta el resto
+   * - "distribuir": reparte lo elegido en los días de la próxima semana y/o guarda el resto en la Reserva (fondo de faltantes)
+   * - "ajustar_objetivo": descuenta el faltante de la meta total del Entregable/Objetivo y cierra las pendientes
+   */
+  public async resolverFaltanteSemanal(params: {
+    actividadesPendientesIds: string[];
+    entregableId?: string;
+    decision: "dejar_asi" | "distribuir" | "ajustar_objetivo";
+    reparto?: { dia: string; cantidad: number }[];
+    guardarEnReserva?: number;
+    nuevaMetaEntregable?: number;
+    motivo?: MotivoDesvio;
+  }): Promise<Resultado<void>> {
+    const ahora = Date.now();
+    try {
+      const actividades = (
+        await Promise.all(
+          params.actividadesPendientesIds.map((id) => db.actividad.get(id))
+        )
+      ).filter((a): a is Actividad => !!a && a.estado === "pendiente");
+
+      const plantilla =
+        actividades[0] ??
+        (params.entregableId
+          ? await db.actividad
+              .where("entregableId")
+              .equals(params.entregableId)
+              .first()
+          : undefined);
+
+      await db.transaction(
+        "rw",
+        [
+          db.actividad,
+          db.entregable,
+          db.objetivo_cuantificable,
+          db.cola_eventos,
+        ],
+        async () => {
+          // 1. Cerrar las actividades pendientes de la semana con lo que ya tengan hecho
+          for (const act of actividades) {
+            const hecha = act.progresoActual ?? 0;
+            const nuevoEstado = hecha > 0 ? "completada" : "cancelada";
+            await db.actividad.update(act.id, {
+              estado: nuevoEstado,
+              actualizadoEn: ahora,
+            });
+            await QueueService.encolar("actividad", "editar", act.id, {
+              id: act.id,
+              estado: nuevoEstado,
+              actualizadoEn: ahora,
+            });
+          }
+
+          // 2. Si eligió distribuir en la próxima semana y/o guardar en Reserva
+          if (params.decision === "distribuir" && plantilla) {
+            if (params.reparto && params.reparto.length > 0) {
+              for (const r of params.reparto) {
+                if (r.cantidad > 0) {
+                  await sumarOCrearEnDia(
+                    plantilla,
+                    r.cantidad,
+                    r.dia,
+                    plantilla.tipo === "backlog"
+                      ? "mantenimiento"
+                      : plantilla.tipo
+                  );
+                }
+              }
+            }
+            if (params.guardarEnReserva && params.guardarEnReserva > 0) {
+              await agregarAlFondo(plantilla, params.guardarEnReserva);
+            }
+          }
+
+          // 3. Si eligió ajustar el objetivo (bajar la meta total del Entregable)
+          if (
+            params.decision === "ajustar_objetivo" &&
+            params.entregableId &&
+            params.nuevaMetaEntregable !== undefined &&
+            params.nuevaMetaEntregable > 0
+          ) {
+            const ent = await db.entregable.get(params.entregableId);
+            if (ent) {
+              const diferencia =
+                (ent.cantidadObjetivo ?? 0) - params.nuevaMetaEntregable;
+              await db.entregable.update(ent.id, {
+                cantidadObjetivo: params.nuevaMetaEntregable,
+                actualizadoEn: ahora,
+              });
+              await QueueService.encolar("entregable", "editar", ent.id, {
+                id: ent.id,
+                cantidadObjetivo: params.nuevaMetaEntregable,
+                actualizadoEn: ahora,
+              });
+              // Si el objetivo padre comparte la misma unidad, sincronizamos el ajuste si aplica
+              if (diferencia > 0 && ent.objetivoId) {
+                const obj = await db.objetivo_cuantificable.get(ent.objetivoId);
+                if (
+                  obj &&
+                  obj.unidad === ent.unidad &&
+                  obj.cantidadObjetivo > diferencia
+                ) {
+                  const nuevaMetaObj = Math.max(
+                    1,
+                    obj.cantidadObjetivo - diferencia
+                  );
+                  await db.objetivo_cuantificable.update(obj.id, {
+                    cantidadObjetivo: nuevaMetaObj,
+                    actualizadoEn: ahora,
+                  });
+                  await QueueService.encolar(
+                    "objetivo_cuantificable",
+                    "editar",
+                    obj.id,
+                    {
+                      id: obj.id,
+                      cantidadObjetivo: nuevaMetaObj,
+                      actualizadoEn: ahora,
+                    }
+                  );
+                }
+              }
+            }
+          }
+        }
+      );
+
+      for (const act of actividades) {
+        await registrarHistorialPersonal({
+          entidadTipo: "actividad",
+          entidadId: act.id,
+          accion: "editar",
+          descripcion: `Checkpoint semanal (${params.decision}): "${act.descripcion}".`,
+          campoNuevo: {
+            decision: params.decision,
+            motivo: params.motivo,
+          },
+        });
+      }
+
+      if (params.entregableId) {
+        await recomputarEntregable(params.entregableId);
+      }
+
+      return Resultado.exito(undefined);
+    } catch (err) {
+      return Resultado.falla(
+        new ErrorDominio(
+          err instanceof Error
+            ? err.message
+            : "Error al resolver el checkpoint semanal."
+        )
+      );
+    }
+  }
 }

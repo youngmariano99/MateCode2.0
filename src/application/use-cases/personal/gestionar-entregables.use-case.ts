@@ -292,6 +292,40 @@ export class GestionarEntregablesUseCase {
     }
   }
 
+  public async completarEntregable(id: string): Promise<Resultado<void>> {
+    const entregable = await db.entregable.get(id);
+    if (!entregable) {
+      return Resultado.falla(
+        new ErrorNoEncontrado("No se encontró el entregable.")
+      );
+    }
+    const actualizadoEn = Date.now();
+    try {
+      await db.entregable.update(id, { estado: "cumplido", actualizadoEn });
+      await QueueService.encolar("entregable", "editar", id, {
+        id,
+        estado: "cumplido",
+        actualizadoEn,
+      });
+      await registrarHistorialPersonal({
+        entidadTipo: "entregable",
+        entidadId: id,
+        accion: "editar",
+        descripcion: `Entregable "${entregable.titulo}" marcado como cumplido (finalizado).`,
+      });
+      await recomputarProyecto(entregable.proyectoId);
+      return Resultado.exito(undefined);
+    } catch (err) {
+      return Resultado.falla(
+        new ErrorDominio(
+          err instanceof Error
+            ? err.message
+            : "Error al completar el entregable."
+        )
+      );
+    }
+  }
+
   public async archivarEntregable(id: string): Promise<Resultado<void>> {
     const entregable = await db.entregable.get(id);
     if (!entregable) {

@@ -6,7 +6,7 @@ import { Button } from "../../../../presentation/components/button";
 import { Icono } from "../../../../presentation/components/icons";
 import { CapturaInbox } from "../../../../presentation/components/personal/captura-inbox";
 import { BunkerDelDia } from "../../../../presentation/components/personal/bunker-del-dia";
-import { PanelRepasoSemanal } from "../../../../presentation/components/personal/panel-repaso-semanal";
+import { PanelCheckpointSemanal } from "../../../../presentation/components/personal/panel-checkpoint-semanal";
 import { PanelFondoFaltantes } from "../../../../presentation/components/personal/panel-fondo-faltantes";
 import { PanelPendientes } from "../../../../presentation/components/personal/panel-pendientes";
 import { PanelEstadisticasPersonal } from "../../../../presentation/components/personal/panel-estadisticas-personal";
@@ -63,11 +63,11 @@ const breadcrumbs = [
 ];
 
 const DESCRIPCION_HORIZONTE: Record<Horizonte, string> = {
-  dia: "Ritual diario: resolvé lo pendiente de ayer, confirmá tu prioridad #1 de hoy y pasá a Oficina para enfocarte.",
+  dia: "Foco exclusivo en hoy: completá tus actividades del día, anotá qué hiciste y pasá a Oficina.",
   semana:
-    "Planificación semanal completa: repaso de desvíos, metas activas de la semana, calendario de 7 días y selección del backlog.",
-  mes: "Enfoque mensual: fases vigentes en el mes, radar de objetivos por área y distribución en el calendario mensual.",
-  mapa: "Estructura completa (Área → Objetivo → Proyecto → Entregable → Fases) en vista de árbol expandible para armar planes grandes o puntuales.",
+    "Foco exclusivo en esta semana: checkpoint semanal (stats y decisiones de faltantes), reserva de pendientes y calendario de 7 días.",
+  mes: "Foco exclusivo en el mes actual: calibración de fases del mes, metas vigentes de este mes y calendario mensual.",
+  mapa: "Recorrido proyectado completo (Área → Objetivo → Proyecto → Entregable → Fases proyectadas) y estado general.",
   stats:
     "Cómo te fue por semana, mes o año: cumplimiento, qué no se hizo y por qué, y qué mejorar.",
 };
@@ -143,18 +143,15 @@ export default function PersonalHoyPage() {
         </div>
 
         {horizonte === "dia" && (
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-5">
             <GuiaProcedimientoPlanificacion
               horizonte="dia"
               onAbrirWizard={() => setWizardAbierto(true)}
             />
-            <AvisoFasesPendientes />
-            <AvisoMinimos />
-            <PanelRecuperarHabitos />
             <TareaRapida />
             <BunkerDelDia />
-            <PanelFondoFaltantes />
             <TarjetaHabitos />
+            <PanelRecuperarHabitos />
             <CapturaInbox />
           </div>
         )}
@@ -165,7 +162,8 @@ export default function PersonalHoyPage() {
               horizonte="semana"
               onAbrirWizard={() => setWizardAbierto(true)}
             />
-            <PanelRepasoSemanal />
+            <PanelCheckpointSemanal />
+            <PanelFondoFaltantes />
             <CalendarioSemanal />
             <PanelPendientes />
             <PanelTiempoProyectos
@@ -183,12 +181,12 @@ export default function PersonalHoyPage() {
               onAbrirWizard={() => setWizardAbierto(true)}
             />
             <AvisoFasesPendientes />
+            <AvisoMinimos />
             <PanelMetasPeriodo
               desde={inicioMes}
               hasta={finMes}
-              titulo={`Metas de este mes (${inicioMes} → ${finMes})`}
+              titulo={`Metas exclusivas de este mes (${inicioMes} → ${finMes})`}
             />
-            <PanelEstadoGeneral />
             <CalendarioMensual />
           </div>
         )}
@@ -199,6 +197,7 @@ export default function PersonalHoyPage() {
               horizonte="mapa"
               onAbrirWizard={() => setWizardAbierto(true)}
             />
+            <PanelEstadoGeneral />
             <ArbolJerarquicoPersonal
               onAbrirWizard={() => setWizardAbierto(true)}
             />

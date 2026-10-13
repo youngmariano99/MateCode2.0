@@ -58,4 +58,5 @@ export const Icono = {
   Star: Lucide.Star,
   Package: Lucide.Package,
   Copy: Lucide.Copy,
+  Trophy: Lucide.Trophy,
 };

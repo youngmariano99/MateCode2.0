@@ -10,12 +10,14 @@ import { Icono } from "../icons";
 import { Badge, type BadgeColor } from "../badge";
 import { useToast } from "../../hooks/useToast";
 import { GestionarActividadesUseCase } from "../../../application/use-cases/personal/gestionar-actividades.use-case";
+import { GestionarEntregablesUseCase } from "../../../application/use-cases/personal/gestionar-entregables.use-case";
 import {
   MAX_TAREAS_ENFOQUE_POR_DIA,
   MAX_TAREAS_MANTENIMIENTO_POR_DIA,
   BUCKETS_DIA,
   ETIQUETA_BUCKET,
   bucketDeActividad,
+  etiquetaMotivoDesvio,
   type Actividad,
   type BucketDia,
   type DestinoFaltante,
@@ -29,6 +31,7 @@ import {
 import { useAreaPorObjetivo, type AreaDeTarea } from "./calendario-utils";
 
 const useCase = new GestionarActividadesUseCase();
+const entregablesUseCase = new GestionarEntregablesUseCase();
 const SIN_ACTIVIDADES: Actividad[] = [];
 
 const ETIQUETA_ESTADO_RESUELTO: Partial<Record<EstadoActividad, string>> = {
@@ -59,31 +62,46 @@ const ChipArea: React.FC<{ area: AreaDeTarea }> = ({ area }) => (
 );
 
 /**
- * Input de avance parcial — solo aparece en Actividades cuantificables
- * (`cantidadObjetivo` declarado): "hice 1 de 2" es tan válido como "hice los
- * 2", y se puede seguir sumando (registrarAvance acumula, no reemplaza).
+ * Input de avance parcial y ajuste rápido de cantidad en 1 clic:
+ * permite sumar +1 con un toque, escribir una cantidad o ajustar la meta del día.
  */
 const AvanceParcial: React.FC<{ actividad: Actividad }> = ({ actividad }) => {
   const { mostrarToast } = useToast();
   const [cantidad, setCantidad] = useState("");
+  const [editandoMeta, setEditandoMeta] = useState(false);
+  const [nuevaMeta, setNuevaMeta] = useState(
+    String(actividad.cantidadObjetivo ?? 1)
+  );
   const [guardando, setGuardando] = useState(false);
 
-  const agregar = async () => {
-    const valor = Number(cantidad);
+  const agregar = async (valorDirecto?: number) => {
+    const valor = valorDirecto ?? Number(cantidad);
     if (!Number.isFinite(valor) || valor === 0) return;
     setGuardando(true);
     const res = await useCase.registrarAvance(actividad.id, valor);
     setGuardando(false);
     if (!res.ok) mostrarToast(res.error!.mensaje, "error");
-    else setCantidad("");
+    else if (valorDirecto === undefined) setCantidad("");
+  };
+
+  const guardarMeta = async () => {
+    const num = Number(nuevaMeta);
+    if (!Number.isFinite(num) || num <= 0) return;
+    setGuardando(true);
+    const res = await useCase.ajustarActividad(actividad.id, {
+      cantidadObjetivo: num,
+    });
+    setGuardando(false);
+    if (!res.ok) mostrarToast(res.error!.mensaje, "error");
+    else setEditandoMeta(false);
   };
 
   const progreso = actividad.progresoActual ?? 0;
 
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-[10px] text-zinc-500">
-        {progreso}/{actividad.cantidadObjetivo} {actividad.unidad || ""}
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-xs font-semibold text-zinc-300">
+        {progreso} / {actividad.cantidadObjetivo} {actividad.unidad || ""}
         {actividad.cantidadMinima !== undefined &&
           actividad.cantidadMinima < (actividad.cantidadObjetivo ?? 0) && (
             <span className="ml-1 text-sky-400">
@@ -91,6 +109,15 @@ const AvanceParcial: React.FC<{ actividad: Actividad }> = ({ actividad }) => {
             </span>
           )}
       </span>
+      <button
+        type="button"
+        onClick={() => void agregar(1)}
+        disabled={guardando}
+        title="Sumar +1 al avance de hoy en 1 clic"
+        className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-40"
+      >
+        +1
+      </button>
       <input
         type="number"
         value={cantidad}
@@ -99,26 +126,58 @@ const AvanceParcial: React.FC<{ actividad: Actividad }> = ({ actividad }) => {
           if (e.key === "Enter") void agregar();
         }}
         placeholder="+cant."
-        className="w-14 rounded border border-[#2A2A2E] bg-transparent px-1.5 py-0.5 text-[10px] text-zinc-200 placeholder-zinc-700 outline-none focus:border-emerald-500/40"
+        className="w-16 rounded border border-[#2A2A2E] bg-transparent px-1.5 py-0.5 text-[10px] text-zinc-200 placeholder-zinc-600 outline-none focus:border-emerald-500/40"
       />
-      <button
-        onClick={() => void agregar()}
-        disabled={guardando || !cantidad}
-        title="Agregar avance"
-        className="rounded border border-emerald-500/20 bg-emerald-500/10 p-1 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-40"
-      >
-        <Icono.Plus className="h-3 w-3" />
-      </button>
+      {cantidad && (
+        <button
+          type="button"
+          onClick={() => void agregar()}
+          disabled={guardando}
+          className="rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400 hover:bg-emerald-500/20"
+        >
+          Sumar
+        </button>
+      )}
+      {!editandoMeta ? (
+        <button
+          type="button"
+          onClick={() => {
+            setNuevaMeta(String(actividad.cantidadObjetivo ?? 1));
+            setEditandoMeta(true);
+          }}
+          className="text-[10px] font-bold text-zinc-500 uppercase hover:text-zinc-300"
+        >
+          Ajustar meta
+        </button>
+      ) : (
+        <span className="flex items-center gap-1">
+          <input
+            type="number"
+            min={1}
+            value={nuevaMeta}
+            onChange={(e) => setNuevaMeta(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void guardarMeta();
+              if (e.key === "Escape") setEditandoMeta(false);
+            }}
+            className="w-14 rounded border border-[#2A2A2E] bg-[#111113] px-1.5 py-0.5 text-[10px] text-zinc-200 outline-none focus:border-emerald-500/40"
+          />
+          <button
+            type="button"
+            onClick={() => void guardarMeta()}
+            className="text-[10px] font-bold text-emerald-400 uppercase"
+          >
+            OK
+          </button>
+        </span>
+      )}
     </div>
   );
 };
 
 /**
  * Cierre de una tarea cuantificable: "¿cuánto hiciste?" — si quedó por debajo
- * de la meta, se elige qué hacer con lo que faltó (pasarlo a mañana sumándolo
- * a la tarea de ese día, dejarlo en el fondo de faltantes, o descartarlo).
- * Nada se pierde en silencio: lo hecho queda como parcial y el faltante va
- * a donde se elija.
+ * de la meta, se elige qué hacer con lo que faltó y por qué (etiqueta de desvío).
  */
 const CierreConCantidad: React.FC<{
   actividad: Actividad;
@@ -127,7 +186,8 @@ const CierreConCantidad: React.FC<{
   const { mostrarToast } = useToast();
   const meta = actividad.cantidadObjetivo ?? 0;
   const [hecha, setHecha] = useState(String(actividad.progresoActual ?? meta));
-  const [destino, setDestino] = useState<DestinoFaltante | null>(null);
+  const [destino, setDestino] = useState<DestinoFaltante | null>("fondo");
+  const [motivo, setMotivo] = useState<MotivoDesvio | undefined>(undefined);
   const [guardando, setGuardando] = useState(false);
 
   const hechaNum = Number(hecha);
@@ -141,6 +201,7 @@ const CierreConCantidad: React.FC<{
       id: actividad.id,
       hecha: hechaNum,
       destino: faltante > 0 ? (destino ?? undefined) : undefined,
+      motivo: faltante > 0 ? motivo : undefined,
     });
     setGuardando(false);
     if (res.ok) onListo();
@@ -148,16 +209,18 @@ const CierreConCantidad: React.FC<{
   };
 
   const OPCIONES: { id: DestinoFaltante; label: string }[] = [
-    { id: "manana", label: "Pasarlo a mañana (se suma)" },
-    { id: "fondo", label: "Dejarlo en el fondo de faltantes" },
-    { id: "descartar", label: "Descartarlo" },
+    { id: "fondo", label: "Guardar en Reserva (para otro día/semana)" },
+    { id: "manana", label: "Sumarlo a mañana" },
+    { id: "descartar", label: "Dejarlo así (no recuperar)" },
   ];
 
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-[#0D0D0F] p-3">
-      <span className="text-sm text-zinc-300">{actividad.descripcion}</span>
+    <div className="flex flex-col gap-2.5 rounded-xl border border-[#2A2A2E] bg-[#0D0D0F] p-3">
+      <span className="text-sm font-bold text-zinc-200">
+        {actividad.descripcion}
+      </span>
       <label className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-        ¿Cuánto hiciste?
+        ¿Cuánto hiciste hoy?
         <input
           type="number"
           min={0}
@@ -182,8 +245,8 @@ const CierreConCantidad: React.FC<{
           )}
       </label>
       {faltante > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs text-amber-400">
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-semibold text-amber-400">
             Faltan {faltante} {actividad.unidad || ""} — ¿qué hacemos con eso?
           </span>
           <div className="flex flex-wrap gap-1.5">
@@ -191,7 +254,7 @@ const CierreConCantidad: React.FC<{
               <button
                 key={o.id}
                 onClick={() => setDestino(o.id)}
-                className={`flex min-h-11 items-center rounded border px-3 text-[10px] font-bold uppercase ${
+                className={`flex min-h-9 items-center rounded-lg border px-3 text-[10px] font-bold uppercase ${
                   destino === o.id
                     ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
                     : "border-[#2A2A2E] text-zinc-400 hover:border-zinc-600"
@@ -201,16 +264,27 @@ const CierreConCantidad: React.FC<{
               </button>
             ))}
           </div>
+          <div className="flex flex-col gap-1 pt-1">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase">
+              ¿Por qué quedó incompleto? (1 toque, queda registrado):
+            </span>
+            <ChipsMotivoDesvio onElegir={(m) => setMotivo(m)} />
+            {motivo && (
+              <span className="text-xs font-bold text-emerald-400">
+                Etiqueta: {etiquetaMotivoDesvio(motivo)}
+              </span>
+            )}
+          </div>
         </div>
       )}
-      <div className="flex gap-2">
+      <div className="flex gap-2 pt-1">
         <Button
+          size="sm"
           onClick={() => void cerrar()}
           cargando={guardando}
           disabled={!puedeCerrar}
-          className="px-3 py-1.5 text-xs"
         >
-          Cerrar tarea
+          Confirmar cierre
         </Button>
         <button
           onClick={onListo}
@@ -272,10 +346,10 @@ const SelectorCategoria: React.FC<{ actividad: Actividad }> = ({
 type ModoFila = "hoy" | "anterior" | "proxima";
 
 /**
- * Tarea pendiente — acciones con texto visible: "Hecha" la manda al final
- * tachada, "Mañana" (o "A hoy" si quedó de antes o es de un día futuro) la
- * mueve, "Cancelar" la deja marcada — ninguna borra nada. El color y el
- * nombre del Área, y la categoría (con cambio rápido) se ven sin abrir nada.
+ * Tarea pendiente:
+ * - Si tiene cantidadObjetivo: permite +1 rápido o cerrar con cantidad parcial/total y etiqueta.
+ * - Si es recurrente indefinida (ej. "Avanzar en Proyecto X de Lun a Vie"): permite anotar qué se hizo hoy
+ *   y tiene el botón "¡Terminé el entregable!" para que no vuelva a aparecer desde mañana.
  */
 const FilaActividad: React.FC<{
   actividad: Actividad;
@@ -285,19 +359,57 @@ const FilaActividad: React.FC<{
 }> = ({ actividad, area, modo, hoy }) => {
   const { mostrarToast } = useToast();
   const [cerrando, setCerrando] = useState(false);
-  // Al pasar a mañana o cancelar se pregunta el motivo (opcional, un tap) —
-  // queda en el historial para ver patrones de desvío en el repaso semanal.
+  const [notaRapida, setNotaRapida] = useState(actividad.nota ?? "");
+  const [mostrandoInputNota, setMostrandoInputNota] = useState(false);
   const [pidiendoMotivo, setPidiendoMotivo] = useState<
     "migrar" | "cancelar" | null
   >(null);
+
+  const esRecurrenteIndefinida =
+    !!actividad.recurrenciaId &&
+    !!actividad.entregableId &&
+    actividad.cantidadObjetivo === undefined;
+
+  const guardarNotaRapida = async () => {
+    const res = await useCase.editarDetalle(actividad.id, {
+      nota: notaRapida.trim() || null,
+    });
+    if (!res.ok) mostrarToast(res.error!.mensaje, "error");
+    else {
+      setMostrandoInputNota(false);
+      mostrarToast("Registro de lo hecho guardado.", "exito");
+    }
+  };
 
   const completar = async () => {
     if (actividad.cantidadObjetivo !== undefined) {
       setCerrando(true);
       return;
     }
+    if (notaRapida.trim() && notaRapida.trim() !== (actividad.nota ?? "")) {
+      await useCase.editarDetalle(actividad.id, { nota: notaRapida.trim() });
+    }
     const res = await useCase.completarActividad(actividad.id);
     if (!res.ok) mostrarToast(res.error!.mensaje, "error");
+  };
+
+  const finalizarEntregableRecurrente = async () => {
+    if (!actividad.entregableId) return;
+    if (notaRapida.trim() && notaRapida.trim() !== (actividad.nota ?? "")) {
+      await useCase.editarDetalle(actividad.id, { nota: notaRapida.trim() });
+    }
+    await useCase.completarActividad(actividad.id);
+    const res = await entregablesUseCase.completarEntregable(
+      actividad.entregableId
+    );
+    if (!res.ok) {
+      mostrarToast(res.error!.mensaje, "error");
+      return;
+    }
+    mostrarToast(
+      "Entregable finalizado. Ya no se repetirá en los próximos días.",
+      "exito"
+    );
   };
 
   const aHoy = async () => {
@@ -336,25 +448,25 @@ const FilaActividad: React.FC<{
       <div className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-[#0D0D0F] p-3">
         <span className="text-sm text-zinc-300">
           {actividad.descripcion}{" "}
-          <span className="text-zinc-600">
+          <span className="text-zinc-500">
             —{" "}
             {pidiendoMotivo === "migrar"
               ? "pasa a mañana"
-              : "se cancela (no se borra)"}
-            . ¿Por qué?
+              : "se cancela (queda en historial)"}
+            . Elegí la etiqueta del motivo (1 toque):
           </span>
         </span>
         <div className="flex flex-wrap gap-1.5">
           <ChipsMotivoDesvio onElegir={(m) => void resolverConMotivo(m)} />
           <button
             onClick={() => void resolverConMotivo(undefined)}
-            className="flex min-h-11 items-center rounded px-3 text-[10px] font-bold text-zinc-600 uppercase hover:text-zinc-300"
+            className="flex min-h-9 items-center rounded px-3 text-[10px] font-bold text-zinc-500 uppercase hover:text-zinc-300"
           >
-            Omitir
+            Sin etiqueta
           </button>
           <button
             onClick={() => setPidiendoMotivo(null)}
-            className="flex min-h-11 items-center rounded px-3 text-[10px] font-bold text-zinc-600 uppercase hover:text-zinc-300"
+            className="flex min-h-9 items-center rounded px-3 text-[10px] font-bold text-zinc-500 uppercase hover:text-zinc-300"
           >
             Volver
           </button>
@@ -365,11 +477,20 @@ const FilaActividad: React.FC<{
 
   return (
     <div
-      className="flex flex-col gap-2 rounded-xl border border-l-[3px] border-[#2A2A2E] bg-[#0D0D0F] p-3 sm:flex-row sm:items-center sm:justify-between"
+      className="flex flex-col gap-2.5 rounded-xl border border-l-[3px] border-[#2A2A2E] bg-[#0D0D0F] p-3 sm:flex-row sm:items-center sm:justify-between"
       style={{ borderLeftColor: area.color }}
     >
-      <div className="flex flex-col gap-1">
-        <span className="text-sm text-zinc-200">{actividad.descripcion}</span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-zinc-100">
+            {actividad.descripcion}
+          </span>
+          {esRecurrenteIndefinida && (
+            <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-bold text-violet-300">
+              Continua (hasta finalizar)
+            </span>
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <ChipArea area={area} />
           <SelectorCategoria actividad={actividad} />
@@ -378,38 +499,80 @@ const FilaActividad: React.FC<{
               del {actividad.diaTarea}
             </span>
           )}
+          <button
+            type="button"
+            onClick={() => setMostrandoInputNota(!mostrandoInputNota)}
+            className="rounded border border-[#2A2A2E] bg-[#18181B] px-2 py-0.5 text-[10px] font-bold text-emerald-400 hover:border-emerald-500/40"
+          >
+            {actividad.nota ? "Editar qué hice hoy" : "+ Anotar qué hice hoy"}
+          </button>
         </div>
+
+        {mostrandoInputNota && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+            <input
+              type="text"
+              value={notaRapida}
+              onChange={(e) => setNotaRapida(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void guardarNotaRapida();
+                if (e.key === "Escape") setMostrandoInputNota(false);
+              }}
+              placeholder="Ej: Armé la pantalla de login y corregí el formulario..."
+              className="min-w-[220px] flex-1 rounded-lg border border-[#2A2A2E] bg-[#141417] px-2.5 py-1 text-xs text-zinc-100 placeholder-zinc-500 outline-none focus:border-emerald-500/50"
+            />
+            <button
+              type="button"
+              onClick={() => void guardarNotaRapida()}
+              className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20"
+            >
+              Guardar
+            </button>
+          </div>
+        )}
+
         {actividad.cantidadObjetivo !== undefined && (
           <AvanceParcial actividad={actividad} />
         )}
         <DetalleActividad actividad={actividad} />
       </div>
-      <div className="flex flex-wrap gap-1.5">
+
+      <div className="flex flex-wrap items-center gap-1.5">
         <button
           onClick={() => void completar()}
-          title="Marcar como hecha"
-          className="flex min-h-11 items-center justify-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-3 text-[10px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
+          title="Marcar el día de hoy como hecho"
+          className="flex min-h-9 items-center justify-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 text-[10px] font-bold text-emerald-400 uppercase hover:bg-emerald-500/20"
         >
           <Icono.Check className="h-3.5 w-3.5" />
-          Hecha
+          {esRecurrenteIndefinida ? "Hecho hoy" : "Hecha"}
         </button>
+        {esRecurrenteIndefinida && (
+          <button
+            onClick={() => void finalizarEntregableRecurrente()}
+            title="Dar por terminado definitivamente este entregable para que no aparezca más en los próximos días"
+            className="flex min-h-9 items-center justify-center gap-1 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 text-[10px] font-bold text-violet-300 uppercase hover:bg-violet-500/20"
+          >
+            <Icono.Check className="h-3.5 w-3.5" />
+            Terminado (No repetir más)
+          </button>
+        )}
         <button
           onClick={() =>
             modo === "hoy" ? setPidiendoMotivo("migrar") : void aHoy()
           }
           title={modo === "hoy" ? "Pasar a mañana" : "Traer a hoy"}
-          className="flex min-h-11 items-center justify-center gap-1 rounded border border-sky-500/20 bg-sky-500/10 px-3 text-[10px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
+          className="flex min-h-9 items-center justify-center gap-1 rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 text-[10px] font-bold text-sky-400 uppercase hover:bg-sky-500/20"
         >
           <Icono.ArrowRight className="h-3.5 w-3.5" />
           {modo === "hoy" ? "Mañana" : "A hoy"}
         </button>
         <button
           onClick={() => setPidiendoMotivo("cancelar")}
-          title="Cancelar — no se borra, queda marcada abajo (decisión estratégica, no fracaso)"
-          className="flex min-h-11 items-center justify-center gap-1 rounded border border-zinc-800 px-3 text-[10px] font-bold text-zinc-500 uppercase hover:border-red-500/30 hover:text-red-400"
+          title="Cancelar — no se borra, queda registrada con su motivo"
+          className="flex min-h-9 items-center justify-center gap-1 rounded-lg border border-zinc-800 px-3 text-[10px] font-bold text-zinc-500 uppercase hover:border-red-500/30 hover:text-red-400"
         >
           <Icono.Close className="h-3.5 w-3.5" />
-          Cancelar
+          No hice / Cancelar
         </button>
       </div>
     </div>
