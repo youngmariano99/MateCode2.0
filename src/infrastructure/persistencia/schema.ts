@@ -1176,6 +1176,10 @@ export const actividadPersonal = pgTable("actividad_personal", {
   recurrenciaId: varchar("recurrencia_id", { length: 255 }),
   origenInboxId: varchar("origen_inbox_id", { length: 255 }),
   esFaltante: boolean("es_faltante"), // fondo de faltantes — ver actividad.entity.ts
+  procedimientoId: varchar("procedimiento_id", { length: 255 }),
+  procedimientoEjecucionId: varchar("procedimiento_ejecucion_id", {
+    length: 255,
+  }),
   creadoEn: timestamp("creado_en").defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   eliminadoEn: timestamp("eliminado_en"),
@@ -1245,4 +1249,56 @@ export const configuracionOficina = pgTable("configuracion_oficina", {
   pausaAlAzar: boolean("pausa_al_azar").default(false).notNull(),
   segundosDesdePausa: integer("segundos_desde_pausa").default(0).notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
+
+// ==========================================
+// Procedimientos y Protocolos de Trabajo (SOPs)
+// ==========================================
+export const procedimiento = pgTable("procedimiento", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  titulo: varchar("titulo", { length: 255 }).notNull(),
+  descripcion: text("descripcion"),
+  categoria: varchar("categoria", { length: 50 }).notNull(),
+  icono: varchar("icono", { length: 50 }),
+  color: varchar("color", { length: 20 }),
+  tags: jsonb("tags").default([]).notNull(), // string[]
+  areaId: varchar("area_id", { length: 255 }),
+  objetivoId: varchar("objetivo_id", { length: 255 }),
+  proyectoPersonalId: varchar("proyecto_personal_id", { length: 255 }),
+  entregableId: varchar("entregable_id", { length: 255 }),
+  clienteId: varchar("cliente_id", { length: 255 }),
+  proyectoTrabajoId: varchar("proyecto_trabajo_id", { length: 255 }),
+  servicioId: varchar("servicio_id", { length: 255 }),
+  pasos: jsonb("pasos").default([]).notNull(), // PasoProcedimientoDefinicion[]
+  tiempoEstimadoTotalMin: integer("tiempo_estimado_total_min"),
+  documentacionUrl: varchar("documentacion_url", { length: 500 }),
+  activo: boolean("activo").default(true).notNull(),
+  vecesEjecutado: integer("veces_ejecutado").default(0).notNull(),
+  ultimoEjecutadoEn: timestamp("ultimo_ejecutado_en"),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  eliminadoEn: timestamp("eliminado_en"),
+});
+
+export const ejecucionProcedimiento = pgTable("ejecucion_procedimiento", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  procedimientoId: varchar("procedimiento_id", { length: 255 }).notNull(),
+  tituloProcedimiento: varchar("titulo_procedimiento", {
+    length: 255,
+  }).notNull(),
+  diaTarea: varchar("dia_tarea", { length: 10 }).notNull(), // YYYY-MM-DD
+  estado: varchar("estado", { length: 20 }).notNull(), // en_progreso | pausado | completado | cancelado
+  actividadId: varchar("actividad_id", { length: 255 }),
+  clienteId: varchar("cliente_id", { length: 255 }),
+  proyectoTrabajoId: varchar("proyecto_trabajo_id", { length: 255 }),
+  pasos: jsonb("pasos").default([]).notNull(), // PasoEjecutado[]
+  totalPasos: integer("total_pasos").default(0).notNull(),
+  pasosCompletados: integer("pasos_completados").default(0).notNull(),
+  porcentajeAvance: integer("porcentaje_avance").default(0).notNull(),
+  todoObligatorioListo: boolean("todo_obligatorio_listo")
+    .default(false)
+    .notNull(),
+  iniciadoEn: timestamp("iniciado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+  finalizadoEn: timestamp("finalizado_en"),
 });

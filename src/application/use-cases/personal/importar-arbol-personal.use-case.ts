@@ -147,6 +147,7 @@ export class ImportarArbolPersonalUseCase {
       diaTarea: item.diaTarea,
       cantidadObjetivo: item.cantidadObjetivo,
       unidad: item.unidad,
+      procedimientoId: item.procedimientoId,
     });
     if (!res.ok) {
       return {

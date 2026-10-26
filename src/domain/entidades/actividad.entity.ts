@@ -87,6 +87,10 @@ export interface Actividad {
    * descripción). Nunca suma progreso mientras está pendiente.
    */
   esFaltante?: boolean;
+  /** Si esta actividad sigue un protocolo/SOP específico, ID de la plantilla. */
+  procedimientoId?: string;
+  /** ID de la ejecución activa del procedimiento con sus checks en curso. */
+  procedimientoEjecucionId?: string;
   creadoEn: number;
   actualizadoEn: number;
 }
@@ -124,6 +128,8 @@ export const crearActividadSchema = z
     semanaId: fechaISO.optional(),
     recurrenciaId: z.string().optional(),
     origenInboxId: z.string().optional(),
+    procedimientoId: z.string().optional(),
+    procedimientoEjecucionId: z.string().optional(),
   })
   .refine((v) => v.tipo === "backlog" || !!v.diaTarea, {
     message: "Las actividades de enfoque/mantenimiento necesitan una fecha.",

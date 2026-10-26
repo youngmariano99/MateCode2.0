@@ -92,6 +92,8 @@ export class GestionarActividadesUseCase {
       semanaId: parsed.data.semanaId,
       recurrenciaId: parsed.data.recurrenciaId,
       origenInboxId: parsed.data.origenInboxId,
+      procedimientoId: parsed.data.procedimientoId,
+      procedimientoEjecucionId: parsed.data.procedimientoEjecucionId,
       creadoEn: ahora,
       actualizadoEn: ahora,
     };
@@ -446,42 +448,68 @@ export class GestionarActividadesUseCase {
         : ("migrada" as const);
     let nuevoId = "";
     try {
-      await db.transaction("rw", [db.actividad, db.cola_eventos], async () => {
-        await db.actividad.update(original.id, {
-          estado: estadoOriginal,
-          actualizadoEn: ahora,
-        });
-        await QueueService.encolar("actividad", "editar", original.id, {
-          id: original.id,
-          estado: estadoOriginal,
-          actualizadoEn: ahora,
-        });
-        if (cuantificada) {
-          const res = await sumarOCrearEnDia(
-            original,
-            faltante,
-            parsed.data.nuevoDiaTarea,
-            original.tipo
-          );
-          nuevoId = res.id;
-        } else {
-          nuevoId = idActividad();
-          const copia: Actividad = {
-            ...original,
-            id: nuevoId,
-            diaTarea: parsed.data.nuevoDiaTarea,
-            estado: "pendiente",
-            progresoActual: undefined,
-            fechaMigradaDesde: original.diaTarea,
-            creadoEn: ahora,
+      await db.transaction(
+        "rw",
+        [db.actividad, db.ejecucion_procedimiento, db.cola_eventos],
+        async () => {
+          await db.actividad.update(original.id, {
+            estado: estadoOriginal,
             actualizadoEn: ahora,
-          };
-          await db.actividad.add(copia);
-          await QueueService.encolar("actividad", "crear", nuevoId, {
-            ...copia,
           });
+          await QueueService.encolar("actividad", "editar", original.id, {
+            id: original.id,
+            estado: estadoOriginal,
+            actualizadoEn: ahora,
+          });
+          if (cuantificada) {
+            const res = await sumarOCrearEnDia(
+              original,
+              faltante,
+              parsed.data.nuevoDiaTarea,
+              original.tipo
+            );
+            nuevoId = res.id;
+          } else {
+            nuevoId = idActividad();
+            const copia: Actividad = {
+              ...original,
+              id: nuevoId,
+              diaTarea: parsed.data.nuevoDiaTarea,
+              estado: "pendiente",
+              progresoActual: undefined,
+              fechaMigradaDesde: original.diaTarea,
+              creadoEn: ahora,
+              actualizadoEn: ahora,
+            };
+            await db.actividad.add(copia);
+            await QueueService.encolar("actividad", "crear", nuevoId, {
+              ...copia,
+            });
+          }
+
+          if (original.procedimientoEjecucionId) {
+            await db.ejecucion_procedimiento.update(
+              original.procedimientoEjecucionId,
+              {
+                actividadId: nuevoId,
+                diaTarea: parsed.data.nuevoDiaTarea,
+                actualizadoEn: ahora,
+              }
+            );
+            await QueueService.encolar(
+              "ejecucion_procedimiento",
+              "editar",
+              original.procedimientoEjecucionId,
+              {
+                id: original.procedimientoEjecucionId,
+                actividadId: nuevoId,
+                diaTarea: parsed.data.nuevoDiaTarea,
+                actualizadoEn: ahora,
+              }
+            );
+          }
         }
-      });
+      );
       await registrarHistorialPersonal({
         entidadTipo: "actividad",
         entidadId: nuevoId,

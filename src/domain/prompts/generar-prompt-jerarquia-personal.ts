@@ -531,3 +531,56 @@ export function generarPromptActividades(
 ): string {
   return conContextoComun(construirPromptActividades(...args));
 }
+
+function construirPromptProcedimiento(contexto: {
+  tema: string;
+  categoria?: string;
+  clienteNombre?: string;
+  detallesExtra?: string;
+}): string {
+  return `<rol>
+Sos un especialista en estandarización de procesos de trabajo y diseño de Procedimientos Operativos Estandarizados (SOPs).
+</rol>
+
+<contexto>
+Procedimiento a definir: "${contexto.tema}".
+${contexto.categoria ? `Categoría sugerida: "${contexto.categoria}".` : ""}
+${contexto.clienteNombre ? `Cliente asociado: "${contexto.clienteNombre}".` : ""}
+${contexto.detallesExtra ? `Detalles adicionales: ${contexto.detallesExtra}` : ""}
+</contexto>
+
+<instrucciones>
+Diseñá un listado secuencial de pasos claros, atómicos y accionables para este procedimiento que se repite periódicamente (ej. para prospección, desarrollo de features, estudio o entrega de servicios).
+- Cada paso debe tener un título conciso e imperativo.
+- Indicá "esObligatorio: true" para los pasos críticos y "false" para verificaciones opcionales.
+- Estimá "duracionEstimadaMin" en minutos para cada paso.
+- El procedimiento debe devolver un JSON con la clave "procedimientosNuevos".
+</instrucciones>
+
+<output_requerido>
+{
+  "procedimientosNuevos": [
+    {
+      "titulo": "${contexto.tema}",
+      "descripcion": "Descripción del objetivo y contexto de este procedimiento...",
+      "categoria": "${contexto.categoria ?? "general"}",
+      "pasos": [
+        {
+          "orden": 1,
+          "titulo": "Primer paso secuencial a realizar",
+          "descripcion": "Detalle operativo opcional...",
+          "duracionEstimadaMin": 15,
+          "esObligatorio": true
+        }
+      ]
+    }
+  ]
+}
+</output_requerido>`;
+}
+
+export function generarPromptProcedimiento(
+  ...args: Parameters<typeof construirPromptProcedimiento>
+): string {
+  return conContextoComun(construirPromptProcedimiento(...args));
+}

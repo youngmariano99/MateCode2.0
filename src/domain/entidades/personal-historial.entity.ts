@@ -16,6 +16,8 @@ export const TIPOS_ENTIDAD_HISTORIAL = [
   "habito",
   "fase",
   "bloque",
+  "procedimiento",
+  "ejecucion_procedimiento",
 ] as const;
 export type TipoEntidadHistorial = (typeof TIPOS_ENTIDAD_HISTORIAL)[number];
 

@@ -60,6 +60,10 @@ import type {
 import type { RegistroActividad } from "../../domain/entidades/registro-actividad.entity";
 import type { SesionTrabajo } from "../../domain/entidades/sesion-trabajo.entity";
 import type { ConfiguracionOficina } from "../../domain/entidades/configuracion-oficina.entity";
+import type {
+  Procedimiento,
+  EjecucionProcedimiento,
+} from "../../domain/entidades/procedimiento.entity";
 
 export interface CatalogoErrorRow {
   codigo: string;
@@ -181,6 +185,10 @@ export class MateCodeDB extends Dexie {
   // activa/pausada a la vez app-wide — ver sesion-trabajo.entity.ts.
   public sesion_trabajo!: Table<SesionTrabajo, string>;
   public configuracion_oficina!: Table<ConfiguracionOficina, string>;
+
+  // Procedimientos y Protocolos de Trabajo (SOPs)
+  public procedimiento!: Table<Procedimiento, string>;
+  public ejecucion_procedimiento!: Table<EjecucionProcedimiento, string>;
 
   constructor() {
     super("MateCodeLocalDB");
@@ -1215,6 +1223,15 @@ export class MateCodeDB extends Dexie {
     // fila con id fijo, sincronizada entre dispositivos. Tabla nueva.
     this.version(29).stores({
       configuracion_oficina: "id",
+    });
+
+    // Procedimientos y Protocolos de Trabajo (SOPs): plantillas y ejecuciones
+    // con estado para checklists interactivos repetibles.
+    this.version(30).stores({
+      procedimiento:
+        "id, categoria, areaId, clienteId, objetivoId, proyectoPersonalId, entregableId",
+      ejecucion_procedimiento:
+        "id, procedimientoId, actividadId, clienteId, diaTarea, estado",
     });
 
     this.on("populate", async () => {

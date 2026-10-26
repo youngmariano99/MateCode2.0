@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
 import { Input } from "../input";
 import { Select } from "../select";
 import { Button } from "../button";
 import { Icono } from "../icons";
 import { db } from "../../../offline/dexie/db";
+import { ModalCatalogoProcedimientos } from "../personal/modal-catalogo-procedimientos";
 import { OpenStreetMapGeocodificacionStrategy } from "../../../application/services/territorio/geocodificacion.strategy";
 
 interface ClienteCRM {
@@ -55,6 +57,7 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
   responsables,
 }) => {
   const [modoRapido, setModoRapido] = useState(true);
+  const [modalCatalogoCliente, setModalCatalogoCliente] = useState(false);
 
   const [nombre, setNombre] = useState("");
   const [correo, setCorreo] = useState("");
@@ -97,6 +100,27 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
     direccionFormateada?: string;
     proveedor?: string;
   } | null>(null);
+
+  // Client procedures & executions
+  const procedimientosCliente =
+    useLiveQuery(async () => {
+      if (!clienteEdicion?.id) return [];
+      return db.procedimiento
+        .where("clienteId")
+        .equals(clienteEdicion.id)
+        .filter((p) => !p.eliminadoEn)
+        .toArray();
+    }, [clienteEdicion?.id]) ?? [];
+
+  const ejecucionesCliente =
+    useLiveQuery(async () => {
+      if (!clienteEdicion?.id) return [];
+      return db.ejecucion_procedimiento
+        .where("clienteId")
+        .equals(clienteEdicion.id)
+        .filter((e) => !e.eliminadoEn)
+        .toArray();
+    }, [clienteEdicion?.id]) ?? [];
 
   // Load autofill suggestions from existing DB records
   useEffect(() => {
@@ -615,6 +639,109 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
             </>
           )}
 
+          {/* Procedimientos & Estado de Servicio del Cliente */}
+          {clienteEdicion && (
+            <div className="mt-3 space-y-3 border-t border-[#2A2A2E]/40 pt-3 md:col-span-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="flex items-center gap-2 font-mono text-xs font-bold text-zinc-300">
+                    <span>📋 Procedimientos y Desarrollo de Servicio</span>
+                  </h4>
+                  <p className="text-[11px] text-zinc-500">
+                    Protocolos SOP y estado de avance específico para{" "}
+                    {nombre || "este cliente"}.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setModalCatalogoCliente(true)}
+                  className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-400 hover:bg-emerald-500/20"
+                >
+                  + Asignar / Iniciar SOP
+                </button>
+              </div>
+
+              {/* Ejecuciones vivas / En qué parte estoy */}
+              {ejecucionesCliente.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-[10px] font-bold tracking-wider text-zinc-400 uppercase">
+                    En qué parte del proceso estoy (Ejecuciones):
+                  </span>
+                  <div className="grid grid-cols-1 gap-2">
+                    {ejecucionesCliente.map((ejec) => (
+                      <div
+                        key={ejec.id}
+                        className="flex flex-col gap-1.5 rounded-xl border border-[#2A2A2E] bg-[#141418] p-3 text-xs"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-zinc-200">
+                            {ejec.tituloProcedimiento}
+                          </span>
+                          <span
+                            className={`rounded px-2 py-0.5 text-[10px] font-bold ${
+                              ejec.estado === "completado"
+                                ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                                : ejec.estado === "pausado"
+                                  ? "border border-amber-500/20 bg-amber-500/10 text-amber-400"
+                                  : "border border-sky-500/20 bg-sky-500/10 text-sky-400"
+                            }`}
+                          >
+                            {ejec.estado === "completado"
+                              ? "Finalizado"
+                              : ejec.estado === "pausado"
+                                ? "Pausado"
+                                : "En progreso"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 font-mono text-[10px] text-zinc-400">
+                          <span>
+                            {ejec.pasosCompletados}/{ejec.totalPasos} pasos
+                          </span>
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-800">
+                            <div
+                              className="h-full bg-emerald-400 transition-all"
+                              style={{ width: `${ejec.porcentajeAvance}%` }}
+                            />
+                          </div>
+                          <span className="font-bold text-zinc-200">
+                            {ejec.porcentajeAvance}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Protocolos configurados */}
+              {procedimientosCliente.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold tracking-wider text-zinc-400 uppercase">
+                    SOPs configurados para este cliente:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {procedimientosCliente.map((p) => (
+                      <span
+                        key={p.id}
+                        className="rounded-lg border border-[#2A2A2E] bg-[#141418] px-2 py-1 text-[11px] text-zinc-300"
+                      >
+                        {p.titulo} ({p.pasos.length} pasos)
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {procedimientosCliente.length === 0 &&
+                ejecucionesCliente.length === 0 && (
+                  <p className="py-2 text-[11px] text-zinc-500 italic">
+                    No hay procedimientos de desarrollo o servicio activos para
+                    este cliente todavía.
+                  </p>
+                )}
+            </div>
+          )}
+
           {/* Favorite Switch */}
           <div className="mt-2 flex items-center gap-2 md:col-span-2">
             <input
@@ -632,6 +759,14 @@ export const ModalCliente: React.FC<ModalClienteProps> = ({
             </label>
           </div>
         </div>
+
+        {clienteEdicion && (
+          <ModalCatalogoProcedimientos
+            abierto={modalCatalogoCliente}
+            onCerrar={() => setModalCatalogoCliente(false)}
+            clienteFiltroId={clienteEdicion.id}
+          />
+        )}
 
         <div className="mt-6 flex justify-end gap-3 border-t border-[#2A2A2E] pt-4">
           <button

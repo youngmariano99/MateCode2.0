@@ -63,6 +63,8 @@ const tableMapper: Record<string, any> = {
   fase_personal: schema.fasePersonal,
   sesion_trabajo: schema.sesionTrabajo,
   configuracion_oficina: schema.configuracionOficina,
+  procedimiento: schema.procedimiento,
+  ejecucion_procedimiento: schema.ejecucionProcedimiento,
 };
 
 export async function POST(
@@ -143,6 +145,7 @@ export async function POST(
       "proximoSeguimientoFecha",
       "proximoPasoFecha",
       "fechaPublicacion",
+      "ultimoEjecutadoEn",
     ];
     for (const field of dateFields) {
       const val = dbPayload[field];
@@ -166,6 +169,15 @@ export async function POST(
       "epicaId",
       "historiaId",
       "objetivoId",
+      "procedimientoId",
+      "procedimientoEjecucionId",
+      "areaId",
+      "proyectoId",
+      "entregableId",
+      "proyectoPersonalId",
+      "actividadId",
+      "proyectoTrabajoId",
+      "servicioId",
     ];
     for (const field of emptyToNullFields) {
       if (dbPayload[field] === "") {

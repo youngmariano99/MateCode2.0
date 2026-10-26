@@ -5,6 +5,8 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../../offline/dexie/db";
 import { Button } from "../button";
 import { DetalleActividad } from "./detalle-actividad";
+import { ProcedimientoActividad } from "./procedimiento-actividad";
+import { ModalCatalogoProcedimientos } from "./modal-catalogo-procedimientos";
 import { ChipsMotivoDesvio } from "./chips-motivo-desvio";
 import { Icono } from "../icons";
 import { Badge, type BadgeColor } from "../badge";
@@ -535,6 +537,7 @@ const FilaActividad: React.FC<{
           <AvanceParcial actividad={actividad} />
         )}
         <DetalleActividad actividad={actividad} />
+        <ProcedimientoActividad actividad={actividad} />
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
@@ -703,6 +706,7 @@ export const BunkerDelDia: React.FC = () => {
   const [verSiLlego, setVerSiLlego] = useState(false);
   const [verProximas, setVerProximas] = useState(false);
   const [pasandoTodas, setPasandoTodas] = useState(false);
+  const [catalogoAbierto, setCatalogoAbierto] = useState(false);
 
   const actividadesHoy =
     useLiveQuery(
@@ -801,11 +805,20 @@ export const BunkerDelDia: React.FC = () => {
               Agenda de hoy
             </h3>
           </div>
-          {compromisos.length > 0 && (
-            <span className="text-xs text-zinc-500">
-              {hechas}/{compromisos.length} hechas
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCatalogoAbierto(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#2A2A2E] bg-[#141417] px-2.5 py-1 text-[11px] font-bold text-zinc-300 transition-colors hover:border-emerald-500/40 hover:text-emerald-400"
+            >
+              <span>📋 Procedimientos (SOPs)</span>
+            </button>
+            {compromisos.length > 0 && (
+              <span className="text-xs text-zinc-500">
+                {hechas}/{compromisos.length} hechas
+              </span>
+            )}
+          </div>
         </div>
         {compromisos.length > 0 && (
           <div className="h-1.5 w-full rounded-full bg-[#0D0D0F]">
@@ -1006,6 +1019,11 @@ export const BunkerDelDia: React.FC = () => {
             ))}
         </div>
       )}
+
+      <ModalCatalogoProcedimientos
+        abierto={catalogoAbierto}
+        onCerrar={() => setCatalogoAbierto(false)}
+      />
     </div>
   );
 };

@@ -19,6 +19,8 @@ const fechaISO = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida (YYYY-MM-DD).");
 
+import { CATEGORIAS_PROCEDIMIENTO } from "./procedimiento.entity";
+
 export const itemActividadJsonSchema = z.object({
   tipo: z.enum(TIPOS_ACTIVIDAD).default("mantenimiento"),
   descripcion: z
@@ -28,8 +30,43 @@ export const itemActividadJsonSchema = z.object({
   diaTarea: fechaISO.optional(),
   cantidadObjetivo: z.number().positive().optional(),
   unidad: z.string().trim().optional(),
+  procedimientoId: z.string().optional(),
 });
 export type ItemActividadJson = z.infer<typeof itemActividadJsonSchema>;
+
+export const itemPasoProcedimientoJsonSchema = z.object({
+  orden: z.number().int().min(0).optional(),
+  titulo: z.string().trim().min(1, "Falta el título del paso."),
+  descripcion: z.string().trim().optional(),
+  duracionEstimadaMin: z.number().positive().optional(),
+  esObligatorio: z.boolean().default(true),
+});
+export type ItemPasoProcedimientoJson = z.infer<
+  typeof itemPasoProcedimientoJsonSchema
+>;
+
+export const itemProcedimientoJsonSchema = z.object({
+  titulo: z.string().trim().min(1, "Falta el título del procedimiento."),
+  descripcion: z.string().trim().optional(),
+  categoria: z.enum(CATEGORIAS_PROCEDIMIENTO).default("general"),
+  clienteId: z.string().optional(),
+  areaId: z.string().optional(),
+  proyectoPersonalId: z.string().optional(),
+  entregableId: z.string().optional(),
+  pasos: z
+    .array(itemPasoProcedimientoJsonSchema)
+    .min(1, "El procedimiento debe tener al menos un paso."),
+});
+export type ItemProcedimientoJson = z.infer<typeof itemProcedimientoJsonSchema>;
+
+export const importarProcedimientosSchema = z.object({
+  procedimientosNuevos: z
+    .array(itemProcedimientoJsonSchema)
+    .min(1, "No hay ningún procedimiento para importar."),
+});
+export type ImportarProcedimientosInput = z.input<
+  typeof importarProcedimientosSchema
+>;
 
 // Fases (Sprint 21) — checkpoints periódicos de un Entregable, con meta
 // propia. Van ANIDADAS dentro del Entregable (igual que "actividades"): se
