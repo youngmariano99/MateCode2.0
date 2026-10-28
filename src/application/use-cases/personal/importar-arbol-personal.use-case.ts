@@ -21,6 +21,7 @@ import { GestionarEntregablesUseCase } from "./gestionar-entregables.use-case";
 import { GestionarActividadesUseCase } from "./gestionar-actividades.use-case";
 import { GestionarFasesUseCase } from "./gestionar-fases.use-case";
 import { DistribuirPlanUseCase } from "./distribuir-plan.use-case";
+import { GestionarProcedimientosUseCase } from "./gestionar-procedimientos.use-case";
 import {
   expandirReparto,
   type RepartoJson,
@@ -78,6 +79,7 @@ export class ImportarArbolPersonalUseCase {
   private readonly actividades = new GestionarActividadesUseCase();
   private readonly fases = new GestionarFasesUseCase();
   private readonly distribuir = new DistribuirPlanUseCase();
+  private readonly procedimientos = new GestionarProcedimientosUseCase();
 
   /** Expande un "reparto" compacto a una Actividad por día con cantidad, heredando del padre lo que falte. */
   private async crearReparto(
@@ -89,6 +91,7 @@ export class ImportarArbolPersonalUseCase {
       total?: number;
       unidad?: string;
       bandaAceptable?: number;
+      procedimientoId?: string;
     }
   ): Promise<ResultadoCreacion> {
     const expandido = expandirReparto(reparto, contexto);
@@ -103,7 +106,8 @@ export class ImportarArbolPersonalUseCase {
     }
     const r = await this.distribuir.crearActividadesDeReparto(
       entregableId,
-      expandido
+      expandido,
+      contexto.procedimientoId
     );
     return {
       creados: r.creadas,
@@ -199,8 +203,62 @@ export class ImportarArbolPersonalUseCase {
       entregableId = res.valor!;
       propio = { creados: 1, omitidos: 0, errores: [] };
     }
+
+    // Soporte para Procedimiento/SOP opcional en el entregable
+    let procedimientoId: string | undefined = item.procedimientoId;
+    let procRes: ResultadoCreacion = { creados: 0, omitidos: 0, errores: [] };
+
+    if (item.procedimiento) {
+      const existenteProc = await db.procedimiento
+        .filter(
+          (p) => !p.eliminadoEn && igual(p.titulo, item.procedimiento!.titulo)
+        )
+        .first();
+      if (existenteProc) {
+        procedimientoId = existenteProc.id;
+        procRes = { creados: 0, omitidos: 1, errores: [] };
+      } else {
+        const resProc = await this.procedimientos.crearProcedimiento({
+          titulo: item.procedimiento.titulo,
+          descripcion: item.procedimiento.descripcion,
+          categoria: item.procedimiento.categoria,
+          clienteId: item.procedimiento.clienteId,
+          areaId: item.procedimiento.areaId,
+          proyectoPersonalId: proyectoId,
+          entregableId,
+          pasos: item.procedimiento.pasos.map((p, idx) => ({
+            orden: p.orden ?? idx + 1,
+            titulo: p.titulo,
+            descripcion: p.descripcion,
+            duracionEstimadaMin: p.duracionEstimadaMin,
+            esObligatorio: p.esObligatorio ?? true,
+          })),
+        });
+        if (resProc.ok) {
+          procedimientoId = resProc.valor;
+          procRes = { creados: 1, omitidos: 0, errores: [] };
+        } else {
+          procRes = {
+            creados: 0,
+            omitidos: 0,
+            errores: [
+              `Procedimiento "${item.procedimiento.titulo}": ${resProc.error!.mensaje}`,
+            ],
+          };
+        }
+      }
+    }
+
     const hijosActividades = await Promise.all(
-      item.actividades.map((a) => this.crearActividad(a, entregableId))
+      item.actividades.map((a) =>
+        this.crearActividad(
+          {
+            ...a,
+            procedimientoId: a.procedimientoId ?? procedimientoId,
+          },
+          entregableId
+        )
+      )
     );
     const hijosFases = await Promise.all(
       item.fases.map((f) => this.crearFase(f, entregableId))
@@ -213,11 +271,13 @@ export class ImportarArbolPersonalUseCase {
             total: item.cantidadObjetivo,
             unidad: item.unidad,
             bandaAceptable: item.bandaAceptable,
+            procedimientoId,
           }),
         ]
       : [];
     return combinar(
       propio,
+      procRes,
       ...hijosActividades,
       ...hijosFases,
       ...hijosReparto

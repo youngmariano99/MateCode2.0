@@ -5,10 +5,12 @@ import { db } from "../../../offline/dexie/db";
 import { GestionarProcedimientosUseCase } from "./gestionar-procedimientos.use-case";
 import { EjecutarProcedimientoUseCase } from "./ejecutar-procedimiento.use-case";
 import { GestionarActividadesUseCase } from "./gestionar-actividades.use-case";
+import { ImportarArbolPersonalUseCase } from "./importar-arbol-personal.use-case";
 
 const gestionarProcedimientos = new GestionarProcedimientosUseCase();
 const ejecutarProcedimiento = new EjecutarProcedimientoUseCase();
 const gestionarActividades = new GestionarActividadesUseCase();
+const importarArbol = new ImportarArbolPersonalUseCase();
 
 describe("Fase 3: Casos de Uso de Procedimientos y Ejecuciones", () => {
   beforeEach(async () => {
@@ -16,6 +18,10 @@ describe("Fase 3: Casos de Uso de Procedimientos y Ejecuciones", () => {
       db.procedimiento,
       db.ejecucion_procedimiento,
       db.actividad,
+      db.entregable,
+      db.proyecto_personal,
+      db.objetivo_cuantificable,
+      db.area_personal,
       db.cola_eventos,
       db.personal_historial,
     ]) {
@@ -408,6 +414,96 @@ describe("Fase 3: Casos de Uso de Procedimientos y Ejecuciones", () => {
 
       const todos = await gestionarProcedimientos.listar();
       assert.strictEqual(todos.length, 3);
+    });
+
+    test("ImportarArbolPersonalUseCase crea Procedimiento anidado en Entregable y lo vincula a las actividades", async () => {
+      await db.area_personal.add({
+        id: "area_test_sop",
+        nombre: "Agencia Test",
+        activa: true,
+        creadoEn: Date.now(),
+        actualizadoEn: Date.now(),
+      });
+      await db.objetivo_cuantificable.add({
+        id: "obj_test_sop",
+        areaId: "area_test_sop",
+        area: "profesional",
+        titulo: "Objetivo Test SOP",
+        unidad: "contactos",
+        cantidadObjetivo: 100,
+        progresoActual: 0,
+        diaInicio: "2026-10-28",
+        diaLimite: "2026-11-28",
+        estado: "activo",
+        creadoEn: Date.now(),
+        actualizadoEn: Date.now(),
+      });
+      await db.proyecto_personal.add({
+        id: "proy_test_sop",
+        objetivoId: "obj_test_sop",
+        titulo: "Proyecto Test SOP",
+        diaInicio: "2026-10-28",
+        diaLimite: "2026-11-28",
+        estado: "activo",
+        progresoActual: 0,
+        tieneHijos: false,
+        creadoEn: Date.now(),
+        actualizadoEn: Date.now(),
+      });
+
+      const res = await importarArbol.importarEntregable([
+        {
+          proyectoTitulo: "Proyecto Test SOP",
+          entregablesNuevos: [
+            {
+              titulo: "Semana 1: Prospección con SOP",
+              diaInicio: "2026-10-28",
+              diaLimite: "2026-11-04",
+              procedimiento: {
+                titulo: "SOP Prospección Automatizada",
+                categoria: "contacto_frio",
+                pasos: [
+                  {
+                    orden: 1,
+                    titulo: "Filtrar leads",
+                    duracionEstimadaMin: 15,
+                    esObligatorio: true,
+                  },
+                  {
+                    orden: 2,
+                    titulo: "Mandar mensaje",
+                    duracionEstimadaMin: 20,
+                    esObligatorio: true,
+                  },
+                ],
+              },
+              actividades: [
+                {
+                  tipo: "mantenimiento",
+                  descripcion: "Ronda 1 Prospección",
+                  diaTarea: "2026-10-28",
+                },
+              ],
+            },
+          ],
+        },
+      ]);
+
+      assert.strictEqual(res.ok, true, res.ok ? "" : res.error!.mensaje);
+
+      // Verificamos que el procedimiento se haya creado en Dexie
+      const proc = await db.procedimiento
+        .filter((p) => p.titulo === "SOP Prospección Automatizada")
+        .first();
+      assert.ok(proc, "El procedimiento debió crearse en db.procedimiento");
+      assert.strictEqual(proc!.pasos.length, 2);
+
+      // Verificamos que la actividad haya heredado el procedimientoId
+      const act = await db.actividad
+        .filter((a) => a.descripcion === "Ronda 1 Prospección")
+        .first();
+      assert.ok(act, "La actividad debió crearse");
+      assert.strictEqual(act!.procedimientoId, proc!.id);
     });
   });
 });

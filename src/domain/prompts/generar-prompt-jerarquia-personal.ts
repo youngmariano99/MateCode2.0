@@ -103,6 +103,27 @@ const NOTA_CONTROL_NUMEROS = `CONTROL DE NÚMEROS — antes de escribir el JSON,
 5. Sin inventar: si un dato no lo dije (fechas, cuotas, feriados a descontar), preguntalo. Metas en otra unidad que no se calcula desde los Entregables (pesos, clientes) las cargo yo a mano: NO inventes Entregables ni cuentas para "forzar" que coincidan, solo dejá el Objetivo con su cantidad y unidad.
 6. Tabla de control (una fila por Fase): título · fechas · días que cuentan · cantidad · cantidad por día. Al final, la suma contra el total del Entregable.`;
 
+export const NOTA_CAPACIDAD_DIARIA = `LÍMITES Y CAPACIDAD DIARIA EN LA AGENDA (BÚNKER DEL DÍA):
+- En MateCode 2.0 la agenda diaria se cuida estrictamente para evitar parálisis por sobrecarga y burnout.
+- Regla de oro de carga diaria: MÁXIMO 1 Actividad de Enfoque (lo crucial que mueve la aguja en el día) y hasta 3 Actividades de Mantenimiento (gestión, tareas operativas, seguimiento).
+- NUNCA propongas 10 o 15 actividades para un mismo día. Si hay mucho volumen repetitivo, usá "reparto" en varios días o un "procedimiento" secuencial concentrado en una actividad.`;
+
+export const NOTA_PROCEDIMIENTOS = `PROCEDIMIENTOS Y PROTOCOLOS DE TRABAJO (SOPs):
+- Un Procedimiento NO es un entregable ni una actividad suelta en la agenda: es una PLANTILLA de pasos secuenciales atómicos con checkboxes ("checklist") para tareas que se repiten con un protocolo estandarizado (ej. "Contacto en frío", "Despliegue a producción", "Auditoría de cliente", "Estudio con técnica Feynman", "Publicación de contenido").
+- Un Procedimiento tiene:
+  - "titulo": Nombre claro del protocolo (ej. "Protocolo de Contacto en Frío").
+  - "categoria": "general" | "desarrollo" | "prospeccion" | "contenido" | "estudio" | "rutina" (la que mejor aplique).
+  - "pasos": Lista secuencial de pasos [{ "orden": 1, "titulo": "...", "duracionEstimadaMin": 15, "esObligatorio": true }].
+- En el Búnker diario, la Actividad acompaña a este Procedimiento: el usuario va tildando los pasos y, al completar los obligatorios, finaliza la actividad.`;
+
+const EXPLICACION_JERARQUIA_COMPLETA = `- Área: el paraguas (ej. "Freelancer", "Salud", "Agencia"). Si el nombre coincide EXACTO con una de las áreas existentes, se reusa esa área — si no, se crea una nueva.
+- Objetivo: largo plazo (meses/año). SMART: cantidad + unidad + fecha límite obligatorias. Banda aceptable (0-100) para días de baja energía.
+- Proyecto: mediano plazo (~un mes), hijo de un Objetivo. Cantidad/unidad opcionales.
+- Entregable: corto plazo (~una semana o hito), hijo de un Proyecto.
+- Fases: checkpoints opcionales dentro de un Entregable para recorridos proyectados/progresivos (ej. Semana 1, Semana 2).
+- Procedimientos (SOPs): plantillas de checklists con pasos atómicos para estandarizar procesos repetitivos.
+- Actividad: día a día, hijo de un Entregable. MÁXIMO 1 enfoque y hasta 3 mantenimiento por día. Puede tener vinculado un Procedimiento para seguir sus pasos.`;
+
 /** Árbol completo: Área (nueva o existente) → Objetivo(s) → Proyecto(s) → Entregable(s) → Actividad(es), todo en un JSON. */
 function construirPromptArbolCompleto(
   resumenHistorico: string,
@@ -125,12 +146,16 @@ ${areasTexto}
 </areas_existentes>
 
 <como_funciona_la_jerarquia>
-- Área: el paraguas (ej. "Freelancer", "Salud"). Si el nombre coincide EXACTO con una de las áreas existentes, se reusa esa área — si no, se crea una nueva.
-- Objetivo: largo plazo (meses/año). SMART: cantidad + unidad + fecha límite obligatorias.
-- Proyecto: mediano plazo (~un mes), hijo de un Objetivo. Cantidad/unidad opcionales.
-- Entregable: corto plazo (~una semana), hijo de un Proyecto. ${NOTA_RECURRENCIA}
-- Actividad: día a día, hijo de un Entregable. Para metas numéricas, no las escribas una por una: usá "reparto" (ver arriba) y el sistema genera una por día con su cantidad.
+${EXPLICACION_JERARQUIA_COMPLETA}
 </como_funciona_la_jerarquia>
+
+<limites_de_la_app>
+${NOTA_CAPACIDAD_DIARIA}
+</limites_de_la_app>
+
+<procedimientos_sops>
+${NOTA_PROCEDIMIENTOS}
+</procedimientos_sops>
 
 <fases_opcionales>
 ${NOTA_FASES}
@@ -267,7 +292,7 @@ Este/estos Entregable(s) van a pertenecer al Proyecto "${proyectoTitulo}" (${pro
 </proyecto_padre>
 
 <instrucciones>
-Un Entregable tiene fecha límite obligatoria; cantidad/unidad son opcionales. ${NOTA_RECURRENCIA} ${NOTA_FASES} ${NOTA_HABITO} ${INSTRUCCION_PREGUNTAR}
+Un Entregable tiene fecha límite obligatoria; cantidad/unidad son opcionales. ${NOTA_RECURRENCIA} ${NOTA_FASES} ${NOTA_PROCEDIMIENTOS} ${NOTA_HABITO} ${INSTRUCCION_PREGUNTAR}
 </instrucciones>
 
 <output_requerido>
@@ -398,6 +423,14 @@ La jerarquía tiene 5 niveles fijos: Área → Objetivo → Proyecto → Entrega
 <fases_opcionales>
 ${NOTA_FASES}
 </fases_opcionales>
+
+<limites_de_la_app>
+${NOTA_CAPACIDAD_DIARIA}
+</limites_de_la_app>
+
+<procedimientos_sops>
+${NOTA_PROCEDIMIENTOS}
+</procedimientos_sops>
 
 <flujo_obligatorio>
 Etapa 1 — Cuantificar: definí solo el/los Objetivo(s) SMART (cantidad + unidad + fecha límite). NO bajes a Proyecto/Entregable todavía. Confirmá conmigo que los números están bien antes de seguir.
@@ -583,4 +616,265 @@ export function generarPromptProcedimiento(
   ...args: Parameters<typeof construirPromptProcedimiento>
 ): string {
   return conContextoComun(construirPromptProcedimiento(...args));
+}
+
+// ============================================================================
+// PROMPTS MODULARES POR ETAPAS (WIZARD ASISTIDO POR IA)
+// Permite que la IA planifique paso a paso sin saturar tokens ni alucinar:
+// 1. Área + Objetivos SMART (con visión global y límites de capacidad)
+// 2. Proyectos del Objetivo seleccionado
+// 3. Entregables y Procedimientos (SOPs) del Proyecto seleccionado
+// 4. Agenda diaria (Actividades de Enfoque/Mantenimiento y Repartos)
+// ============================================================================
+
+/** Etapa 1: Área y Objetivos SMART de largo plazo (con marco global de la app). */
+function construirPromptEtapa1Objetivos(
+  resumenHistorico: string,
+  areasExistentes: string[]
+): string {
+  const areasTexto =
+    areasExistentes.length > 0
+      ? areasExistentes.join(", ")
+      : "sin áreas todavía";
+  return `<rol>
+Actúa como un arquitecto senior y asistente de planificación personal, ayudando a definir la Etapa 1 del plan: Área y Objetivos SMART de largo plazo.
+</rol>
+
+<contexto_lo_hecho_hasta_ahora>
+${resumenHistorico}
+</contexto_lo_hecho_hasta_ahora>
+
+<areas_existentes>
+${areasTexto}
+</areas_existentes>
+
+<vision_general_del_sistema>
+${EXPLICACION_JERARQUIA_COMPLETA}
+</vision_general_del_sistema>
+
+<limites_de_la_app>
+${NOTA_CAPACIDAD_DIARIA}
+</limites_de_la_app>
+
+<minimos_aceptables>
+${NOTA_MINIMOS}
+</minimos_aceptables>
+
+<mision_etapa_1>
+En esta PRIMERA ETAPA, tu misión es ÚNICAMENTE definir o elegir el Área y formular el/los Objetivos SMART (de largo plazo: meses/año) con:
+- Título conciso y claro.
+- Meta numérica realista ("cantidadObjetivo") y su "unidad" (ej. 200 contactos, 15 clientes, 80 horas, $3.000.000 ARS).
+- Fecha límite ("diaLimite" YYYY-MM-DD).
+- Mínimo aceptable ("bandaAceptable", ej. 75).
+NO inventes proyectos, entregables ni actividades en esta etapa; eso se hará paso a paso en las etapas siguientes.
+${INSTRUCCION_PREGUNTAR} Preguntame primero qué Área es (si es nueva o una de las existentes) y qué querés lograr.
+</mision_etapa_1>
+
+<instrucciones>
+${NOTA_UNA_AREA}
+</instrucciones>
+
+<output_requerido>
+Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta estructura (sin texto adicional):
+{
+  "areaTitulo": "...",
+  "objetivosNuevos": [
+    {
+      "titulo": "...",
+      "unidad": "...",
+      "cantidadObjetivo": 200,
+      "bandaAceptable": 75,
+      "diaLimite": "YYYY-MM-DD",
+      "proyectos": []
+    }
+  ]
+}
+Nota: "proyectos" debe quedar vacío ([]), ya que se desglosará en la Etapa 2.
+</output_requerido>`;
+}
+
+/** Etapa 2: Proyectos de mediano plazo (~un mes) bajo un Objetivo ya definido. */
+function construirPromptEtapa2Proyectos(
+  objetivoTitulo: string,
+  objetivoDetalles: string,
+  proyectosExistentes: string[] = []
+): string {
+  const existentesTexto =
+    proyectosExistentes.length > 0
+      ? `Proyectos que ya existen bajo este objetivo: ${proyectosExistentes.join(", ")}.`
+      : "Sin proyectos cargados todavía bajo este objetivo.";
+  return `<rol>
+Actúa como asistente de planificación personal, ayudando a definir la Etapa 2: Proyectos de mediano plazo (~un mes cada uno) para alcanzar un Objetivo específico.
+</rol>
+
+<objetivo_padre>
+Objetivo: "${objetivoTitulo}" (${objetivoDetalles}).
+${existentesTexto}
+</objetivo_padre>
+
+<limites_de_la_app>
+${NOTA_CAPACIDAD_DIARIA}
+</limites_de_la_app>
+
+<instrucciones>
+Desglosar el Objetivo en 2 a 4 Proyectos claros (frentes de trabajo de mediano plazo):
+- Cada Proyecto debe tener un título representativo y fecha límite ("diaLimite" YYYY-MM-DD) dentro del rango del Objetivo padre.
+- La cantidad y unidad son opcionales (solo si se reparte la cuota numérica del objetivo entre los proyectos, ej. Proyecto 1: 100 contactos, Proyecto 2: 100 contactos).
+- Opcionalmente "bandaAceptable" (ej. 70).
+NO entres al detalle de los días o tareas sueltas todavía; eso se definirá en las etapas siguientes.
+${INSTRUCCION_PREGUNTAR}
+</instrucciones>
+
+<output_requerido>
+Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta estructura (sin texto adicional):
+{
+  "objetivoTitulo": "${objetivoTitulo}",
+  "proyectosNuevos": [
+    {
+      "titulo": "...",
+      "diaLimite": "YYYY-MM-DD",
+      "cantidadObjetivo": 100,
+      "unidad": "contactos",
+      "bandaAceptable": 70,
+      "entregables": []
+    }
+  ]
+}
+Nota: "entregables" debe quedar vacío ([]), ya que se definirán en la Etapa 3.
+</output_requerido>`;
+}
+
+/** Etapa 3: Entregables semanales y Procedimientos Operativos Estandarizados (SOPs). */
+function construirPromptEtapa3EntregablesYSOPs(
+  proyectoTitulo: string,
+  proyectoDetalles: string,
+  entregablesExistentes: string[] = []
+): string {
+  const existentesTexto =
+    entregablesExistentes.length > 0
+      ? `Entregables que ya existen bajo este proyecto: ${entregablesExistentes.join(", ")}.`
+      : "Sin entregables cargados todavía bajo este proyecto.";
+  return `<rol>
+Actúa como asistente de planificación personal y estandarización de procesos, ayudando a definir la Etapa 3: Entregables semanales y Procedimientos Operativos Estandarizados (SOPs).
+</rol>
+
+<proyecto_padre>
+Proyecto: "${proyectoTitulo}" (${proyectoDetalles}).
+${existentesTexto}
+</proyecto_padre>
+
+<modos_de_entregables>
+${NOTA_REPARTO}
+</modos_de_entregables>
+
+<procedimientos_sops>
+${NOTA_PROCEDIMIENTOS}
+Si el entregable requiere seguir un proceso repetitivo o paso a paso (ej. contacto en frío, onboarding de clientes, desarrollo de feature, estudio, servicio continuo), definí el bloque "procedimiento" dentro del entregable con sus pasos secuenciales y tiempos estimados.
+</procedimientos_sops>
+
+<instrucciones>
+Definir los Entregables de este Proyecto:
+- Cada Entregable dura típicamente ~1 semana o representa un hito concreto.
+- Si tiene meta numérica y se reparte en días, usá "reparto" (Modo 1).
+- Si es dedicación continua de Lun a Vie, usá Modo 2 (sin cuota numérica).
+- Si involucra un proceso o protocolo a seguir, agregá su "procedimiento" con la lista de pasos secuenciales.
+${INSTRUCCION_PREGUNTAR}
+</instrucciones>
+
+<output_requerido>
+Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta estructura (sin texto adicional):
+{
+  "proyectoTitulo": "${proyectoTitulo}",
+  "entregablesNuevos": [
+    {
+      "titulo": "Semana 1: Prospección activa",
+      "diaInicio": "YYYY-MM-DD",
+      "diaLimite": "YYYY-MM-DD",
+      "cantidadObjetivo": 40,
+      "unidad": "contactos",
+      "bandaAceptable": 75,
+      "procedimiento": {
+        "titulo": "Protocolo de Contacto en Frío",
+        "categoria": "prospeccion",
+        "pasos": [
+          { "orden": 1, "titulo": "Filtrar 10 perfiles calificados en LinkedIn", "duracionEstimadaMin": 15, "esObligatorio": true },
+          { "orden": 2, "titulo": "Personalizar mensaje con gancho de dolor", "duracionEstimadaMin": 20, "esObligatorio": true },
+          { "orden": 3, "titulo": "Registrar contactos en CRM", "duracionEstimadaMin": 10, "esObligatorio": true }
+        ]
+      },
+      "reparto": { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5] },
+      "actividades": [],
+      "fases": []
+    }
+  ]
+}
+Nota: "procedimiento" es opcional (solo si el entregable tiene un checklist repetitivo). "reparto", "actividades" y "fases" pueden quedar vacíos si se resolverán en la Etapa 4.
+</output_requerido>`;
+}
+
+/** Etapa 4: Fases, Repartos en Días y Actividades concretas (Agenda Diaria Búnker). */
+function construirPromptEtapa4Actividades(
+  entregableTitulo: string,
+  entregableDetalles: string,
+  procedimientoNombre?: string
+): string {
+  return `<rol>
+Actúa como asistente de planificación personal, ayudando a definir la Etapa 4: La agenda diaria concreta (Actividades de Enfoque y Mantenimiento) y Fases/Repartos en días.
+</rol>
+
+<entregable_padre>
+Entregable: "${entregableTitulo}" (${entregableDetalles}).
+${procedimientoNombre ? `Procedimiento vinculado: "${procedimientoNombre}".` : ""}
+</entregable_padre>
+
+<limites_de_la_app>
+${NOTA_CAPACIDAD_DIARIA}
+</limites_de_la_app>
+
+<instrucciones>
+Organizá el trabajo diario cuidando no sobrecargar ningún día:
+- Recordá la regla: MÁXIMO 1 actividad de tipo "enfoque" y hasta 3 de tipo "mantenimiento" por día.
+- Para metas numéricas repartidas, usá "repartos" (se expande solo a los días elegidos).
+- Para actividades puntuales con fecha, usá "actividadesNuevas". Si acompañan a un procedimiento, indicalo en la descripción.
+${INSTRUCCION_PREGUNTAR}
+</instrucciones>
+
+<output_requerido>
+Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta estructura (sin texto adicional):
+{
+  "entregableTitulo": "${entregableTitulo}",
+  "actividadesNuevas": [
+    { "tipo": "enfoque", "descripcion": "Diseñar propuesta comercial", "diaTarea": "YYYY-MM-DD" },
+    { "tipo": "mantenimiento", "descripcion": "Seguimiento de leads pendientes", "diaTarea": "YYYY-MM-DD", "cantidadObjetivo": 5, "unidad": "contactos" }
+  ],
+  "repartos": [
+    { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5] }
+  ]
+}
+Nota: Podés incluir "actividadesNuevas", "repartos" o ambos.
+</output_requerido>`;
+}
+
+export function generarPromptEtapa1Objetivos(
+  ...args: Parameters<typeof construirPromptEtapa1Objetivos>
+): string {
+  return conContextoComun(construirPromptEtapa1Objetivos(...args));
+}
+
+export function generarPromptEtapa2Proyectos(
+  ...args: Parameters<typeof construirPromptEtapa2Proyectos>
+): string {
+  return conContextoComun(construirPromptEtapa2Proyectos(...args));
+}
+
+export function generarPromptEtapa3EntregablesYSOPs(
+  ...args: Parameters<typeof construirPromptEtapa3EntregablesYSOPs>
+): string {
+  return conContextoComun(construirPromptEtapa3EntregablesYSOPs(...args));
+}
+
+export function generarPromptEtapa4Actividades(
+  ...args: Parameters<typeof construirPromptEtapa4Actividades>
+): string {
+  return conContextoComun(construirPromptEtapa4Actividades(...args));
 }

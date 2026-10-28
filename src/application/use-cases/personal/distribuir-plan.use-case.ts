@@ -32,6 +32,7 @@ export interface EntradaRepartirEnDias {
   diaLimite: string;
   diasSemana: number[];
   total: number;
+  procedimientoId?: string;
 }
 
 /**
@@ -53,7 +54,8 @@ export class DistribuirPlanUseCase {
    */
   public async crearActividadesDeReparto(
     entregableId: string,
-    reparto: RepartoExpandido
+    reparto: RepartoExpandido,
+    procedimientoId?: string
   ): Promise<{ creadas: number; omitidas: number; errores: string[] }> {
     let creadas = 0;
     let omitidas = 0;
@@ -83,6 +85,7 @@ export class DistribuirPlanUseCase {
         cantidadObjetivo: r.cantidad,
         cantidadMinima: r.minimo,
         unidad: reparto.unidad,
+        procedimientoId,
       });
       if (res.ok) creadas++;
       else errores.push(`${r.dia}: ${res.error!.mensaje}`);
@@ -125,7 +128,8 @@ export class DistribuirPlanUseCase {
         tipo: entrada.tipo,
         unidad: entrada.unidad,
         porDia,
-      }
+      },
+      entrada.procedimientoId
     );
     if (creadas === 0 && omitidas === 0) {
       return Resultado.falla(

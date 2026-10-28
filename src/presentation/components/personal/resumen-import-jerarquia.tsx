@@ -122,6 +122,16 @@ const ResumenEntregable: React.FC<{ e: ItemEntregableJson; nivel: number }> = ({
         ` · ${e.cantidadObjetivo} ${e.unidad}`}
       {textoRecurrencia(e.recurrencia)}
     </Fila>
+    {e.procedimiento && (
+      <Fila nivel={nivel + 1}>
+        <span className="text-emerald-400">📋 SOP:</span>{" "}
+        <span className="font-bold text-zinc-200">
+          {e.procedimiento.titulo}
+        </span>
+        {e.procedimiento.categoria ? ` (${e.procedimiento.categoria})` : ""} —{" "}
+        {e.procedimiento.pasos.length} pasos
+      </Fila>
+    )}
     {e.actividades.map((a, i) => (
       <ResumenActividad key={i} a={a} nivel={nivel + 1} />
     ))}

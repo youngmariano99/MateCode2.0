@@ -106,6 +106,10 @@ export const itemEntregableJsonSchema = z.object({
     .optional(),
   actividades: z.array(itemActividadJsonSchema).default([]),
   fases: z.array(itemFaseJsonSchema).default([]),
+  /** Procedimiento/SOP opcional asociado al entregable (definición completa). */
+  procedimiento: itemProcedimientoJsonSchema.optional(),
+  /** ID de un procedimiento existente a vincular. */
+  procedimientoId: z.string().optional(),
   /** Actividades diarias con cantidad en forma compacta (ver repartoJsonSchema): hereda fechas, total y unidad del entregable. */
   reparto: repartoJsonSchema.optional(),
 });

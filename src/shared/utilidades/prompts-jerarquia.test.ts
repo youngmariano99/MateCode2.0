@@ -9,6 +9,10 @@ import {
   generarPromptObjetivo,
   generarPromptPlanificacionEnFases,
   generarPromptProyecto,
+  generarPromptEtapa1Objetivos,
+  generarPromptEtapa2Proyectos,
+  generarPromptEtapa3EntregablesYSOPs,
+  generarPromptEtapa4Actividades,
 } from "../../domain/prompts/generar-prompt-jerarquia-personal";
 import { obtenerDiaTareaHoy } from "../../domain/entidades/personal.entity";
 
@@ -52,6 +56,29 @@ const prompts: { nombre: string; texto: string; clavesRaiz: string[] }[] = [
     nombre: "ajuste con IA",
     texto: generarPromptAjusteIA("Objetivo: X"),
     clavesRaiz: ["ajustes"],
+  },
+  {
+    nombre: "etapa 1: objetivos",
+    texto: generarPromptEtapa1Objetivos("sin historia", ["Salud"]),
+    clavesRaiz: ["areaTitulo", "objetivosNuevos"],
+  },
+  {
+    nombre: "etapa 2: proyectos",
+    texto: generarPromptEtapa2Proyectos("Mi objetivo", "vence 2027-01-01"),
+    clavesRaiz: ["objetivoTitulo", "proyectosNuevos"],
+  },
+  {
+    nombre: "etapa 3: entregables y SOPs",
+    texto: generarPromptEtapa3EntregablesYSOPs(
+      "Mi proyecto",
+      "vence 2027-01-01"
+    ),
+    clavesRaiz: ["proyectoTitulo", "entregablesNuevos"],
+  },
+  {
+    nombre: "etapa 4: actividades",
+    texto: generarPromptEtapa4Actividades("Mi entregable", "vence 2027-01-01"),
+    clavesRaiz: ["entregableTitulo", "actividadesNuevas", "repartos"],
   },
 ];
 
@@ -121,5 +148,36 @@ describe("Prompts de la jerarquía Personal: contexto y reglas comunes", () => {
     ];
     const esperado = nombres[new Date(Date.UTC(a, m - 1, d)).getUTCDay()];
     assert.ok(prompts[0].texto.includes(`Hoy es ${esperado} ${hoy}`));
+  });
+
+  test("los prompts modulares por etapas incorporan límites de agenda y visión general", () => {
+    const e1 = prompts.find((x) => x.nombre === "etapa 1: objetivos")!;
+    assert.ok(e1.texto.includes("<vision_general_del_sistema>"));
+    assert.ok(e1.texto.includes("<limites_de_la_app>"));
+    assert.ok(e1.texto.includes("MÁXIMO 1 Actividad de Enfoque"));
+
+    const e2 = prompts.find((x) => x.nombre === "etapa 2: proyectos")!;
+    assert.ok(e2.texto.includes("<limites_de_la_app>"));
+    assert.ok(e2.texto.includes("Desglosar el Objetivo en 2 a 4 Proyectos"));
+
+    const e3 = prompts.find((x) => x.nombre === "etapa 3: entregables y SOPs")!;
+    assert.ok(e3.texto.includes("<procedimientos_sops>"));
+    assert.ok(e3.texto.includes('"procedimiento"'));
+    assert.ok(e3.texto.includes("Protocolo de Contacto en Frío"));
+
+    const e4 = prompts.find((x) => x.nombre === "etapa 4: actividades")!;
+    assert.ok(e4.texto.includes("<limites_de_la_app>"));
+    assert.ok(e4.texto.includes("enfoque"));
+    assert.ok(e4.texto.includes("mantenimiento"));
+  });
+
+  test("los prompts globales (árbol completo y etapas) mencionan Procedimientos/SOPs y límites de capacidad", () => {
+    const arbol = prompts.find((x) => x.nombre === "árbol completo")!;
+    assert.ok(arbol.texto.includes("<limites_de_la_app>"));
+    assert.ok(arbol.texto.includes("<procedimientos_sops>"));
+
+    const etapas = prompts.find((x) => x.nombre === "planificación en etapas")!;
+    assert.ok(etapas.texto.includes("<limites_de_la_app>"));
+    assert.ok(etapas.texto.includes("<procedimientos_sops>"));
   });
 });

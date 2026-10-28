@@ -94,9 +94,8 @@ export class GestionarPlantillasRutinaUseCase {
     if (parsed.data.calentamiento !== undefined)
       cambios.calentamiento = parsed.data.calentamiento;
     if (parsed.data.calentamientoEstructura !== undefined) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       cambios.calentamientoEstructura = parsed.data
-        .calentamientoEstructura as any;
+        .calentamientoEstructura as unknown as PlantillaRutina["calentamientoEstructura"];
     }
     try {
       await db.plantilla_rutina.update(parsed.data.id, cambios);
