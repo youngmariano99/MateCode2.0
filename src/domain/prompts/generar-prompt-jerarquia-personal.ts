@@ -1111,6 +1111,130 @@ Nota: Podés incluir "actividadesNuevas", "repartos" o ambos.
 </output_requerido>`;
 }
 
+/** Etapa 4: Planificar Agenda Diaria y Reparto en días para los Entregables de un Área. */
+function construirPromptEtapa4ActividadesPorArea(
+  areaNombre: string,
+  entregablesPendientes: {
+    titulo: string;
+    proyectoTitulo?: string;
+    cantidadObjetivo?: number;
+    unidad?: string;
+    diaLimite?: string;
+    procedimientoNombre?: string;
+  }[],
+  entregablesYaAgendados: { titulo: string; actividadesCount: number }[] = [],
+  mapaOtrasAreas: string = "",
+  entregablesPospuestos: { titulo: string; proyectoTitulo?: string }[] = []
+): string {
+  const bloqueContextoGlobal = mapaOtrasAreas.trim()
+    ? `<panorama_general_de_vida>
+Este es el mapa de las DEMÁS Áreas y Objetivos del usuario en la app:
+${mapaOtrasAreas}
+
+ATENCIÓN AL BALANCE DE VIDA Y ENERGÍA:
+El usuario tiene múltiples frentes en otras áreas. Al agendar actividades diarias para "${areaNombre}", cuidá estrictamente no saturar la semana ni duplicar compromisos.
+</panorama_general_de_vida>
+
+`
+    : "";
+
+  const bloqueYaAgendados =
+    entregablesYaAgendados.length > 0
+      ? `<entregables_ya_agendados_no_repetir>
+ATENCIÓN — Los siguientes ${entregablesYaAgendados.length} entregables del área "${areaNombre}" YA TIENEN actividades agendadas en el calendario.
+NO generes actividades para ellos y NO los incluyas en tu JSON de salida:
+${entregablesYaAgendados
+  .map(
+    (e) => `• "${e.titulo}" (${e.actividadesCount} actividades ya agendadas)`
+  )
+  .join("\n")}
+</entregables_ya_agendados_no_repetir>
+
+`
+      : "";
+
+  const bloquePospuestos =
+    entregablesPospuestos.length > 0
+      ? `<entregables_pospuestos_no_agendar>
+ATENCIÓN — Los siguientes ${entregablesPospuestos.length} entregables del área "${areaNombre}" se agendarán más adelante.
+NO generes actividades para ellos en este momento y NO los incluyas en el JSON de salida:
+${entregablesPospuestos
+  .map(
+    (e) =>
+      `• [Pospuesto] "${e.titulo}"${
+        e.proyectoTitulo ? ` (Proyecto: "${e.proyectoTitulo}")` : ""
+      }`
+  )
+  .join("\n")}
+</entregables_pospuestos_no_agendar>
+
+`
+      : "";
+
+  const listaEntregablesTexto =
+    entregablesPendientes.length > 0
+      ? entregablesPendientes
+          .map((e) => {
+            const proy = e.proyectoTitulo
+              ? ` [Proyecto: "${e.proyectoTitulo}"]`
+              : "";
+            const meta = e.cantidadObjetivo
+              ? ` · Meta: ${e.cantidadObjetivo} ${e.unidad ?? ""}`
+              : "";
+            const limite = e.diaLimite ? ` · Vence: ${e.diaLimite}` : "";
+            const sop = e.procedimientoNombre
+              ? ` · SOP vinculado: "${e.procedimientoNombre}"`
+              : "";
+            return `- [Entregable] "${e.titulo}"${proy}${meta}${limite}${sop}`;
+          })
+          .join("\n")
+      : "- Sin entregables seleccionados para agendar en esta tanda.";
+
+  return `<rol>
+Actúa como asistente de planificación personal y diseño de agenda diaria, ayudando a definir la Etapa 4: Actividades concretas de Enfoque y Mantenimiento y Repartos en días para los Entregables del Área "${areaNombre}".
+</rol>
+
+${bloqueContextoGlobal}${bloqueYaAgendados}${bloquePospuestos}<entregables_a_agendar_ahora>
+Área objetivo: "${areaNombre}".
+Entregables seleccionados para planificar su agenda diaria:
+${listaEntregablesTexto}
+</entregables_a_agendar_ahora>
+
+<limites_de_la_app>
+${NOTA_CAPACIDAD_DIARIA}
+</limites_de_la_app>
+
+<instrucciones>
+Organizar la agenda diaria de los entregables listados arriba cuidando no sobrecargar ningún día:
+- Recordá la regla de oro: MÁXIMO 1 actividad de tipo "enfoque" y hasta 3 de tipo "mantenimiento" por día. Si varias actividades caen en la misma semana, distribuilas en días distintos.
+- Para metas numéricas que se reparten en días, usá "repartos" (ej. Lun a Vie, 10 por día).
+- Para actividades puntuales con fecha, usá "actividadesNuevas".
+- Si un entregable tiene SOP vinculado, la actividad debe hacer referencia a ejecutar ese protocolo.
+- NO dupliques ni incluyas los entregables ya agendados ni los pospuestos.
+${INSTRUCCION_PREGUNTAR}
+</instrucciones>
+
+<output_requerido>
+Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta estructura (sin texto adicional):
+{
+  "areaTitulo": "${areaNombre}",
+  "entregables": [
+    {
+      "entregableTitulo": "Título exacto del entregable",
+      "actividadesNuevas": [
+        { "tipo": "enfoque", "descripcion": "Bloque de trabajo profundo: Prospección", "diaTarea": "YYYY-MM-DD", "minutosEstimados": 60 },
+        { "tipo": "mantenimiento", "descripcion": "Seguimiento de mensajes enviados", "diaTarea": "YYYY-MM-DD", "cantidadObjetivo": 10, "unidad": "contactos" }
+      ],
+      "repartos": [
+        { "descripcion": "Contactar en frío (Lun a Vie)", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5], "cantidadTotal": 50, "unidad": "contactos" }
+      ]
+    }
+  ]
+}
+Nota: Podés incluir "actividadesNuevas", "repartos" o ambos dentro de cada entregable.
+</output_requerido>`;
+}
+
 export function generarPromptEtapa1Objetivos(
   ...args: Parameters<typeof construirPromptEtapa1Objetivos>
 ): string {
@@ -1145,6 +1269,12 @@ export function generarPromptEtapa4Actividades(
   ...args: Parameters<typeof construirPromptEtapa4Actividades>
 ): string {
   return conContextoComun(construirPromptEtapa4Actividades(...args));
+}
+
+export function generarPromptEtapa4ActividadesPorArea(
+  ...args: Parameters<typeof construirPromptEtapa4ActividadesPorArea>
+): string {
+  return conContextoComun(construirPromptEtapa4ActividadesPorArea(...args));
 }
 
 /**
@@ -1339,4 +1469,130 @@ Analizá críticamente los siguientes 5 puntos:
 </criterios_de_auditoria_a_evaluar>
 
 Por favor, comenzá tu respuesta con un diagnóstico general (Semáforo: 🟢 Excelente / 🟡 Requiere ajustes menores / 🔴 Riesgo de sobrecarga o desalineación), seguido del análisis detallado punto por punto.`;
+}
+
+export interface AreaCompletaAuditoriaInput {
+  id: string;
+  nombre: string;
+}
+
+/**
+ * Genera un reporte exhaustivo de TODO el sistema (todas las Áreas, Objetivos, Proyectos,
+ * Entregables con SOPs y Actividades/Fases agendadas) listo para copiar o auditar con una IA.
+ */
+export function generarPromptPlanificacionCompleta(
+  areas: AreaCompletaAuditoriaInput[],
+  objetivos: (ObjetivoAuditoriaInput & { areaId?: string })[],
+  proyectos: ProyectoAuditoriaInput[],
+  entregables: EntregableAuditoriaInput[],
+  actividades: (ActividadAuditoriaInput & {
+    descripcion?: string;
+    diaTarea?: string;
+    tipo?: string;
+  })[] = [],
+  fases: { entregableId: string; titulo: string }[] = []
+): string {
+  const lineas: string[] = [];
+
+  for (const a of areas) {
+    lineas.push(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    lineas.push(`🌐 ÁREA: "${a.nombre}"`);
+    lineas.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+
+    const objsArea = objetivos.filter((o) => o.areaId === a.id);
+    if (objsArea.length === 0) {
+      lineas.push(`  (Sin objetivos configurados)`);
+      continue;
+    }
+
+    for (const obj of objsArea) {
+      const metaObj = obj.cantidadObjetivo
+        ? ` · Meta: ${obj.cantidadObjetivo} ${obj.unidad ?? ""}`
+        : "";
+      const limiteObj = obj.diaLimite ? ` · Vence: ${obj.diaLimite}` : "";
+      lineas.push(`  📁 [Objetivo] "${obj.titulo}"${metaObj}${limiteObj}`);
+
+      const proysObj = proyectos.filter((p) => p.objetivoId === obj.id);
+      if (proysObj.length === 0) {
+        lineas.push(`     └─ ⚠️ [Sin proyectos definidos]`);
+        continue;
+      }
+
+      for (const proy of proysObj) {
+        const metaProy = proy.cantidadObjetivo
+          ? ` · Meta: ${proy.cantidadObjetivo} ${proy.unidad ?? ""}`
+          : "";
+        const limiteProy = proy.diaLimite ? ` · Vence: ${proy.diaLimite}` : "";
+        lineas.push(
+          `     └─ 🚀 [Proyecto] "${proy.titulo}"${metaProy}${limiteProy}`
+        );
+
+        const entsProy = entregables.filter((e) => e.proyectoId === proy.id);
+        if (entsProy.length === 0) {
+          lineas.push(
+            `          └─ ℹ️ (Proyecto directo / sin entregables — Opcional)`
+          );
+          continue;
+        }
+
+        for (const ent of entsProy) {
+          const metaEnt = ent.cantidadObjetivo
+            ? ` · Meta: ${ent.cantidadObjetivo} ${ent.unidad ?? ""}`
+            : "";
+          const limiteEnt = ent.diaLimite ? ` · Vence: ${ent.diaLimite}` : "";
+          const actsEnt = actividades.filter(
+            (act) => act.entregableId === ent.id
+          );
+          const fasesEnt = fases.filter((f) => f.entregableId === ent.id);
+          const tieneSop = actsEnt.some((act) => Boolean(act.procedimientoId));
+          const sopTag = tieneSop ? " [📋 Con SOP]" : "";
+
+          lineas.push(
+            `          ├─ 📦 [Entregable] "${ent.titulo}"${sopTag}${metaEnt}${limiteEnt}`
+          );
+
+          if (fasesEnt.length > 0) {
+            lineas.push(
+              `               ├─ 📅 Fases: ${fasesEnt.map((f) => f.titulo).join(" · ")}`
+            );
+          }
+
+          if (actsEnt.length > 0) {
+            lineas.push(
+              `               └─ ⚡ ${actsEnt.length} actividad(es) agendada(s) en el Búnker`
+            );
+          } else {
+            lineas.push(
+              `               └─ ○ Sin agenda diaria cargada todavía`
+            );
+          }
+        }
+      }
+    }
+  }
+
+  const mapaTexto = lineas.join("\n");
+
+  return `<rol>
+Actúa como consultor senior en productividad, estrategia y arquitectura de sistemas de vida y negocio.
+A continuación tenés el mapa COMPLETO de planificación de MateCode 2.0 (todas las Áreas, Objetivos, Proyectos, Entregables y Actividades).
+</rol>
+
+<sistema_completo_matecode>
+Total Áreas: ${areas.length}
+Total Objetivos: ${objetivos.length}
+Total Proyectos: ${proyectos.length}
+Total Entregables: ${entregables.length}
+Total Actividades agendadas: ${actividades.length}
+
+${mapaTexto}
+</sistema_completo_matecode>
+
+<instrucciones_de_auditoria_integral>
+Realizá un análisis integral del sistema completo:
+1. **Balance de Vida y Focos Concurrentes**: ¿El balance entre las áreas es sostenible o hay una concentración desmedida en un solo frente en detrimento de la salud o el descanso?
+2. **Coherencia Vertical**: ¿Cada entregable y proyecto realmente mueve la aguja de su objetivo superior?
+3. **Factibilidad Operativa**: ¿La carga diaria y semanal es realista considerando los límites de energía del Búnker?
+4. **Resumen Ejecutivo**: Destacá los 3 principales frentes que darán el 80% de los resultados en las próximas 4 semanas.
+</instrucciones_de_auditoria_integral>`;
 }

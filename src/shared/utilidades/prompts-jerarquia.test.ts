@@ -15,8 +15,10 @@ import {
   generarPromptEtapa3EntregablesYSOPs,
   generarPromptEtapa3EntregablesPorArea,
   generarPromptEtapa4Actividades,
+  generarPromptEtapa4ActividadesPorArea,
   formatearMapaAreasYObjetivos,
   generarPromptAuditoriaArea,
+  generarPromptPlanificacionCompleta,
 } from "../../domain/prompts/generar-prompt-jerarquia-personal";
 import { obtenerDiaTareaHoy } from "../../domain/entidades/personal.entity";
 
@@ -444,5 +446,106 @@ describe("Prompts de la jerarquía Personal: contexto y reglas comunes", () => {
     assert.ok(prompt.includes("[📋 Con Procedimiento/SOP]"));
     assert.ok(prompt.includes("Proyecto simple/directo sin entregables"));
     assert.ok(prompt.includes("<criterios_de_auditoria_a_evaluar>"));
+  });
+
+  test("generarPromptEtapa4ActividadesPorArea incluye límites del búnker y lista pospuestos", () => {
+    const pendientes = [
+      {
+        titulo: "Semana 1: Prospección activa",
+        proyectoTitulo: "Motor de Prospección",
+        cantidadObjetivo: 40,
+        unidad: "contactos",
+        diaLimite: "2027-01-15",
+      },
+    ];
+    const yaAgendados = [
+      {
+        titulo: "Semana 2: Seguimiento",
+        actividadesCount: 4,
+      },
+    ];
+    const pospuestos = [
+      {
+        titulo: "Semana 3: Pitch y Cierre",
+        proyectoTitulo: "Motor de Prospección",
+      },
+    ];
+
+    const prompt = generarPromptEtapa4ActividadesPorArea(
+      "Perfil Profesional",
+      pendientes,
+      yaAgendados,
+      "",
+      pospuestos
+    );
+
+    assert.ok(prompt.includes("<entregables_a_agendar_ahora>"));
+    assert.ok(prompt.includes("Semana 1: Prospección activa"));
+    assert.ok(prompt.includes("<entregables_ya_agendados_no_repetir>"));
+    assert.ok(prompt.includes("Semana 2: Seguimiento"));
+    assert.ok(prompt.includes("<entregables_pospuestos_no_agendar>"));
+    assert.ok(prompt.includes("Semana 3: Pitch y Cierre"));
+    assert.ok(prompt.includes('MÁXIMO 1 actividad de tipo "enfoque"'));
+    assert.ok(prompt.includes('"areaTitulo": "Perfil Profesional"'));
+    assert.ok(prompt.includes('"entregables"'));
+  });
+
+  test("generarPromptPlanificacionCompleta compila todo el sistema (Áreas, Objetivos, Proyectos, Entregables y Actividades)", () => {
+    const areas = [{ id: "a1", nombre: "Perfil Profesional" }];
+    const objetivos = [
+      {
+        id: "o1",
+        areaId: "a1",
+        titulo: "Insertarse en mercado IT",
+        cantidadObjetivo: 1,
+        unidad: "empleo",
+        diaLimite: "2027-02-28",
+      },
+    ];
+    const proyectos = [
+      {
+        id: "p1",
+        objetivoId: "o1",
+        titulo: "Motor de Búsqueda",
+        cantidadObjetivo: 100,
+        unidad: "contactos",
+        diaLimite: "2027-01-31",
+      },
+    ];
+    const entregables = [
+      {
+        id: "e1",
+        proyectoId: "p1",
+        titulo: "Semana 1",
+        cantidadObjetivo: 20,
+        unidad: "contactos",
+      },
+    ];
+    const actividades = [
+      {
+        id: "act1",
+        entregableId: "e1",
+        descripcion: "Filtro inicial",
+        diaTarea: "2027-01-05",
+      },
+    ];
+    const fases = [{ entregableId: "e1", titulo: "Fase A" }];
+
+    const prompt = generarPromptPlanificacionCompleta(
+      areas,
+      objetivos,
+      proyectos,
+      entregables,
+      actividades,
+      fases
+    );
+
+    assert.ok(prompt.includes('🌐 ÁREA: "Perfil Profesional"'));
+    assert.ok(prompt.includes("Insertarse en mercado IT"));
+    assert.ok(prompt.includes("Motor de Búsqueda"));
+    assert.ok(prompt.includes("Semana 1"));
+    assert.ok(prompt.includes("Fases: Fase A"));
+    assert.ok(prompt.includes("1 actividad(es) agendada(s) en el Búnker"));
+    assert.ok(prompt.includes("<instrucciones_de_auditoria_integral>"));
   });
 });

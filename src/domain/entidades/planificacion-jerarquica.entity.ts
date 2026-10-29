@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { TIPOS_ACTIVIDAD } from "./actividad.entity";
 import { FRECUENCIAS_RECURRENCIA } from "./entregable.entity";
-import { repartoJsonSchema } from "./distribucion-personal.entity";
+import {
+  repartoJsonSchema,
+  type RepartoJson,
+} from "./distribucion-personal.entity";
 import { chequearCoherenciaMinimos } from "./minimos-personal.entity";
 
 // ============================================================================
@@ -338,6 +341,84 @@ export const importarActividadesBajoEntregableSchema = z
 export type ImportarActividadesBajoEntregableInput = z.input<
   typeof importarActividadesBajoEntregableSchema
 >;
+
+/**
+ * Normaliza cualquier formato de entrada de actividades (individual, array o por área/proyecto)
+ * en un array homogéneo de `{ entregableTitulo, actividadesNuevas, repartos }`.
+ */
+export function normalizarInputActividades(input: unknown): {
+  entregableTitulo: string;
+  actividadesNuevas: ItemActividadJson[];
+  repartos: RepartoJson[];
+}[] {
+  if (!input) return [];
+
+  if (Array.isArray(input)) {
+    const res: {
+      entregableTitulo: string;
+      actividadesNuevas: ItemActividadJson[];
+      repartos: RepartoJson[];
+    }[] = [];
+    for (const elem of input) {
+      const parsed = importarActividadesBajoEntregableSchema.safeParse(elem);
+      if (parsed.success) {
+        res.push(parsed.data);
+      } else if (elem && typeof elem === "object") {
+        const anidados = normalizarInputActividades(elem);
+        res.push(...anidados);
+      }
+    }
+    if (res.length > 0) return res;
+    return [];
+  }
+
+  if (typeof input === "object" && input !== null) {
+    const obj = input as Record<string, unknown>;
+
+    // Caso 1: Objeto individual { entregableTitulo, actividadesNuevas, repartos }
+    const parsedInd = importarActividadesBajoEntregableSchema.safeParse(obj);
+    if (parsedInd.success) {
+      return [parsedInd.data];
+    }
+
+    // Caso 2: Objeto por área o por proyecto { areaTitulo, entregables: [...] }
+    const lista = (obj.entregables ??
+      obj.entregablesConActividades ??
+      obj.agenda) as unknown;
+
+    if (Array.isArray(lista)) {
+      const res: {
+        entregableTitulo: string;
+        actividadesNuevas: ItemActividadJson[];
+        repartos: RepartoJson[];
+      }[] = [];
+      for (const item of lista) {
+        if (item && typeof item === "object") {
+          const itemObj = item as Record<string, unknown>;
+          const titulo = (itemObj.entregableTitulo ?? itemObj.titulo) as string;
+          const actividades = (itemObj.actividadesNuevas ??
+            itemObj.actividades ??
+            []) as unknown[];
+          const repartos = (itemObj.repartos ?? []) as unknown[];
+
+          if (typeof titulo === "string") {
+            const parsed = importarActividadesBajoEntregableSchema.safeParse({
+              entregableTitulo: titulo,
+              actividadesNuevas: Array.isArray(actividades) ? actividades : [],
+              repartos: Array.isArray(repartos) ? repartos : [],
+            });
+            if (parsed.success) {
+              res.push(parsed.data);
+            }
+          }
+        }
+      }
+      if (res.length > 0) return res;
+    }
+  }
+
+  return [];
+}
 
 // Import incremental: agregar Fases a un Entregable que YA EXISTE de antes
 // (mismo criterio de título exacto que el resto de los puntos de entrada

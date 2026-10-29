@@ -6,6 +6,7 @@ import {
   importarEntregableBajoProyectoSchema,
   normalizarInputEntregables,
   importarActividadesBajoEntregableSchema,
+  normalizarInputActividades,
   importarFasesBajoEntregableSchema,
   type ItemObjetivoJson,
   type ItemProyectoJson,
@@ -316,32 +317,71 @@ export function resumenEntregableBajoProyecto(
 export function resumenActividadesBajoEntregable(
   items: unknown[]
 ): React.ReactNode {
-  const parsed = importarActividadesBajoEntregableSchema.safeParse(
-    items[0] ?? {}
-  );
-  if (!parsed.success) throw new Error(mensajeDeIssues(parsed.error.issues));
+  const grupos = normalizarInputActividades(items);
+  if (grupos.length === 0) {
+    const parsed = importarActividadesBajoEntregableSchema.safeParse(
+      items[0] ?? {}
+    );
+    if (!parsed.success) throw new Error(mensajeDeIssues(parsed.error.issues));
+    return (
+      <div className="flex flex-col gap-0.5">
+        <Fila nivel={0}>
+          <span className="text-zinc-500">
+            Bajo el entregable &quot;{parsed.data.entregableTitulo}&quot;
+          </span>
+        </Fila>
+        {parsed.data.actividadesNuevas.map((a, i) => (
+          <ResumenActividad key={i} a={a} nivel={1} />
+        ))}
+        {parsed.data.repartos.map((r, i) => (
+          <ResumenReparto
+            key={`rep-${i}`}
+            r={r}
+            contexto={{
+              diaInicio: r.diaInicio ?? "",
+              diaLimite: r.diaLimite ?? "",
+              total: r.cantidadTotal,
+              unidad: r.unidad,
+            }}
+            nivel={1}
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-0.5">
-      <Fila nivel={0}>
-        <span className="text-zinc-500">
-          Bajo el entregable &quot;{parsed.data.entregableTitulo}&quot;
-        </span>
-      </Fila>
-      {parsed.data.actividadesNuevas.map((a, i) => (
-        <ResumenActividad key={i} a={a} nivel={1} />
-      ))}
-      {parsed.data.repartos.map((r, i) => (
-        <ResumenReparto
-          key={`rep-${i}`}
-          r={r}
-          contexto={{
-            diaInicio: r.diaInicio ?? "",
-            diaLimite: r.diaLimite ?? "",
-            total: r.cantidadTotal,
-            unidad: r.unidad,
-          }}
-          nivel={1}
-        />
+    <div className="flex flex-col gap-3">
+      {grupos.map((g, gIdx) => (
+        <div
+          key={gIdx}
+          className="flex flex-col gap-0.5 border-b border-[#232326] pb-2 last:border-b-0 last:pb-0"
+        >
+          <Fila nivel={0}>
+            <span className="font-semibold text-emerald-400">
+              Bajo el entregable &quot;{g.entregableTitulo}&quot; (
+              {g.actividadesNuevas.length} actividad
+              {g.actividadesNuevas.length !== 1 ? "es" : ""},{" "}
+              {g.repartos.length} reparto{g.repartos.length !== 1 ? "s" : ""})
+            </span>
+          </Fila>
+          {g.actividadesNuevas.map((a, i) => (
+            <ResumenActividad key={i} a={a} nivel={1} />
+          ))}
+          {g.repartos.map((r, i) => (
+            <ResumenReparto
+              key={`rep-${i}`}
+              r={r}
+              contexto={{
+                diaInicio: r.diaInicio ?? "",
+                diaLimite: r.diaLimite ?? "",
+                total: r.cantidadTotal,
+                unidad: r.unidad,
+              }}
+              nivel={1}
+            />
+          ))}
+        </div>
       ))}
     </div>
   );

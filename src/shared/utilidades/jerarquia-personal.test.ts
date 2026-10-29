@@ -30,7 +30,10 @@ import {
   idAreaDesdeEtiqueta,
   AREA_SIN_ASIGNAR_ID,
 } from "../../domain/entidades/area-personal.entity";
-import { normalizarInputEntregables } from "../../domain/entidades/planificacion-jerarquica.entity";
+import {
+  normalizarInputEntregables,
+  normalizarInputActividades,
+} from "../../domain/entidades/planificacion-jerarquica.entity";
 
 const areas = new GestionarAreasUseCase();
 const objetivos = new GestionarObjetivosUseCase();
@@ -2163,5 +2166,84 @@ describe("normalizarInputEntregables: normaliza inputs individuales, array y por
     const result = normalizarInputEntregables(input);
     assert.strictEqual(result.length, 1);
     assert.strictEqual(result[0].entregablesNuevos.length, 0);
+  });
+});
+
+describe("normalizarInputActividades: normaliza inputs individuales, array y por área/lote", () => {
+  test("input individual { entregableTitulo, actividadesNuevas, repartos } → array con 1 item", () => {
+    const input = {
+      entregableTitulo: "Semana 1: Prospección",
+      actividadesNuevas: [
+        {
+          tipo: "enfoque",
+          descripcion: "Filtro inicial",
+          diaTarea: "2027-01-05",
+        },
+      ],
+      repartos: [],
+    };
+    const result = normalizarInputActividades(input);
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].entregableTitulo, "Semana 1: Prospección");
+    assert.strictEqual(result[0].actividadesNuevas.length, 1);
+  });
+
+  test("input array de entregables → normaliza todos", () => {
+    const input = [
+      {
+        entregableTitulo: "Entregable A",
+        actividadesNuevas: [
+          {
+            tipo: "mantenimiento",
+            descripcion: "Tarea 1",
+            diaTarea: "2027-01-06",
+          },
+        ],
+        repartos: [],
+      },
+      {
+        entregableTitulo: "Entregable B",
+        actividadesNuevas: [],
+        repartos: [
+          {
+            descripcion: "Reparto Lun a Vie",
+            tipo: "mantenimiento",
+            diasSemana: [1, 2, 3],
+          },
+        ],
+      },
+    ];
+    const result = normalizarInputActividades(input);
+    assert.strictEqual(result.length, 2);
+    assert.strictEqual(result[0].actividadesNuevas.length, 1);
+    assert.strictEqual(result[1].repartos.length, 1);
+  });
+
+  test("input con areaTitulo y entregables[] → extrae la lista de entregables", () => {
+    const input = {
+      areaTitulo: "Perfil Profesional",
+      entregables: [
+        {
+          entregableTitulo: "Semana 1: Prospección",
+          actividadesNuevas: [
+            {
+              tipo: "enfoque",
+              descripcion: "Llamadas",
+              diaTarea: "2027-01-05",
+            },
+          ],
+          repartos: [],
+        },
+        {
+          entregableTitulo: "Semana 2: Cierre",
+          actividadesNuevas: [],
+          repartos: [],
+        },
+      ],
+    };
+    const result = normalizarInputActividades(input);
+    assert.strictEqual(result.length, 2);
+    assert.strictEqual(result[0].entregableTitulo, "Semana 1: Prospección");
+    assert.strictEqual(result[1].entregableTitulo, "Semana 2: Cierre");
   });
 });

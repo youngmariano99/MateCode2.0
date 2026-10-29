@@ -9,6 +9,7 @@ import {
   importarEntregableBajoProyectoSchema,
   normalizarInputEntregables,
   importarActividadesBajoEntregableSchema,
+  normalizarInputActividades,
   importarFasesBajoEntregableSchema,
   type ItemObjetivoJson,
   type ItemProyectoJson,
@@ -528,55 +529,68 @@ export class ImportarArbolPersonalUseCase {
     return this.resultadoFinal(combinar(...todosResultados), "entregable");
   }
 
-  /** Actividad(es) bajo un Entregable YA EXISTENTE, resuelto por título exacto. */
+  /** Actividad(es) bajo Entregable(s) ya existentes, resuelto por título exacto (soporta objeto individual, array o por área). */
   public async importarActividades(
     items: unknown[]
   ): Promise<Resultado<string>> {
-    const parsed = importarActividadesBajoEntregableSchema.safeParse(
-      items[0] ?? {}
-    );
-    if (!parsed.success) {
-      return Resultado.falla(
-        new ErrorDominio(
-          `El JSON no tiene la estructura esperada: ${mensajeDeIssues(parsed.error.issues)}`
+    let grupos = normalizarInputActividades(items);
+    if (grupos.length === 0 && items.length > 0) {
+      grupos = normalizarInputActividades(items[0]);
+    }
+
+    if (grupos.length === 0) {
+      const parsed = importarActividadesBajoEntregableSchema.safeParse(
+        items[0] ?? {}
+      );
+      if (!parsed.success) {
+        return Resultado.falla(
+          new ErrorDominio(
+            `El JSON no tiene la estructura esperada: ${mensajeDeIssues(parsed.error.issues)}`
+          )
+        );
+      }
+    }
+
+    const todosResultados: ResultadoCreacion[] = [];
+
+    for (const grupo of grupos) {
+      const entregable = await db.entregable
+        .filter(
+          (e) =>
+            e.titulo.toLowerCase().trim() ===
+              grupo.entregableTitulo.toLowerCase().trim() &&
+            e.estado !== "archivado"
+        )
+        .first();
+
+      if (!entregable) {
+        return Resultado.falla(
+          new ErrorDominio(
+            `No se encontró un entregable activo con el título "${grupo.entregableTitulo}".`
+          )
+        );
+      }
+
+      const resultados = await Promise.all(
+        grupo.actividadesNuevas.map((a) =>
+          this.crearActividad(a, entregable.id)
         )
       );
+      const repartos: ResultadoCreacion[] = [];
+      for (const r of grupo.repartos) {
+        repartos.push(
+          await this.crearReparto(r, entregable.id, {
+            diaInicio: entregable.diaInicio,
+            diaLimite: entregable.diaLimite,
+            total: entregable.cantidadObjetivo,
+            unidad: entregable.unidad,
+          })
+        );
+      }
+      todosResultados.push(...resultados, ...repartos);
     }
-    const entregable = await db.entregable
-      .filter(
-        (e) =>
-          e.titulo.toLowerCase().trim() ===
-            parsed.data.entregableTitulo.toLowerCase().trim() &&
-          e.estado !== "archivado"
-      )
-      .first();
-    if (!entregable) {
-      return Resultado.falla(
-        new ErrorDominio(
-          `No se encontró un entregable activo con el título "${parsed.data.entregableTitulo}".`
-        )
-      );
-    }
-    const resultados = await Promise.all(
-      parsed.data.actividadesNuevas.map((a) =>
-        this.crearActividad(a, entregable.id)
-      )
-    );
-    const repartos: ResultadoCreacion[] = [];
-    for (const r of parsed.data.repartos) {
-      repartos.push(
-        await this.crearReparto(r, entregable.id, {
-          diaInicio: entregable.diaInicio,
-          diaLimite: entregable.diaLimite,
-          total: entregable.cantidadObjetivo,
-          unidad: entregable.unidad,
-        })
-      );
-    }
-    return this.resultadoFinal(
-      combinar(...resultados, ...repartos),
-      "actividad"
-    );
+
+    return this.resultadoFinal(combinar(...todosResultados), "actividad");
   }
 
   private async crearFase(

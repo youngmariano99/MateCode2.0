@@ -26,6 +26,8 @@ import { GestionarProyectosPersonalUseCase } from "../../../application/use-case
 import { GestionarEntregablesUseCase } from "../../../application/use-cases/personal/gestionar-entregables.use-case";
 import { ImportarArbolPersonalUseCase } from "../../../application/use-cases/personal/importar-arbol-personal.use-case";
 import { EliminarNodoPersonalUseCase } from "../../../application/use-cases/personal/eliminar-nodo-personal.use-case";
+import { QueueService } from "../../../offline/services/queue.service";
+import { recomputarProyecto } from "../../../application/servicios/recomputar-progreso-personal.service";
 import {
   generarPromptArbolCompleto,
   generarPromptEtapa1Objetivos,
@@ -34,8 +36,10 @@ import {
   generarPromptEtapa3EntregablesYSOPs,
   generarPromptEtapa3EntregablesPorArea,
   generarPromptEtapa4Actividades,
+  generarPromptEtapa4ActividadesPorArea,
   formatearMapaAreasYObjetivos,
   generarPromptAuditoriaArea,
+  generarPromptPlanificacionCompleta,
 } from "../../../domain/prompts/generar-prompt-jerarquia-personal";
 import {
   obtenerDiaTareaHoy,
@@ -76,7 +80,7 @@ interface EstadoModalImportar {
 }
 
 interface ConfirmarResetModalState {
-  tipo: "proyecto" | "area";
+  tipo: "proyecto" | "area" | "agenda_entregable" | "agenda_area";
   titulo: string;
   subtitulo: string;
   entregablesCount: number;
@@ -130,6 +134,10 @@ export const WizardPlanificacionPersonal: React.FC<
   const [proyectosSeleccionadosIds, setProyectosSeleccionadosIds] = useState<
     string[]
   >([]);
+
+  // Selección granular de entregables a agendar en Etapa 4
+  const [entregablesSeleccionadosIds, setEntregablesSeleccionadosIds] =
+    useState<string[]>([]);
 
   // Modal de confirmación para reseteo minucioso de entregables en Etapa 3
   const [confirmarReset, setConfirmarReset] =
@@ -585,21 +593,127 @@ export const WizardPlanificacionPersonal: React.FC<
     });
   };
 
+  const prepararResetAgendaEntregable = (entregable: Entregable) => {
+    const acts = actividades.filter((a) => a.entregableId === entregable.id);
+    const fasesEnt = fases.filter((f) => f.entregableId === entregable.id);
+
+    if (acts.length === 0 && fasesEnt.length === 0) {
+      mostrarToast(
+        "Este entregable no tiene actividades ni fases agendadas.",
+        "info"
+      );
+      return;
+    }
+
+    setConfirmarReset({
+      tipo: "agenda_entregable",
+      titulo: `Resetear agenda de "${entregable.titulo}"`,
+      subtitulo: `Vas a eliminar las actividades y fases agendadas en "${entregable.titulo}". El entregable y su proyecto NO se eliminarán.`,
+      entregablesCount: 1,
+      actividadesCount: acts.length,
+      fasesCount: fasesEnt.length,
+      entregableIds: [entregable.id],
+    });
+  };
+
+  const prepararResetAgendaArea = (targetAreaId?: string) => {
+    const id = targetAreaId || areaActual?.id || areaId;
+    const areaTarget = areas.find((a) => a.id === id);
+    if (!areaTarget) return;
+
+    const objsArea = objetivos.filter((o) => o.areaId === areaTarget.id);
+    const proysArea = proyectos.filter((p) =>
+      objsArea.some((o) => o.id === p.objetivoId)
+    );
+    const entsArea = entregables.filter((e) =>
+      proysArea.some((p) => p.id === e.proyectoId)
+    );
+    const entIds = entsArea.map((e) => e.id);
+    const acts = actividades.filter(
+      (a) => a.entregableId && entIds.includes(a.entregableId)
+    );
+    const fasesVinculadas = fases.filter(
+      (f) => f.entregableId && entIds.includes(f.entregableId)
+    );
+
+    if (acts.length === 0 && fasesVinculadas.length === 0) {
+      mostrarToast(
+        `El área "${areaTarget.nombre}" no tiene actividades agendadas para resetear.`,
+        "info"
+      );
+      return;
+    }
+
+    setConfirmarReset({
+      tipo: "agenda_area",
+      titulo: `Resetear agenda del Área "${areaTarget.nombre}"`,
+      subtitulo: `Vas a vaciar las actividades y fases agendadas de los ${entsArea.length} entregables de "${areaTarget.nombre}". Las Áreas, Objetivos, Proyectos y Entregables se mantendrán intactos.`,
+      entregablesCount: entsArea.length,
+      actividadesCount: acts.length,
+      fasesCount: fasesVinculadas.length,
+      entregableIds: entIds,
+    });
+  };
+
   const ejecutarReset = async () => {
     if (!confirmarReset || confirmarReset.entregableIds.length === 0) return;
     setReseteando(true);
     try {
-      for (const entId of confirmarReset.entregableIds) {
-        await eliminarNodoUseCase.ejecutar("entregable", entId);
+      if (
+        confirmarReset.tipo === "proyecto" ||
+        confirmarReset.tipo === "area"
+      ) {
+        for (const entId of confirmarReset.entregableIds) {
+          await eliminarNodoUseCase.ejecutar("entregable", entId);
+        }
+        mostrarToast(
+          `Se eliminaron ${confirmarReset.entregablesCount} entregables correctamente.`,
+          "exito"
+        );
+      } else {
+        // Reset de agenda / actividades y fases sin tocar los entregables
+        await db.transaction(
+          "rw",
+          [db.actividad, db.fase_personal, db.cola_eventos],
+          async () => {
+            for (const entId of confirmarReset.entregableIds) {
+              const acts = await db.actividad
+                .where("entregableId")
+                .equals(entId)
+                .toArray();
+              for (const a of acts) {
+                await db.actividad.delete(a.id);
+                await QueueService.encolar("actividad", "eliminar", a.id, {});
+              }
+              const fasesEnt = await db.fase_personal
+                .where("entregableId")
+                .equals(entId)
+                .toArray();
+              for (const f of fasesEnt) {
+                await db.fase_personal.delete(f.id);
+                await QueueService.encolar(
+                  "fase_personal",
+                  "eliminar",
+                  f.id,
+                  {}
+                );
+              }
+            }
+          }
+        );
+        for (const entId of confirmarReset.entregableIds) {
+          const ent = await db.entregable.get(entId);
+          if (ent) await recomputarProyecto(ent.proyectoId);
+        }
+        mostrarToast(
+          `Se eliminaron ${confirmarReset.actividadesCount} actividad(es) agendada(s) correctamente.`,
+          "exito"
+        );
       }
-      mostrarToast(
-        `Se eliminaron ${confirmarReset.entregablesCount} entregables correctamente.`,
-        "exito"
-      );
       setConfirmarReset(null);
     } catch (err) {
       mostrarToast(
-        err instanceof Error ? err.message : "Error al resetear entregables.",
+        err instanceof Error ? err.message : "Error al resetear.",
         "error"
       );
     } finally {
@@ -623,6 +737,22 @@ export const WizardPlanificacionPersonal: React.FC<
     setProyectosSeleccionadosIds([]);
   };
 
+  const toggleEntregableSeleccionado = (entId: string) => {
+    setEntregablesSeleccionadosIds((prev) =>
+      prev.includes(entId)
+        ? prev.filter((id) => id !== entId)
+        : [...prev, entId]
+    );
+  };
+
+  const seleccionarTodosEntregablesPendientes = (ents: Entregable[]) => {
+    setEntregablesSeleccionadosIds(ents.map((e) => e.id));
+  };
+
+  const deseleccionarTodosEntregables = () => {
+    setEntregablesSeleccionadosIds([]);
+  };
+
   const copiarPromptEtapa4 = (entregable: Entregable) => {
     const detallesEnt = `Vence: ${entregable.diaLimite}${
       entregable.cantidadObjetivo
@@ -636,6 +766,140 @@ export const WizardPlanificacionPersonal: React.FC<
     navigator.clipboard.writeText(prompt);
     mostrarToast(
       `Prompt Etapa 4 para "${entregable.titulo}" copiado.`,
+      "exito"
+    );
+  };
+
+  const copiarPromptEtapa4Area = (targetAreaId?: string) => {
+    const id = targetAreaId || areaActual?.id || areaId;
+    const areaTarget = areas.find((a) => a.id === id);
+    if (!areaTarget) {
+      mostrarToast("Seleccioná un área primero.", "error");
+      return;
+    }
+
+    const objsDeEstaArea = objetivos.filter((o) => o.areaId === areaTarget.id);
+    const proysDeEstaArea = proyectos.filter((p) =>
+      objsDeEstaArea.some((o) => o.id === p.objetivoId)
+    );
+    const entsDeEstaArea = entregables.filter((e) =>
+      proysDeEstaArea.some((p) => p.id === e.proyectoId)
+    );
+
+    if (entsDeEstaArea.length === 0) {
+      mostrarToast(
+        `No hay entregables cargados en el área "${areaTarget.nombre}". Creá o importá entregables en el Paso 3 primero.`,
+        "error"
+      );
+      return;
+    }
+
+    const conActividades = entsDeEstaArea
+      .filter((e) => actividades.some((a) => a.entregableId === e.id))
+      .map((e) => ({
+        titulo: e.titulo,
+        actividadesCount: actividades.filter((a) => a.entregableId === e.id)
+          .length,
+      }));
+
+    const sinActividades = entsDeEstaArea.filter(
+      (e) => !actividades.some((a) => a.entregableId === e.id)
+    );
+
+    let seleccionadosParaPrompt: Entregable[] = [];
+    let pospuestosParaPrompt: Entregable[] = [];
+
+    if (entregablesSeleccionadosIds.length > 0) {
+      seleccionadosParaPrompt = entsDeEstaArea.filter(
+        (e) =>
+          entregablesSeleccionadosIds.includes(e.id) &&
+          !actividades.some((a) => a.entregableId === e.id)
+      );
+      pospuestosParaPrompt = entsDeEstaArea.filter(
+        (e) =>
+          !entregablesSeleccionadosIds.includes(e.id) &&
+          !actividades.some((a) => a.entregableId === e.id)
+      );
+    } else {
+      seleccionadosParaPrompt = sinActividades;
+      pospuestosParaPrompt = [];
+    }
+
+    if (sinActividades.length === 0) {
+      seleccionadosParaPrompt = entsDeEstaArea;
+      pospuestosParaPrompt = [];
+    }
+
+    const pendientesFormateados = seleccionadosParaPrompt.map((e) => {
+      const proy = proysDeEstaArea.find((p) => p.id === e.proyectoId);
+      const tieneSop = actividades.some(
+        (a) => a.entregableId === e.id && Boolean(a.procedimientoId)
+      );
+      return {
+        titulo: e.titulo,
+        proyectoTitulo: proy?.titulo,
+        cantidadObjetivo: e.cantidadObjetivo,
+        unidad: e.unidad,
+        diaLimite: e.diaLimite,
+        procedimientoNombre: tieneSop
+          ? "Procedimiento Estándar vinculado"
+          : undefined,
+      };
+    });
+
+    const pospuestosFormateados = pospuestosParaPrompt.map((e) => ({
+      titulo: e.titulo,
+      proyectoTitulo: proysDeEstaArea.find((p) => p.id === e.proyectoId)
+        ?.titulo,
+    }));
+
+    const otrasAreas = areas.filter((a) => a.id !== areaTarget.id);
+    const otrosObjetivos = objetivos.filter((o) => o.areaId !== areaTarget.id);
+    const mapaOtrasAreas = formatearMapaAreasYObjetivos(
+      otrasAreas,
+      otrosObjetivos
+    );
+
+    const prompt = generarPromptEtapa4ActividadesPorArea(
+      areaTarget.nombre,
+      pendientesFormateados,
+      conActividades,
+      mapaOtrasAreas,
+      pospuestosFormateados
+    );
+
+    navigator.clipboard.writeText(prompt);
+    if (sinActividades.length === 0) {
+      mostrarToast(
+        `Prompt Etapa 4 de "${areaTarget.nombre}" copiado (replanificación de agenda de todos sus entregables).`,
+        "exito"
+      );
+    } else {
+      mostrarToast(
+        `Prompt Etapa 4 copiado para "${areaTarget.nombre}" (${seleccionadosParaPrompt.length} seleccionados, ${pospuestosParaPrompt.length} pospuestos, ${conActividades.length} omitidos).`,
+        "exito"
+      );
+    }
+  };
+
+  const copiarResumenPlanificacionCompleta = () => {
+    if (areas.length === 0 && objetivos.length === 0) {
+      mostrarToast("No hay elementos para exportar todavía.", "error");
+      return;
+    }
+
+    const prompt = generarPromptPlanificacionCompleta(
+      areas,
+      objetivos,
+      proyectos,
+      entregables,
+      actividades,
+      fases
+    );
+
+    navigator.clipboard.writeText(prompt);
+    mostrarToast(
+      "Resumen de Planificación Completa (Árbol Total) copiado al portapapeles. Listo para auditar con cualquier IA.",
       "exito"
     );
   };
@@ -782,37 +1046,78 @@ export const WizardPlanificacionPersonal: React.FC<
     });
   };
 
-  const abrirModalImportarActividades = (entregable: Entregable) => {
+  const abrirModalImportarActividades = (entregable?: Entregable) => {
+    const entregableActual = entregable ?? entregablesDelProyecto[0];
     setModalImportar({
-      titulo: `Importar Agenda Diaria para "${entregable.titulo}" (Etapa 4)`,
-      plantillaEjemplo: JSON.stringify(
-        {
-          entregableTitulo: entregable.titulo,
-          actividadesNuevas: [
+      titulo: entregable
+        ? `Importar Agenda Diaria para "${entregable.titulo}" (Etapa 4)`
+        : `Importar Agenda Diaria por Área o Lote (Etapa 4)`,
+      plantillaEjemplo: entregable
+        ? JSON.stringify(
             {
-              descripcion: `Ejecutar bloque de ${entregable.titulo}`,
-              diaTarea: hoy,
-              tipo: "enfoque",
-              minutosEstimados: 60,
+              entregableTitulo: entregable.titulo,
+              actividadesNuevas: [
+                {
+                  descripcion: `Ejecutar bloque de ${entregable.titulo}`,
+                  diaTarea: hoy,
+                  tipo: "enfoque",
+                  minutosEstimados: 60,
+                },
+              ],
+              repartos: [
+                {
+                  descripcion: `Reparto semanal de ${entregable.titulo}`,
+                  frecuencia: "dias_especificos",
+                  diasSemana: [1, 2, 3, 4, 5],
+                  diaInicio: entregable.diaInicio,
+                  diaLimite: entregable.diaLimite,
+                  cantidadTotal: entregable.cantidadObjetivo ?? 50,
+                  unidad: entregable.unidad ?? "mensajes",
+                  tipoActividad: "enfoque",
+                  minutosPorActividad: 45,
+                },
+              ],
             },
-          ],
-          repartos: [
+            null,
+            2
+          )
+        : JSON.stringify(
             {
-              descripcion: `Reparto semanal de ${entregable.titulo}`,
-              frecuencia: "dias_especificos",
-              diasSemana: [1, 2, 3, 4, 5],
-              diaInicio: entregable.diaInicio,
-              diaLimite: entregable.diaLimite,
-              cantidadTotal: entregable.cantidadObjetivo ?? 50,
-              unidad: entregable.unidad ?? "mensajes",
-              tipoActividad: "enfoque",
-              minutosPorActividad: 45,
+              areaTitulo: areaActual?.nombre ?? "Perfil Profesional",
+              entregables: [
+                {
+                  entregableTitulo:
+                    entregableActual?.titulo ?? "Título exacto del entregable",
+                  actividadesNuevas: [
+                    {
+                      tipo: "enfoque",
+                      descripcion: "Bloque de trabajo profundo: Tarea clave",
+                      diaTarea: hoy,
+                      minutosEstimados: 60,
+                    },
+                    {
+                      tipo: "mantenimiento",
+                      descripcion: "Gestión operativa o seguimiento",
+                      diaTarea: hoy,
+                      cantidadObjetivo: 5,
+                      unidad: "tareas",
+                    },
+                  ],
+                  repartos: [
+                    {
+                      descripcion: "Reparto de Lun a Vie",
+                      tipo: "mantenimiento",
+                      diasSemana: [1, 2, 3, 4, 5],
+                      cantidadTotal: 50,
+                      unidad: "contactos",
+                    },
+                  ],
+                },
+              ],
             },
-          ],
-        },
-        null,
-        2
-      ),
+            null,
+            2
+          ),
       renderResumen: resumenActividadesBajoEntregable,
       onImportar: async (items) => {
         const res = await importarUseCase.importarActividades(items);
@@ -846,7 +1151,7 @@ export const WizardPlanificacionPersonal: React.FC<
       maxWidth="xl"
       footer={
         <div className="flex w-full flex-wrap items-center justify-between gap-2">
-          <div>
+          <div className="flex flex-wrap items-center gap-2">
             {paso > 1 && (
               <Button
                 variant="outline"
@@ -855,6 +1160,14 @@ export const WizardPlanificacionPersonal: React.FC<
                 ← Paso anterior
               </Button>
             )}
+            <Button
+              variant="outline"
+              onClick={copiarResumenPlanificacionCompleta}
+              icono={<Icono.File className="h-3.5 w-3.5 text-emerald-400" />}
+              title="Copia el resumen completo de todas las áreas, objetivos, proyectos y actividades para auditar con cualquier IA"
+            >
+              Copiar Planificación Completa
+            </Button>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -2089,111 +2402,425 @@ export const WizardPlanificacionPersonal: React.FC<
             )}
           </div>
         )}
-        {/* PASO 4: Fases y Reparto en Días */}
+        {/* PASO 4: Fases, Agenda Diaria y Reparto en Días */}
         {paso === 4 && (
-          <div className="flex flex-col gap-3">
-            {proyectoActual ? (
-              <>
-                {/* Banner IA Etapa 4 */}
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3.5">
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <Icono.Sparkles className="h-4 w-4 text-emerald-400" />
-                      <span className="text-xs font-bold text-emerald-300">
-                        Etapa 4 con IA: Planificar Agenda y Reparto Diario
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-[11px] text-zinc-400">
-                      Distribuí el trabajo en días específicos respetando la
-                      capacidad diaria del búnker (máx 1 enfoque + 3
-                      mantenimiento).
-                    </p>
+          <div className="flex flex-col gap-4">
+            {/* 4A. Selector de Área con progreso, auditoría y reseteo de agenda */}
+            {areas.length > 0 && (
+              <div className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-[#141417] p-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className={rotulo}>4A. Elegí el Área a planificar</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {areaActual && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            copiarPromptAuditoriaArea(areaActual.id)
+                          }
+                          icono={
+                            <Icono.Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+                          }
+                          title="Copia el resumen del Área para auditoría con IA"
+                        >
+                          Auditar Área con IA
+                        </Button>
+                        {(() => {
+                          const objsArea = objetivos.filter(
+                            (o) => o.areaId === areaActual.id
+                          );
+                          const proysArea = proyectos.filter((p) =>
+                            objsArea.some((o) => o.id === p.objetivoId)
+                          );
+                          const entsArea = entregables.filter((e) =>
+                            proysArea.some((p) => p.id === e.proyectoId)
+                          );
+                          const entIds = entsArea.map((e) => e.id);
+                          const totalActsArea = actividades.filter(
+                            (a) =>
+                              a.entregableId && entIds.includes(a.entregableId)
+                          ).length;
+                          return (
+                            totalActsArea > 0 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  prepararResetAgendaArea(areaActual.id)
+                                }
+                                className="flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-bold text-rose-300 transition-colors hover:bg-rose-500/20"
+                                title="Limpia las actividades de la agenda de esta área sin tocar entregables ni proyectos"
+                              >
+                                <Icono.Trash className="h-3.5 w-3.5" />
+                                Resetear agenda ({totalActsArea})
+                              </button>
+                            )
+                          );
+                        })()}
+                      </>
+                    )}
+                    <span className="text-[11px] text-zinc-500">
+                      {(() => {
+                        const totalEnts = entregables.length;
+                        const conActs = entregables.filter((e) =>
+                          actividades.some((a) => a.entregableId === e.id)
+                        ).length;
+                        return `${conActs} de ${totalEnts} entregables agendados (Opcional)`;
+                      })()}
+                    </span>
                   </div>
                 </div>
 
-                <p className="text-xs text-zinc-400">
-                  Para cada Entregable de{" "}
-                  <strong className="text-zinc-200">
-                    {proyectoActual.titulo}
-                  </strong>
-                  , podés generar sus Fases semanales/progresivas, repartir sus
-                  actividades o usar el asistente por IA:
-                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {areas.map((a) => {
+                    const objsArea = objetivos.filter((o) => o.areaId === a.id);
+                    const proysArea = proyectos.filter((p) =>
+                      objsArea.some((o) => o.id === p.objetivoId)
+                    );
+                    const entsArea = entregables.filter((e) =>
+                      proysArea.some((p) => p.id === e.proyectoId)
+                    );
+                    const listosArea = entsArea.filter((e) =>
+                      actividades.some((act) => act.entregableId === e.id)
+                    ).length;
+                    const activo = areaActual?.id === a.id;
+                    return (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => {
+                          setAreaId(a.id);
+                          const objsDeEstaArea = objetivos.filter(
+                            (o) => o.areaId === a.id
+                          );
+                          if (objsDeEstaArea.length > 0) {
+                            setObjetivoId(objsDeEstaArea[0].id);
+                            const proys = proyectos.filter(
+                              (p) => p.objetivoId === objsDeEstaArea[0].id
+                            );
+                            if (proys.length > 0) setProyectoId(proys[0].id);
+                          }
+                        }}
+                        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors ${
+                          activo
+                            ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
+                            : "border-[#2A2A2E] bg-[#0D0D0F] text-zinc-400 hover:border-zinc-700"
+                        }`}
+                      >
+                        <span>{a.nombre}</span>
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[10px] ${
+                            listosArea > 0 && listosArea === entsArea.length
+                              ? "bg-emerald-500/20 font-bold text-emerald-300"
+                              : listosArea > 0
+                                ? "bg-zinc-700 font-bold text-zinc-300"
+                                : "bg-zinc-800 text-zinc-400"
+                          }`}
+                        >
+                          {listosArea}/{entsArea.length}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
-                {entregablesDelProyecto.map((e) => {
-                  const fasesEnt = fases.filter((f) => f.entregableId === e.id);
-                  const actsEnt = actividades.filter(
-                    (a) => a.entregableId === e.id
-                  );
-                  const tieneSop = actsEnt.some((a) =>
-                    Boolean(a.procedimientoId)
-                  );
-                  return (
-                    <div
-                      key={e.id}
-                      className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-[#0D0D0F] p-3.5"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-zinc-100">
-                              {e.titulo}
-                            </span>
-                            {tieneSop && (
-                              <span className="rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">
-                                📋 Con SOP
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-xs text-zinc-500">
-                            {e.cantidadObjetivo
-                              ? `${e.cantidadObjetivo} ${e.unidad}`
-                              : "Sin meta numérica"}{" "}
-                            · {fasesEnt.length} fase(s) · {actsEnt.length}{" "}
-                            actividad(es)
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => copiarPromptEtapa4(e)}
-                            icono={<Icono.Copy className="h-3.5 w-3.5" />}
-                          >
-                            Copiar Prompt Etapa 4
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => abrirModalImportarActividades(e)}
-                            icono={<Icono.File className="h-3.5 w-3.5" />}
-                          >
-                            Pegar JSON Agenda
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setGenerarFasesEnt(e)}
-                          >
-                            Generar Fases
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setRepartirDiasEnt(e)}
-                          >
-                            Repartir en días
-                          </Button>
-                        </div>
+            {/* Banner IA Etapa 4 con soporte Área Completa e Individual y Selección Granular */}
+            {areaActual &&
+              (() => {
+                const objsArea = objetivos.filter(
+                  (o) => o.areaId === areaActual.id
+                );
+                const proysArea = proyectos.filter((p) =>
+                  objsArea.some((o) => o.id === p.objetivoId)
+                );
+                const entsArea = entregables.filter((e) =>
+                  proysArea.some((p) => p.id === e.proyectoId)
+                );
+                const pendientesArea = entsArea.filter(
+                  (e) => !actividades.some((a) => a.entregableId === e.id)
+                );
+                const conAgendaArea = entsArea.filter((e) =>
+                  actividades.some((a) => a.entregableId === e.id)
+                );
+
+                const seleccionadosCount =
+                  entregablesSeleccionadosIds.length > 0
+                    ? pendientesArea.filter((e) =>
+                        entregablesSeleccionadosIds.includes(e.id)
+                      ).length
+                    : pendientesArea.length;
+
+                const pospuestosCount =
+                  pendientesArea.length - seleccionadosCount;
+
+                return (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3.5">
+                    <div className="max-w-xl">
+                      <div className="flex items-center gap-1.5">
+                        <Icono.Sparkles className="h-4 w-4 text-emerald-400" />
+                        <span className="text-xs font-bold text-emerald-300">
+                          Etapa 4 con IA: Agenda Diaria y Repartos de &quot;
+                          {areaActual.nombre}&quot;
+                        </span>
                       </div>
+                      <p className="mt-1 text-[11px] text-zinc-400">
+                        {entsArea.length === 0
+                          ? `No hay entregables en "${areaActual.nombre}". Cargá entregables en el Paso 3.`
+                          : pendientesArea.length > 0
+                            ? `Podés seleccionar qué entregables agendar en el calendario ahora (máx 1 foco + 3 mant. por día). Tildados para el prompt: ${seleccionadosCount} de ${pendientesArea.length} pendientes${
+                                pospuestosCount > 0
+                                  ? ` (${pospuestosCount} pospuestos)`
+                                  : ""
+                              }.`
+                            : `¡Excelente! Los ${entsArea.length} entregables de "${areaActual.nombre}" ya tienen agenda cargada.`}
+                      </p>
                     </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {entsArea.length > 0 && (
+                        <Button
+                          size="sm"
+                          onClick={() => copiarPromptEtapa4Area(areaActual.id)}
+                          icono={<Icono.Sparkles className="h-3.5 w-3.5" />}
+                        >
+                          {pendientesArea.length > 0
+                            ? `Copiar Prompt (${seleccionadosCount} seleccionados)`
+                            : `Copiar Prompt Área (Replanificar)`}
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => abrirModalImportarActividades()}
+                        icono={<Icono.File className="h-3.5 w-3.5" />}
+                      >
+                        Pegar JSON Agenda (Área o Entregable)
+                      </Button>
+                    </div>
+                    {conAgendaArea.length > 0 && (
+                      <p className="w-full border-t border-emerald-500/15 pt-2 text-[10px] text-zinc-500">
+                        ✓ Ya agendados (no se repetirán en el prompt):{" "}
+                        <span className="font-medium text-zinc-400">
+                          {conAgendaArea.map((e) => e.titulo).join(" · ")}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
+            {/* 4B. Tracker de Entregables del Área con Selección Granular y Acciones */}
+            {areaActual && (
+              <div className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-[#141417] p-3.5">
+                {(() => {
+                  const objsArea = objetivos.filter(
+                    (o) => o.areaId === areaActual.id
                   );
-                })}
-              </>
-            ) : (
-              <p className="text-sm text-zinc-400">
-                Seleccioná un proyecto para continuar.
-              </p>
+                  const proysArea = proyectos.filter((p) =>
+                    objsArea.some((o) => o.id === p.objetivoId)
+                  );
+                  const entsArea = entregables.filter((e) =>
+                    proysArea.some((p) => p.id === e.proyectoId)
+                  );
+                  const pendientesArea = entsArea.filter(
+                    (e) => !actividades.some((a) => a.entregableId === e.id)
+                  );
+
+                  return (
+                    <>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className={rotulo}>
+                          4B. Entregables en &quot;{areaActual.nombre}&quot; —
+                          Tildá los que agendás en esta tanda
+                        </span>
+                        {pendientesArea.length > 0 && (
+                          <div className="flex items-center gap-2 text-[11px]">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                seleccionarTodosEntregablesPendientes(
+                                  pendientesArea
+                                )
+                              }
+                              className="font-medium text-emerald-400 transition-colors hover:text-emerald-300"
+                            >
+                              Seleccionar todos pendientes
+                            </button>
+                            <span className="text-zinc-600">·</span>
+                            <button
+                              type="button"
+                              onClick={deseleccionarTodosEntregables}
+                              className="font-medium text-zinc-400 transition-colors hover:text-zinc-300"
+                            >
+                              Limpiar selección
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {entsArea.length === 0 ? (
+                        <p className="text-xs text-zinc-500">
+                          No hay entregables en esta área todavía. Creá
+                          entregables en el Paso 3.
+                        </p>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          {entsArea.map((e) => {
+                            const proy = proysArea.find(
+                              (p) => p.id === e.proyectoId
+                            );
+                            const fasesEnt = fases.filter(
+                              (f) => f.entregableId === e.id
+                            );
+                            const actsEnt = actividades.filter(
+                              (a) => a.entregableId === e.id
+                            );
+                            const tieneAgenda = actsEnt.length > 0;
+                            const tieneSop = actsEnt.some((a) =>
+                              Boolean(a.procedimientoId)
+                            );
+
+                            const estaTildadoParaPrompt = tieneAgenda
+                              ? false
+                              : entregablesSeleccionadosIds.length === 0 ||
+                                entregablesSeleccionadosIds.includes(e.id);
+
+                            return (
+                              <div
+                                key={e.id}
+                                className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-[#0D0D0F] p-3 transition-all hover:border-zinc-700"
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                                    {!tieneAgenda && (
+                                      <input
+                                        type="checkbox"
+                                        checked={estaTildadoParaPrompt}
+                                        onChange={(ev) => {
+                                          ev.stopPropagation();
+                                          if (
+                                            entregablesSeleccionadosIds.length ===
+                                            0
+                                          ) {
+                                            const todos = pendientesArea.map(
+                                              (x) => x.id
+                                            );
+                                            setEntregablesSeleccionadosIds(
+                                              todos.filter((id) => id !== e.id)
+                                            );
+                                          } else {
+                                            toggleEntregableSeleccionado(e.id);
+                                          }
+                                        }}
+                                        title={
+                                          estaTildadoParaPrompt
+                                            ? "Incluido para agendar con IA"
+                                            : "Pospuesto: no se incluirá en el prompt ahora"
+                                        }
+                                        className="mt-1 h-4 w-4 cursor-pointer rounded border-[#2A2A2E] bg-zinc-900 text-emerald-500 focus:ring-emerald-500/40"
+                                      />
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-sm font-bold text-zinc-100">
+                                          {e.titulo}
+                                        </span>
+                                        {tieneSop && (
+                                          <span className="rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">
+                                            📋 Con SOP
+                                          </span>
+                                        )}
+                                        {tieneAgenda ? (
+                                          <span className="text-[10px] font-bold text-emerald-400">
+                                            ✓ {actsEnt.length} actividad(es) ·{" "}
+                                            {fasesEnt.length} fase(s)
+                                          </span>
+                                        ) : estaTildadoParaPrompt ? (
+                                          <span className="text-[10px] font-bold text-emerald-400/90">
+                                            ⚡ Agendar ahora
+                                          </span>
+                                        ) : (
+                                          <span className="text-[10px] font-bold text-zinc-500">
+                                            ⏸ Para agendar después
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="mt-0.5 text-xs text-zinc-400">
+                                        {proy
+                                          ? `Proyecto: "${proy.titulo}" · `
+                                          : ""}
+                                        {e.cantidadObjetivo
+                                          ? `Meta: ${e.cantidadObjetivo} ${e.unidad ?? ""}`
+                                          : "Sin meta numérica"}
+                                        {e.diaLimite
+                                          ? ` · Vence: ${e.diaLimite}`
+                                          : ""}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => copiarPromptEtapa4(e)}
+                                      icono={<Icono.Copy className="h-3 w-3" />}
+                                      title="Copia el prompt enfocado solo para este entregable"
+                                    >
+                                      Prompt Individual
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        abrirModalImportarActividades(e)
+                                      }
+                                      icono={<Icono.File className="h-3 w-3" />}
+                                      title="Pega el JSON de actividades para este entregable"
+                                    >
+                                      Pegar JSON
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setGenerarFasesEnt(e)}
+                                      title="Divide el entregable en fases semanales"
+                                    >
+                                      Fases
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setRepartirDiasEnt(e)}
+                                      title="Distribuye actividades en días específicos"
+                                    >
+                                      Repartir
+                                    </Button>
+                                    {(actsEnt.length > 0 ||
+                                      fasesEnt.length > 0) && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          prepararResetAgendaEntregable(e)
+                                        }
+                                        className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-300 transition-colors hover:bg-rose-500/20"
+                                        title="Limpia las actividades y fases agendadas para este entregable"
+                                      >
+                                        <Icono.Trash className="h-3.5 w-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
             )}
           </div>
         )}
