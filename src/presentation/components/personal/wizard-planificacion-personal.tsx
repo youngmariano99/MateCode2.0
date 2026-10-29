@@ -31,6 +31,7 @@ import {
   generarPromptEtapa2Proyectos,
   generarPromptEtapa2ProyectosPorArea,
   generarPromptEtapa3EntregablesYSOPs,
+  generarPromptEtapa3EntregablesPorArea,
   generarPromptEtapa4Actividades,
   formatearMapaAreasYObjetivos,
 } from "../../../domain/prompts/generar-prompt-jerarquia-personal";
@@ -337,26 +338,110 @@ export const WizardPlanificacionPersonal: React.FC<
     }
   };
 
-  const copiarPromptEtapa3 = () => {
-    if (!proyectoActual) {
+  const copiarPromptEtapa3 = (proyTarget?: typeof proyectoActual) => {
+    const proy = proyTarget ?? proyectoActual;
+    if (!proy) {
       mostrarToast("Seleccioná un proyecto primero.", "error");
       return;
     }
-    const detallesProy = `Vence: ${proyectoActual.diaLimite}${
-      proyectoActual.cantidadObjetivo
-        ? `, meta: ${proyectoActual.cantidadObjetivo} ${proyectoActual.unidad}`
+    const entregablesDelProy = entregables.filter(
+      (e) => e.proyectoId === proy.id
+    );
+    const objPadre = objetivos.find((o) => o.id === proy.objetivoId);
+    const detallesProy = `Vence: ${proy.diaLimite}${
+      proy.cantidadObjetivo
+        ? `, meta: ${proy.cantidadObjetivo} ${proy.unidad}`
         : ""
-    }`;
+    }${objPadre ? `, objetivo: "${objPadre.titulo}"` : ""}`;
+
     const prompt = generarPromptEtapa3EntregablesYSOPs(
-      proyectoActual.titulo,
+      proy.titulo,
       detallesProy,
-      entregablesDelProyecto.map((e) => e.titulo)
+      entregablesDelProy.map((e) => e.titulo)
     );
     navigator.clipboard.writeText(prompt);
     mostrarToast(
-      "Prompt Etapa 3 (Entregables y SOPs) copiado al portapapeles.",
+      `Prompt Etapa 3 para "${proy.titulo}" copiado al portapapeles.`,
       "exito"
     );
+  };
+
+  const copiarPromptEtapa3Area = (targetAreaId?: string) => {
+    const id = targetAreaId || areaActual?.id || areaId;
+    const areaTarget = areas.find((a) => a.id === id);
+    if (!areaTarget) {
+      mostrarToast("Seleccioná un área primero.", "error");
+      return;
+    }
+
+    const objsDeEstaArea = objetivos.filter((o) => o.areaId === areaTarget.id);
+    const proysDeEstaArea = proyectos.filter((p) =>
+      objsDeEstaArea.some((o) => o.id === p.objetivoId)
+    );
+
+    if (proysDeEstaArea.length === 0) {
+      mostrarToast(
+        `No hay proyectos cargados en el área "${areaTarget.nombre}". Creá o importá proyectos en el Paso 2 primero.`,
+        "error"
+      );
+      return;
+    }
+
+    const pendientes = proysDeEstaArea
+      .filter((p) => !entregables.some((e) => e.proyectoId === p.id))
+      .map((p) => ({
+        titulo: p.titulo,
+        objetivoTitulo: objsDeEstaArea.find((o) => o.id === p.objetivoId)
+          ?.titulo,
+        diaLimite: p.diaLimite,
+        cantidadObjetivo: p.cantidadObjetivo,
+        unidad: p.unidad,
+      }));
+
+    const conEntregables = proysDeEstaArea
+      .filter((p) => entregables.some((e) => e.proyectoId === p.id))
+      .map((p) => ({
+        titulo: p.titulo,
+        entregables: entregables
+          .filter((e) => e.proyectoId === p.id)
+          .map((e) => e.titulo),
+      }));
+
+    const otrasAreas = areas.filter((a) => a.id !== areaTarget.id);
+    const otrosObjetivos = objetivos.filter((o) => o.areaId !== areaTarget.id);
+    const mapaOtrasAreas = formatearMapaAreasYObjetivos(
+      otrasAreas,
+      otrosObjetivos
+    );
+
+    const prompt = generarPromptEtapa3EntregablesPorArea(
+      areaTarget.nombre,
+      pendientes.length > 0
+        ? pendientes
+        : proysDeEstaArea.map((p) => ({
+            titulo: p.titulo,
+            objetivoTitulo: objsDeEstaArea.find((o) => o.id === p.objetivoId)
+              ?.titulo,
+            diaLimite: p.diaLimite,
+            cantidadObjetivo: p.cantidadObjetivo,
+            unidad: p.unidad,
+          })),
+      conEntregables,
+      mapaOtrasAreas
+    );
+
+    navigator.clipboard.writeText(prompt);
+    if (pendientes.length === 0) {
+      mostrarToast(
+        `Prompt de "${areaTarget.nombre}" copiado (replanificación de entregables de todos sus proyectos).`,
+        "exito"
+      );
+    } else {
+      mostrarToast(
+        `Prompt Etapa 3 copiado para "${areaTarget.nombre}" (${pendientes.length} proyectos pendientes, ${conEntregables.length} omitidos).`,
+        "exito"
+      );
+    }
   };
 
   const copiarPromptEtapa4 = (entregable: Entregable) => {
@@ -459,39 +544,49 @@ export const WizardPlanificacionPersonal: React.FC<
   };
 
   const abrirModalImportarEntregables = () => {
-    if (!proyectoActual) return;
     setModalImportar({
-      titulo: `Importar Entregables y SOPs para "${proyectoActual.titulo}" (Etapa 3)`,
+      titulo: `Importar Entregables y SOPs con IA (Etapa 3)`,
       plantillaEjemplo: JSON.stringify(
         {
-          proyectoTitulo: proyectoActual.titulo,
-          entregablesNuevos: [
+          areaTitulo: areaActual?.nombre ?? "Perfil Profesional",
+          proyectos: [
             {
-              titulo: "Lanzar 50 prospecciones",
-              diaInicio: proyectoActual.diaInicio,
-              diaLimite: proyectoActual.diaLimite,
-              cantidadObjetivo: 50,
-              unidad: "mensajes",
-              procedimiento: {
-                titulo: "Prospección outbound diaria",
-                categoria: "ventas",
-                pasos: [
-                  {
-                    orden: 1,
-                    titulo: "Filtrar 10 leads en LinkedIn",
-                    duracionEstimadaMin: 15,
-                    esObligatorio: true,
+              proyectoTitulo:
+                proyectoActual?.titulo ?? "Título exacto del proyecto",
+              entregablesNuevos: [
+                {
+                  titulo: "Semana 1: Prospección activa",
+                  diaInicio: proyectoActual?.diaInicio ?? hoy,
+                  diaLimite: proyectoActual?.diaLimite ?? sumarDias(hoy, 7),
+                  cantidadObjetivo: 50,
+                  unidad: "mensajes",
+                  procedimiento: {
+                    titulo: "Prospección outbound diaria",
+                    categoria: "prospeccion",
+                    pasos: [
+                      {
+                        orden: 1,
+                        titulo: "Filtrar 10 leads en LinkedIn",
+                        duracionEstimadaMin: 15,
+                        esObligatorio: true,
+                      },
+                      {
+                        orden: 2,
+                        titulo: "Personalizar mensaje de primer contacto",
+                        duracionEstimadaMin: 20,
+                        esObligatorio: true,
+                      },
+                    ],
                   },
-                  {
-                    orden: 2,
-                    titulo: "Personalizar mensaje de primer contacto",
-                    duracionEstimadaMin: 20,
-                    esObligatorio: true,
+                  reparto: {
+                    descripcion: "Contactar en frío",
+                    tipo: "mantenimiento",
+                    diasSemana: [1, 2, 3, 4, 5],
                   },
-                ],
-              },
-              actividades: [],
-              fases: [],
+                  actividades: [],
+                  fases: [],
+                },
+              ],
             },
           ],
         },
@@ -504,7 +599,6 @@ export const WizardPlanificacionPersonal: React.FC<
         if (!res.ok) throw new Error(res.error!.mensaje);
         mostrarToast(res.valor, "exito");
         setModalImportar(null);
-        setPaso(4);
       },
     });
   };
@@ -600,8 +694,7 @@ export const WizardPlanificacionPersonal: React.FC<
                 }}
                 disabled={
                   (paso === 1 && !objetivoActual) ||
-                  (paso === 2 && proyectosDelObjetivo.length === 0) ||
-                  (paso === 3 && entregablesDelProyecto.length === 0)
+                  (paso === 2 && proyectosDelObjetivo.length === 0)
                 }
               >
                 Siguiente paso →
@@ -1316,48 +1409,244 @@ export const WizardPlanificacionPersonal: React.FC<
           </div>
         )}
 
-        {/* PASO 3: Entregables del Proyecto */}
+        {/* PASO 3: Entregables y SOPs por Área o por Proyecto */}
         {paso === 3 && (
           <div className="flex flex-col gap-4">
+            {/* 3A. Selector de Área con progreso */}
+            {areas.length > 0 && (
+              <div className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-[#141417] p-3.5">
+                <div className="flex items-center justify-between">
+                  <span className={rotulo}>3A. Elegí el Área a planificar</span>
+                  <span className="text-[11px] text-zinc-500">
+                    {(() => {
+                      const totalProys = proyectos.length;
+                      const conEnt = proyectos.filter((p) =>
+                        entregables.some((e) => e.proyectoId === p.id)
+                      ).length;
+                      return `${conEnt} de ${totalProys} proyectos con entregables (Opcional)`;
+                    })()}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {areas.map((a) => {
+                    const objsArea = objetivos.filter((o) => o.areaId === a.id);
+                    const proysArea = proyectos.filter((p) =>
+                      objsArea.some((o) => o.id === p.objetivoId)
+                    );
+                    const listosArea = proysArea.filter((p) =>
+                      entregables.some((e) => e.proyectoId === p.id)
+                    ).length;
+                    const activo = areaActual?.id === a.id;
+                    return (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => {
+                          setAreaId(a.id);
+                          const objsDeEstaArea = objetivos.filter(
+                            (o) => o.areaId === a.id
+                          );
+                          if (objsDeEstaArea.length > 0) {
+                            setObjetivoId(objsDeEstaArea[0].id);
+                            const proys = proyectos.filter(
+                              (p) => p.objetivoId === objsDeEstaArea[0].id
+                            );
+                            if (proys.length > 0) setProyectoId(proys[0].id);
+                          }
+                        }}
+                        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors ${
+                          activo
+                            ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
+                            : "border-[#2A2A2E] bg-[#0D0D0F] text-zinc-400 hover:border-zinc-700"
+                        }`}
+                      >
+                        <span>{a.nombre}</span>
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[10px] ${
+                            listosArea > 0 && listosArea === proysArea.length
+                              ? "bg-emerald-500/20 font-bold text-emerald-300"
+                              : listosArea > 0
+                                ? "bg-zinc-700 font-bold text-zinc-300"
+                                : "bg-zinc-800 text-zinc-400"
+                          }`}
+                        >
+                          {listosArea}/{proysArea.length}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Banner IA Etapa 3 con soporte Área Completa e Individual */}
+            {areaActual &&
+              (() => {
+                const objsArea = objetivos.filter(
+                  (o) => o.areaId === areaActual.id
+                );
+                const proysArea = proyectos.filter((p) =>
+                  objsArea.some((o) => o.id === p.objetivoId)
+                );
+                const pendientesArea = proysArea.filter(
+                  (p) => !entregables.some((e) => e.proyectoId === p.id)
+                );
+                const conEntregablesArea = proysArea.filter((p) =>
+                  entregables.some((e) => e.proyectoId === p.id)
+                );
+
+                return (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3.5">
+                    <div className="max-w-xl">
+                      <div className="flex items-center gap-1.5">
+                        <Icono.Sparkles className="h-4 w-4 text-emerald-400" />
+                        <span className="text-xs font-bold text-emerald-300">
+                          Etapa 3 con IA: Entregables y SOPs de &quot;
+                          {areaActual.nombre}&quot;
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-zinc-400">
+                        {proysArea.length === 0
+                          ? `No hay proyectos en "${areaActual.nombre}". Cargá proyectos en el Paso 2.`
+                          : pendientesArea.length > 0
+                            ? `Hay ${pendientesArea.length} proyecto(s) sin entregables en esta área. Los entregables son opcionales — proyectos simples pueden no necesitarlos. Podés planificarlos todos juntos con IA o por proyecto individual.`
+                            : `¡Excelente! Los ${proysArea.length} proyectos de "${areaActual.nombre}" ya tienen entregables cargados.`}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {proysArea.length > 0 && (
+                        <Button
+                          size="sm"
+                          onClick={() => copiarPromptEtapa3Area(areaActual.id)}
+                          icono={<Icono.Sparkles className="h-3.5 w-3.5" />}
+                        >
+                          {pendientesArea.length > 0
+                            ? `Copiar Prompt Área (${pendientesArea.length} pendientes)`
+                            : `Copiar Prompt Área (Replanificar)`}
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={abrirModalImportarEntregables}
+                        icono={<Icono.File className="h-3.5 w-3.5" />}
+                      >
+                        Pegar JSON (Área o Proyecto)
+                      </Button>
+                    </div>
+                    {conEntregablesArea.length > 0 && (
+                      <p className="w-full border-t border-emerald-500/15 pt-2 text-[10px] text-zinc-500">
+                        ✓ Ya planificados (no se repetirán en el prompt del
+                        área):{" "}
+                        <span className="font-medium text-zinc-400">
+                          {conEntregablesArea.map((p) => p.titulo).join(" · ")}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
+            {/* 3B. Tracker de Proyectos del Área */}
+            {areaActual && (
+              <div className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-[#141417] p-3.5">
+                <span className={rotulo}>
+                  3B. Proyectos en &quot;{areaActual.nombre}&quot; — Entregables
+                  son opcionales
+                </span>
+                {(() => {
+                  const objsArea = objetivos.filter(
+                    (o) => o.areaId === areaActual.id
+                  );
+                  const proysArea = proyectos.filter((p) =>
+                    objsArea.some((o) => o.id === p.objetivoId)
+                  );
+                  if (proysArea.length === 0) {
+                    return (
+                      <p className="text-xs text-zinc-500">
+                        No hay proyectos en esta área todavía. Creá proyectos en
+                        el Paso 2.
+                      </p>
+                    );
+                  }
+                  return (
+                    <div className="flex flex-col gap-2">
+                      {proysArea.map((p) => {
+                        const entsDelProy = entregables.filter(
+                          (e) => e.proyectoId === p.id
+                        );
+                        const seleccionado = proyectoActual?.id === p.id;
+                        return (
+                          <div
+                            key={p.id}
+                            onClick={() => {
+                              setProyectoId(p.id);
+                              const obj = objsArea.find(
+                                (o) => o.id === p.objetivoId
+                              );
+                              if (obj) setObjetivoId(obj.id);
+                            }}
+                            className={`flex cursor-pointer flex-wrap items-center justify-between gap-2 rounded-lg border p-2.5 transition-all ${
+                              seleccionado
+                                ? "border-emerald-500/50 bg-emerald-500/10"
+                                : "border-[#2A2A2E] bg-[#0D0D0F] hover:border-zinc-700"
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                {entsDelProy.length > 0 ? (
+                                  <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400">
+                                    ✓ {entsDelProy.length} entregable
+                                    {entsDelProy.length > 1 ? "s" : ""}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-bold text-zinc-500">
+                                    ○ Sin entregables (Opcional)
+                                  </span>
+                                )}
+                                <span className="text-zinc-600">·</span>
+                                <span className="text-[11px] text-zinc-400">
+                                  vence {p.diaLimite}
+                                </span>
+                              </div>
+                              <p className="mt-0.5 truncate text-xs font-bold text-zinc-200">
+                                {p.titulo}
+                              </p>
+                              <p className="text-[10px] text-zinc-500">
+                                {objsArea.find((o) => o.id === p.objetivoId)
+                                  ?.titulo ?? ""}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setProyectoId(p.id);
+                                  copiarPromptEtapa3(p);
+                                }}
+                                icono={<Icono.Copy className="h-3 w-3" />}
+                                title="Copia el prompt enfocado solo para este proyecto"
+                              >
+                                Prompt Individual
+                              </Button>
+                              <Badge color={seleccionado ? "emerald" : "zinc"}>
+                                {seleccionado ? "En Foco" : "Ver"}
+                              </Badge>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* 3C. Detalle del Proyecto en Foco */}
             {proyectoActual ? (
               <>
-                {/* Banner IA Etapa 3 */}
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3.5">
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <Icono.Sparkles className="h-4 w-4 text-emerald-400" />
-                      <span className="text-xs font-bold text-emerald-300">
-                        Etapa 3 con IA: Entregables y Procedimientos (SOPs)
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-[11px] text-zinc-400">
-                      Pide a la IA definir los entregables de &quot;
-                      <strong className="text-zinc-200">
-                        {proyectoActual.titulo}
-                      </strong>
-                      &quot; y, si alguna tarea es metódica o repetitiva,
-                      incluir su Procedimiento estándar (pasos y duraciones).
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={copiarPromptEtapa3}
-                      icono={<Icono.Copy className="h-3.5 w-3.5" />}
-                    >
-                      Copiar Prompt Etapa 3 (Entregables y SOPs)
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={abrirModalImportarEntregables}
-                      icono={<Icono.File className="h-3.5 w-3.5" />}
-                    >
-                      Pegar JSON Entregables & SOPs
-                    </Button>
-                  </div>
-                </div>
-
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#2A2A2E] bg-[#0D0D0F] p-3">
                   <div>
                     <span className="text-[10px] font-bold text-emerald-400 uppercase">
@@ -1366,33 +1655,18 @@ export const WizardPlanificacionPersonal: React.FC<
                     <p className="text-sm font-bold text-zinc-100">
                       {proyectoActual.titulo}
                     </p>
+                    <p className="text-[10px] text-zinc-500">
+                      Los entregables son opcionales — proyectos simples pueden
+                      ir directamente al Paso 4.
+                    </p>
                   </div>
                   <Button
                     variant="outline"
                     onClick={() => setDistribuirProy(proyectoActual)}
                   >
-                    Dividir proyecto en semanas automáticamente
+                    Dividir en semanas automáticamente
                   </Button>
                 </div>
-
-                {proyectosDelObjetivo.length > 1 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {proyectosDelObjetivo.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setProyectoId(p.id)}
-                        className={`rounded-lg border px-2.5 py-1 text-xs font-bold ${
-                          proyectoActual.id === p.id
-                            ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
-                            : "border-[#2A2A2E] text-zinc-400"
-                        }`}
-                      >
-                        {p.titulo}
-                      </button>
-                    ))}
-                  </div>
-                )}
 
                 <div className="flex flex-col gap-2">
                   <span className={rotulo}>
@@ -1401,8 +1675,10 @@ export const WizardPlanificacionPersonal: React.FC<
                   </span>
                   {entregablesDelProyecto.length === 0 ? (
                     <p className="text-xs text-zinc-500">
-                      Todavía no hay entregables en este proyecto. Podés
-                      generarlos con IA arriba o agregarlos manualmente abajo.
+                      No hay entregables cargados. Podés generarlos con IA
+                      arriba, importar un JSON o agregarlos manualmente abajo.
+                      Si el proyecto es simple, podés avanzar al Paso 4
+                      directamente.
                     </p>
                   ) : (
                     entregablesDelProyecto.map((e) => {
@@ -1477,7 +1753,8 @@ export const WizardPlanificacionPersonal: React.FC<
               </>
             ) : (
               <p className="text-sm text-zinc-400">
-                Seleccioná o creá un proyecto en el Paso 2 para continuar.
+                Seleccioná un proyecto del tracker de arriba o creá uno en el
+                Paso 2 para continuar.
               </p>
             )}
           </div>

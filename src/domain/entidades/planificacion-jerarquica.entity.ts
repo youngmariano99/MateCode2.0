@@ -251,6 +251,76 @@ export type ImportarEntregableBajoProyectoInput = z.input<
   typeof importarEntregableBajoProyectoSchema
 >;
 
+/**
+ * Normaliza cualquier variante de JSON de entregables (individual, lista de proyectos o por área)
+ * devolviendo una lista uniforme de `{ proyectoTitulo, entregablesNuevos }`.
+ */
+export function normalizarInputEntregables(
+  input: unknown
+): { proyectoTitulo: string; entregablesNuevos: ItemEntregableJson[] }[] {
+  if (!input) return [];
+
+  if (Array.isArray(input)) {
+    const res: {
+      proyectoTitulo: string;
+      entregablesNuevos: ItemEntregableJson[];
+    }[] = [];
+    for (const elem of input) {
+      const parsed = importarEntregableBajoProyectoSchema.safeParse(elem);
+      if (parsed.success) {
+        res.push(parsed.data);
+      } else if (elem && typeof elem === "object") {
+        const anidados = normalizarInputEntregables(elem);
+        res.push(...anidados);
+      }
+    }
+    if (res.length > 0) return res;
+    return [];
+  }
+
+  if (typeof input === "object" && input !== null) {
+    const obj = input as Record<string, unknown>;
+
+    // Caso 1: Objeto individual { proyectoTitulo, entregablesNuevos }
+    const parsedInd = importarEntregableBajoProyectoSchema.safeParse(obj);
+    if (parsedInd.success) {
+      return [parsedInd.data];
+    }
+
+    // Caso 2: Objeto por área o multi-proyecto { areaTitulo, proyectos: [...] }
+    const lista = (obj.proyectos ??
+      obj.proyectosConEntregables ??
+      obj.proyectosNuevos) as unknown;
+
+    if (Array.isArray(lista)) {
+      const res: {
+        proyectoTitulo: string;
+        entregablesNuevos: ItemEntregableJson[];
+      }[] = [];
+      for (const item of lista) {
+        if (item && typeof item === "object") {
+          const itemObj = item as Record<string, unknown>;
+          const titulo = (itemObj.proyectoTitulo ?? itemObj.titulo) as string;
+          const entregables = (itemObj.entregablesNuevos ??
+            itemObj.entregables) as unknown[];
+          if (typeof titulo === "string" && Array.isArray(entregables)) {
+            const parsed = importarEntregableBajoProyectoSchema.safeParse({
+              proyectoTitulo: titulo,
+              entregablesNuevos: entregables,
+            });
+            if (parsed.success) {
+              res.push(parsed.data);
+            }
+          }
+        }
+      }
+      if (res.length > 0) return res;
+    }
+  }
+
+  return [];
+}
+
 export const importarActividadesBajoEntregableSchema = z
   .object({
     entregableTitulo: z

@@ -13,6 +13,7 @@ import {
   generarPromptEtapa2Proyectos,
   generarPromptEtapa2ProyectosPorArea,
   generarPromptEtapa3EntregablesYSOPs,
+  generarPromptEtapa3EntregablesPorArea,
   generarPromptEtapa4Actividades,
   formatearMapaAreasYObjetivos,
 } from "../../domain/prompts/generar-prompt-jerarquia-personal";
@@ -294,5 +295,57 @@ describe("Prompts de la jerarquía Personal: contexto y reglas comunes", () => {
       !mapa.includes("Obj Salud"),
       "no debe listar objetivos del área actual en el mapa de las otras"
     );
+  });
+
+  test("generarPromptEtapa3EntregablesPorArea marca entregables opcionales e indica proyectos ya planificados", () => {
+    const pendientes = [
+      {
+        titulo: "Motor de Prospección",
+        objetivoTitulo: "Concretar primer empleo",
+        diaLimite: "2026-12-31",
+        cantidadObjetivo: 150,
+        unidad: "contactos",
+      },
+    ];
+    const conEntregables = [
+      {
+        titulo: "Revisiones semanales",
+        entregables: ["SOP de revisión dominical", "Dashboard de métricas"],
+      },
+    ];
+    const mapaOtras =
+      '• Área: "Salud" (1 objetivo):\n   - [Objetivo] "Entrenar"';
+
+    const prompt = generarPromptEtapa3EntregablesPorArea(
+      "Perfil Profesional",
+      pendientes,
+      conEntregables,
+      mapaOtras
+    );
+
+    // Debe mencionar optionalidad
+    assert.ok(
+      prompt.includes("opcion") ||
+        prompt.includes("Opcional") ||
+        prompt.includes("opcional"),
+      "debe mencionar que los entregables son opcionales"
+    );
+    // Debe listar proyectos ya planificados para que la IA no los repita
+    assert.ok(
+      prompt.includes("<proyectos_ya_planificados_no_repetir>"),
+      "debe incluir bloque proyectos_ya_planificados_no_repetir"
+    );
+    assert.ok(prompt.includes("Revisiones semanales"));
+    assert.ok(prompt.includes("SOP de revisión dominical"));
+    // Debe incluir los proyectos pendientes
+    assert.ok(
+      prompt.includes("<proyectos_a_desglosar_ahora>"),
+      "debe incluir bloque proyectos_a_desglosar_ahora"
+    );
+    assert.ok(prompt.includes("Motor de Prospección"));
+    // El output debe pedir areaTitulo y proyectos[]
+    assert.ok(prompt.includes('"areaTitulo"'));
+    assert.ok(prompt.includes('"proyectos"'));
+    assert.ok(prompt.includes('"entregablesNuevos"'));
   });
 });

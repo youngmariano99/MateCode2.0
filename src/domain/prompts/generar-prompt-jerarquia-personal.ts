@@ -932,6 +932,132 @@ Nota: "procedimiento" es opcional (solo si el entregable tiene un checklist repe
 </output_requerido>`;
 }
 
+/** Etapa 3: Entregables semanales y Procedimientos Operativos Estandarizados (SOPs) por Área. */
+function construirPromptEtapa3EntregablesPorArea(
+  areaNombre: string,
+  proyectosPendientes: {
+    titulo: string;
+    objetivoTitulo?: string;
+    cantidadObjetivo?: number;
+    unidad?: string;
+    diaLimite?: string;
+  }[],
+  proyectosYaPlanificados: { titulo: string; entregables: string[] }[] = [],
+  mapaOtrasAreas: string = ""
+): string {
+  const bloqueContextoGlobal = mapaOtrasAreas.trim()
+    ? `<panorama_general_de_vida>
+Este es el mapa de las DEMÁS Áreas y Objetivos del usuario en la app:
+${mapaOtrasAreas}
+
+ATENCIÓN AL BALANCE DE VIDA Y ENERGÍA:
+El usuario tiene múltiples frentes en otras áreas. Al definir los entregables de los proyectos de "${areaNombre}", considerá este panorama general para que la carga semanal y diaria sea realista y sostenible.
+</panorama_general_de_vida>
+
+`
+    : "";
+
+  const bloqueYaPlanificados =
+    proyectosYaPlanificados.length > 0
+      ? `<proyectos_ya_planificados_no_repetir>
+ATENCIÓN — Los siguientes ${proyectosYaPlanificados.length} proyectos del área "${areaNombre}" YA TIENEN entregables cargados (fueron planificados antes o de forma individual).
+NO generes entregables para ellos, NO inventes nuevos y NO los incluyas en tu JSON de salida:
+${proyectosYaPlanificados
+  .map(
+    (p) =>
+      `• "${p.titulo}" (Ya cubierto con: ${
+        p.entregables.length > 0
+          ? p.entregables.join(", ")
+          : "entregables existentes"
+      })`
+  )
+  .join("\n")}
+</proyectos_ya_planificados_no_repetir>
+
+`
+      : "";
+
+  const listaProyectosTexto =
+    proyectosPendientes.length > 0
+      ? proyectosPendientes
+          .map((p) => {
+            const padre = p.objetivoTitulo
+              ? ` [Objetivo padre: "${p.objetivoTitulo}"]`
+              : "";
+            const meta = p.cantidadObjetivo
+              ? ` · Meta: ${p.cantidadObjetivo} ${p.unidad ?? ""}`
+              : "";
+            const limite = p.diaLimite ? ` · Vence: ${p.diaLimite}` : "";
+            return `- [Proyecto] "${p.titulo}"${padre}${meta}${limite}`;
+          })
+          .join("\n")
+      : "- Sin proyectos pendientes en esta área.";
+
+  return `<rol>
+Actúa como asistente de planificación personal y estandarización de procesos, ayudando a definir la Etapa 3: Entregables semanales y Procedimientos Operativos Estandarizados (SOPs) para los Proyectos del Área "${areaNombre}".
+</rol>
+
+${bloqueContextoGlobal}${bloqueYaPlanificados}<proyectos_a_desglosar_ahora>
+Área objetivo: "${areaNombre}".
+Proyectos en esta área para evaluar entregables:
+${listaProyectosTexto}
+</proyectos_a_desglosar_ahora>
+
+<modos_de_entregables>
+${NOTA_REPARTO}
+</modos_de_entregables>
+
+<procedimientos_sops>
+${NOTA_PROCEDIMIENTOS}
+Si el entregable requiere seguir un proceso repetitivo o paso a paso (ej. contacto en frío, desarrollo de feature, estudio con técnica, publicación), definí el bloque "procedimiento" dentro del entregable con sus pasos secuenciales y tiempos estimados.
+</procedimientos_sops>
+
+<instrucciones>
+Definir los Entregables y SOPs de los proyectos listados arriba:
+- REGLA DE ORO DE OPCIONALIDAD: NO todos los proyectos necesitan entregables. Si un proyecto es simple, representa un hito directo o no necesita división semanal/SOP, dejá su lista de entregables vacía ("entregablesNuevos": []) o no lo incluyas en la salida. Solo definí entregables para los proyectos que realmente se beneficien de una estructura semanal, meta cuantificable repartida o un procedimiento estándar.
+- Cada Entregable dura típicamente ~1 semana o representa una entrega/hito concreto.
+- Si tiene meta numérica y se reparte en días, usá "reparto" (Modo 1).
+- Si es dedicación continua de Lun a Vie, usá Modo 2 (sin cuota numérica).
+- NO dupliques ni incluyas los proyectos ya planificados indicados en <proyectos_ya_planificados_no_repetir>.
+- Mantené los títulos de los proyectos EXACTAMENTE como están escritos.
+${INSTRUCCION_PREGUNTAR}
+</instrucciones>
+
+<output_requerido>
+Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta estructura (sin texto adicional):
+{
+  "areaTitulo": "${areaNombre}",
+  "proyectos": [
+    {
+      "proyectoTitulo": "Título exacto del proyecto",
+      "entregablesNuevos": [
+        {
+          "titulo": "Semana 1: Prospección activa",
+          "diaInicio": "YYYY-MM-DD",
+          "diaLimite": "YYYY-MM-DD",
+          "cantidadObjetivo": 40,
+          "unidad": "contactos",
+          "bandaAceptable": 75,
+          "procedimiento": {
+            "titulo": "Protocolo de Contacto en Frío",
+            "categoria": "prospeccion",
+            "pasos": [
+              { "orden": 1, "titulo": "Filtrar 10 perfiles calificados en LinkedIn", "duracionEstimadaMin": 15, "esObligatorio": true },
+              { "orden": 2, "titulo": "Personalizar mensaje con gancho de dolor", "duracionEstimadaMin": 20, "esObligatorio": true }
+            ]
+          },
+          "reparto": { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5] },
+          "actividades": [],
+          "fases": []
+        }
+      ]
+    }
+  ]
+}
+Nota: Si un proyecto no necesita entregables, dejá "entregablesNuevos": [] o no lo incluyas en "proyectos". "procedimiento" es opcional.
+</output_requerido>`;
+}
+
 /** Etapa 4: Fases, Repartos en Días y Actividades concretas (Agenda Diaria Búnker). */
 function construirPromptEtapa4Actividades(
   entregableTitulo: string,
@@ -997,6 +1123,12 @@ export function generarPromptEtapa3EntregablesYSOPs(
   ...args: Parameters<typeof construirPromptEtapa3EntregablesYSOPs>
 ): string {
   return conContextoComun(construirPromptEtapa3EntregablesYSOPs(...args));
+}
+
+export function generarPromptEtapa3EntregablesPorArea(
+  ...args: Parameters<typeof construirPromptEtapa3EntregablesPorArea>
+): string {
+  return conContextoComun(construirPromptEtapa3EntregablesPorArea(...args));
 }
 
 export function generarPromptEtapa4Actividades(

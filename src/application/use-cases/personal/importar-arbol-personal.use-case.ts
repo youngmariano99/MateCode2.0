@@ -7,6 +7,7 @@ import {
   importarProyectoBajoObjetivoSchema,
   normalizarInputProyectos,
   importarEntregableBajoProyectoSchema,
+  normalizarInputEntregables,
   importarActividadesBajoEntregableSchema,
   importarFasesBajoEntregableSchema,
   type ItemObjetivoJson,
@@ -478,41 +479,53 @@ export class ImportarArbolPersonalUseCase {
     return this.resultadoFinal(combinar(...todosResultados), "proyecto");
   }
 
-  /** Entregable(s) (con o sin Actividades anidadas) bajo un Proyecto YA EXISTENTE, resuelto por título exacto. */
+  /** Entregable(s) (con o sin Actividades anidadas) bajo uno o varios Proyectos YA EXISTENTES, resuelto por título exacto. */
   public async importarEntregable(
     items: unknown[]
   ): Promise<Resultado<string>> {
-    const parsed = importarEntregableBajoProyectoSchema.safeParse(
-      items[0] ?? {}
-    );
-    if (!parsed.success) {
-      return Resultado.falla(
-        new ErrorDominio(
-          `El JSON no tiene la estructura esperada: ${mensajeDeIssues(parsed.error.issues)}`
+    const grupos = normalizarInputEntregables(items);
+    if (grupos.length === 0) {
+      const parsed = importarEntregableBajoProyectoSchema.safeParse(
+        items[0] ?? {}
+      );
+      if (!parsed.success) {
+        return Resultado.falla(
+          new ErrorDominio(
+            `El JSON no tiene la estructura esperada: ${mensajeDeIssues(parsed.error.issues)}`
+          )
+        );
+      }
+    }
+
+    const todosResultados: ResultadoCreacion[] = [];
+
+    for (const grupo of grupos) {
+      const proyecto = await db.proyecto_personal
+        .filter(
+          (p) =>
+            p.titulo.toLowerCase().trim() ===
+              grupo.proyectoTitulo.toLowerCase().trim() &&
+            p.estado !== "archivado"
+        )
+        .first();
+
+      if (!proyecto) {
+        return Resultado.falla(
+          new ErrorDominio(
+            `No se encontró un proyecto activo con el título "${grupo.proyectoTitulo}".`
+          )
+        );
+      }
+
+      const resultados = await Promise.all(
+        grupo.entregablesNuevos.map((e) =>
+          this.crearEntregableConHijos(e, proyecto.id, proyecto.objetivoId)
         )
       );
+      todosResultados.push(...resultados);
     }
-    const proyecto = await db.proyecto_personal
-      .filter(
-        (p) =>
-          p.titulo.toLowerCase().trim() ===
-            parsed.data.proyectoTitulo.toLowerCase().trim() &&
-          p.estado !== "archivado"
-      )
-      .first();
-    if (!proyecto) {
-      return Resultado.falla(
-        new ErrorDominio(
-          `No se encontró un proyecto activo con el título "${parsed.data.proyectoTitulo}".`
-        )
-      );
-    }
-    const resultados = await Promise.all(
-      parsed.data.entregablesNuevos.map((e) =>
-        this.crearEntregableConHijos(e, proyecto.id, proyecto.objetivoId)
-      )
-    );
-    return this.resultadoFinal(combinar(...resultados), "entregable");
+
+    return this.resultadoFinal(combinar(...todosResultados), "entregable");
   }
 
   /** Actividad(es) bajo un Entregable YA EXISTENTE, resuelto por título exacto. */

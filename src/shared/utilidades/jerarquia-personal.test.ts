@@ -30,6 +30,7 @@ import {
   idAreaDesdeEtiqueta,
   AREA_SIN_ASIGNAR_ID,
 } from "../../domain/entidades/area-personal.entity";
+import { normalizarInputEntregables } from "../../domain/entidades/planificacion-jerarquica.entity";
 
 const areas = new GestionarAreasUseCase();
 const objetivos = new GestionarObjetivosUseCase();
@@ -2102,5 +2103,65 @@ describe("Borrado de un Área: el conteo incluye las Fases y se borran de verdad
     assert.strictEqual(conteo.valor?.fases, 2);
     assert.ok((await uc.ejecutar("area", "a1")).ok);
     assert.strictEqual(await db.fase_personal.count(), 0);
+  });
+});
+
+describe("normalizarInputEntregables: normaliza inputs individuales, array y por área", () => {
+  test("input individual { proyectoTitulo, entregablesNuevos } → array con 1 item", () => {
+    const input = {
+      proyectoTitulo: "Motor de Prospección",
+      entregablesNuevos: [{ titulo: "Semana 1: Prospección activa" }],
+    };
+    const result = normalizarInputEntregables(input);
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].proyectoTitulo, "Motor de Prospección");
+    assert.strictEqual(result[0].entregablesNuevos.length, 1);
+  });
+
+  test("input array de proyectos → normaliza todos", () => {
+    const input = [
+      {
+        proyectoTitulo: "Proyecto A",
+        entregablesNuevos: [{ titulo: "Ent A1" }, { titulo: "Ent A2" }],
+      },
+      {
+        proyectoTitulo: "Proyecto B",
+        entregablesNuevos: [],
+      },
+    ];
+    const result = normalizarInputEntregables(input);
+    assert.strictEqual(result.length, 2);
+    assert.strictEqual(result[0].entregablesNuevos.length, 2);
+    assert.strictEqual(result[1].entregablesNuevos.length, 0);
+  });
+
+  test("input con areaTitulo y proyectos[] → extrae la lista de proyectos", () => {
+    const input = {
+      areaTitulo: "Perfil Profesional",
+      proyectos: [
+        {
+          proyectoTitulo: "Motor de Prospección",
+          entregablesNuevos: [{ titulo: "Semana 1" }],
+        },
+        {
+          proyectoTitulo: "Revisiones semanales",
+          entregablesNuevos: [],
+        },
+      ],
+    };
+    const result = normalizarInputEntregables(input);
+    assert.strictEqual(result.length, 2);
+    assert.strictEqual(result[0].proyectoTitulo, "Motor de Prospección");
+    assert.strictEqual(result[1].proyectoTitulo, "Revisiones semanales");
+  });
+
+  test("input con entregablesNuevos vacío es válido (entregables opcionales)", () => {
+    const input = {
+      proyectoTitulo: "Proyecto Simple",
+      entregablesNuevos: [],
+    };
+    const result = normalizarInputEntregables(input);
+    assert.strictEqual(result.length, 1);
+    assert.strictEqual(result[0].entregablesNuevos.length, 0);
   });
 });

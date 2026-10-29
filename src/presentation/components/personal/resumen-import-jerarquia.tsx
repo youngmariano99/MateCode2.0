@@ -4,6 +4,7 @@ import {
   importarProyectoBajoObjetivoSchema,
   normalizarInputProyectos,
   importarEntregableBajoProyectoSchema,
+  normalizarInputEntregables,
   importarActividadesBajoEntregableSchema,
   importarFasesBajoEntregableSchema,
   type ItemObjetivoJson,
@@ -269,17 +270,44 @@ export function resumenProyectoBajoObjetivo(items: unknown[]): React.ReactNode {
 export function resumenEntregableBajoProyecto(
   items: unknown[]
 ): React.ReactNode {
-  const parsed = importarEntregableBajoProyectoSchema.safeParse(items[0] ?? {});
-  if (!parsed.success) throw new Error(mensajeDeIssues(parsed.error.issues));
+  const grupos = normalizarInputEntregables(items);
+  if (grupos.length === 0) {
+    const parsed = importarEntregableBajoProyectoSchema.safeParse(
+      items[0] ?? {}
+    );
+    if (!parsed.success) throw new Error(mensajeDeIssues(parsed.error.issues));
+    return (
+      <div className="flex flex-col gap-0.5">
+        <Fila nivel={0}>
+          <span className="text-zinc-500">
+            Bajo el proyecto &quot;{parsed.data.proyectoTitulo}&quot;
+          </span>
+        </Fila>
+        {parsed.data.entregablesNuevos.map((e, i) => (
+          <ResumenEntregable key={i} e={e} nivel={1} />
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-0.5">
-      <Fila nivel={0}>
-        <span className="text-zinc-500">
-          Bajo el proyecto &quot;{parsed.data.proyectoTitulo}&quot;
-        </span>
-      </Fila>
-      {parsed.data.entregablesNuevos.map((e, i) => (
-        <ResumenEntregable key={i} e={e} nivel={1} />
+    <div className="flex flex-col gap-3">
+      {grupos.map((g, gIdx) => (
+        <div
+          key={gIdx}
+          className="flex flex-col gap-0.5 border-b border-[#232326] pb-2 last:border-b-0 last:pb-0"
+        >
+          <Fila nivel={0}>
+            <span className="font-semibold text-emerald-400">
+              Bajo el proyecto &quot;{g.proyectoTitulo}&quot; (
+              {g.entregablesNuevos.length} entregable
+              {g.entregablesNuevos.length > 1 ? "s" : ""})
+            </span>
+          </Fila>
+          {g.entregablesNuevos.map((e, i) => (
+            <ResumenEntregable key={i} e={e} nivel={1} />
+          ))}
+        </div>
       ))}
     </div>
   );
