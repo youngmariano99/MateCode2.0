@@ -264,4 +264,35 @@ describe("Prompts de la jerarquía Personal: contexto y reglas comunes", () => {
     assert.ok(prompt.includes('"areaTitulo": "Perfil Profesional"'));
     assert.ok(prompt.includes('"objetivos"'));
   });
+
+  test("formatearMapaAreasYObjetivos al filtrar otras áreas no marca los objetivos de la actual como 'Sin clasificar'", () => {
+    const areas = [
+      { id: "area-1", nombre: "Perfil Profesional" },
+      { id: "area-2", nombre: "Salud" },
+      { id: "area-3", nombre: "Deportista" },
+    ];
+    const objetivos = [
+      { id: "o1", areaId: "area-1", titulo: "Obj Profesional" },
+      { id: "o2", areaId: "area-2", titulo: "Obj Salud" },
+      { id: "o3", areaId: "area-3", titulo: "Obj Deporte" },
+    ];
+
+    // Simulamos el copiado de prompt para "Salud"
+    const areaTargetId = "area-2";
+    const otrasAreas = areas.filter((a) => a.id !== areaTargetId);
+    const otrosObjetivos = objetivos.filter((o) => o.areaId !== areaTargetId);
+
+    const mapa = formatearMapaAreasYObjetivos(otrasAreas, otrosObjetivos);
+
+    assert.ok(mapa.includes('• Área: "Perfil Profesional"'));
+    assert.ok(mapa.includes('• Área: "Deportista"'));
+    assert.ok(
+      !mapa.includes("Sin clasificar"),
+      "no debe aparecer 'Sin clasificar'"
+    );
+    assert.ok(
+      !mapa.includes("Obj Salud"),
+      "no debe listar objetivos del área actual en el mapa de las otras"
+    );
+  });
 });

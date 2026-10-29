@@ -310,7 +310,11 @@ export const WizardPlanificacionPersonal: React.FC<
       }));
 
     const otrasAreas = areas.filter((a) => a.id !== areaTarget.id);
-    const mapaOtrasAreas = formatearMapaAreasYObjetivos(otrasAreas, objetivos);
+    const otrosObjetivos = objetivos.filter((o) => o.areaId !== areaTarget.id);
+    const mapaOtrasAreas = formatearMapaAreasYObjetivos(
+      otrasAreas,
+      otrosObjetivos
+    );
 
     const prompt = generarPromptEtapa2ProyectosPorArea(
       areaTarget.nombre,
