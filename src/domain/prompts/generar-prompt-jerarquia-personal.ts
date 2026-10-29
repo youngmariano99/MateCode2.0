@@ -895,9 +895,9 @@ Si el entregable requiere seguir un proceso repetitivo o paso a paso (ej. contac
 <instrucciones>
 Definir los Entregables de este Proyecto:
 - Cada Entregable dura típicamente ~1 semana o representa un hito concreto.
-- Si tiene meta numérica y se reparte en días, usá "reparto" (Modo 1).
-- Si es dedicación continua de Lun a Vie, usá Modo 2 (sin cuota numérica).
-- Si involucra un proceso o protocolo a seguir, agregá su "procedimiento" con la lista de pasos secuenciales.
+- Si involucra un proceso o protocolo a seguir, agregá su "procedimiento" con la lista de pasos secuenciales y duraciones.
+- Si el entregable se desglosa en bloques semanales, podés incluir sus "fases" opcionales.
+- SEPARACIÓN DE FASES: En esta Etapa 3 NO definas actividades diarias ni agendas concretas del día a día; eso se resuelve en la Etapa 4 (Agenda Diaria y Reparto).
 ${INSTRUCCION_PREGUNTAR}
 </instrucciones>
 
@@ -922,13 +922,11 @@ Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta est
           { "orden": 3, "titulo": "Registrar contactos en CRM", "duracionEstimadaMin": 10, "esObligatorio": true }
         ]
       },
-      "reparto": { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5] },
-      "actividades": [],
       "fases": []
     }
   ]
 }
-Nota: "procedimiento" es opcional (solo si el entregable tiene un checklist repetitivo). "reparto", "actividades" y "fases" pueden quedar vacíos si se resolverán en la Etapa 4.
+Nota: "procedimiento" es opcional (solo si el entregable tiene un checklist repetitivo). "fases" puede quedar vacío o no incluirse. NO incluyas actividades diarias acá.
 </output_requerido>`;
 }
 
@@ -943,7 +941,8 @@ function construirPromptEtapa3EntregablesPorArea(
     diaLimite?: string;
   }[],
   proyectosYaPlanificados: { titulo: string; entregables: string[] }[] = [],
-  mapaOtrasAreas: string = ""
+  mapaOtrasAreas: string = "",
+  proyectosPospuestos: { titulo: string; objetivoTitulo?: string }[] = []
 ): string {
   const bloqueContextoGlobal = mapaOtrasAreas.trim()
     ? `<panorama_general_de_vida>
@@ -977,6 +976,22 @@ ${proyectosYaPlanificados
 `
       : "";
 
+  const bloquePospuestos =
+    proyectosPospuestos.length > 0
+      ? `<proyectos_pospuestos_o_futuros_no_desglosar>
+ATENCIÓN — Los siguientes ${proyectosPospuestos.length} proyectos del área "${areaNombre}" arrancarán en una etapa posterior o el usuario decidió NO desglosarlos en esta tanda.
+NO generes entregables para ellos en este momento y NO los incluyas en el JSON de salida:
+${proyectosPospuestos
+  .map(
+    (p) =>
+      `• [Pospuesto] "${p.titulo}"${p.objetivoTitulo ? ` (Objetivo: ${p.objetivoTitulo})` : ""}`
+  )
+  .join("\n")}
+</proyectos_pospuestos_o_futuros_no_desglosar>
+
+`
+      : "";
+
   const listaProyectosTexto =
     proyectosPendientes.length > 0
       ? proyectosPendientes
@@ -991,21 +1006,17 @@ ${proyectosYaPlanificados
             return `- [Proyecto] "${p.titulo}"${padre}${meta}${limite}`;
           })
           .join("\n")
-      : "- Sin proyectos pendientes en esta área.";
+      : "- Sin proyectos seleccionados para desglosar en esta tanda.";
 
   return `<rol>
-Actúa como asistente de planificación personal y estandarización de procesos, ayudando a definir la Etapa 3: Entregables semanales y Procedimientos Operativos Estandarizados (SOPs) para los Proyectos del Área "${areaNombre}".
+Actúa como asistente de planificación personal y estandarización de procesos, ayudando a definir la Etapa 3: Entregables semanales y Procedimientos Operativos Estandarizados (SOPs) para los Proyectos seleccionados del Área "${areaNombre}".
 </rol>
 
-${bloqueContextoGlobal}${bloqueYaPlanificados}<proyectos_a_desglosar_ahora>
+${bloqueContextoGlobal}${bloqueYaPlanificados}${bloquePospuestos}<proyectos_a_desglosar_ahora>
 Área objetivo: "${areaNombre}".
-Proyectos en esta área para evaluar entregables:
+Proyectos seleccionados para evaluar y definir entregables:
 ${listaProyectosTexto}
 </proyectos_a_desglosar_ahora>
-
-<modos_de_entregables>
-${NOTA_REPARTO}
-</modos_de_entregables>
 
 <procedimientos_sops>
 ${NOTA_PROCEDIMIENTOS}
@@ -1013,12 +1024,13 @@ Si el entregable requiere seguir un proceso repetitivo o paso a paso (ej. contac
 </procedimientos_sops>
 
 <instrucciones>
-Definir los Entregables y SOPs de los proyectos listados arriba:
+Definir los Entregables y SOPs de los proyectos listados en <proyectos_a_desglosar_ahora>:
 - REGLA DE ORO DE OPCIONALIDAD: NO todos los proyectos necesitan entregables. Si un proyecto es simple, representa un hito directo o no necesita división semanal/SOP, dejá su lista de entregables vacía ("entregablesNuevos": []) o no lo incluyas en la salida. Solo definí entregables para los proyectos que realmente se beneficien de una estructura semanal, meta cuantificable repartida o un procedimiento estándar.
 - Cada Entregable dura típicamente ~1 semana o representa una entrega/hito concreto.
-- Si tiene meta numérica y se reparte en días, usá "reparto" (Modo 1).
-- Si es dedicación continua de Lun a Vie, usá Modo 2 (sin cuota numérica).
-- NO dupliques ni incluyas los proyectos ya planificados indicados en <proyectos_ya_planificados_no_repetir>.
+- Si involucra un proceso o protocolo a seguir, agregá su "procedimiento" con la lista de pasos secuenciales y duraciones.
+- Si el entregable se desglosa en bloques semanales, podés incluir sus "fases" opcionales.
+- SEPARACIÓN DE FASES: En esta Etapa 3 NO definas actividades diarias ni agendas concretas del día a día; eso se resuelve en la Etapa 4 (Agenda Diaria y Reparto).
+- NO dupliques ni incluyas los proyectos ya planificados ni los pospuestos.
 - Mantené los títulos de los proyectos EXACTAMENTE como están escritos.
 ${INSTRUCCION_PREGUNTAR}
 </instrucciones>
@@ -1046,15 +1058,13 @@ Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta est
               { "orden": 2, "titulo": "Personalizar mensaje con gancho de dolor", "duracionEstimadaMin": 20, "esObligatorio": true }
             ]
           },
-          "reparto": { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5] },
-          "actividades": [],
           "fases": []
         }
       ]
     }
   ]
 }
-Nota: Si un proyecto no necesita entregables, dejá "entregablesNuevos": [] o no lo incluyas en "proyectos". "procedimiento" es opcional.
+Nota: Si un proyecto no necesita entregables, dejá "entregablesNuevos": [] o no lo incluyas en "proyectos". "procedimiento" y "fases" son opcionales. NO incluyas actividades diarias acá.
 </output_requerido>`;
 }
 
@@ -1193,4 +1203,140 @@ export function formatearMapaAreasYObjetivos(
   }
 
   return lineas.join("\n");
+}
+
+export interface ObjetivoAuditoriaInput {
+  id: string;
+  titulo: string;
+  cantidadObjetivo?: number;
+  unidad?: string;
+  diaLimite?: string;
+}
+
+export interface ProyectoAuditoriaInput {
+  id: string;
+  objetivoId: string;
+  titulo: string;
+  cantidadObjetivo?: number;
+  unidad?: string;
+  diaLimite?: string;
+}
+
+export interface EntregableAuditoriaInput {
+  id: string;
+  proyectoId: string;
+  titulo: string;
+  cantidadObjetivo?: number;
+  unidad?: string;
+  diaLimite?: string;
+}
+
+export interface ActividadAuditoriaInput {
+  id: string;
+  entregableId?: string;
+  procedimientoId?: string;
+}
+
+/**
+ * Genera un prompt estructurado de auditoría/revisión para que una IA externa
+ * evalúe la solidez, viabilidad y consistencia de toda la planificación de un Área
+ * (Área → Objetivos → Proyectos → Entregables y SOPs).
+ */
+export function generarPromptAuditoriaArea(
+  areaNombre: string,
+  objetivos: ObjetivoAuditoriaInput[],
+  proyectos: ProyectoAuditoriaInput[],
+  entregables: EntregableAuditoriaInput[],
+  actividades: ActividadAuditoriaInput[] = []
+): string {
+  const lineasJerarquia: string[] = [];
+
+  if (objetivos.length === 0) {
+    lineasJerarquia.push("- Sin objetivos configurados en esta área todavía.");
+  } else {
+    for (const obj of objetivos) {
+      const metaObj = obj.cantidadObjetivo
+        ? ` · Meta: ${obj.cantidadObjetivo} ${obj.unidad ?? ""}`
+        : "";
+      const limiteObj = obj.diaLimite ? ` · Vence: ${obj.diaLimite}` : "";
+      lineasJerarquia.push(
+        `📁 [Objetivo] "${obj.titulo}"${metaObj}${limiteObj}`
+      );
+
+      const proysDelObj = proyectos.filter((p) => p.objetivoId === obj.id);
+      if (proysDelObj.length === 0) {
+        lineasJerarquia.push(
+          `   └─ ⚠️ [Sin proyectos cargados bajo este objetivo]`
+        );
+      } else {
+        for (const proy of proysDelObj) {
+          const metaProy = proy.cantidadObjetivo
+            ? ` · Meta: ${proy.cantidadObjetivo} ${proy.unidad ?? ""}`
+            : "";
+          const limiteProy = proy.diaLimite
+            ? ` · Vence: ${proy.diaLimite}`
+            : "";
+          const entsDelProy = entregables.filter(
+            (e) => e.proyectoId === proy.id
+          );
+
+          lineasJerarquia.push(
+            `   └─ 🚀 [Proyecto] "${proy.titulo}"${metaProy}${limiteProy}`
+          );
+
+          if (entsDelProy.length === 0) {
+            lineasJerarquia.push(
+              `        └─ ℹ️ (Proyecto simple/directo sin entregables — Opcional)`
+            );
+          } else {
+            for (const ent of entsDelProy) {
+              const metaEnt = ent.cantidadObjetivo
+                ? ` · Meta: ${ent.cantidadObjetivo} ${ent.unidad ?? ""}`
+                : "";
+              const limiteEnt = ent.diaLimite
+                ? ` · Vence: ${ent.diaLimite}`
+                : "";
+              const tieneSop = actividades.some(
+                (a) => a.entregableId === ent.id && Boolean(a.procedimientoId)
+              );
+              const sopTexto = tieneSop ? " [📋 Con Procedimiento/SOP]" : "";
+
+              lineasJerarquia.push(
+                `        ├─ 📦 [Entregable] "${ent.titulo}"${sopTexto}${metaEnt}${limiteEnt}`
+              );
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const resumenJerarquia = lineasJerarquia.join("\n");
+
+  return `<rol>
+Actúa como consultor senior en productividad, planificación estratégica personal y diseño de sistemas de ejecución.
+Tu misión es auditar y revisar en profundidad la configuración del Área "${areaNombre}" que el usuario ha diseñado en MateCode 2.0 (Etapas 1, 2 y 3).
+</rol>
+
+<area_a_auditar>
+Área: "${areaNombre}"
+Total Objetivos: ${objetivos.length}
+Total Proyectos: ${proyectos.length}
+Total Entregables definidos: ${entregables.length}
+</area_a_auditar>
+
+<mapa_de_planificacion_actual>
+${resumenJerarquia}
+</mapa_de_planificacion_actual>
+
+<criterios_de_auditoria_a_evaluar>
+Analizá críticamente los siguientes 5 puntos:
+1. **Alineación y Claridad**: ¿Los objetivos son realmente medibles y cuantificables? ¿Los proyectos atacan directamente lo que mueve la aguja o hay proyectos redundantes/distractores?
+2. **Suficiencia de Entregables**: ¿Los entregables cubren el alcance de los proyectos o hay vacíos evidentes? Recordá que algunos proyectos simples son directos y es correcto que no tengan entregables.
+3. **Estandarización (SOPs)**: ¿Las tareas repetitivas o técnicas tienen su SOP/procedimiento para ejecutarse sin fricción?
+4. **Viabilidad Temporal y Sobrecarga**: ¿Las fechas límite tienen una secuencia lógica o hay demasiados proyectos compitiendo al mismo tiempo?
+5. **Recomendaciones Concretas**: Da 3 a 5 sugerencias puntuales (mejoras de redacción, metas numéricas más precisas, o simplificaciones) para que este plan sea 100% accionable.
+</criterios_de_auditoria_a_evaluar>
+
+Por favor, comenzá tu respuesta con un diagnóstico general (Semáforo: 🟢 Excelente / 🟡 Requiere ajustes menores / 🔴 Riesgo de sobrecarga o desalineación), seguido del análisis detallado punto por punto.`;
 }

@@ -16,6 +16,7 @@ import {
   generarPromptEtapa3EntregablesPorArea,
   generarPromptEtapa4Actividades,
   formatearMapaAreasYObjetivos,
+  generarPromptAuditoriaArea,
 } from "../../domain/prompts/generar-prompt-jerarquia-personal";
 import { obtenerDiaTareaHoy } from "../../domain/entidades/personal.entity";
 
@@ -347,5 +348,101 @@ describe("Prompts de la jerarquía Personal: contexto y reglas comunes", () => {
     assert.ok(prompt.includes('"areaTitulo"'));
     assert.ok(prompt.includes('"proyectos"'));
     assert.ok(prompt.includes('"entregablesNuevos"'));
+    // En Etapa 3 NO deben pedirse actividades diarias (separación de fases)
+    assert.ok(!prompt.includes('"actividades": []'));
+  });
+
+  test("generarPromptEtapa3EntregablesPorArea excluye y lista proyectos pospuestos para más adelante", () => {
+    const seleccionados = [
+      {
+        titulo: "Motor de Prospección",
+        objetivoTitulo: "Empleo IT",
+      },
+    ];
+    const pospuestos = [
+      {
+        titulo: "Certificación Cloud AWS",
+        objetivoTitulo: "Capacitación",
+      },
+    ];
+
+    const prompt = generarPromptEtapa3EntregablesPorArea(
+      "Perfil Profesional",
+      seleccionados,
+      [],
+      "",
+      pospuestos
+    );
+
+    assert.ok(
+      prompt.includes("<proyectos_pospuestos_o_futuros_no_desglosar>"),
+      "debe incluir el bloque de proyectos pospuestos"
+    );
+    assert.ok(prompt.includes("Certificación Cloud AWS"));
+    assert.ok(
+      prompt.includes("NO generes entregables para ellos en este momento")
+    );
+    assert.ok(prompt.includes("<proyectos_a_desglosar_ahora>"));
+    assert.ok(prompt.includes("Motor de Prospección"));
+  });
+
+  test("generarPromptAuditoriaArea genera un mapa jerárquico completo para revisión con IA", () => {
+    const objetivos = [
+      {
+        id: "o1",
+        titulo: "Lograr 150 contactos calificados",
+        cantidadObjetivo: 150,
+        unidad: "contactos",
+        diaLimite: "2027-02-28",
+      },
+    ];
+    const proyectos = [
+      {
+        id: "p1",
+        objetivoId: "o1",
+        titulo: "Motor de Prospección Outbound",
+        cantidadObjetivo: 150,
+        unidad: "contactos",
+        diaLimite: "2027-01-31",
+      },
+      {
+        id: "p2",
+        objetivoId: "o1",
+        titulo: "Capacitación en CRM",
+      },
+    ];
+    const entregables = [
+      {
+        id: "e1",
+        proyectoId: "p1",
+        titulo: "Semana 1: Filtro de base en LinkedIn",
+        cantidadObjetivo: 50,
+        unidad: "leads",
+        diaLimite: "2027-01-10",
+      },
+    ];
+    const actividades = [
+      {
+        id: "a1",
+        entregableId: "e1",
+        procedimientoId: "proc-1",
+      },
+    ];
+
+    const prompt = generarPromptAuditoriaArea(
+      "Perfil Profesional",
+      objetivos,
+      proyectos,
+      entregables,
+      actividades
+    );
+
+    assert.ok(prompt.includes('Área: "Perfil Profesional"'));
+    assert.ok(prompt.includes("Lograr 150 contactos calificados"));
+    assert.ok(prompt.includes("Motor de Prospección Outbound"));
+    assert.ok(prompt.includes("Semana 1: Filtro de base en LinkedIn"));
+    assert.ok(prompt.includes("[📋 Con Procedimiento/SOP]"));
+    assert.ok(prompt.includes("Proyecto simple/directo sin entregables"));
+    assert.ok(prompt.includes("<criterios_de_auditoria_a_evaluar>"));
   });
 });
