@@ -165,6 +165,79 @@ export type ImportarProyectoBajoObjetivoInput = z.input<
   typeof importarProyectoBajoObjetivoSchema
 >;
 
+/**
+ * Normaliza cualquier variante de JSON de proyectos (individual, lista de objetivos o por área)
+ * devolviendo una lista uniforme de `{ objetivoTitulo, proyectosNuevos }`.
+ */
+export function normalizarInputProyectos(
+  input: unknown
+): { objetivoTitulo: string; proyectosNuevos: ItemProyectoJson[] }[] {
+  if (!input) return [];
+
+  // Si viene envuelto en un array como items[0]
+  if (Array.isArray(input)) {
+    // Caso 1: Array directo de { objetivoTitulo, proyectosNuevos }
+    const res: {
+      objetivoTitulo: string;
+      proyectosNuevos: ItemProyectoJson[];
+    }[] = [];
+    for (const elem of input) {
+      const parsed = importarProyectoBajoObjetivoSchema.safeParse(elem);
+      if (parsed.success) {
+        res.push(parsed.data);
+      } else if (elem && typeof elem === "object") {
+        // Podría ser un array con un único contenedor [ { areaTitulo, objetivos: [...] } ]
+        const anidados = normalizarInputProyectos(elem);
+        res.push(...anidados);
+      }
+    }
+    if (res.length > 0) return res;
+    return [];
+  }
+
+  if (typeof input === "object" && input !== null) {
+    const obj = input as Record<string, unknown>;
+
+    // Caso 2: Objeto individual { objetivoTitulo, proyectosNuevos }
+    const parsedInd = importarProyectoBajoObjetivoSchema.safeParse(obj);
+    if (parsedInd.success) {
+      return [parsedInd.data];
+    }
+
+    // Caso 3: Objeto por área o contenedor { areaTitulo, objetivos: [...] }
+    const lista = (obj.objetivos ??
+      obj.objetivosConProyectos ??
+      obj.objetivosNuevos) as unknown;
+
+    if (Array.isArray(lista)) {
+      const res: {
+        objetivoTitulo: string;
+        proyectosNuevos: ItemProyectoJson[];
+      }[] = [];
+      for (const item of lista) {
+        if (item && typeof item === "object") {
+          const itemObj = item as Record<string, unknown>;
+          const titulo = (itemObj.objetivoTitulo ?? itemObj.titulo) as string;
+          const proys = (itemObj.proyectosNuevos ??
+            itemObj.proyectos) as unknown[];
+          if (typeof titulo === "string" && Array.isArray(proys)) {
+            const parsed = importarProyectoBajoObjetivoSchema.safeParse({
+              objetivoTitulo: titulo,
+              proyectosNuevos: proys,
+            });
+            if (parsed.success) {
+              res.push(parsed.data);
+            }
+          }
+        }
+      }
+      if (res.length > 0) return res;
+    }
+  }
+
+  return [];
+}
+
 export const importarEntregableBajoProyectoSchema = z.object({
   proyectoTitulo: z
     .string()

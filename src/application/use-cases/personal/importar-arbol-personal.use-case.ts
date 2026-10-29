@@ -5,6 +5,7 @@ import {
   avisosMinimosDelArbol,
   importarArbolPersonalSchema,
   importarProyectoBajoObjetivoSchema,
+  normalizarInputProyectos,
   importarEntregableBajoProyectoSchema,
   importarActividadesBajoEntregableSchema,
   importarFasesBajoEntregableSchema,
@@ -430,37 +431,51 @@ export class ImportarArbolPersonalUseCase {
     return this.importarArbol(items);
   }
 
-  /** Proyecto(s) (con o sin Entregables/Actividades anidados) bajo un Objetivo YA EXISTENTE, resuelto por título exacto. */
+  /** Proyecto(s) (con o sin Entregables/Actividades anidados) bajo uno o varios Objetivos YA EXISTENTES, resuelto por título exacto. */
   public async importarProyecto(items: unknown[]): Promise<Resultado<string>> {
-    const parsed = importarProyectoBajoObjetivoSchema.safeParse(items[0] ?? {});
-    if (!parsed.success) {
-      return Resultado.falla(
-        new ErrorDominio(
-          `El JSON no tiene la estructura esperada: ${mensajeDeIssues(parsed.error.issues)}`
+    const grupos = normalizarInputProyectos(items);
+    if (grupos.length === 0) {
+      const parsed = importarProyectoBajoObjetivoSchema.safeParse(
+        items[0] ?? {}
+      );
+      if (!parsed.success) {
+        return Resultado.falla(
+          new ErrorDominio(
+            `El JSON no tiene la estructura esperada: ${mensajeDeIssues(parsed.error.issues)}`
+          )
+        );
+      }
+    }
+
+    const todosResultados: ResultadoCreacion[] = [];
+
+    for (const grupo of grupos) {
+      const objetivo = await db.objetivo_cuantificable
+        .filter(
+          (o) =>
+            o.titulo.toLowerCase().trim() ===
+              grupo.objetivoTitulo.toLowerCase().trim() &&
+            (o.estado === "activo" || o.estado === "vencido")
+        )
+        .first();
+
+      if (!objetivo) {
+        return Resultado.falla(
+          new ErrorDominio(
+            `No se encontró un objetivo activo con el título "${grupo.objetivoTitulo}".`
+          )
+        );
+      }
+
+      const resultadosGrupo = await Promise.all(
+        grupo.proyectosNuevos.map((p) =>
+          this.crearProyectoConHijos(p, objetivo.id)
         )
       );
+      todosResultados.push(...resultadosGrupo);
     }
-    const objetivo = await db.objetivo_cuantificable
-      .filter(
-        (o) =>
-          o.titulo.toLowerCase().trim() ===
-            parsed.data.objetivoTitulo.toLowerCase().trim() &&
-          (o.estado === "activo" || o.estado === "vencido")
-      )
-      .first();
-    if (!objetivo) {
-      return Resultado.falla(
-        new ErrorDominio(
-          `No se encontró un objetivo activo con el título "${parsed.data.objetivoTitulo}".`
-        )
-      );
-    }
-    const resultados = await Promise.all(
-      parsed.data.proyectosNuevos.map((p) =>
-        this.crearProyectoConHijos(p, objetivo.id)
-      )
-    );
-    return this.resultadoFinal(combinar(...resultados), "proyecto");
+
+    return this.resultadoFinal(combinar(...todosResultados), "proyecto");
   }
 
   /** Entregable(s) (con o sin Actividades anidadas) bajo un Proyecto YA EXISTENTE, resuelto por título exacto. */

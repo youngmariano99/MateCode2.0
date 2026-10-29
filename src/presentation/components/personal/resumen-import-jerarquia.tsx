@@ -2,6 +2,7 @@ import React from "react";
 import {
   importarArbolPersonalSchema,
   importarProyectoBajoObjetivoSchema,
+  normalizarInputProyectos,
   importarEntregableBajoProyectoSchema,
   importarActividadesBajoEntregableSchema,
   importarFasesBajoEntregableSchema,
@@ -224,17 +225,42 @@ export function resumenArbolCompleto(items: unknown[]): React.ReactNode {
 }
 
 export function resumenProyectoBajoObjetivo(items: unknown[]): React.ReactNode {
-  const parsed = importarProyectoBajoObjetivoSchema.safeParse(items[0] ?? {});
-  if (!parsed.success) throw new Error(mensajeDeIssues(parsed.error.issues));
+  const grupos = normalizarInputProyectos(items);
+  if (grupos.length === 0) {
+    const parsed = importarProyectoBajoObjetivoSchema.safeParse(items[0] ?? {});
+    if (!parsed.success) throw new Error(mensajeDeIssues(parsed.error.issues));
+    return (
+      <div className="flex flex-col gap-0.5">
+        <Fila nivel={0}>
+          <span className="text-zinc-500">
+            Bajo el objetivo &quot;{parsed.data.objetivoTitulo}&quot;
+          </span>
+        </Fila>
+        {parsed.data.proyectosNuevos.map((p, i) => (
+          <ResumenProyecto key={i} p={p} nivel={1} />
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-0.5">
-      <Fila nivel={0}>
-        <span className="text-zinc-500">
-          Bajo el objetivo &quot;{parsed.data.objetivoTitulo}&quot;
-        </span>
-      </Fila>
-      {parsed.data.proyectosNuevos.map((p, i) => (
-        <ResumenProyecto key={i} p={p} nivel={1} />
+    <div className="flex flex-col gap-3">
+      {grupos.map((g, gIdx) => (
+        <div
+          key={gIdx}
+          className="flex flex-col gap-0.5 border-b border-[#232326] pb-2 last:border-b-0 last:pb-0"
+        >
+          <Fila nivel={0}>
+            <span className="font-semibold text-emerald-400">
+              Bajo el objetivo &quot;{g.objetivoTitulo}&quot; (
+              {g.proyectosNuevos.length} proyecto
+              {g.proyectosNuevos.length > 1 ? "s" : ""})
+            </span>
+          </Fila>
+          {g.proyectosNuevos.map((p, i) => (
+            <ResumenProyecto key={i} p={p} nivel={1} />
+          ))}
+        </div>
       ))}
     </div>
   );

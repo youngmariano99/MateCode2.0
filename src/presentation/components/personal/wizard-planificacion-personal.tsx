@@ -29,8 +29,10 @@ import {
   generarPromptArbolCompleto,
   generarPromptEtapa1Objetivos,
   generarPromptEtapa2Proyectos,
+  generarPromptEtapa2ProyectosPorArea,
   generarPromptEtapa3EntregablesYSOPs,
   generarPromptEtapa4Actividades,
+  formatearMapaAreasYObjetivos,
 } from "../../../domain/prompts/generar-prompt-jerarquia-personal";
 import {
   obtenerDiaTareaHoy,
@@ -135,13 +137,15 @@ export const WizardPlanificacionPersonal: React.FC<
   const actividades: Actividad[] =
     useLiveQuery(() => db.actividad.toArray()) ?? [];
 
-  const areaActual = areas.find((a) => a.id === areaId);
   const objetivosDelArea = areaId
     ? objetivos.filter((o) => o.areaId === areaId)
     : objetivos;
   const objetivoActual =
     objetivos.find((o) => o.id === objetivoId) ??
-    (objetivosDelArea.length > 0 ? objetivosDelArea[0] : undefined);
+    (objetivosDelArea.length > 0 ? objetivosDelArea[0] : objetivos[0]);
+  const areaActual =
+    areas.find((a) => a.id === objetivoActual?.areaId) ??
+    areas.find((a) => a.id === areaId);
   const proyectosDelObjetivo = objetivoActual
     ? proyectos.filter((p) => p.objetivoId === objetivoActual.id)
     : [];
@@ -251,22 +255,82 @@ export const WizardPlanificacionPersonal: React.FC<
     );
   };
 
-  const copiarPromptEtapa2 = () => {
-    if (!objetivoActual) {
+  const copiarPromptEtapa2 = (objTarget?: typeof objetivoActual) => {
+    const obj = objTarget ?? objetivoActual;
+    if (!obj) {
       mostrarToast("Seleccioná un objetivo primero.", "error");
       return;
     }
-    const detallesObj = `Meta: ${objetivoActual.cantidadObjetivo} ${objetivoActual.unidad}, vence ${objetivoActual.diaLimite}, área: ${areaActual?.nombre ?? "General"}`;
+    const areaDelObj = areas.find((a) => a.id === obj.areaId);
+    const nombreArea = areaDelObj?.nombre ?? areaActual?.nombre ?? "General";
+    const detallesObj = `Meta: ${obj.cantidadObjetivo} ${obj.unidad}, vence ${obj.diaLimite}, área: ${nombreArea}`;
+    const mapaGlobal = formatearMapaAreasYObjetivos(areas, objetivos);
+    const proysExistentes = proyectos
+      .filter((p) => p.objetivoId === obj.id)
+      .map((p) => p.titulo);
+
     const prompt = generarPromptEtapa2Proyectos(
-      objetivoActual.titulo,
+      obj.titulo,
       detallesObj,
-      proyectosDelObjetivo.map((p) => p.titulo)
+      proysExistentes,
+      mapaGlobal
     );
     navigator.clipboard.writeText(prompt);
-    mostrarToast(
-      "Prompt Etapa 2 (Proyectos) copiado al portapapeles.",
-      "exito"
+    mostrarToast(`Prompt Etapa 2 para "${obj.titulo}" copiado.`, "exito");
+  };
+
+  const copiarPromptEtapa2Area = (targetAreaId?: string) => {
+    const id = targetAreaId || areaActual?.id || areaId;
+    const areaTarget = areas.find((a) => a.id === id);
+    if (!areaTarget) {
+      mostrarToast("Seleccioná un área primero.", "error");
+      return;
+    }
+
+    const objsDeEstaArea = objetivos.filter((o) => o.areaId === areaTarget.id);
+    if (objsDeEstaArea.length === 0) {
+      mostrarToast(
+        `No hay objetivos definidos en el área "${areaTarget.nombre}".`,
+        "error"
+      );
+      return;
+    }
+
+    // Separar los que ya tienen proyectos creados vs los pendientes
+    const pendientes = objsDeEstaArea.filter(
+      (o) => !proyectos.some((p) => p.objetivoId === o.id)
     );
+    const conProyectos = objsDeEstaArea
+      .filter((o) => proyectos.some((p) => p.objetivoId === o.id))
+      .map((o) => ({
+        titulo: o.titulo,
+        proyectos: proyectos
+          .filter((p) => p.objetivoId === o.id)
+          .map((p) => p.titulo),
+      }));
+
+    const otrasAreas = areas.filter((a) => a.id !== areaTarget.id);
+    const mapaOtrasAreas = formatearMapaAreasYObjetivos(otrasAreas, objetivos);
+
+    const prompt = generarPromptEtapa2ProyectosPorArea(
+      areaTarget.nombre,
+      pendientes.length > 0 ? pendientes : objsDeEstaArea,
+      conProyectos,
+      mapaOtrasAreas
+    );
+
+    navigator.clipboard.writeText(prompt);
+    if (pendientes.length === 0) {
+      mostrarToast(
+        `Prompt de "${areaTarget.nombre}" copiado (replanificación de todos sus objetivos).`,
+        "exito"
+      );
+    } else {
+      mostrarToast(
+        `Prompt Etapa 2 copiado para "${areaTarget.nombre}" (${pendientes.length} pendientes, ${conProyectos.length} omitidos).`,
+        "exito"
+      );
+    }
   };
 
   const copiarPromptEtapa3 = () => {
@@ -355,20 +419,25 @@ export const WizardPlanificacionPersonal: React.FC<
   };
 
   const abrirModalImportarProyectos = () => {
-    if (!objetivoActual) return;
     setModalImportar({
-      titulo: `Importar Proyectos para "${objetivoActual.titulo}" (Etapa 2)`,
+      titulo: `Importar Proyectos con IA (Etapa 2)`,
       plantillaEjemplo: JSON.stringify(
         {
-          objetivoTitulo: objetivoActual.titulo,
-          proyectosNuevos: [
+          areaTitulo: areaActual?.nombre ?? "Perfil Profesional",
+          objetivos: [
             {
-              titulo: "Motor de Prospección Outbound",
-              diaInicio: hoy,
-              diaLimite: objetivoActual.diaLimite,
-              cantidadObjetivo: objetivoActual.cantidadObjetivo,
-              unidad: objetivoActual.unidad,
-              entregables: [],
+              objetivoTitulo:
+                objetivoActual?.titulo ?? "Título exacto del objetivo",
+              proyectosNuevos: [
+                {
+                  titulo: "Proyecto 1",
+                  diaInicio: hoy,
+                  diaLimite: objetivoActual?.diaLimite ?? sumarDias(hoy, 30),
+                  cantidadObjetivo: 100,
+                  unidad: "contactos",
+                  entregables: [],
+                },
+              ],
             },
           ],
         },
@@ -381,7 +450,6 @@ export const WizardPlanificacionPersonal: React.FC<
         if (!res.ok) throw new Error(res.error!.mensaje);
         mostrarToast(res.valor, "exito");
         setModalImportar(null);
-        setPaso(3);
       },
     });
   };
@@ -820,7 +888,15 @@ export const WizardPlanificacionPersonal: React.FC<
                   <button
                     key={a.id}
                     type="button"
-                    onClick={() => setAreaId(a.id)}
+                    onClick={() => {
+                      setAreaId(a.id);
+                      const objsDeEstaArea = objetivos.filter(
+                        (o) => o.areaId === a.id
+                      );
+                      if (objsDeEstaArea.length > 0) {
+                        setObjetivoId(objsDeEstaArea[0].id);
+                      }
+                    }}
                     className={`rounded-lg border px-3 py-1.5 text-xs font-bold ${
                       areaId === a.id
                         ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
@@ -861,7 +937,7 @@ export const WizardPlanificacionPersonal: React.FC<
                       type="button"
                       onClick={() => {
                         setObjetivoId(o.id);
-                        if (o.areaId && !areaId) setAreaId(o.areaId);
+                        if (o.areaId) setAreaId(o.areaId);
                       }}
                       className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2.5 text-left text-xs ${
                         objetivoActual?.id === o.id
@@ -925,54 +1001,225 @@ export const WizardPlanificacionPersonal: React.FC<
           </div>
         )}
 
-        {/* PASO 2: Proyectos del Objetivo */}
+        {/* PASO 2: Proyectos por Área & Objetivo */}
         {paso === 2 && (
           <div className="flex flex-col gap-4">
+            {/* 2A. Selector de Área y Progreso */}
+            {areas.length > 0 && (
+              <div className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-[#141417] p-3.5">
+                <div className="flex items-center justify-between">
+                  <span className={rotulo}>2A. Elegí el Área a planificar</span>
+                  <span className="text-[11px] text-zinc-500">
+                    {
+                      objetivos.filter((o) =>
+                        proyectos.some((p) => p.objetivoId === o.id)
+                      ).length
+                    }{" "}
+                    de {objetivos.length} objetivos con proyectos listos
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {areas.map((a) => {
+                    const objsArea = objetivos.filter((o) => o.areaId === a.id);
+                    const listosArea = objsArea.filter((o) =>
+                      proyectos.some((p) => p.objetivoId === o.id)
+                    ).length;
+                    const activo = areaActual?.id === a.id;
+                    return (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => {
+                          setAreaId(a.id);
+                          if (objsArea.length > 0) {
+                            setObjetivoId(objsArea[0].id);
+                          }
+                        }}
+                        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors ${
+                          activo
+                            ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300"
+                            : "border-[#2A2A2E] bg-[#0D0D0F] text-zinc-400 hover:border-zinc-700"
+                        }`}
+                      >
+                        <span>{a.nombre}</span>
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[10px] ${
+                            listosArea === objsArea.length &&
+                            objsArea.length > 0
+                              ? "bg-emerald-500/20 font-bold text-emerald-300"
+                              : "bg-zinc-800 text-zinc-400"
+                          }`}
+                        >
+                          {listosArea}/{objsArea.length}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Banner IA Etapa 2 con soporte Área Completa e Individual */}
+            {areaActual &&
+              (() => {
+                const objsArea = objetivos.filter(
+                  (o) => o.areaId === areaActual.id
+                );
+                const pendientesArea = objsArea.filter(
+                  (o) => !proyectos.some((p) => p.objetivoId === o.id)
+                );
+                const listosArea = objsArea.filter((o) =>
+                  proyectos.some((p) => p.objetivoId === o.id)
+                );
+
+                return (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3.5">
+                    <div className="max-w-xl">
+                      <div className="flex items-center gap-1.5">
+                        <Icono.Sparkles className="h-4 w-4 text-emerald-400" />
+                        <span className="text-xs font-bold text-emerald-300">
+                          Etapa 2 con IA: Proyectos de &quot;{areaActual.nombre}
+                          &quot;
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-zinc-400">
+                        {pendientesArea.length > 0
+                          ? `Hay ${pendientesArea.length} objetivo(s) pendientes de proyectos en esta área. Podés copiar el prompt para que la IA los planifique juntos (sin repetir los ${listosArea.length} ya cubiertos) o elegir uno individual abajo.`
+                          : `¡Excelente! Los ${objsArea.length} objetivos de "${areaActual.nombre}" ya tienen proyectos cargados.`}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => copiarPromptEtapa2Area(areaActual.id)}
+                        icono={<Icono.Sparkles className="h-3.5 w-3.5" />}
+                      >
+                        {pendientesArea.length > 0
+                          ? `Copiar Prompt Área (${pendientesArea.length} pendientes)`
+                          : `Copiar Prompt Área (Replanificar)`}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={abrirModalImportarProyectos}
+                        icono={<Icono.File className="h-3.5 w-3.5" />}
+                      >
+                        Pegar JSON (Área o Individual)
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })()}
+
+            {/* 2B. Tracker de Objetivos del Área */}
+            {areaActual && (
+              <div className="flex flex-col gap-2 rounded-xl border border-[#2A2A2E] bg-[#141417] p-3.5">
+                <span className={rotulo}>
+                  2B. Objetivos en &quot;{areaActual.nombre}&quot; (Hacé clic
+                  para seleccionar o planificar individual)
+                </span>
+                {objetivos.filter((o) => o.areaId === areaActual.id).length ===
+                0 ? (
+                  <p className="text-xs text-zinc-500">
+                    No hay objetivos en esta área todavía. Creá uno en el Paso
+                    1.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {objetivos
+                      .filter((o) => o.areaId === areaActual.id)
+                      .map((o) => {
+                        const proysObj = proyectos.filter(
+                          (p) => p.objetivoId === o.id
+                        );
+                        const seleccionado = objetivoActual?.id === o.id;
+                        return (
+                          <div
+                            key={o.id}
+                            onClick={() => setObjetivoId(o.id)}
+                            className={`flex cursor-pointer flex-wrap items-center justify-between gap-2 rounded-lg border p-2.5 transition-all ${
+                              seleccionado
+                                ? "border-emerald-500/50 bg-emerald-500/10"
+                                : "border-[#2A2A2E] bg-[#0D0D0F] hover:border-zinc-700"
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                {proysObj.length > 0 ? (
+                                  <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400">
+                                    ✓ {proysObj.length} proyecto
+                                    {proysObj.length > 1 ? "s" : ""}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] font-bold text-amber-400">
+                                    ○ Sin proyectos
+                                  </span>
+                                )}
+                                <span className="text-zinc-600">·</span>
+                                <span className="text-[11px] text-zinc-400">
+                                  vence {o.diaLimite}
+                                </span>
+                              </div>
+                              <p className="mt-0.5 truncate text-xs font-bold text-zinc-200">
+                                {o.titulo}
+                              </p>
+                              <p className="text-[10px] text-zinc-500">
+                                Meta: {o.cantidadObjetivo} {o.unidad}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setObjetivoId(o.id);
+                                  copiarPromptEtapa2(o);
+                                }}
+                                icono={<Icono.Copy className="h-3 w-3" />}
+                                title="Copia el prompt enfocado solo para este objetivo"
+                              >
+                                Prompt Individual
+                              </Button>
+                              <Badge color={seleccionado ? "emerald" : "zinc"}>
+                                {seleccionado ? "En Foco" : "Ver"}
+                              </Badge>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 2C. Proyectos y Alta Rápida del Objetivo en Foco */}
             {objetivoActual ? (
               <>
-                {/* Banner IA Etapa 2 */}
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3.5">
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <Icono.Sparkles className="h-4 w-4 text-emerald-400" />
-                      <span className="text-xs font-bold text-emerald-300">
-                        Etapa 2 con IA: Desglosar Objetivo en Proyectos
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-[11px] text-zinc-400">
-                      Copiá el prompt enfocado para desglosar &quot;
-                      <strong className="text-zinc-200">
-                        {objetivoActual.titulo}
-                      </strong>
-                      &quot; en 2 o 3 proyectos/frentes de trabajo coordinados.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={copiarPromptEtapa2}
-                      icono={<Icono.Copy className="h-3.5 w-3.5" />}
-                    >
-                      Copiar Prompt Etapa 2 (Proyectos)
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={abrirModalImportarProyectos}
-                      icono={<Icono.File className="h-3.5 w-3.5" />}
-                    >
-                      Pegar JSON Proyectos
-                    </Button>
-                  </div>
-                </div>
-
                 <div className="rounded-xl border border-[#2A2A2E] bg-[#0D0D0F] p-3">
-                  <span className="text-[10px] font-bold text-emerald-400 uppercase">
-                    Objetivo activo en desglose
-                  </span>
-                  <p className="text-sm font-bold text-zinc-100">
-                    {objetivoActual.titulo} ({objetivoActual.cantidadObjetivo}{" "}
-                    {objetivoActual.unidad} · hasta {objetivoActual.diaLimite})
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-emerald-400 uppercase">
+                      Objetivo en Foco Detallado
+                    </span>
+                    <span className="text-[10px] text-zinc-400">
+                      Área:{" "}
+                      <strong className="text-zinc-200">
+                        {areaActual?.nombre ?? "General"}
+                      </strong>
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-sm font-bold text-zinc-100">
+                    {objetivoActual.titulo}
+                  </p>
+                  <p className="mt-0.5 text-xs text-zinc-400">
+                    Meta:{" "}
+                    <span className="font-medium text-zinc-200">
+                      {objetivoActual.cantidadObjetivo} {objetivoActual.unidad}
+                    </span>{" "}
+                    · Vence:{" "}
+                    <span className="font-medium text-zinc-200">
+                      {objetivoActual.diaLimite}
+                    </span>
                   </p>
                 </div>
 

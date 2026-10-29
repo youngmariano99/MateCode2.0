@@ -972,6 +972,68 @@ describe("Import JSON con IA de la jerarquía (árbol completo y por nivel)", ()
     assert.strictEqual(proyectos[0].objetivoId, objetivos[0].id);
   });
 
+  test("importarProyecto soporta formato multi-objetivo por Área y crea proyectos para varios objetivos a la vez", async () => {
+    await db.area_personal.clear();
+    await db.objetivo_cuantificable.clear();
+    await db.proyecto_personal.clear();
+
+    await importarArbol.importarArbol([
+      {
+        areaTitulo: "Perfil Profesional",
+        objetivosNuevos: [
+          {
+            titulo: "Objetivo 1",
+            unidad: "u",
+            cantidadObjetivo: 10,
+            diaLimite: "2026-12-31",
+            proyectos: [],
+          },
+          {
+            titulo: "Objetivo 2",
+            unidad: "u",
+            cantidadObjetivo: 20,
+            diaLimite: "2026-12-31",
+            proyectos: [],
+          },
+        ],
+      },
+    ]);
+
+    const res = await importarArbol.importarProyecto([
+      {
+        areaTitulo: "Perfil Profesional",
+        objetivos: [
+          {
+            objetivoTitulo: "Objetivo 1",
+            proyectosNuevos: [
+              {
+                titulo: "Proyecto A",
+                diaLimite: "2026-11-30",
+                entregables: [],
+              },
+            ],
+          },
+          {
+            objetivoTitulo: "Objetivo 2",
+            proyectosNuevos: [
+              {
+                titulo: "Proyecto B",
+                diaLimite: "2026-11-30",
+                entregables: [],
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    assert.strictEqual(res.ok, true);
+    const proyectos = await db.proyecto_personal.toArray();
+    assert.strictEqual(proyectos.length, 2);
+    assert.ok(proyectos.some((p) => p.titulo === "Proyecto A"));
+    assert.ok(proyectos.some((p) => p.titulo === "Proyecto B"));
+  });
+
   test("importarEntregable e importarActividades encadenan correctamente sobre lo creado antes", async () => {
     await importarArbol.importarArbol([
       {

@@ -697,18 +697,32 @@ Nota: "proyectos" debe quedar vacío ([]), ya que se desglosará en la Etapa 2.
 function construirPromptEtapa2Proyectos(
   objetivoTitulo: string,
   objetivoDetalles: string,
-  proyectosExistentes: string[] = []
+  proyectosExistentes: string[] = [],
+  mapaAreasYObjetivos: string = ""
 ): string {
   const existentesTexto =
     proyectosExistentes.length > 0
       ? `Proyectos que ya existen bajo este objetivo: ${proyectosExistentes.join(", ")}.`
       : "Sin proyectos cargados todavía bajo este objetivo.";
+
+  const bloqueContextoGlobal = mapaAreasYObjetivos.trim()
+    ? `<panorama_general_areas_y_objetivos>
+Este es el mapa actual de TODAS las Áreas y Objetivos del usuario en la app:
+${mapaAreasYObjetivos}
+
+ATENCIÓN AL BALANCE DE VIDA Y ENERGÍA:
+El usuario tiene múltiples frentes abiertos en simultáneo. Al diseñar los proyectos para el objetivo seleccionado, considerá este contexto global para que los proyectos sean sostenibles, realistas y no sobrecarguen su capacidad diaria (respetando los límites del Búnker de abajo).
+</panorama_general_areas_y_objetivos>
+
+`
+    : "";
+
   return `<rol>
-Actúa como asistente de planificación personal, ayudando a definir la Etapa 2: Proyectos de mediano plazo (~un mes cada uno) para alcanzar un Objetivo específico.
+Actúa como asistente de planificación personal, ayudando a definir la Etapa 2: Proyectos de mediano plazo (~un mes cada uno) para alcanzar un Objetivo específico dentro de un marco de vida equilibrado.
 </rol>
 
-<objetivo_padre>
-Objetivo: "${objetivoTitulo}" (${objetivoDetalles}).
+${bloqueContextoGlobal}<objetivo_padre>
+Objetivo a desglosar ahora: "${objetivoTitulo}" (${objetivoDetalles}).
 ${existentesTexto}
 </objetivo_padre>
 
@@ -721,6 +735,7 @@ Desglosar el Objetivo en 2 a 4 Proyectos claros (frentes de trabajo de mediano p
 - Cada Proyecto debe tener un título representativo y fecha límite ("diaLimite" YYYY-MM-DD) dentro del rango del Objetivo padre.
 - La cantidad y unidad son opcionales (solo si se reparte la cuota numérica del objetivo entre los proyectos, ej. Proyecto 1: 100 contactos, Proyecto 2: 100 contactos).
 - Opcionalmente "bandaAceptable" (ej. 70).
+- Ajustá el alcance y la escala de los proyectos teniendo en cuenta los demás objetivos del usuario para no saturar su agenda.
 NO entres al detalle de los días o tareas sueltas todavía; eso se definirá en las etapas siguientes.
 ${INSTRUCCION_PREGUNTAR}
 </instrucciones>
@@ -737,6 +752,111 @@ Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta est
       "unidad": "contactos",
       "bandaAceptable": 70,
       "entregables": []
+    }
+  ]
+}
+Nota: "entregables" debe quedar vacío ([]), ya que se definirán en la Etapa 3.
+</output_requerido>`;
+}
+
+/** Etapa 2: Proyectos de mediano plazo (~un mes) bajo TODOS los Objetivos pendientes de un Área. */
+function construirPromptEtapa2ProyectosPorArea(
+  areaNombre: string,
+  objetivosPendientes: {
+    titulo: string;
+    cantidadObjetivo?: number;
+    unidad?: string;
+    diaLimite?: string;
+  }[],
+  objetivosYaPlanificados: { titulo: string; proyectos: string[] }[] = [],
+  mapaOtrasAreas: string = ""
+): string {
+  const bloqueContextoGlobal = mapaOtrasAreas.trim()
+    ? `<panorama_general_de_vida>
+Este es el mapa de las DEMÁS Áreas y Objetivos del usuario en la app:
+${mapaOtrasAreas}
+
+ATENCIÓN AL BALANCE DE VIDA Y ENERGÍA:
+El usuario tiene compromisos activos en paralelo en otras áreas. Al diseñar los proyectos para los objetivos del área "${areaNombre}", considerá este panorama general para que los frentes de trabajo sean realistas, equilibrados y no sobrecarguen la capacidad de la agenda diaria (máximo 1 actividad de enfoque y hasta 3 de mantenimiento por día).
+</panorama_general_de_vida>
+
+`
+    : "";
+
+  const bloqueYaPlanificados =
+    objetivosYaPlanificados.length > 0
+      ? `<objetivos_ya_planificados_no_repetir>
+ATENCIÓN — Los siguientes ${objetivosYaPlanificados.length} objetivos del área "${areaNombre}" YA TIENEN proyectos cargados (fueron planificados antes o de forma individual).
+NO generes proyectos para ellos, NO inventes nuevos y NO los incluyas en tu JSON de salida:
+${objetivosYaPlanificados
+  .map(
+    (o) =>
+      `• "${o.titulo}" (Ya cubierto con: ${
+        o.proyectos.length > 0 ? o.proyectos.join(", ") : "proyectos existentes"
+      })`
+  )
+  .join("\n")}
+</objetivos_ya_planificados_no_repetir>
+
+`
+      : "";
+
+  const listaPendientesTexto =
+    objetivosPendientes.length > 0
+      ? objetivosPendientes
+          .map((o) => {
+            const meta = o.cantidadObjetivo
+              ? ` · Meta: ${o.cantidadObjetivo} ${o.unidad ?? ""}`
+              : "";
+            const limite = o.diaLimite ? ` · Vence: ${o.diaLimite}` : "";
+            return `- [Objetivo] "${o.titulo}"${meta}${limite}`;
+          })
+          .join("\n")
+      : "- Sin objetivos pendientes en esta área.";
+
+  return `<rol>
+Actúa como asistente de planificación personal, ayudando a definir la Etapa 2: Proyectos de mediano plazo (~un mes cada uno) para los Objetivos pendientes del Área "${areaNombre}".
+</rol>
+
+${bloqueContextoGlobal}${bloqueYaPlanificados}<objetivos_a_desglosar_ahora>
+Área objetivo: "${areaNombre}".
+Generá proyectos ÚNICAMENTE para los siguientes ${objetivosPendientes.length} objetivo(s) pendientes de esta área:
+${listaPendientesTexto}
+</objetivos_a_desglosar_ahora>
+
+<limites_de_la_app>
+${NOTA_CAPACIDAD_DIARIA}
+</limites_de_la_app>
+
+<instrucciones>
+Para CADA uno de los objetivos pendientes listados arriba:
+- Proponé entre 2 y 3 Proyectos clave de mediano plazo (~un mes cada uno).
+- Cada Proyecto debe tener un título representativo y fecha límite ("diaLimite" YYYY-MM-DD) dentro del plazo de su Objetivo padre.
+- La cantidad y unidad son opcionales (solo si se reparte la cuota numérica del objetivo).
+- Opcionalmente "bandaAceptable" (ej. 70).
+- NO incluyas ni dupliques proyectos para los objetivos ya planificados indicados en <objetivos_ya_planificados_no_repetir>.
+- Mantené los títulos de los objetivos EXACTAMENTE como están escritos.
+NO entres al detalle de los días o tareas sueltas todavía; eso se definirá en las etapas siguientes.
+${INSTRUCCION_PREGUNTAR}
+</instrucciones>
+
+<output_requerido>
+Cuando confirme que está todo, devolvé ÚNICAMENTE un objeto JSON con esta estructura (sin texto adicional):
+{
+  "areaTitulo": "${areaNombre}",
+  "objetivos": [
+    {
+      "objetivoTitulo": "Título exacto del objetivo",
+      "proyectosNuevos": [
+        {
+          "titulo": "...",
+          "diaLimite": "YYYY-MM-DD",
+          "cantidadObjetivo": 100,
+          "unidad": "contactos",
+          "bandaAceptable": 70,
+          "entregables": []
+        }
+      ]
     }
   ]
 }
@@ -867,6 +987,12 @@ export function generarPromptEtapa2Proyectos(
   return conContextoComun(construirPromptEtapa2Proyectos(...args));
 }
 
+export function generarPromptEtapa2ProyectosPorArea(
+  ...args: Parameters<typeof construirPromptEtapa2ProyectosPorArea>
+): string {
+  return conContextoComun(construirPromptEtapa2ProyectosPorArea(...args));
+}
+
 export function generarPromptEtapa3EntregablesYSOPs(
   ...args: Parameters<typeof construirPromptEtapa3EntregablesYSOPs>
 ): string {
@@ -877,4 +1003,62 @@ export function generarPromptEtapa4Actividades(
   ...args: Parameters<typeof construirPromptEtapa4Actividades>
 ): string {
   return conContextoComun(construirPromptEtapa4Actividades(...args));
+}
+
+/**
+ * Formatea de forma legible y compacta todas las áreas con sus objetivos
+ * para que la IA tenga el mapa global de compromisos al desglosar proyectos o entregables.
+ */
+export function formatearMapaAreasYObjetivos(
+  areas: { id: string; nombre: string }[],
+  objetivos: {
+    id: string;
+    areaId?: string;
+    titulo: string;
+    cantidadObjetivo?: number;
+    unidad?: string;
+    diaLimite?: string;
+  }[]
+): string {
+  if (objetivos.length === 0) return "Sin objetivos definidos todavía.";
+
+  const lineas: string[] = [];
+
+  for (const area of areas) {
+    const objsDeEstaArea = objetivos.filter((o) => o.areaId === area.id);
+    if (objsDeEstaArea.length > 0) {
+      lineas.push(
+        `• Área: "${area.nombre}" (${objsDeEstaArea.length} objetivo${
+          objsDeEstaArea.length > 1 ? "s" : ""
+        }):`
+      );
+      for (const o of objsDeEstaArea) {
+        const meta = o.cantidadObjetivo
+          ? ` · Meta: ${o.cantidadObjetivo} ${o.unidad ?? ""}`
+          : "";
+        const limite = o.diaLimite ? ` · Vence: ${o.diaLimite}` : "";
+        lineas.push(`   - [Objetivo] "${o.titulo}"${meta}${limite}`);
+      }
+    }
+  }
+
+  const sinArea = objetivos.filter(
+    (o) => !o.areaId || !areas.some((a) => a.id === o.areaId)
+  );
+  if (sinArea.length > 0) {
+    lineas.push(
+      `• Área General / Sin clasificar (${sinArea.length} objetivo${
+        sinArea.length > 1 ? "s" : ""
+      }):`
+    );
+    for (const o of sinArea) {
+      const meta = o.cantidadObjetivo
+        ? ` · Meta: ${o.cantidadObjetivo} ${o.unidad ?? ""}`
+        : "";
+      const limite = o.diaLimite ? ` · Vence: ${o.diaLimite}` : "";
+      lineas.push(`   - [Objetivo] "${o.titulo}"${meta}${limite}`);
+    }
+  }
+
+  return lineas.join("\n");
 }

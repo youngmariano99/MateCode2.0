@@ -11,8 +11,10 @@ import {
   generarPromptProyecto,
   generarPromptEtapa1Objetivos,
   generarPromptEtapa2Proyectos,
+  generarPromptEtapa2ProyectosPorArea,
   generarPromptEtapa3EntregablesYSOPs,
   generarPromptEtapa4Actividades,
+  formatearMapaAreasYObjetivos,
 } from "../../domain/prompts/generar-prompt-jerarquia-personal";
 import { obtenerDiaTareaHoy } from "../../domain/entidades/personal.entity";
 
@@ -179,5 +181,87 @@ describe("Prompts de la jerarquía Personal: contexto y reglas comunes", () => {
     const etapas = prompts.find((x) => x.nombre === "planificación en etapas")!;
     assert.ok(etapas.texto.includes("<limites_de_la_app>"));
     assert.ok(etapas.texto.includes("<procedimientos_sops>"));
+  });
+
+  test("formatearMapaAreasYObjetivos agrupa correctamente las áreas con sus objetivos", () => {
+    const areas = [
+      { id: "area-1", nombre: "Perfil Profesional" },
+      { id: "area-2", nombre: "Salud" },
+    ];
+    const objetivos = [
+      {
+        id: "obj-1",
+        areaId: "area-1",
+        titulo: "Licenciatura en Administración",
+        cantidadObjetivo: 8,
+        unidad: "instancias",
+        diaLimite: "2027-12-31",
+      },
+      {
+        id: "obj-2",
+        areaId: "area-2",
+        titulo: "Entrenar fuerza",
+        cantidadObjetivo: 150,
+        unidad: "sesiones",
+        diaLimite: "2026-12-31",
+      },
+    ];
+
+    const mapa = formatearMapaAreasYObjetivos(areas, objetivos);
+    assert.ok(mapa.includes('• Área: "Perfil Profesional" (1 objetivo):'));
+    assert.ok(mapa.includes('• Área: "Salud" (1 objetivo):'));
+    assert.ok(mapa.includes("Licenciatura en Administración"));
+    assert.ok(mapa.includes("8 instancias"));
+  });
+
+  test("generarPromptEtapa2Proyectos con mapa de contexto global incluye panorama general", () => {
+    const mapa =
+      '• Área: "Perfil Profesional" (1 objetivo):\n   - [Objetivo] "Licenciatura"';
+    const prompt = generarPromptEtapa2Proyectos(
+      "Licenciatura",
+      "Meta: 8 instancias, vence 2027-12-31, área: Perfil Profesional",
+      [],
+      mapa
+    );
+
+    assert.ok(prompt.includes("<panorama_general_areas_y_objetivos>"));
+    assert.ok(prompt.includes(mapa));
+    assert.ok(prompt.includes("<objetivo_padre>"));
+    assert.ok(prompt.includes("Licenciatura"));
+  });
+
+  test("generarPromptEtapa2ProyectosPorArea excluye objetivos ya planificados para no duplicar", () => {
+    const pendientes = [
+      {
+        titulo: "Desarrollar MVP",
+        cantidadObjetivo: 1,
+        unidad: "MVP",
+        diaLimite: "2026-12-31",
+      },
+    ];
+    const yaPlanificados = [
+      {
+        titulo: "Licenciatura en Administración",
+        proyectos: ["Tesis final", "Prácticas profesionales"],
+      },
+    ];
+    const mapaOtras =
+      '• Área: "Salud" (1 objetivo):\n   - [Objetivo] "Entrenar"';
+
+    const prompt = generarPromptEtapa2ProyectosPorArea(
+      "Perfil Profesional",
+      pendientes,
+      yaPlanificados,
+      mapaOtras
+    );
+
+    assert.ok(prompt.includes("<objetivos_ya_planificados_no_repetir>"));
+    assert.ok(prompt.includes("Licenciatura en Administración"));
+    assert.ok(prompt.includes("Tesis final, Prácticas profesionales"));
+    assert.ok(prompt.includes("NO generes proyectos para ellos"));
+    assert.ok(prompt.includes("<objetivos_a_desglosar_ahora>"));
+    assert.ok(prompt.includes("Desarrollar MVP"));
+    assert.ok(prompt.includes('"areaTitulo": "Perfil Profesional"'));
+    assert.ok(prompt.includes('"objetivos"'));
   });
 });
