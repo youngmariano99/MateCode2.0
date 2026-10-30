@@ -96,7 +96,7 @@ export type ItemFaseJson = z.infer<typeof itemFaseJsonSchema>;
 export const itemEntregableJsonSchema = z.object({
   titulo: z.string().trim().min(1, "Falta el título del entregable."),
   diaInicio: fechaISO.optional(),
-  diaLimite: fechaISO,
+  diaLimite: fechaISO.optional(),
   cantidadObjetivo: z.number().positive().optional(),
   unidad: z.string().trim().optional(),
   bandaAceptable: z.number().min(0).max(100).optional(),
@@ -246,9 +246,7 @@ export const importarEntregableBajoProyectoSchema = z.object({
     .string()
     .trim()
     .min(1, "Falta el título del proyecto padre."),
-  entregablesNuevos: z
-    .array(itemEntregableJsonSchema)
-    .min(1, "No hay ningún entregable para crear."),
+  entregablesNuevos: z.array(itemEntregableJsonSchema).default([]),
 });
 export type ImportarEntregableBajoProyectoInput = z.input<
   typeof importarEntregableBajoProyectoSchema
@@ -324,20 +322,15 @@ export function normalizarInputEntregables(
   return [];
 }
 
-export const importarActividadesBajoEntregableSchema = z
-  .object({
-    entregableTitulo: z
-      .string()
-      .trim()
-      .min(1, "Falta el título del entregable padre."),
-    actividadesNuevas: z.array(itemActividadJsonSchema).default([]),
-    /** Repartos compactos: cada uno se expande a una Actividad por día con su cantidad. */
-    repartos: z.array(repartoJsonSchema).default([]),
-  })
-  .refine((v) => v.actividadesNuevas.length > 0 || v.repartos.length > 0, {
-    message: "No hay ninguna actividad ni reparto para crear.",
-    path: ["actividadesNuevas"],
-  });
+export const importarActividadesBajoEntregableSchema = z.object({
+  entregableTitulo: z
+    .string()
+    .trim()
+    .min(1, "Falta el título del entregable padre."),
+  actividadesNuevas: z.array(itemActividadJsonSchema).default([]),
+  /** Repartos compactos: cada uno se expande a una Actividad por día con su cantidad. */
+  repartos: z.array(repartoJsonSchema).default([]),
+});
 export type ImportarActividadesBajoEntregableInput = z.input<
   typeof importarActividadesBajoEntregableSchema
 >;

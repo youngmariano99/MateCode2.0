@@ -13,7 +13,10 @@ import {
   type ItemEntregableJson,
   type ItemActividadJson,
 } from "../../../domain/entidades/planificacion-jerarquica.entity";
-import { obtenerDiaTareaHoy } from "../../../domain/entidades/personal.entity";
+import {
+  obtenerDiaTareaHoy,
+  sumarDias,
+} from "../../../domain/entidades/personal.entity";
 import { ajustesIAJsonSchema } from "../../../domain/entidades/ajuste-ia.entity";
 import {
   expandirReparto,
@@ -166,7 +169,8 @@ const ResumenEntregable: React.FC<{ e: ItemEntregableJson; nivel: number }> = ({
         r={e.reparto}
         contexto={{
           diaInicio: e.diaInicio ?? obtenerDiaTareaHoy(),
-          diaLimite: e.diaLimite,
+          diaLimite:
+            e.diaLimite ?? sumarDias(e.diaInicio ?? obtenerDiaTareaHoy(), 7),
           total: e.cantidadObjetivo,
           unidad: e.unidad,
         }}

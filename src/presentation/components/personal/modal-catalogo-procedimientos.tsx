@@ -13,6 +13,7 @@ import {
   type CategoriaProcedimiento,
   type Procedimiento,
 } from "../../../domain/entidades/procedimiento.entity";
+import { obtenerDiaTareaHoy } from "../../../domain/entidades/personal.entity";
 
 const procedimientosUseCase = new GestionarProcedimientosUseCase();
 const ejecutarUseCase = new EjecutarProcedimientoUseCase();
@@ -150,7 +151,7 @@ export const ModalCatalogoProcedimientos: React.FC<
 
   const activarParaHoy = async (proc: Procedimiento) => {
     setProcesando(true);
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = obtenerDiaTareaHoy();
 
     // 1. Crear actividad diaria en el Búnker
     const actRes = await actividadesUseCase.crearActividad({

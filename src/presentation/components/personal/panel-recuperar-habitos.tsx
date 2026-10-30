@@ -10,6 +10,7 @@ import { GestionarHabitosUseCase } from "../../../application/use-cases/personal
 import { SelectorEtiquetas } from "../contacto-frio/selector-etiquetas";
 import type { HabitoDefinicion } from "../../../domain/entidades/habitos.entity";
 import {
+  fechaISOEnBuenosAires,
   obtenerDiaTareaHoy,
   sumarDias,
 } from "../../../domain/entidades/personal.entity";
@@ -17,7 +18,7 @@ import {
 const useCase = new GestionarHabitosUseCase();
 
 function diaISODeEpoch(epochMs: number): string {
-  return new Date(epochMs).toISOString().slice(0, 10);
+  return fechaISOEnBuenosAires(epochMs);
 }
 
 // A partir de acá se deja de listar día por día (evita el listado

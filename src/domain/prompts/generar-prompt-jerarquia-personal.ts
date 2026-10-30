@@ -1119,6 +1119,7 @@ function construirPromptEtapa4ActividadesPorArea(
     proyectoTitulo?: string;
     cantidadObjetivo?: number;
     unidad?: string;
+    diaInicio?: string;
     diaLimite?: string;
     procedimientoNombre?: string;
   }[],
@@ -1181,11 +1182,12 @@ ${entregablesPospuestos
             const meta = e.cantidadObjetivo
               ? ` · Meta: ${e.cantidadObjetivo} ${e.unidad ?? ""}`
               : "";
+            const inicio = e.diaInicio ? ` · Inicia: ${e.diaInicio}` : "";
             const limite = e.diaLimite ? ` · Vence: ${e.diaLimite}` : "";
             const sop = e.procedimientoNombre
               ? ` · SOP vinculado: "${e.procedimientoNombre}"`
               : "";
-            return `- [Entregable] "${e.titulo}"${proy}${meta}${limite}${sop}`;
+            return `- [Entregable] "${e.titulo}"${proy}${meta}${inicio}${limite}${sop}`;
           })
           .join("\n")
       : "- Sin entregables seleccionados para agendar en esta tanda.";
@@ -1209,6 +1211,7 @@ Organizar la agenda diaria de los entregables listados arriba cuidando no sobrec
 - Recordá la regla de oro: MÁXIMO 1 actividad de tipo "enfoque" y hasta 3 de tipo "mantenimiento" por día. Si varias actividades caen en la misma semana, distribuilas en días distintos.
 - Para metas numéricas que se reparten en días, usá "repartos" (ej. Lun a Vie, 10 por día).
 - Para actividades puntuales con fecha, usá "actividadesNuevas".
+- RESPETO ESTRICTO DE FECHAS: La fecha de las actividades o repartos ("diaInicio" y "diaTarea") DEBE ser igual o posterior a la fecha de inicio del entregable ("Inicia"). NUNCA agendes actividades o repartos antes de que inicie el entregable.
 - Si un entregable tiene SOP vinculado, la actividad debe hacer referencia a ejecutar ese protocolo.
 - NO dupliques ni incluyas los entregables ya agendados ni los pospuestos.
 ${INSTRUCCION_PREGUNTAR}
@@ -1349,6 +1352,7 @@ export interface ProyectoAuditoriaInput {
   titulo: string;
   cantidadObjetivo?: number;
   unidad?: string;
+  diaInicio?: string;
   diaLimite?: string;
 }
 
@@ -1358,6 +1362,7 @@ export interface EntregableAuditoriaInput {
   titulo: string;
   cantidadObjetivo?: number;
   unidad?: string;
+  diaInicio?: string;
   diaLimite?: string;
 }
 
@@ -1403,6 +1408,9 @@ export function generarPromptAuditoriaArea(
           const metaProy = proy.cantidadObjetivo
             ? ` · Meta: ${proy.cantidadObjetivo} ${proy.unidad ?? ""}`
             : "";
+          const inicioProy = proy.diaInicio
+            ? ` · Inicia: ${proy.diaInicio}`
+            : "";
           const limiteProy = proy.diaLimite
             ? ` · Vence: ${proy.diaLimite}`
             : "";
@@ -1411,7 +1419,7 @@ export function generarPromptAuditoriaArea(
           );
 
           lineasJerarquia.push(
-            `   └─ 🚀 [Proyecto] "${proy.titulo}"${metaProy}${limiteProy}`
+            `   └─ 🚀 [Proyecto] "${proy.titulo}"${metaProy}${inicioProy}${limiteProy}`
           );
 
           if (entsDelProy.length === 0) {
@@ -1423,6 +1431,9 @@ export function generarPromptAuditoriaArea(
               const metaEnt = ent.cantidadObjetivo
                 ? ` · Meta: ${ent.cantidadObjetivo} ${ent.unidad ?? ""}`
                 : "";
+              const inicioEnt = ent.diaInicio
+                ? ` · Inicia: ${ent.diaInicio}`
+                : "";
               const limiteEnt = ent.diaLimite
                 ? ` · Vence: ${ent.diaLimite}`
                 : "";
@@ -1432,7 +1443,7 @@ export function generarPromptAuditoriaArea(
               const sopTexto = tieneSop ? " [📋 Con Procedimiento/SOP]" : "";
 
               lineasJerarquia.push(
-                `        ├─ 📦 [Entregable] "${ent.titulo}"${sopTexto}${metaEnt}${limiteEnt}`
+                `        ├─ 📦 [Entregable] "${ent.titulo}"${sopTexto}${metaEnt}${inicioEnt}${limiteEnt}`
               );
             }
           }
@@ -1522,9 +1533,10 @@ export function generarPromptPlanificacionCompleta(
         const metaProy = proy.cantidadObjetivo
           ? ` · Meta: ${proy.cantidadObjetivo} ${proy.unidad ?? ""}`
           : "";
+        const inicioProy = proy.diaInicio ? ` · Inicia: ${proy.diaInicio}` : "";
         const limiteProy = proy.diaLimite ? ` · Vence: ${proy.diaLimite}` : "";
         lineas.push(
-          `     └─ 🚀 [Proyecto] "${proy.titulo}"${metaProy}${limiteProy}`
+          `     └─ 🚀 [Proyecto] "${proy.titulo}"${metaProy}${inicioProy}${limiteProy}`
         );
 
         const entsProy = entregables.filter((e) => e.proyectoId === proy.id);
@@ -1539,6 +1551,7 @@ export function generarPromptPlanificacionCompleta(
           const metaEnt = ent.cantidadObjetivo
             ? ` · Meta: ${ent.cantidadObjetivo} ${ent.unidad ?? ""}`
             : "";
+          const inicioEnt = ent.diaInicio ? ` · Inicia: ${ent.diaInicio}` : "";
           const limiteEnt = ent.diaLimite ? ` · Vence: ${ent.diaLimite}` : "";
           const actsEnt = actividades.filter(
             (act) => act.entregableId === ent.id
@@ -1548,7 +1561,7 @@ export function generarPromptPlanificacionCompleta(
           const sopTag = tieneSop ? " [📋 Con SOP]" : "";
 
           lineas.push(
-            `          ├─ 📦 [Entregable] "${ent.titulo}"${sopTag}${metaEnt}${limiteEnt}`
+            `          ├─ 📦 [Entregable] "${ent.titulo}"${sopTag}${metaEnt}${inicioEnt}${limiteEnt}`
           );
 
           if (fasesEnt.length > 0) {

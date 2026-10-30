@@ -30,7 +30,11 @@ export class MaterializarActividadesDelDiaUseCase {
         .equals("activo")
         .toArray();
       const recurrentes = entregablesActivos.filter(
-        (e) => e.recurrencia && aplicaHoyEntregable(e.recurrencia, diaISO)
+        (e) =>
+          e.recurrencia &&
+          e.diaInicio <= diaISO &&
+          diaISO <= e.diaLimite &&
+          aplicaHoyEntregable(e.recurrencia, diaISO)
       );
 
       let creadas = 0;

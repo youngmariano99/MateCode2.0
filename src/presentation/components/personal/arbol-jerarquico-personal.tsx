@@ -572,7 +572,8 @@ export const ArbolJerarquicoPersonal: React.FC<{
                                               </span>
                                             )}
                                             <span className="text-[11px] text-zinc-500">
-                                              · hasta {proy.diaLimite}
+                                              · {proy.diaInicio} →{" "}
+                                              {proy.diaLimite}
                                             </span>
                                           </button>
 
@@ -675,6 +676,10 @@ export const ArbolJerarquicoPersonal: React.FC<{
                                                             Recurrente
                                                           </Badge>
                                                         )}
+                                                        <span className="text-[11px] text-zinc-500">
+                                                          · {ent.diaInicio} →{" "}
+                                                          {ent.diaLimite}
+                                                        </span>
                                                       </div>
 
                                                       <div className="flex flex-wrap items-center gap-1">

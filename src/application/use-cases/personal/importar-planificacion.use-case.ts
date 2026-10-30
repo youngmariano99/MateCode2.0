@@ -4,7 +4,10 @@ import { ErrorDominio } from "../../../domain/errores/error-base";
 import { GestionarBunkerUseCase } from "./gestionar-bunker.use-case";
 import { GestionarPendientesUseCase } from "./gestionar-pendientes.use-case";
 import { GestionarObjetivosUseCase } from "./gestionar-objetivos.use-case";
-import { importarPlanSemanalSchema } from "../../../domain/entidades/personal.entity";
+import {
+  importarPlanSemanalSchema,
+  obtenerDiaTareaHoy,
+} from "../../../domain/entidades/personal.entity";
 import { importarPlanObjetivosSchema } from "../../../domain/entidades/objetivo-cuantificable.entity";
 
 /** Arma un mensaje legible a partir de los issues de zod — mismo criterio que parseHandoffIA. */
@@ -94,7 +97,7 @@ export class ImportarPlanificacionUseCase {
     let creados = 0;
     let ajustados = 0;
     const noEncontrados: string[] = [];
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = obtenerDiaTareaHoy();
 
     for (const o of plan.objetivosNuevos) {
       const res = await this.objetivos.crearObjetivo({

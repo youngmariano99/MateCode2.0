@@ -29,7 +29,10 @@ import {
   expandirReparto,
   type RepartoJson,
 } from "../../../domain/entidades/distribucion-personal.entity";
-import { obtenerDiaTareaHoy } from "../../../domain/entidades/personal.entity";
+import {
+  obtenerDiaTareaHoy,
+  sumarDias,
+} from "../../../domain/entidades/personal.entity";
 
 /** Arma un mensaje legible a partir de los issues de zod — mismo criterio que en importar-planificacion.use-case.ts. */
 function mensajeDeIssues(
@@ -179,17 +182,26 @@ export class ImportarArbolPersonalUseCase {
       .filter((e) => e.estado !== "archivado" && igual(e.titulo, item.titulo))
       .first();
     let entregableId: string;
+    let diaInicioEfectivo: string;
+    let diaLimiteEfectivo: string;
     let propio: ResultadoCreacion;
     if (existente) {
       entregableId = existente.id;
+      diaInicioEfectivo = existente.diaInicio;
+      diaLimiteEfectivo = existente.diaLimite;
       propio = { creados: 0, omitidos: 1, errores: [] };
     } else {
+      const proy = await db.proyecto_personal.get(proyectoId);
+      diaInicioEfectivo =
+        item.diaInicio ?? proy?.diaInicio ?? obtenerDiaTareaHoy();
+      diaLimiteEfectivo =
+        item.diaLimite ?? proy?.diaLimite ?? sumarDias(diaInicioEfectivo, 7);
       const res = await this.entregables.crearEntregable({
         proyectoId,
         objetivoId,
         titulo: item.titulo,
-        diaInicio: item.diaInicio ?? obtenerDiaTareaHoy(),
-        diaLimite: item.diaLimite,
+        diaInicio: diaInicioEfectivo,
+        diaLimite: diaLimiteEfectivo,
         cantidadObjetivo: item.cantidadObjetivo,
         unidad: item.unidad,
         bandaAceptable: item.bandaAceptable,
@@ -269,8 +281,8 @@ export class ImportarArbolPersonalUseCase {
     const hijosReparto = item.reparto
       ? [
           await this.crearReparto(item.reparto, entregableId, {
-            diaInicio: item.diaInicio ?? obtenerDiaTareaHoy(),
-            diaLimite: item.diaLimite,
+            diaInicio: diaInicioEfectivo,
+            diaLimite: diaLimiteEfectivo,
             total: item.cantidadObjetivo,
             unidad: item.unidad,
             bandaAceptable: item.bandaAceptable,

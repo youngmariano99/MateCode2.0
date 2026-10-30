@@ -7,7 +7,11 @@ import {
 import type { Entregable } from "./entregable.entity";
 import { aplicaHoy } from "./habitos.entity";
 import type { HabitoDefinicion, HabitoRegistro } from "./habitos.entity";
-import { lunesDeLaSemana, sumarDias } from "./personal.entity";
+import {
+  fechaISOEnBuenosAires,
+  lunesDeLaSemana,
+  sumarDias,
+} from "./personal.entity";
 
 // ============================================================================
 // Estadísticas del área Personal — lógica pura. Reglas para que las cifras
@@ -421,7 +425,7 @@ export function resumirHabitos(
     const propios = new Map(
       registros.filter((r) => r.habitoId === h.id).map((r) => [r.diaTarea, r])
     );
-    const creado = new Date(h.creadoEn).toISOString().slice(0, 10);
+    const creado = fechaISOEnBuenosAires(h.creadoEn);
     const r: ResumenHabito = {
       habitoId: h.id,
       nombre: h.nombre,

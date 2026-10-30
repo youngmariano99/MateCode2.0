@@ -840,6 +840,7 @@ export const WizardPlanificacionPersonal: React.FC<
         proyectoTitulo: proy?.titulo,
         cantidadObjetivo: e.cantidadObjetivo,
         unidad: e.unidad,
+        diaInicio: e.diaInicio,
         diaLimite: e.diaLimite,
         procedimientoNombre: tieneSop
           ? "Procedimiento Estándar vinculado"

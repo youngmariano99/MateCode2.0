@@ -12,6 +12,7 @@ import type {
   EjecucionProcedimiento,
   Procedimiento,
 } from "../../../domain/entidades/procedimiento.entity";
+import { obtenerDiaTareaHoy } from "../../../domain/entidades/personal.entity";
 
 const ejecutarUseCase = new EjecutarProcedimientoUseCase();
 const procedimientosUseCase = new GestionarProcedimientosUseCase();
@@ -60,7 +61,7 @@ export const ProcedimientoActividad: React.FC<ProcedimientoActividadProps> = ({
     const res = await ejecutarUseCase.iniciarEjecucion({
       procedimientoId,
       actividadId: actividad.id,
-      diaTarea: actividad.diaTarea ?? new Date().toISOString().slice(0, 10),
+      diaTarea: actividad.diaTarea ?? obtenerDiaTareaHoy(),
     });
     setProcesando(false);
     if (!res.ok) {

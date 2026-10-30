@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { fechaISOEnBuenosAires } from "./personal.entity";
 
 // ============================================================================
 // El Acordeón: hábitos en 3 niveles (MIN/MED/MAX) — nunca se penaliza

@@ -70,14 +70,28 @@ const fechaISO = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida (YYYY-MM-DD).");
 
+export const ZONA_HORARIA_BUENOS_AIRES = "America/Argentina/Buenos_Aires";
+
+/**
+ * Convierte un Date, timestamp ms o "ahora" a fecha ISO YYYY-MM-DD
+ * en el huso horario oficial de Buenos Aires (GMT-3).
+ * Previene el bug de desfase nocturno (+21hs en GMT-3 = mañana en UTC).
+ */
+export function fechaISOEnBuenosAires(
+  fecha: Date | number = new Date()
+): string {
+  const d = typeof fecha === "number" ? new Date(fecha) : fecha;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: ZONA_HORARIA_BUENOS_AIRES,
+  }).format(d);
+}
+
 /**
  * "Hoy" en huso horario de Buenos Aires, como YYYY-MM-DD — mismo criterio
  * horario que el resto del sistema (ver Planificador de Contenido).
  */
 export function obtenerDiaTareaHoy(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Argentina/Buenos_Aires",
-  }).format(new Date());
+  return fechaISOEnBuenosAires();
 }
 
 /** Suma (o resta, con negativo) días a un YYYY-MM-DD — para "migrar a mañana". */
