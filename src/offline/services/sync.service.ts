@@ -12,8 +12,12 @@ export const SyncService = {
    * para revisión manual, en vez de reintentarse indefinidamente.
    */
   sincronizar: async (
-    onProgress?: (msg: string) => void
+    onProgress?: (msg: string) => void,
+    opciones?: { forzarReintentos?: boolean }
   ): Promise<{ exitosos: number; fallidos: number }> => {
+    if (opciones?.forzarReintentos) {
+      await QueueService.resetearIntentos();
+    }
     const pendientes = await QueueService.obtenerPendientes();
     if (pendientes.length === 0) return { exitosos: 0, fallidos: 0 };
 
@@ -103,6 +107,22 @@ export const SyncService = {
     const contratos = await db.contratos.toArray();
     const pagos = await db.pagos.toArray();
 
+    // Tablas Personal y Hábitos
+    const areaPersonal = await db.area_personal.toArray();
+    const objetivoCuantificable = await db.objetivo_cuantificable.toArray();
+    const proyectoPersonal = await db.proyecto_personal.toArray();
+    const entregable = await db.entregable.toArray();
+    const actividad = await db.actividad.toArray();
+    const fasePersonal = await db.fase_personal.toArray();
+    const personalHistorial = await db.personal_historial.toArray();
+    const procedimiento = await db.procedimiento.toArray();
+    const ejecucionProcedimiento = await db.ejecucion_procedimiento.toArray();
+    const inboxItem = await db.inbox_item.toArray();
+    const tareaDiaria = await db.tarea_diaria.toArray();
+    const tareaPendiente = await db.tarea_pendiente.toArray();
+    const habitoDefinicion = await db.habito_definicion.toArray();
+    const habitoRegistro = await db.habito_registro.toArray();
+
     if (onProgress) onProgress("Subiendo respaldo a la nube...");
 
     const datasets = {
@@ -121,6 +141,20 @@ export const SyncService = {
       contactos,
       contratos,
       pagos,
+      area_personal: areaPersonal,
+      objetivo_cuantificable: objetivoCuantificable,
+      proyecto_personal: proyectoPersonal,
+      entregable,
+      actividad,
+      fase_personal: fasePersonal,
+      personal_historial: personalHistorial,
+      procedimiento,
+      ejecucion_procedimiento: ejecucionProcedimiento,
+      inbox_item: inboxItem,
+      tarea_diaria: tareaDiaria,
+      tarea_pendiente: tareaPendiente,
+      habito_definicion: habitoDefinicion,
+      habito_registro: habitoRegistro,
     };
 
     let count = 0;
@@ -142,6 +176,10 @@ export const SyncService = {
         throw new Error(`Tabla ${table}: ${res.message}`);
       }
     }
+
+    // Si el respaldo completo subió a Supabase sin errores, la cola de eventos
+    // locales pendientes queda obsoleta (el servidor ya tiene el estado final).
+    await QueueService.vaciar();
 
     if (onProgress) onProgress("Respaldo completado exitosamente.");
   },

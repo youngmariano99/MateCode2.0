@@ -49,14 +49,21 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({
     if (sincronizando) return;
     Promise.resolve().then(() => setSincronizando(true));
     try {
-      const { fallidos } = await SyncService.sincronizar();
+      const { fallidos, exitosos } = await SyncService.sincronizar(undefined, {
+        forzarReintentos: true,
+      });
       if (fallidos > 0) {
         mostrarToast(
           `Sincronización parcial: ${fallidos} evento(s) con error, se reintentarán luego.`,
           "error"
         );
       } else {
-        mostrarToast("Sincronización completada con éxito.", "exito");
+        mostrarToast(
+          exitosos > 0
+            ? `Sincronización completada: ${exitosos} evento(s) guardados en la nube.`
+            : "Sincronización completada con éxito.",
+          "exito"
+        );
       }
     } catch {
       mostrarToast(

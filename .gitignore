@@ -44,3 +44,7 @@ next-env.d.ts
 # runner de automatización IA (Fase 2): mapea proyectoId -> ruta local del repo,
 # es específico de cada máquina de desarrollo, no se versiona.
 runner.config.json
+
+# scripts de diagnóstico y pruebas locales
+scripts/test-*.ts
+

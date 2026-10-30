@@ -31,6 +31,10 @@ export const QueueService = {
     await db.cola_eventos.clear();
   },
 
+  resetearIntentos: async (): Promise<void> => {
+    await db.cola_eventos.toCollection().modify({ intentos: 0 });
+  },
+
   registrarFallo: async (
     id: number,
     error: string
