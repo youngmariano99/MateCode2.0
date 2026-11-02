@@ -64,6 +64,7 @@ import type {
   Procedimiento,
   EjecucionProcedimiento,
 } from "../../domain/entidades/procedimiento.entity";
+import type { RecursoOficina } from "../../domain/entidades/recurso-oficina.entity";
 
 export interface CatalogoErrorRow {
   codigo: string;
@@ -189,6 +190,9 @@ export class MateCodeDB extends Dexie {
   // Procedimientos y Protocolos de Trabajo (SOPs)
   public procedimiento!: Table<Procedimiento, string>;
   public ejecucion_procedimiento!: Table<EjecucionProcedimiento, string>;
+
+  // Oficina Virtual: Baúl de recursos, accesos directos e hitos
+  public recurso_oficina!: Table<RecursoOficina, string>;
 
   constructor() {
     super("MateCodeLocalDB");
@@ -1232,6 +1236,11 @@ export class MateCodeDB extends Dexie {
         "id, categoria, areaId, clienteId, objetivoId, proyectoPersonalId, entregableId",
       ejecucion_procedimiento:
         "id, procedimientoId, actividadId, clienteId, diaTarea, estado",
+    });
+
+    // Oficina Virtual: Recursos, enlaces útiles, accesos personalizados e hitos
+    this.version(31).stores({
+      recurso_oficina: "id, tipo, fechaLimite, orden, creadoEn",
     });
 
     this.on("populate", async () => {

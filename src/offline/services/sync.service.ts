@@ -122,6 +122,7 @@ export const SyncService = {
     const tareaPendiente = await db.tarea_pendiente.toArray();
     const habitoDefinicion = await db.habito_definicion.toArray();
     const habitoRegistro = await db.habito_registro.toArray();
+    const recursoOficina = await db.recurso_oficina.toArray();
 
     if (onProgress) onProgress("Subiendo respaldo a la nube...");
 
@@ -155,6 +156,7 @@ export const SyncService = {
       tarea_pendiente: tareaPendiente,
       habito_definicion: habitoDefinicion,
       habito_registro: habitoRegistro,
+      recurso_oficina: recursoOficina,
     };
 
     let count = 0;

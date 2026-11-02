@@ -66,6 +66,7 @@ const tableMapper: Record<string, any> = {
   configuracion_oficina: schema.configuracionOficina,
   procedimiento: schema.procedimiento,
   ejecucion_procedimiento: schema.ejecucionProcedimiento,
+  recurso_oficina: schema.recursoOficina,
 };
 
 const DATE_FIELDS = [

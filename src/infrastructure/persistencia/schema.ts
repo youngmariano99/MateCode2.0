@@ -1302,3 +1302,21 @@ export const ejecucionProcedimiento = pgTable("ejecucion_procedimiento", {
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
   finalizadoEn: timestamp("finalizado_en"),
 });
+
+// ==========================================
+// Oficina Virtual: Recursos, Hitos y Accesos
+// ==========================================
+export const recursoOficina = pgTable("recurso_oficina", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  tipo: varchar("tipo", { length: 30 }).notNull(), // link_util | acceso_directo | hito_fecha | nota_rapida
+  titulo: varchar("titulo", { length: 255 }).notNull(),
+  url: text("url"),
+  icono: varchar("icono", { length: 50 }),
+  etiquetas: jsonb("etiquetas").default([]).notNull(), // string[]
+  fechaLimite: varchar("fecha_limite", { length: 10 }), // YYYY-MM-DD
+  diasAvisoPrevio: integer("dias_aviso_previo").default(0).notNull(),
+  descripcion: text("descripcion"),
+  orden: integer("orden").default(0).notNull(),
+  creadoEn: timestamp("creado_en").defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
+});
