@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { generarConGeminiFallback } from "../../../infrastructure/ai/gemini-fallback";
 
 export const maxDuration = 30;
 
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Modo IA: Procesar lote con Gemini 2.5 Flash
+    // Modo IA: Procesar lote con Gemini
     const apiKey = (process.env.GEMINI_API_KEY || "").trim();
     if (!apiKey) {
       // Fallback a modo ahorro si no hay API key
@@ -171,14 +171,17 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash",
-        generationConfig: {
-          responseMimeType: "application/json",
-          temperature: 0.2,
-          maxOutputTokens: 1200,
-        },
+      const promptLote = JSON.stringify(
+        validItems.map((it) => ({
+          id: `hn_${it.id}`,
+          title: it.title,
+          url: it.url,
+        }))
+      );
+
+      const { texto } = await generarConGeminiFallback({
+        apiKey,
+        prompt: `Procesa este lote de noticias:\n${promptLote}`,
         systemInstruction:
           "Eres el editor jefe de un diario técnico exclusivo para desarrolladores de software y científicos. " +
           "Recibirás una lista de noticias en bruto con { id, title, url }. " +
@@ -188,20 +191,12 @@ export async function POST(req: NextRequest) {
           "- category (exactamente una de: 'Programación e IA', 'Tecnología', 'Ciencia')\n" +
           "- tags (array de 2 a 4 tags concisos sin #, ej: ['Python', 'Cloud', 'OpenAI'])\n\n" +
           'Devuelve ÚNICAMENTE el JSON válido con el array: { "noticias": [ ... ] }',
+        generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0.2,
+          maxOutputTokens: 1200,
+        },
       });
-
-      const promptLote = JSON.stringify(
-        validItems.map((it) => ({
-          id: `hn_${it.id}`,
-          title: it.title,
-          url: it.url,
-        }))
-      );
-
-      const aiRes = await model.generateContent(
-        `Procesa este lote de noticias:\n${promptLote}`
-      );
-      const texto = aiRes.response.text();
       const aiData = JSON.parse(texto);
       const aiMap = new Map<
         string,

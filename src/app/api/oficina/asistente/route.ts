@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { generarConGeminiFallback } from "../../../../infrastructure/ai/gemini-fallback";
 import type {
   ContextoAsistentePayload,
   LogErrorAPI,
@@ -23,22 +23,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, errorAPI }, { status: 500 });
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: {
-        temperature: 0.2, // Baja temperatura para máxima precisión y cero alucinación
-        maxOutputTokens: 600, // Token saving: respuestas ejecutivas y concisas
-      },
-      systemInstruction:
-        "Eres el Copiloto Ejecutivo de Oficina para MateCode 2.0. Tu misión es asistir al usuario en su jornada laboral analizando los datos cuantitativos y cualitativos que el sistema ya calculó para ti.\n" +
-        "REGLAS INQUEBRANTABLES:\n" +
-        "1. QUEDA ESTRICTAMENTE PROHIBIDO INVENTAR, ALUCINAR O ASUMIR DATOS, tareas, clientes o metas que no aparezcan explícitamente en el contexto provisto.\n" +
-        "2. Sé profesional, directo y conciso. Evita introducciones vacías (ej: '¡Hola! Claro que sí...'). Ve al grano.\n" +
-        "3. Estructura tu respuesta en Markdown limpio con negritas y bullets cuando sea útil.\n" +
-        "4. Si la consulta involucra la planificación, enfócate en aconsejar cómo llegar al piso mínimo o banda aceptable de cada entregable.",
-    });
-
     let promptContexto = `Intención: ${payload.intencion}\n`;
     if (payload.consultaUsuario) {
       promptContexto += `Pregunta del usuario: "${payload.consultaUsuario}"\n\n`;
@@ -57,8 +41,21 @@ export async function POST(req: NextRequest) {
     promptContexto +=
       "Instrucción final: Redacta tu análisis táctico y consejo ejecutivo para el usuario respondiendo a su intención.";
 
-    const result = await model.generateContent(promptContexto);
-    const respuestaTexto = result.response.text();
+    const { texto: respuestaTexto } = await generarConGeminiFallback({
+      apiKey,
+      prompt: promptContexto,
+      systemInstruction:
+        "Eres el Copiloto Ejecutivo de Oficina para MateCode 2.0. Tu misión es asistir al usuario en su jornada laboral analizando los datos cuantitativos y cualitativos que el sistema ya calculó para ti.\n" +
+        "REGLAS INQUEBRANTABLES:\n" +
+        "1. QUEDA ESTRICTAMENTE PROHIBIDO INVENTAR, ALUCINAR O ASUMIR DATOS, tareas, clientes o metas que no aparezcan explícitamente en el contexto provisto.\n" +
+        "2. Sé profesional, directo y conciso. Evita introducciones vacías (ej: '¡Hola! Claro que sí...'). Ve al grano.\n" +
+        "3. Estructura tu respuesta en Markdown limpio con negritas y bullets cuando sea útil.\n" +
+        "4. Si la consulta involucra la planificación, enfócate en aconsejar cómo llegar al piso mínimo o banda aceptable de cada entregable.",
+      generationConfig: {
+        temperature: 0.2, // Baja temperatura para máxima precisión y cero alucinación
+        maxOutputTokens: 600, // Token saving: respuestas ejecutivas y concisas
+      },
+    });
 
     if (!respuestaTexto) {
       throw new Error("Gemini no devolvió texto de respuesta.");
@@ -84,6 +81,15 @@ export async function POST(req: NextRequest) {
       tipo = "LIMITE_CUOTA_EXCEDIDO";
       mensajeAmigable =
         "Límite de cuota de la API de Gemini alcanzado (HTTP 429).";
+    } else if (
+      mensaje.includes("503") ||
+      status === 503 ||
+      mensaje.includes("high demand") ||
+      mensaje.includes("Service Unavailable")
+    ) {
+      tipo = "SERVICIO_NO_DISPONIBLE";
+      mensajeAmigable =
+        "Gemini está temporalmente con alta demanda en los servidores de Google (HTTP 503). Intentá de nuevo en unos segundos.";
     } else if (
       mensaje.includes("API_KEY_INVALID") ||
       status === 400 ||

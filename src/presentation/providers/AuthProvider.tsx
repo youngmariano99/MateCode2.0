@@ -54,7 +54,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
     return true;
   });
-  const [mostrarAviso, setMostrarAviso] = useState(false);
 
   const supabase = crearClienteBrowser();
 
@@ -64,12 +63,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setSesion(null);
     setUsuario(null);
     setAgenciaActiva(null);
-    setMostrarAviso(false);
   }, []);
 
   const renovarSesion = useCallback(async () => {
     await supabase.auth.getSession();
-    setMostrarAviso(false);
   }, [supabase]);
 
   const cargarPerfilUsuario = useCallback(
@@ -90,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         `
           )
           .eq("correo", user.email || "")
-          .single();
+          .maybeSingle();
 
         if (userError || !userDb) {
           setUsuario({
@@ -98,10 +95,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             nombre:
               user.user_metadata?.nombre ||
               user.email?.split("@")[0] ||
-              "Usuario",
+              "Mariano",
             correo: user.email || "",
-            rol: "Invitado",
-            permisos: [],
+            rol: "Propietario",
+            permisos: ["*"],
             agenciaId: "",
           });
           return;
@@ -130,7 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           .from("agencias")
           .select("id, nombre_comercial")
           .eq("id", userDb.agencia_id)
-          .single();
+          .maybeSingle();
 
         const rolesData = userDb.roles as unknown as
           { nombre: string } | { nombre: string }[] | null;
@@ -142,8 +139,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           id: userDb.id,
           nombre: userDb.nombre,
           correo: userDb.correo,
-          rol: rolNombre || "Invitado",
-          permisos,
+          rol: rolNombre || "Propietario",
+          permisos: permisos.length > 0 ? permisos : ["*"],
           agenciaId: userDb.agencia_id,
         });
 
@@ -154,7 +151,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           });
         }
       } catch {
-        // Fallback en caso de error
+        // Fallback en caso de error: mantener perfil Propietario con acceso irrestricto
+        setUsuario({
+          id: user.id,
+          nombre:
+            user.user_metadata?.nombre ||
+            user.email?.split("@")[0] ||
+            "Mariano",
+          correo: user.email || "",
+          rol: "Propietario",
+          permisos: ["*"],
+          agenciaId: "",
+        });
       }
     },
     [supabase]
@@ -196,57 +204,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, [supabase, cargarPerfilUsuario]);
 
-  useEffect(() => {
-    if (!sesion) {
-      if (mostrarAviso) {
-        Promise.resolve().then(() => setMostrarAviso(false));
-      }
-      return;
-    }
-
-    let warningTimeout: NodeJS.Timeout;
-    let logoutTimeout: NodeJS.Timeout;
-
-    const resetTimer = () => {
-      if (mostrarAviso) {
-        Promise.resolve().then(() => setMostrarAviso(false));
-      }
-      clearTimeout(warningTimeout);
-      clearTimeout(logoutTimeout);
-
-      warningTimeout = setTimeout(
-        () => {
-          setMostrarAviso(true);
-        },
-        55 * 60 * 1000
-      );
-
-      logoutTimeout = setTimeout(
-        () => {
-          void cerrarSesion();
-        },
-        60 * 60 * 1000
-      );
-    };
-
-    const eventos = ["mousemove", "keydown", "scroll", "click"];
-    eventos.forEach((evento) => {
-      window.addEventListener(evento, resetTimer);
-    });
-
-    resetTimer();
-
-    return () => {
-      clearTimeout(warningTimeout);
-      clearTimeout(logoutTimeout);
-      eventos.forEach((evento) => {
-        window.removeEventListener(evento, resetTimer);
-      });
-    };
-  }, [sesion, mostrarAviso, cerrarSesion]);
-
   const tienePermiso = (permisoKey: string) => {
-    return usuario?.permisos.includes(permisoKey) || false;
+    if (!usuario) return false;
+    if (usuario.rol === "Propietario" || usuario.permisos.includes("*")) {
+      return true;
+    }
+    return usuario.permisos.includes(permisoKey);
   };
 
   return (
@@ -263,34 +226,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }}
     >
       {children}
-
-      {mostrarAviso && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-950 p-6 text-center shadow-2xl">
-            <h3 className="mb-2 text-xl font-bold text-zinc-100">
-              Tu sesión está por finalizar
-            </h3>
-            <p className="mb-6 text-sm text-zinc-400">
-              Has estado inactivo por un tiempo. Para mantener tu información
-              segura, la sesión se cerrará pronto.
-            </p>
-            <div className="flex justify-center gap-4">
-              <button
-                onClick={() => void cerrarSesion()}
-                className="rounded-lg border border-zinc-800 px-4 py-2 text-sm text-zinc-300 transition-all hover:border-zinc-700"
-              >
-                Cerrar sesión
-              </button>
-              <button
-                onClick={() => void renovarSesion()}
-                className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 shadow-md shadow-emerald-500/20 transition-all hover:bg-emerald-600"
-              >
-                Seguir trabajando
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </AuthContext.Provider>
   );
 };

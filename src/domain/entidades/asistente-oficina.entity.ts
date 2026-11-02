@@ -6,6 +6,7 @@ export type TipoErrorAsistente =
   | "API_KEY_INVALIDA"
   | "LIMITE_CUOTA_EXCEDIDO"
   | "TIMEOUT_RED"
+  | "SERVICIO_NO_DISPONIBLE"
   | "ERROR_INTERNO";
 
 export interface LogErrorAPI {
