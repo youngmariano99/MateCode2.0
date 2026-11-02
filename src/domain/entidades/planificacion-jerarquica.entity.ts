@@ -51,7 +51,18 @@ export type ItemPasoProcedimientoJson = z.infer<
 export const itemProcedimientoJsonSchema = z.object({
   titulo: z.string().trim().min(1, "Falta el título del procedimiento."),
   descripcion: z.string().trim().optional(),
-  categoria: z.enum(CATEGORIAS_PROCEDIMIENTO).default("general"),
+  categoria: z
+    .string()
+    .optional()
+    .default("general")
+    .transform((val) => {
+      const limpio = (val || "").trim().toLowerCase();
+      if ((CATEGORIAS_PROCEDIMIENTO as readonly string[]).includes(limpio)) {
+        return limpio as (typeof CATEGORIAS_PROCEDIMIENTO)[number];
+      }
+      if (limpio === "prospeccion") return "contacto_frio";
+      return "general";
+    }),
   clienteId: z.string().optional(),
   areaId: z.string().optional(),
   proyectoPersonalId: z.string().optional(),
@@ -252,6 +263,29 @@ export type ImportarEntregableBajoProyectoInput = z.input<
   typeof importarEntregableBajoProyectoSchema
 >;
 
+function resolverTituloProyecto(
+  o: Record<string, unknown>
+): string | undefined {
+  const val =
+    o.proyectoTitulo ??
+    o.proyecto ??
+    o.tituloProyecto ??
+    o.nombreProyecto ??
+    o.proyectoNombre ??
+    o.titulo ??
+    o.nombre;
+  return typeof val === "string" && val.trim().length > 0
+    ? val.trim()
+    : undefined;
+}
+
+function resolverArrayEntregables(
+  o: Record<string, unknown>
+): unknown[] | undefined {
+  const val = o.entregablesNuevos ?? o.entregables ?? o.items;
+  return Array.isArray(val) ? val : undefined;
+}
+
 /**
  * Normaliza cualquier variante de JSON de entregables (individual, lista de proyectos o por área)
  * devolviendo una lista uniforme de `{ proyectoTitulo, entregablesNuevos }`.
@@ -267,6 +301,22 @@ export function normalizarInputEntregables(
       entregablesNuevos: ItemEntregableJson[];
     }[] = [];
     for (const elem of input) {
+      if (elem && typeof elem === "object") {
+        const elemObj = elem as Record<string, unknown>;
+        const t = resolverTituloProyecto(elemObj);
+        const e = resolverArrayEntregables(elemObj);
+        if (t && e) {
+          const parsed = importarEntregableBajoProyectoSchema.safeParse({
+            proyectoTitulo: t,
+            entregablesNuevos: e,
+          });
+          if (parsed.success) {
+            res.push(parsed.data);
+            continue;
+          }
+        }
+      }
+
       const parsed = importarEntregableBajoProyectoSchema.safeParse(elem);
       if (parsed.success) {
         res.push(parsed.data);
@@ -282,7 +332,19 @@ export function normalizarInputEntregables(
   if (typeof input === "object" && input !== null) {
     const obj = input as Record<string, unknown>;
 
-    // Caso 1: Objeto individual { proyectoTitulo, entregablesNuevos }
+    // Caso 1: Objeto con título y entregables directamente en la raíz (incluso con sinónimos)
+    const tDirecto = resolverTituloProyecto(obj);
+    const eDirectos = resolverArrayEntregables(obj);
+    if (tDirecto && eDirectos) {
+      const parsed = importarEntregableBajoProyectoSchema.safeParse({
+        proyectoTitulo: tDirecto,
+        entregablesNuevos: eDirectos,
+      });
+      if (parsed.success) {
+        return [parsed.data];
+      }
+    }
+
     const parsedInd = importarEntregableBajoProyectoSchema.safeParse(obj);
     if (parsedInd.success) {
       return [parsedInd.data];
@@ -301,10 +363,9 @@ export function normalizarInputEntregables(
       for (const item of lista) {
         if (item && typeof item === "object") {
           const itemObj = item as Record<string, unknown>;
-          const titulo = (itemObj.proyectoTitulo ?? itemObj.titulo) as string;
-          const entregables = (itemObj.entregablesNuevos ??
-            itemObj.entregables) as unknown[];
-          if (typeof titulo === "string" && Array.isArray(entregables)) {
+          const titulo = resolverTituloProyecto(itemObj);
+          const entregables = resolverArrayEntregables(itemObj);
+          if (titulo && entregables) {
             const parsed = importarEntregableBajoProyectoSchema.safeParse({
               proyectoTitulo: titulo,
               entregablesNuevos: entregables,
