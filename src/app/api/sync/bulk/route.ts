@@ -230,31 +230,47 @@ export async function POST(req: NextRequest) {
             );
           }
 
-          for (const dbPayload of normalizados) {
-            if (
-              tableSchema.actualizadoEn &&
-              dbPayload.actualizadoEn &&
-              existentesMap
-            ) {
-              const identificador = isProjectConfigTable
-                ? dbPayload.proyectoId
-                : isFichaTable
-                  ? dbPayload.potencialClienteId
-                  : dbPayload.id;
-              if (
-                servidorTieneVersionMasNueva(
-                  existentesMap.get(identificador),
-                  dbPayload.actualizadoEn
-                )
-              ) {
-                continue;
-              }
+          if (table === "personal_historial") {
+            // Historial es un log inmutable: insertar en lotes de 50 con ON CONFLICT DO NOTHING
+            // reduce 300 roundtrips secuenciales a solo 6 consultas, evitando timeouts de red.
+            const CHUNK_SIZE = 50;
+            for (let i = 0; i < normalizados.length; i += CHUNK_SIZE) {
+              const chunk = normalizados.slice(i, i + CHUNK_SIZE);
+              await tx
+                .insert(tableSchema)
+                .values(chunk)
+                .onConflictDoNothing({ target: conflictTarget });
             }
+          } else {
+            for (const dbPayload of normalizados) {
+              if (
+                tableSchema.actualizadoEn &&
+                dbPayload.actualizadoEn &&
+                existentesMap
+              ) {
+                const identificador = isProjectConfigTable
+                  ? dbPayload.proyectoId
+                  : isFichaTable
+                    ? dbPayload.potencialClienteId
+                    : dbPayload.id;
+                if (
+                  servidorTieneVersionMasNueva(
+                    existentesMap.get(identificador),
+                    dbPayload.actualizadoEn
+                  )
+                ) {
+                  continue;
+                }
+              }
 
-            await tx.insert(tableSchema).values(dbPayload).onConflictDoUpdate({
-              target: conflictTarget,
-              set: dbPayload,
-            });
+              await tx
+                .insert(tableSchema)
+                .values(dbPayload)
+                .onConflictDoUpdate({
+                  target: conflictTarget,
+                  set: dbPayload,
+                });
+            }
           }
         });
         tablasOk.push(table);

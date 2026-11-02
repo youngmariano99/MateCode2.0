@@ -171,9 +171,13 @@ export const SyncService = {
       const res = await HttpClient.post<{
         success: boolean;
         message: string;
-      }>("/sync/bulk", {
-        [table]: records,
-      });
+      }>(
+        "/sync/bulk",
+        {
+          [table]: records,
+        },
+        { timeout: 60000 }
+      );
       if (!res.success) {
         throw new Error(`Tabla ${table}: ${res.message}`);
       }
