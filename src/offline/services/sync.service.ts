@@ -161,25 +161,55 @@ export const SyncService = {
 
     let count = 0;
     const total = Object.keys(datasets).length;
+    const BATCH_SIZE = 50;
+
     for (const [table, records] of Object.entries(datasets)) {
       count++;
       if (!records || records.length === 0) continue;
-      if (onProgress)
-        onProgress(`Sincronizando tabla ${table} (${count}/${total})...`);
 
-      // Enviar de a una tabla a la vez para evitar timeouts por payloads masivos
-      const res = await HttpClient.post<{
-        success: boolean;
-        message: string;
-      }>(
-        "/sync/bulk",
-        {
-          [table]: records,
-        },
-        { timeout: 60000 }
-      );
-      if (!res.success) {
-        throw new Error(`Tabla ${table}: ${res.message}`);
+      if (records.length > BATCH_SIZE) {
+        const totalBatches = Math.ceil(records.length / BATCH_SIZE);
+        for (let i = 0; i < records.length; i += BATCH_SIZE) {
+          const batchIndex = Math.floor(i / BATCH_SIZE) + 1;
+          const chunk = records.slice(i, i + BATCH_SIZE);
+          if (onProgress) {
+            onProgress(
+              `Sincronizando ${table} (lote ${batchIndex}/${totalBatches})...`
+            );
+          }
+          const res = await HttpClient.post<{
+            success: boolean;
+            message: string;
+          }>(
+            "/sync/bulk",
+            {
+              [table]: chunk,
+            },
+            { timeout: 60000 }
+          );
+          if (!res.success) {
+            throw new Error(
+              `Tabla ${table} (lote ${batchIndex}): ${res.message}`
+            );
+          }
+        }
+      } else {
+        if (onProgress)
+          onProgress(`Sincronizando tabla ${table} (${count}/${total})...`);
+
+        const res = await HttpClient.post<{
+          success: boolean;
+          message: string;
+        }>(
+          "/sync/bulk",
+          {
+            [table]: records,
+          },
+          { timeout: 60000 }
+        );
+        if (!res.success) {
+          throw new Error(`Tabla ${table}: ${res.message}`);
+        }
       }
     }
 

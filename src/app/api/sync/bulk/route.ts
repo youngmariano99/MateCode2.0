@@ -231,11 +231,26 @@ export async function POST(req: NextRequest) {
           }
 
           if (table === "personal_historial") {
-            // Historial es un log inmutable: insertar en lotes de 50 con ON CONFLICT DO NOTHING
-            // reduce 300 roundtrips secuenciales a solo 6 consultas, evitando timeouts de red.
+            // Historial es un log inmutable: normalizar estructura uniforme (mismas claves
+            // e inserción en lotes de 50 con ON CONFLICT DO NOTHING para evitar descalces en Drizzle).
+            const filasHistorial = normalizados.map((row) => ({
+              id: String(row.id),
+              entidadTipo: String(row.entidadTipo),
+              entidadId: String(row.entidadId),
+              accion: String(row.accion),
+              descripcion: (row.descripcion as string) ?? null,
+              campoAnterior:
+                (row.campoAnterior as Record<string, unknown>) ?? null,
+              campoNuevo: (row.campoNuevo as Record<string, unknown>) ?? null,
+              creadoEn:
+                row.creadoEn instanceof Date
+                  ? row.creadoEn
+                  : new Date(Number(row.creadoEn) || Date.now()),
+            }));
+
             const CHUNK_SIZE = 50;
-            for (let i = 0; i < normalizados.length; i += CHUNK_SIZE) {
-              const chunk = normalizados.slice(i, i + CHUNK_SIZE);
+            for (let i = 0; i < filasHistorial.length; i += CHUNK_SIZE) {
+              const chunk = filasHistorial.slice(i, i + CHUNK_SIZE);
               await tx
                 .insert(tableSchema)
                 .values(chunk)

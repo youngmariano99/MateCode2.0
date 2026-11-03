@@ -29,6 +29,7 @@ export const Icono = {
   Trash: Lucide.Trash2,
   Edit: Lucide.Edit2,
   File: Lucide.File,
+  FileText: Lucide.FileText,
   Upload: Lucide.Upload,
   Globe: Lucide.Globe,
   Bell: Lucide.Bell,

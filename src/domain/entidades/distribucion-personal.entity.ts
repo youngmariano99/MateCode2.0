@@ -184,21 +184,34 @@ export const TIPOS_ACTIVIDAD_REPARTO = ["enfoque", "mantenimiento"] as const;
  * Todo opcional salvo la descripción — lo que falte se toma del Entregable o
  * de la Fase donde va anidado (fechas, total, unidad).
  */
-export const repartoJsonSchema = z.object({
-  descripcion: z.string().trim().min(1, "Falta la descripción del reparto."),
-  tipo: z.enum(TIPOS_ACTIVIDAD_REPARTO).default("mantenimiento"),
-  diaInicio: fechaISO.optional(),
-  diaLimite: fechaISO.optional(),
-  /** 0=domingo...6=sábado. Por defecto, lunes a viernes. */
-  diasSemana: z
-    .array(z.number().int().min(0).max(6))
-    .min(1, "Elegí al menos un día de la semana.")
-    .default(DIAS_HABILES),
-  cantidadTotal: z.number().positive().optional(),
-  unidad: z.string().trim().optional(),
-  /** % de la cantidad de CADA DÍA que alcanza como mínimo (ej. 50 → si toca 2, con 1 vale). Si falta, hereda la banda de la Fase/Entregable donde va. */
-  bandaAceptable: z.number().min(0).max(100).optional(),
-});
+export const repartoJsonSchema = z.preprocess(
+  (val) => {
+    if (typeof val === "object" && val !== null) {
+      const obj = { ...(val as Record<string, unknown>) };
+      if (!obj.diaLimite && obj.diaFin) {
+        obj.diaLimite = obj.diaFin;
+      }
+      return obj;
+    }
+    return val;
+  },
+  z.object({
+    descripcion: z.string().trim().min(1, "Falta la descripción del reparto."),
+    tipo: z.enum(TIPOS_ACTIVIDAD_REPARTO).default("mantenimiento"),
+    diaInicio: fechaISO.optional(),
+    diaLimite: fechaISO.optional(),
+    diaFin: fechaISO.optional(),
+    /** 0=domingo...6=sábado. Por defecto, lunes a viernes. */
+    diasSemana: z
+      .array(z.number().int().min(0).max(6))
+      .min(1, "Elegí al menos un día de la semana.")
+      .default(DIAS_HABILES),
+    cantidadTotal: z.number().positive().optional(),
+    unidad: z.string().trim().optional(),
+    /** % de la cantidad de CADA DÍA que alcanza como mínimo (ej. 50 → si toca 2, con 1 vale). Si falta, hereda la banda de la Fase/Entregable donde va. */
+    bandaAceptable: z.number().min(0).max(100).optional(),
+  })
+);
 export type RepartoJson = z.infer<typeof repartoJsonSchema>;
 
 export interface ContextoReparto {

@@ -14,6 +14,7 @@ import {
 import { useAreaPorObjetivo } from "../calendario-utils";
 import { ChipsMotivoDesvio } from "../chips-motivo-desvio";
 import { ModalTrazabilidadActividad } from "./modal-trazabilidad-actividad";
+import { ProcedimientoActividad } from "../procedimiento-actividad";
 import type {
   Actividad,
   MotivoDesvio,
@@ -338,6 +339,14 @@ export const CockpitTareasHoy: React.FC = () => {
                       )}
                     </div>
                   )}
+
+                  {/* SOP / Procedimiento de Trabajo vinculado */}
+                  <div
+                    className="border-t border-zinc-900/80 pt-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ProcedimientoActividad actividad={act} />
+                  </div>
                 </div>
               );
             })

@@ -1210,9 +1210,9 @@ export const fasePersonal = pgTable("fase_personal", {
 // el razonamiento de por qué no se reutiliza la tabla `historial` de arriba.
 export const personalHistorial = pgTable("personal_historial", {
   id: varchar("id", { length: 255 }).primaryKey(),
-  entidadTipo: varchar("entidad_tipo", { length: 20 }).notNull(),
+  entidadTipo: varchar("entidad_tipo", { length: 100 }).notNull(),
   entidadId: varchar("entidad_id", { length: 255 }).notNull(),
-  accion: varchar("accion", { length: 30 }).notNull(),
+  accion: varchar("accion", { length: 100 }).notNull(),
   descripcion: text("descripcion"),
   campoAnterior: jsonb("campo_anterior"),
   campoNuevo: jsonb("campo_nuevo"),

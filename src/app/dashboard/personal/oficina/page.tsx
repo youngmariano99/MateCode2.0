@@ -11,6 +11,7 @@ import { SesionTrabajo } from "../../../../presentation/components/personal/ofic
 import { ModalDiarioTecnico } from "../../../../presentation/components/personal/oficina/modal-diario-tecnico";
 import { ModalBaulRecursos } from "../../../../presentation/components/personal/oficina/modal-baul-recursos";
 import { ModalCopilotoOficina } from "../../../../presentation/components/personal/oficina/modal-copiloto-oficina";
+import { ModalCatalogoProcedimientos } from "../../../../presentation/components/personal/modal-catalogo-procedimientos";
 
 const breadcrumbs = [
   { label: "Personal", href: "/dashboard/personal/hoy" },
@@ -28,6 +29,7 @@ export default function OficinaPage() {
   const [modalNoticias, setModalNoticias] = useState(false);
   const [modalBaul, setModalBaul] = useState(false);
   const [modalCopiloto, setModalCopiloto] = useState(false);
+  const [modalSOPs, setModalSOPs] = useState(false);
 
   return (
     <MainLayout breadcrumbs={breadcrumbs}>
@@ -72,6 +74,15 @@ export default function OficinaPage() {
               <Icono.Target className="h-4 w-4 text-emerald-400" />
               Copiloto IA
             </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => setModalSOPs(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-300 hover:border-purple-500/50 hover:text-purple-300"
+            >
+              <Icono.FileText className="h-4 w-4 text-purple-400" />
+              Catálogo SOPs
+            </Button>
           </div>
         </div>
 
@@ -108,6 +119,11 @@ export default function OficinaPage() {
         <ModalCopilotoOficina
           abierto={modalCopiloto}
           onCerrar={() => setModalCopiloto(false)}
+        />
+
+        <ModalCatalogoProcedimientos
+          abierto={modalSOPs}
+          onCerrar={() => setModalSOPs(false)}
         />
       </div>
     </MainLayout>
