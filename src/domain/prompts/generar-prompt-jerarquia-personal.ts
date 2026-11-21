@@ -99,6 +99,7 @@ function conContextoComun(
 
 const NOTA_REPARTO = `LOS 3 MODOS DE ENTREGABLES Y TAREAS EN LA APP — elegí siempre el que mejor calce con cada trabajo:
 1. MODO CUANTIFICABLE CON REPARTO SEMANAL (Tope estricto de 7 días / 1 Semana):
+   - Para metas numéricas NO uses "recurrencia" — usá "reparto" (dentro del Entregable, o dentro de una Fase).
    - Queda estrictamente PROHIBIDO ejecutar la función reparto para autogenerar actividades más allá de los próximos 7 días (revisión dominical semanal).
    - Estructura: { "descripcion": "...", "tipo": "mantenimiento" | "enfoque", "diasSemana": [1,2,3,4,5], "cantidadTotal": 40, "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "unidad": "contactos" }.
    - El sistema genera UNA Actividad por día con su cuota entera (ej. 40 en 5 días = 8 por día).
@@ -142,6 +143,7 @@ const NOTA_CONTROL_NUMEROS = `CONTROL DE NÚMEROS — antes de escribir el JSON,
 
 export const NOTA_CAPACIDAD_DIARIA = `LÍMITES Y CAPACIDAD DIARIA EN LA AGENDA (BÚNKER DEL DÍA):
 - En MateCode 2.0 la agenda diaria se cuida estrictamente para evitar parálisis por sobrecarga y burnout.
+- Regla de oro de carga diaria: MÁXIMO 1 Actividad de Enfoque (lo crucial que mueve la aguja en el día) y hasta 3 Actividades de Mantenimiento (gestión, tareas operativas, seguimiento).
 - Vista Diaria Minimalista: El Búnker del día NO debe superar las 3 a 4 tarjetas activas (1 bloque comercial/construcción, 1 bloque de proyecto único, 1-2 hábitos físicos).
 - Techo Cognitivo Matutino: Máximo 4 a 5 horas de alta exigencia mental concentradas a la mañana.
 - Prohibición en Zona Muerta (Tarde/Noche): Prohibido agendar tareas intelectuales complejas por la tarde o noche; ese bloque se reserva para renovación física (caminata NEAT, entrenamiento), mandados del hogar o familia.

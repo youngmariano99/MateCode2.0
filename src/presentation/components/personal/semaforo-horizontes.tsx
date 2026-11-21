@@ -9,6 +9,7 @@ import { obtenerDiaTareaHoy } from "../../../domain/entidades/personal.entity";
 import { evaluarEstadoHorizontes } from "../../../domain/servicios/auditoria-progresion.service";
 import { ModalPlanificarSemana } from "./modal-planificar-semana";
 import { ModalPlanificarMes } from "./modal-planificar-mes";
+import { ModalResetearPlanificacion } from "./modal-resetear-planificacion";
 
 interface SemaforoHorizontesProps {
   onAbrirWizardGeneral?: () => void;
@@ -20,6 +21,7 @@ export const SemaforoHorizontes: React.FC<SemaforoHorizontesProps> = ({
   const hoy = obtenerDiaTareaHoy();
   const [modalSemanaAbierto, setModalSemanaAbierto] = useState(false);
   const [modalMesAbierto, setModalMesAbierto] = useState(false);
+  const [modalResetAbierto, setModalResetAbierto] = useState(false);
 
   const areas = useLiveQuery(() => db.area_personal.toArray()) ?? [];
   const objetivos =
@@ -68,6 +70,16 @@ export const SemaforoHorizontes: React.FC<SemaforoHorizontesProps> = ({
               Setup General (1ª Vez)
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => setModalResetAbierto(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs font-semibold text-red-400 transition-colors hover:border-red-500/50 hover:bg-red-500/20 hover:text-red-300"
+            title="Resetear toda o parte de la planificación"
+          >
+            <Icono.Trash className="h-3.5 w-3.5" />
+            Resetear Planificación
+          </button>
         </div>
       </div>
 
@@ -229,6 +241,11 @@ export const SemaforoHorizontes: React.FC<SemaforoHorizontesProps> = ({
       <ModalPlanificarMes
         abierto={modalMesAbierto}
         onCerrar={() => setModalMesAbierto(false)}
+      />
+
+      <ModalResetearPlanificacion
+        abierto={modalResetAbierto}
+        onClose={() => setModalResetAbierto(false)}
       />
     </div>
   );
