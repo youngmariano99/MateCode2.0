@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
         "1. QUEDA ESTRICTAMENTE PROHIBIDO INVENTAR, ALUCINAR O ASUMIR DATOS, tareas, clientes o metas que no aparezcan explícitamente en el contexto provisto.\n" +
         "2. Sé profesional, directo y conciso. Evita introducciones vacías (ej: '¡Hola! Claro que sí...'). Ve al grano.\n" +
         "3. Estructura tu respuesta en Markdown limpio con negritas y bullets cuando sea útil.\n" +
-        "4. Si la consulta involucra la planificación, enfócate en aconsejar cómo llegar al piso mínimo o banda aceptable de cada entregable.",
+        "4. ESTÁNDARES DEL BÚNKER: Tope de 3-4 tarjetas diarias, techo cognitivo matutino (4-5h), buffer del 50% en construcción, banda mínima del 70%, y prioridad a la familia/salud sobre el mapa de tareas.",
       generationConfig: {
         temperature: 0.2, // Baja temperatura para máxima precisión y cero alucinación
         maxOutputTokens: 600, // Token saving: respuestas ejecutivas y concisas

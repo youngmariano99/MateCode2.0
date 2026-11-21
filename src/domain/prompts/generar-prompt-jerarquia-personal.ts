@@ -46,7 +46,42 @@ __REGLA_MODO__
 - Si te falta un dato, preguntame; no lo inventes.
 </reglas_del_json>`;
 
-/** Inserta la fecha actual y las reglas comunes antes de las instrucciones — así ningún prompt puede quedar sin ellas. */
+export const ESTANDARES_PLANIFICACION_BUNKER = `<estandares_de_planificacion_bunker>
+REGLAS DE SISTEMA: ESTÁNDARES DE PLANIFICACIÓN (MATECODE / BÚNKER)
+Toda planificación, auditoría o generación de registros (Áreas, Objetivos, Proyectos, Entregables, Actividades y SOPs) DEBE cumplir estrictamente estas reglas inquebrantables:
+
+1. HORIZONTES TEMPORALES Y TOPES DE FECHA (ANTI-FALACIA DE PLANEACIÓN):
+- Largo Plazo (6 a 12 meses — Solo Brújula): Se definen únicamente Áreas Personales y Objetivos Cuantificables. Queda terminantemente PROHIBIDO crear proyectos, entregables o actividades diarias más allá del mes en curso.
+- Mediano Plazo (90 días — Revisión Estratégica): Cada trimestre se evalúa el progreso global y se recalibra qué objetivos siguen vigentes según la realidad operativa.
+- Tope de Proyecto y Entregable (30 días / 1 Mes): Todo Proyecto Personal y Entregable se define exclusivamente para el mes en curso (sprint mensual).
+- Tope de reparto y Actividad Diaria (7 días / 1 Semana): Queda estrictamente PROHIBIDO ejecutar la función "reparto" para autogenerar actividades más allá de los próximos 7 días (revisión dominical).
+
+2. CALIBRACIÓN BASADA EN EVIDENCIA (SIN ESCALAMIENTO AUTOMÁTICO):
+- Prohibición de Progresión Ciega: Queda prohibido programar subidas automáticas de dificultad, tiempo o volumen entre semanas o meses futuros.
+- Regla de Estabilización por Cumplimiento:
+  * Si el cumplimiento fue < 80%: Se mantienen exactamente los mismos niveles y volúmenes para el siguiente período sin aumentar la exigencia.
+  * Si el cumplimiento fue ≥ 80% durante 4 semanas consecutivas: Recién entonces se habilita un incremento gradual de carga.
+
+3. ARQUITECTURA Y TOPES DE SIMULTANEIDAD (WIP LIMITS):
+- Áreas Personales (Máximo 3 a 4): Deben garantizar el equilibrio Producción / Capacidad de Producción (P/CP): 1) Profesional e Ingresos, 2) Salud Integral (unifica salud y deporte) y 3) Vida Personal, Familia y Descanso. NINGÚN plan es válido si omite la dimensión familiar o de descanso.
+- Objetivos Cuantificables: Máximo 1 objetivo activo por Área. Los hábitos recurrentes se miden por consistencia semanal (ej. 4 de 5 días cumplidos), nunca por suma acumulada a meses vista.
+- Proyectos Personales: Máximo 1 proyecto activo de construcción por mes (ej. "Caso 1: May Delicias"). Los hábitos diarios/semanales se agrupan en un único contenedor mensual de mantenimiento ("Sistema Base [Mes]").
+- Amortiguador y Banda Aceptable: Todo cálculo de tiempo para proyectos de construcción se multiplica por 1.5 (buffer del 50%). Todo entregable debe configurar "bandaAceptable": 70 como umbral de éxito válido.
+
+4. GESTIÓN DE ENERGÍA Y BLOQUES OPERATIVOS:
+- Techo Cognitivo Matutino: La suma de actividades de alta exigencia mental (programación, estudio, prospección, postulaciones) no puede superar las 4 a 5 horas diarias reales, concentradas exclusivamente en la mañana/mediodía.
+- Prohibición en Zona Muerta (Tarde/Noche): Prohibido agendar tareas intelectuales complejas después del almuerzo o por la noche. Ese bloque se reserva exclusivamente para renovación física (caminata NEAT, entrenamiento), mandados del hogar o familia.
+- Producción en Lotes (Batching): Las tareas de creación de contenido (Build in Public) o estudio teórico no se fragmentan todos los días; se agrupan en 1 o 2 bloques fijos semanales.
+
+5. EJECUCIÓN ANTI-FRICCIÓN (BÚNKER Y SOPs):
+- Vista Diaria Minimalista: El Búnker del día no debe superar las 3 a 4 tarjetas activas (1 bloque comercial, 1 bloque de proyecto único, 1-2 hábitos físicos).
+- Estructura Obligatoria de SOP: Todo Procedimiento / SOP vinculado a una actividad debe incluir:
+  * Paso 0 (2 minutos): Acción mínima de arranque para eliminar la fricción inicial.
+  * Protocolo Modo Piso (15 minutos): Versión mínima viable para días de crisis o imprevistos familiares, permitiendo registrar avance parcial (+1) y dar el día por cumplido sin romper la cadena.
+- Brújula sobre Mapa: Subordinar una actividad agendada para atender una necesidad familiar o humana importante se migra sin penalización como una decisión consciente de liderazgo personal, nunca como un fallo del sistema.
+</estandares_de_planificacion_bunker>`;
+
+/** Inserta la fecha actual, los estándares del búnker y las reglas comunes antes de las instrucciones — así ningún prompt puede quedar sin ellas. */
 function conContextoComun(
   prompt: string,
   modo: "crear" | "ajustar" = "crear"
@@ -55,7 +90,7 @@ function conContextoComun(
   if (!prompt.includes(marca)) return prompt;
   return prompt.replace(
     marca,
-    `${bloqueFechaActual()}\n\n${REGLAS_JSON.replace(
+    `${bloqueFechaActual()}\n\n${ESTANDARES_PLANIFICACION_BUNKER}\n\n${REGLAS_JSON.replace(
       "__REGLA_MODO__",
       modo === "crear" ? REGLA_SOLO_CREA : REGLA_SOLO_AJUSTA
     )}\n\n${marca}`
@@ -63,9 +98,11 @@ function conContextoComun(
 }
 
 const NOTA_REPARTO = `LOS 3 MODOS DE ENTREGABLES Y TAREAS EN LA APP — elegí siempre el que mejor calce con cada trabajo:
-1. MODO CUANTIFICABLE (con meta numérica repartida en días, ej. "contactar 200 en frío de lunes a viernes"): NO uses "recurrencia" — usá "reparto" (dentro del Entregable, o dentro de una Fase): { "descripcion": "Contactar en frío", "tipo": "mantenimiento", "diasSemana": [1,2,3,4,5], "cantidadTotal": 40, "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "unidad": "contactos" }. El sistema genera UNA Actividad por día con su cantidad exacta (ej. 40 en 5 días = 8 por día) — vos NO escribas las actividades una por una.
-   - Cuota CONSTANTE: Proyecto → Entregables con su "reparto".
-   - Cuota PROGRESIVA / RECORRIDO PROYECTADO (ej. Mes 1 a 2/día = 40/mes, Mes 2 proyectado a 4/día = 80/mes): Proyecto → un Entregable con "fases" (cada Fase con su porción y fechas, dejando el recorrido proyectado listo de principio a fin) y un "reparto" DENTRO de cada Fase.
+1. MODO CUANTIFICABLE CON REPARTO SEMANAL (Tope estricto de 7 días / 1 Semana):
+   - Queda estrictamente PROHIBIDO ejecutar la función reparto para autogenerar actividades más allá de los próximos 7 días (revisión dominical semanal).
+   - Estructura: { "descripcion": "...", "tipo": "mantenimiento" | "enfoque", "diasSemana": [1,2,3,4,5], "cantidadTotal": 40, "diaInicio": "YYYY-MM-DD", "diaLimite": "YYYY-MM-DD", "unidad": "contactos" }.
+   - El sistema genera UNA Actividad por día con su cuota entera (ej. 40 en 5 días = 8 por día).
+   - PROHIBICIÓN DE ESCALAMIENTO AUTOMÁTICO: Prohibido subir dificultad o volumen a semanas futuras. La carga se mantiene estable; solo se aumenta si el cumplimiento real auditado supera el 80% durante 4 semanas consecutivas.
 2. MODO CONTINUO / INDEFINIDO (Lun a Vie hasta darlo por terminado, donde el usuario decide en el momento qué hacer y anota en el día qué hizo): usá UN Entregable con "recurrencia": { "frecuencia": "dias_especificos", "diasSemana": [1,2,3,4,5] }, SIN "cantidadObjetivo", con "fases": [] y "actividades": []. La app genera la tarjeta cada día elegido para que el usuario anote en el día qué hizo ("notaCierre") y cuando termine el entregable toque "Terminado (No repetir más)" para que deje de aparecer.
 3. MODO DÍA ESPECÍFICO / HITO PUNTUAL (sin cuota repetitiva, en una fecha o días puntuales): Entregables sin "reparto" ni "recurrencia", con "actividades" puntuales (con "diaTarea" YYYY-MM-DD). Una Actividad puntual también puede llevar "cantidadObjetivo" y "unidad" si se cuenta.`;
 
@@ -105,16 +142,22 @@ const NOTA_CONTROL_NUMEROS = `CONTROL DE NÚMEROS — antes de escribir el JSON,
 
 export const NOTA_CAPACIDAD_DIARIA = `LÍMITES Y CAPACIDAD DIARIA EN LA AGENDA (BÚNKER DEL DÍA):
 - En MateCode 2.0 la agenda diaria se cuida estrictamente para evitar parálisis por sobrecarga y burnout.
-- Regla de oro de carga diaria: MÁXIMO 1 Actividad de Enfoque (lo crucial que mueve la aguja en el día) y hasta 3 Actividades de Mantenimiento (gestión, tareas operativas, seguimiento).
-- NUNCA propongas 10 o 15 actividades para un mismo día. Si hay mucho volumen repetitivo, usá "reparto" en varios días o un "procedimiento" secuencial concentrado en una actividad.`;
+- Vista Diaria Minimalista: El Búnker del día NO debe superar las 3 a 4 tarjetas activas (1 bloque comercial/construcción, 1 bloque de proyecto único, 1-2 hábitos físicos).
+- Techo Cognitivo Matutino: Máximo 4 a 5 horas de alta exigencia mental concentradas a la mañana.
+- Prohibición en Zona Muerta (Tarde/Noche): Prohibido agendar tareas intelectuales complejas por la tarde o noche; ese bloque se reserva para renovación física (caminata NEAT, entrenamiento), mandados del hogar o familia.
+- Producción en Lotes (Batching): Tareas de creación de contenido o estudio teórico se agrupan en 1 o 2 bloques fijos semanales.
+- Brújula sobre Mapa: Subordinar una tarea agendada para atender una necesidad familiar se migra sin penalización.`;
 
 export const NOTA_PROCEDIMIENTOS = `PROCEDIMIENTOS Y PROTOCOLOS DE TRABAJO (SOPs):
-- Un Procedimiento NO es un entregable ni una actividad suelta en la agenda: es una PLANTILLA de pasos secuenciales atómicos con checkboxes ("checklist") para tareas que se repiten con un protocolo estandarizado (ej. "Contacto en frío", "Despliegue a producción", "Auditoría de cliente", "Estudio con técnica Feynman", "Publicación de contenido").
+- Un Procedimiento NO es un entregable ni una actividad suelta en la agenda: es una PLANTILLA de pasos secuenciales atómicos con checkboxes ("checklist") para tareas que se repiten con un protocolo estandarizado.
+- ESTRUCTURA OBLIGATORIA DEL SOP:
+  1. Paso 0 (2 minutos): Acción mínima de arranque para eliminar la fricción inicial (ej. abrir entorno, cargar plantilla).
+  2. Pasos secuenciales de ejecución con duraciones estimadas en minutos.
+  3. Protocolo Modo Piso (15 minutos): Versión mínima viable para días de crisis o imprevistos familiares, que permite registrar avance (+1) sin romper la cadena.
 - Un Procedimiento tiene:
   - "titulo": Nombre claro del protocolo (ej. "Protocolo de Contacto en Frío").
-  - "categoria": "general" | "desarrollo" | "prospeccion" | "contenido" | "estudio" | "rutina" (la que mejor aplique).
-  - "pasos": Lista secuencial de pasos [{ "orden": 1, "titulo": "...", "duracionEstimadaMin": 15, "esObligatorio": true }].
-- En el Búnker diario, la Actividad acompaña a este Procedimiento: el usuario va tildando los pasos y, al completar los obligatorios, finaliza la actividad.`;
+  - "categoria": "general" | "desarrollo" | "prospeccion" | "contenido" | "estudio" | "rutina".
+  - "pasos": Lista secuencial [{ "orden": 0, "titulo": "Paso 0 (2 min): ...", "duracionEstimadaMin": 2, "esObligatorio": true }, ..., { "orden": 99, "titulo": "Protocolo Modo Piso (15 min): ...", "duracionEstimadaMin": 15, "esObligatorio": false }].`;
 
 const EXPLICACION_JERARQUIA_COMPLETA = `- Área: el paraguas (ej. "Freelancer", "Salud", "Agencia"). Si el nombre coincide EXACTO con una de las áreas existentes, se reusa esa área — si no, se crea una nueva.
 - Objetivo: largo plazo (meses/año). SMART: cantidad + unidad + fecha límite obligatorias. Banda aceptable (0-100) para días de baja energía.
@@ -584,9 +627,11 @@ ${contexto.detallesExtra ? `Detalles adicionales: ${contexto.detallesExtra}` : "
 
 <instrucciones>
 Diseñá un listado secuencial de pasos claros, atómicos y accionables para este procedimiento que se repite periódicamente (ej. para prospección, desarrollo de features, estudio o entrega de servicios).
-- Cada paso debe tener un título conciso e imperativo.
-- Indicá "esObligatorio: true" para los pasos críticos y "false" para verificaciones opcionales.
-- Estimá "duracionEstimadaMin" en minutos para cada paso.
+- ESTRUCTURA OBLIGATORIA DEL SOP:
+  1. Paso 0 (2 minutos): Acción mínima de arranque para eliminar la fricción inicial (ej. abrir herramienta, cargar plantilla). Obligatorio.
+  2. Pasos secuenciales de ejecución: Títulos concisos e imperativos, con "duracionEstimadaMin" en minutos.
+  3. Protocolo Modo Piso (15 minutos): Versión mínima viable para días de crisis o imprevistos familiares ("esObligatorio: false"), permitiendo registrar avance parcial (+1) sin romper la cadena.
+- Indicá "esObligatorio: true" para los pasos críticos y "false" para verificaciones opcionales o modo piso.
 - El procedimiento debe devolver un JSON con la clave "procedimientosNuevos".
 </instrucciones>
 
@@ -599,11 +644,25 @@ Diseñá un listado secuencial de pasos claros, atómicos y accionables para est
       "categoria": "${contexto.categoria ?? "general"}",
       "pasos": [
         {
-          "orden": 1,
-          "titulo": "Primer paso secuencial a realizar",
-          "descripcion": "Detalle operativo opcional...",
-          "duracionEstimadaMin": 15,
+          "orden": 0,
+          "titulo": "Paso 0 (2 min): Preparar entorno y abrir plantilla",
+          "descripcion": "Acción mínima de arranque para romper la inercia",
+          "duracionEstimadaMin": 2,
           "esObligatorio": true
+        },
+        {
+          "orden": 1,
+          "titulo": "Ejecución del protocolo principal",
+          "descripcion": "Detalle operativo del paso...",
+          "duracionEstimadaMin": 20,
+          "esObligatorio": true
+        },
+        {
+          "orden": 99,
+          "titulo": "Protocolo Modo Piso (15 min): Versión mínima de emergencia",
+          "descripcion": "Si surge un imprevisto familiar o día de baja energía, ejecutar solo este paso para salvar la cadena",
+          "duracionEstimadaMin": 15,
+          "esObligatorio": false
         }
       ]
     }
@@ -1471,12 +1530,12 @@ ${resumenJerarquia}
 </mapa_de_planificacion_actual>
 
 <criterios_de_auditoria_a_evaluar>
-Analizá críticamente los siguientes 5 puntos:
-1. **Alineación y Claridad**: ¿Los objetivos son realmente medibles y cuantificables? ¿Los proyectos atacan directamente lo que mueve la aguja o hay proyectos redundantes/distractores?
-2. **Suficiencia de Entregables**: ¿Los entregables cubren el alcance de los proyectos o hay vacíos evidentes? Recordá que algunos proyectos simples son directos y es correcto que no tengan entregables.
-3. **Estandarización (SOPs)**: ¿Las tareas repetitivas o técnicas tienen su SOP/procedimiento para ejecutarse sin fricción?
-4. **Viabilidad Temporal y Sobrecarga**: ¿Las fechas límite tienen una secuencia lógica o hay demasiados proyectos compitiendo al mismo tiempo?
-5. **Recomendaciones Concretas**: Da 3 a 5 sugerencias puntuales (mejoras de redacción, metas numéricas más precisas, o simplificaciones) para que este plan sea 100% accionable.
+Analizá críticamente los siguientes 5 puntos según los ESTÁNDARES DE PLANIFICACIÓN DEL BÚNKER:
+1. **Horizontes Temporales y Topes de Fecha**: ¿Los proyectos y entregables respetan el tope de 30 días del mes en curso? ¿Se evita la falacia de planificar detalles a meses vista?
+2. **Equilibrio P/CP y WIP Limits**: ¿Se respeta el límite de 3 a 4 áreas y máximo 1 proyecto activo de construcción al mes? ¿Está garantizada la dimensión de salud, familia y descanso?
+3. **Estandarización y SOPs**: ¿Las tareas repetitivas tienen un procedimiento con Paso 0 (2 min) y Protocolo Modo Piso (15 min) para días de crisis?
+4. **Viabilidad Energética y Techo Cognitivo**: ¿La carga matutina respeta el techo de 4-5 horas de trabajo profundo? ¿La tarde/noche queda libre de tareas intelectuales pesadas?
+5. **Amortiguador y Banda Aceptable**: ¿Los proyectos de construcción cuentan con buffer del 50% (x1.5) y banda aceptable del 70%?
 </criterios_de_auditoria_a_evaluar>
 
 Por favor, comenzá tu respuesta con un diagnóstico general (Semáforo: 🟢 Excelente / 🟡 Requiere ajustes menores / 🔴 Riesgo de sobrecarga o desalineación), seguido del análisis detallado punto por punto.`;
@@ -1602,10 +1661,11 @@ ${mapaTexto}
 </sistema_completo_matecode>
 
 <instrucciones_de_auditoria_integral>
-Realizá un análisis integral del sistema completo:
-1. **Balance de Vida y Focos Concurrentes**: ¿El balance entre las áreas es sostenible o hay una concentración desmedida en un solo frente en detrimento de la salud o el descanso?
-2. **Coherencia Vertical**: ¿Cada entregable y proyecto realmente mueve la aguja de su objetivo superior?
-3. **Factibilidad Operativa**: ¿La carga diaria y semanal es realista considerando los límites de energía del Búnker?
-4. **Resumen Ejecutivo**: Destacá los 3 principales frentes que darán el 80% de los resultados en las próximas 4 semanas.
+Realizá un análisis integral del sistema completo evaluándolo contra los ESTÁNDARES DE PLANIFICACIÓN DEL BÚNKER:
+1. **Horizontes y Topes de Fecha**: ¿Los proyectos y entregables respetan el tope de 30 días del mes en curso? ¿Los repartos se limitan a 7 días?
+2. **WIP Limits y Equilibrio P/CP**: ¿Hay máximo 1 proyecto activo de construcción este mes? ¿Se equilibran ingresos, salud integral y vida personal/familia?
+3. **Calibración y Anti-Escalamiento**: ¿Se evita la progresión ciega a futuro? (Mantener volumen si cumplimiento < 80%; subir solo con 4 semanas consecutivas ≥ 80%).
+4. **Gestión de Energía**: ¿Se respeta el techo cognitivo de 4-5 horas matutinas y la reserva de la tarde/noche para renovación física y familiar?
+5. **Anti-Fricción y Modo Piso**: ¿Los procedimientos cuentan con Paso 0 (2 min) y Protocolo Modo Piso (15 min) con banda aceptable al 70%?
 </instrucciones_de_auditoria_integral>`;
 }

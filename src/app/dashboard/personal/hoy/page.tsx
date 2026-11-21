@@ -27,6 +27,9 @@ import {
   type TipoElementoCrear,
 } from "../../../../presentation/components/personal/modal-crear-elemento-personal";
 import { WizardPlanificacionPersonal } from "../../../../presentation/components/personal/wizard-planificacion-personal";
+import { SemaforoHorizontes } from "../../../../presentation/components/personal/semaforo-horizontes";
+import { ModalPlanificarSemana } from "../../../../presentation/components/personal/modal-planificar-semana";
+import { ModalPlanificarMes } from "../../../../presentation/components/personal/modal-planificar-mes";
 import { GestionarObjetivosUseCase } from "../../../../application/use-cases/personal/gestionar-objetivos.use-case";
 import { MaterializarActividadesDelDiaUseCase } from "../../../../application/use-cases/personal/materializar-actividades-del-dia.use-case";
 import { EliminarNodoPersonalUseCase } from "../../../../application/use-cases/personal/eliminar-nodo-personal.use-case";
@@ -83,6 +86,8 @@ const TIPO_CREAR_POR_HORIZONTE: Record<Horizonte, TipoElementoCrear> = {
 export default function PersonalHoyPage() {
   const [horizonte, setHorizonte] = useState<Horizonte>("dia");
   const [wizardAbierto, setWizardAbierto] = useState(false);
+  const [modalPlanificarSemana, setModalPlanificarSemana] = useState(false);
+  const [modalPlanificarMes, setModalPlanificarMes] = useState(false);
 
   const hoy = obtenerDiaTareaHoy();
   const { inicioMes, finMes } = rangoDelMes(hoy);
@@ -122,6 +127,11 @@ export default function PersonalHoyPage() {
           </div>
         </div>
 
+        {/* Semáforo de Horizontes y Estado de Planificación en Tiempo Real */}
+        <SemaforoHorizontes
+          onAbrirWizardGeneral={() => setWizardAbierto(true)}
+        />
+
         <div className="flex flex-wrap gap-1 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-1">
           {HORIZONTES.map((h) => {
             const Icon = Icono[h.icono];
@@ -158,6 +168,26 @@ export default function PersonalHoyPage() {
 
         {horizonte === "semana" && (
           <div className="flex flex-col gap-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-500/30 bg-sky-500/5 p-4">
+              <div className="flex flex-col gap-0.5">
+                <span className="flex items-center gap-1.5 text-sm font-bold text-white">
+                  <Icono.Calendario className="h-4 w-4 text-sky-400" />
+                  Planificación Semanal Táctica (Tope Estricto de 7 Días)
+                </span>
+                <p className="text-xs text-zinc-400">
+                  Auditá el 80% de cumplimiento de la semana previa, definí el
+                  reparto semanal y controlá el techo cognitivo.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => setModalPlanificarSemana(true)}
+                className="bg-sky-500 font-bold text-zinc-950 hover:bg-sky-600"
+              >
+                ⚡ Planificar Próxima Semana (7 Días)
+              </Button>
+            </div>
+
             <GuiaProcedimientoPlanificacion
               horizonte="semana"
               onAbrirWizard={() => setWizardAbierto(true)}
@@ -176,6 +206,26 @@ export default function PersonalHoyPage() {
 
         {horizonte === "mes" && (
           <div className="flex flex-col gap-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+              <div className="flex flex-col gap-0.5">
+                <span className="flex items-center gap-1.5 text-sm font-bold text-white">
+                  <Icono.Target className="h-4 w-4 text-amber-400" />
+                  Sprint Mensual (Tope de 30 Días — WIP Limit = 1)
+                </span>
+                <p className="text-xs text-zinc-400">
+                  Fijá el único proyecto de construcción para el mes con buffer
+                  x1.5 y banda aceptable del 70%.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => setModalPlanificarMes(true)}
+                className="bg-amber-500 font-bold text-zinc-950 hover:bg-amber-600"
+              >
+                🎯 Planificar Mes (30 Días)
+              </Button>
+            </div>
+
             <GuiaProcedimientoPlanificacion
               horizonte="mes"
               onAbrirWizard={() => setWizardAbierto(true)}
@@ -209,6 +259,16 @@ export default function PersonalHoyPage() {
         <WizardPlanificacionPersonal
           abierto={wizardAbierto}
           onCerrar={() => setWizardAbierto(false)}
+        />
+
+        <ModalPlanificarSemana
+          abierto={modalPlanificarSemana}
+          onCerrar={() => setModalPlanificarSemana(false)}
+        />
+
+        <ModalPlanificarMes
+          abierto={modalPlanificarMes}
+          onCerrar={() => setModalPlanificarMes(false)}
         />
       </div>
     </MainLayout>

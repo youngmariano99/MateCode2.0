@@ -11,6 +11,7 @@ import {
   MAX_TAREAS_MANTENIMIENTO_POR_DIA,
   type TareaPendiente,
 } from "../entidades/personal.entity";
+import { ESTANDARES_PLANIFICACION_BUNKER } from "./generar-prompt-jerarquia-personal";
 
 const ETIQUETA_RITMO: Record<string, string> = {
   cumplido: "cumplido",
@@ -84,6 +85,8 @@ export function generarPromptPlanSemanal(
 Actúa como asistente de planificación personal, ayudando a armar la semana.
 </rol>
 
+${ESTANDARES_PLANIFICACION_BUNKER}
+
 <como_funciona_la_planificacion>
 El sistema organiza el trabajo en 3 niveles distintos — es importante que entiendas la diferencia antes de preguntar, para ubicar cada cosa en el lugar correcto:
 
@@ -141,6 +144,8 @@ export function generarPromptPlanObjetivos(
   return `<rol>
 Actúa como asistente de planificación personal, ayudando a revisar y ajustar objetivos del mes.
 </rol>
+
+${ESTANDARES_PLANIFICACION_BUNKER}
 
 <contexto_lo_hecho_hasta_ahora>
 ${resumenHistorico}
