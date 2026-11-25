@@ -11,9 +11,13 @@ import { RegistroProspecto } from "./registro-prospecto";
 import { GestionarContactoFrioUseCase } from "../../../application/use-cases/crm/gestionar-contacto-frio.use-case";
 import {
   parsearCalificacionIA,
+  PRESETS_FILTRO_DINAMICO,
+  DETALLE_FILTROS_UNIVERSALES,
   type ProspectoIA,
+  type FiltroDinamicoRubro,
 } from "../../../domain/entidades/contacto-frio-ia.entity";
 import { generarPromptCalificar } from "../../../domain/prompts/generar-prompt-contacto-frio";
+import { Input } from "../input";
 
 const useCase = new GestionarContactoFrioUseCase();
 
@@ -30,6 +34,28 @@ export const EstacionReponer: React.FC<{ stock: number }> = ({ stock }) => {
   const [error, setError] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [trabajando, setTrabajando] = useState(false);
+
+  // Filtro dinámico por rubro (Capa 2)
+  const [presetIndex, setPresetIndex] = useState<number>(0);
+  const [esCustom, setEsCustom] = useState<boolean>(false);
+  const [customClave, setCustomClave] = useState<string>("");
+  const [customNombre, setCustomNombre] = useState<string>("");
+  const [customDesc, setCustomDesc] = useState<string>("");
+
+  const filtroDinamicoActivo: FiltroDinamicoRubro | undefined =
+    React.useMemo(() => {
+      if (esCustom) {
+        if (!customClave.trim()) return undefined;
+        return {
+          clave: customClave.trim().toLowerCase().replace(/\s+/g, "_"),
+          nombreRubro: customNombre.trim() || "Rubro Personalizado",
+          descripcion:
+            customDesc.trim() ||
+            "Criterio específico de validación para este rubro.",
+        };
+      }
+      return PRESETS_FILTRO_DINAMICO[presetIndex];
+    }, [esCustom, presetIndex, customClave, customNombre, customDesc]);
 
   const etiquetas =
     useLiveQuery(
@@ -76,10 +102,110 @@ export const EstacionReponer: React.FC<{ stock: number }> = ({ stock }) => {
         </span>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-6">
-        <h3 className="text-sm font-bold tracking-wider text-zinc-400 uppercase">
-          Con ayuda de tu IA
-        </h3>
+      <div className="flex flex-col gap-4 rounded-2xl border border-[#2A2A2E] bg-[#18181B] p-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold tracking-wider text-zinc-400 uppercase">
+            Con ayuda de tu IA (Calificación por Capas)
+          </h3>
+          <Badge color="emerald">Mom Test</Badge>
+        </div>
+
+        {/* Configuración de Filtros: Capa 1 Universales + Capa 2 Dinámico */}
+        <div className="flex flex-col gap-3 rounded-xl border border-[#2A2A2E] bg-[#121214] p-4 text-xs">
+          <div className="flex flex-col gap-1">
+            <span className="font-bold text-zinc-200">
+              Capa 1: Los 4 Filtros Universales (Fijos en todos tus ciclos)
+            </span>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {Object.values(DETALLE_FILTROS_UNIVERSALES).map((f) => (
+                <span
+                  key={f.clave}
+                  className="rounded-lg border border-zinc-800 bg-[#18181B] px-2.5 py-1 text-[11px] text-zinc-300"
+                  title={f.descripcion}
+                >
+                  <strong className="text-emerald-400">{f.clave}</strong> (
+                  {f.subtitulo})
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 border-t border-zinc-800/80 pt-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-bold text-zinc-200">
+                Capa 2: El 5.° Filtro Dinámico de Rubro (Sprint actual)
+              </span>
+              <button
+                type="button"
+                onClick={() => setEsCustom(!esCustom)}
+                className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300"
+              >
+                {esCustom
+                  ? "← Usar Presets por Rubro"
+                  : "+ Filtro Personalizado"}
+              </button>
+            </div>
+
+            {!esCustom ? (
+              <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                  {PRESETS_FILTRO_DINAMICO.map((preset, idx) => (
+                    <button
+                      key={preset.clave}
+                      type="button"
+                      onClick={() => setPresetIndex(idx)}
+                      className={`flex flex-col gap-1 rounded-xl border p-2.5 text-left transition-all ${
+                        presetIndex === idx
+                          ? "border-emerald-500/60 bg-emerald-500/10 text-white"
+                          : "border-[#2A2A2E] bg-[#18181B] text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
+                      }`}
+                    >
+                      <span className="text-xs font-semibold text-zinc-200">
+                        {preset.nombreRubro}
+                      </span>
+                      <span className="font-mono text-[10px] text-emerald-400">
+                        {preset.clave}
+                      </span>
+                      <p className="line-clamp-2 text-[10px] text-zinc-400">
+                        {preset.descripcion}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2 rounded-xl border border-dashed border-[#2A2A2E] bg-[#18181B] p-3">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Input
+                    label="Nombre del Rubro"
+                    placeholder="Ej. Distribuidoras Avícolas"
+                    value={customNombre}
+                    onChange={(e) => setCustomNombre(e.target.value)}
+                  />
+                  <Input
+                    label="Clave del Filtro (snake_case)"
+                    placeholder="Ej. logística_refrigerada"
+                    value={customClave}
+                    onChange={(e) => setCustomClave(e.target.value)}
+                  />
+                </div>
+                <Input
+                  label="Descripción de qué debe buscar la IA en el perfil"
+                  placeholder="Ej. Posee furgones térmicos propios, lista semanal de pollos en Excel/WhatsApp..."
+                  value={customDesc}
+                  onChange={(e) => setCustomDesc(e.target.value)}
+                />
+              </div>
+            )}
+
+            <div className="rounded-lg bg-emerald-500/5 px-2.5 py-1.5 text-[11px] text-emerald-300/90">
+              💡 <strong>Regla de Calificación:</strong> Califica solo si cumple{" "}
+              <code className="text-emerald-400">pulso_comercial_activo</code> +
+              al menos 2 filtros más entre los universales y el dinámico.
+            </div>
+          </div>
+        </div>
+
         <Textarea
           label="① Pegá lo que copiaste de los perfiles (bio, posteos, notas)"
           value={info}
@@ -88,12 +214,13 @@ export const EstacionReponer: React.FC<{ stock: number }> = ({ stock }) => {
           placeholder="Podés pegar varios comercios juntos, uno atrás del otro."
         />
         <BotonPrompt
-          etiqueta="② Copiar prompt de calificación"
+          etiqueta="② Copiar prompt de calificación con filtros de rubro"
           deshabilitado={!info.trim()}
           generar={() =>
             generarPromptCalificar({
               etiquetasDolor: etiquetas.map((e) => e.etiqueta),
               infoPegada: info,
+              filtroDinamico: filtroDinamicoActivo,
             })
           }
         />

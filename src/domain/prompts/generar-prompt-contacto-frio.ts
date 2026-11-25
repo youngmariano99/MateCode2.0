@@ -194,20 +194,39 @@ export interface ContextoCalificarPrompt {
   etiquetasDolor: string[];
   /** Lo que se copió del/de los perfil(es): bio, posteos, historias, notas. */
   infoPegada: string;
+  /** 5.° Filtro Dinámico según el rubro del Sprint (opcional) */
+  filtroDinamico?: {
+    clave: string;
+    nombreRubro: string;
+    descripcion: string;
+  };
 }
 
-/** ④ REPONER — de la info cruda de un perfil a una ficha calificada. */
+/** ④ REPONER — de la info cruda de un perfil a una ficha calificada con filtros universales + dinámico de rubro. */
 export function generarPromptCalificar(ctx: ContextoCalificarPrompt): string {
+  const bloqueDinamico = ctx.filtroDinamico
+    ? `\nCapa 2: El 5.° Filtro Dinámico de Rubro (${ctx.filtroDinamico.nombreRubro}):
+- ${ctx.filtroDinamico.clave}: ${ctx.filtroDinamico.descripcion}`
+    : "";
+
+  const ejemploFiltros = ctx.filtroDinamico
+    ? `["pulso_comercial_activo", "complejidad_de_datos", "${ctx.filtroDinamico.clave}"]`
+    : `["pulso_comercial_activo", "complejidad_de_datos", "friccion_operativa_visible"]`;
+
   return `<rol>
-Ayudás a calificar comercios para prospección (auditoría exprés de 2 minutos): a partir de lo que se copió de sus perfiles, armás la ficha y decidís si califican.
+Ayudás a calificar comercios para prospección (auditoría exprés de 2 minutos): a partir de lo que se copió de sus perfiles, armás la ficha y decidís si califican según indicadores objetivos de validación.
 </rol>
 
 <filtros_de_calificacion>
-Un comercio CALIFICA si cumple al menos 2 de estos 4:
-- friccion_catalogo: no tiene link de catálogo en la bio, o tiene un PDF desactualizado, o usa solo el catálogo nativo de WhatsApp Business.
-- barrera_compra: sus publicaciones dicen cosas como "consultar talles y precios por privado" o "escribinos y te pasamos las fotos".
-- respuesta_lenta: se nota que vende (buen volumen de posteos) pero tarda más de 2 horas en responder.
-- rubro_variantes: vende indumentaria, calzado, librería o juguetería (muchas variantes de color, talle, marca o diseño).
+Capa 1: Los 4 Filtros Universales (Fijos en todos los ciclos):
+1. pulso_comercial_activo (Filtro Anti-Fantasmas): Tiene actividad real reciente (posteos en los últimos 30–60 días, reseñas nuevas en Google Maps, flota de reparto o local con movimiento). Evita perder tiempo con comercios cerrados o de subsistencia mínima.
+2. complejidad_de_datos (Filtro de Volumen): Maneja una cantidad significativa de artículos (SKUs), insumos, combinaciones de recetas, múltiples listas de proveedores o cuentas corrientes (fiados/acopios) que generan trabajo administrativo repetitivo.
+3. friccion_operativa_visible (Filtro de Desorden Manual): Muestra señales de procesos manuales en sus canales: toma pedidos o presupuestos por WhatsApp a mano, tiene web en mantenimiento/desactualizada, publica listas en fotos/PDF o aclara demoras en entregas y cotizaciones.
+4. espalda_o_escala (Filtro de Capacidad de Pago): Tiene más de un local/sucursal, depósito propio, venta mayorista/a empresas, vehículos de reparto o estructura de empleados. Garantiza que tienen flujo de caja para pagar un servicio sin regatear cada peso.${bloqueDinamico}
+
+REGLA DE DECISIÓN OBLIGATORIA:
+Un comercio CALIFICA ("califica": true) si cumple "pulso_comercial_activo" + al menos 2 filtros más entre los universales y el filtro específico del rubro.
+Si no cumple "pulso_comercial_activo", o no suma al menos 3 filtros en total, debe asignarse "califica": false.
 </filtros_de_calificacion>
 
 <etiquetas_de_dolor_disponibles>
@@ -225,7 +244,7 @@ Devolvé ÚNICAMENTE un objeto JSON válido (sin texto antes ni después, sin bl
   "prospectos": [
     {
       "nombre": "Nombre del comercio",
-      "rubro": "Librería",
+      "rubro": "Ferretería / Rubro del comercio",
       "instagram": "usuario_sin_arroba",
       "whatsapp": "+54...",
       "nombreDueño": "Si figura",
@@ -234,11 +253,11 @@ Devolvé ÚNICAMENTE un objeto JSON válido (sin texto antes ni después, sin bl
       "usaCatalogoNativoWhatsapp": false,
       "referenciaPosteo": "Qué posteo/historia sirve de gancho",
       "notasExtra": "Cualquier detalle útil",
-      "filtrosQueCumple": ["friccion_catalogo", "barrera_compra", "respuesta_lenta", "rubro_variantes"],
+      "filtrosQueCumple": ${ejemploFiltros},
       "califica": true
     }
   ]
 }
-"califica" es true solo si cumple 2 o más filtros.
+"califica" es true solo si cumple pulso_comercial_activo + al menos 2 filtros más.
 </que_devolver>`;
 }

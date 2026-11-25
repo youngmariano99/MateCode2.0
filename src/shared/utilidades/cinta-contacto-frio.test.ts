@@ -13,7 +13,14 @@ import {
   parsearCalificacionIA,
   parsearRespuestaIA,
 } from "../../domain/entidades/contacto-frio-ia.entity";
-import { generarPromptResponder } from "../../domain/prompts/generar-prompt-contacto-frio";
+import {
+  generarPromptCalificar,
+  generarPromptResponder,
+} from "../../domain/prompts/generar-prompt-contacto-frio";
+import {
+  normalizarRubro,
+  coincideRubro,
+} from "../../domain/entidades/contacto-frio.entity";
 
 const uc = new GestionarContactoFrioUseCase();
 
@@ -323,5 +330,64 @@ describe("Contacto en Frío: JSON de la IA y prompts", () => {
     });
     assert.match(p, /Sí, lo hacemos por WhatsApp/);
     assert.match(p, /borradorRespuesta/);
+  });
+
+  test("generarPromptCalificar incluye los 4 filtros universales y el 5.° dinámico", () => {
+    const p = generarPromptCalificar({
+      etiquetasDolor: ["sin_catalogo", "muchos_skus"],
+      infoPegada: "Ferretería El Tornillo: 5000 productos, lista en PDF",
+      filtroDinamico: {
+        clave: "dependencia_listas_proveedor",
+        nombreRubro: "Alto SKU (Ferreterías)",
+        descripcion:
+          "Actualiza precios y bonificaciones en PDF o Excel periódicamente.",
+      },
+    });
+
+    assert.match(p, /pulso_comercial_activo/);
+    assert.match(p, /complejidad_de_datos/);
+    assert.match(p, /friccion_operativa_visible/);
+    assert.match(p, /espalda_o_escala/);
+    assert.match(p, /dependencia_listas_proveedor/);
+    assert.match(p, /pulso_comercial_activo \+ al menos 2 filtros más/);
+  });
+
+  test("normalizarRubro y coincideRubro son tolerantes a acentos, mayúsculas y espacios", () => {
+    assert.strictEqual(normalizarRubro(" Ferretería "), "ferreteria");
+    assert.strictEqual(normalizarRubro("GASTRONOMÍA"), "gastronomia");
+
+    // Coincidencias tolerantes
+    assert.ok(coincideRubro("Ferretería Industrial", "ferreteria"));
+    assert.ok(coincideRubro("ferreterias", "Ferretería"));
+    assert.ok(coincideRubro("Pinturería & Ferretería", "Pintureria"));
+    assert.ok(coincideRubro("Rotisería Don Pepe", "rotiseria"));
+    assert.ok(!coincideRubro("Veterinaria", "ferreteria"));
+  });
+
+  test("parsearCalificacionIA acepta los nuevos filtros universales y dinámicos", () => {
+    const json = JSON.stringify({
+      prospectos: [
+        {
+          nombre: "Ferretería San Martín",
+          rubro: "Ferretería",
+          filtrosQueCumple: [
+            "pulso_comercial_activo",
+            "complejidad_de_datos",
+            "dependencia_listas_proveedor",
+          ],
+          califica: true,
+        },
+      ],
+    });
+    const res = parsearCalificacionIA(json);
+    assert.ok(res.ok);
+    if (res.ok) {
+      assert.strictEqual(res.data.prospectos[0].califica, true);
+      assert.deepStrictEqual(res.data.prospectos[0].filtrosQueCumple, [
+        "pulso_comercial_activo",
+        "complejidad_de_datos",
+        "dependencia_listas_proveedor",
+      ]);
+    }
   });
 });

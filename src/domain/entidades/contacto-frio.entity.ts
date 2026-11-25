@@ -120,6 +120,33 @@ export const crearProspectoSchema = z.object({
 });
 export type CrearProspectoInput = z.input<typeof crearProspectoSchema>;
 
+/**
+ * Normaliza un rubro para comparaciones insensibles a mayúsculas, tildes y espacios.
+ * Ej: "Ferretería " -> "ferreteria"
+ */
+export function normalizarRubro(rubro: string | undefined | null): string {
+  if (!rubro) return "";
+  return rubro
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+/**
+ * Verifica si el rubro de un comercio coincide con un filtro dado (tolerante a tipeo, mayúsculas y acentos).
+ */
+export function coincideRubro(
+  rubroComercio: string | undefined | null,
+  filtro: string | undefined | null
+): boolean {
+  if (!filtro || !filtro.trim()) return true;
+  const normComercio = normalizarRubro(rubroComercio);
+  const normFiltro = normalizarRubro(filtro);
+  if (!normComercio) return false;
+  return normComercio.includes(normFiltro) || normFiltro.includes(normComercio);
+}
+
 export interface PotencialCliente {
   id: string;
   nombre: string;

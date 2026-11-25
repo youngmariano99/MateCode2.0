@@ -69,7 +69,96 @@ export const respuestaIASchema = z.object({
 });
 export type RespuestaIA = z.infer<typeof respuestaIASchema>;
 
+export const FILTROS_UNIVERSALES = [
+  "pulso_comercial_activo",
+  "complejidad_de_datos",
+  "friccion_operativa_visible",
+  "espalda_o_escala",
+] as const;
+export type FiltroUniversal = (typeof FILTROS_UNIVERSALES)[number];
+
+export interface DetalleFiltro {
+  clave: string;
+  nombre: string;
+  subtitulo: string;
+  descripcion: string;
+}
+
+export const DETALLE_FILTROS_UNIVERSALES: Record<
+  FiltroUniversal,
+  DetalleFiltro
+> = {
+  pulso_comercial_activo: {
+    clave: "pulso_comercial_activo",
+    nombre: "Pulso Comercial Activo",
+    subtitulo: "Filtro Anti-Fantasmas",
+    descripcion:
+      "Tiene actividad real reciente (posteos en los últimos 30–60 días, reseñas nuevas en Google Maps, flota de reparto o local con movimiento). Evita perder tiempo con comercios cerrados o de subsistencia mínima.",
+  },
+  complejidad_de_datos: {
+    clave: "complejidad_de_datos",
+    nombre: "Complejidad de Datos",
+    subtitulo: "Filtro de Volumen",
+    descripcion:
+      "Maneja una cantidad significativa de artículos (SKUs), insumos, combinaciones de recetas, múltiples listas de proveedores o cuentas corrientes (fiados/acopios) que generan trabajo administrativo repetitivo.",
+  },
+  friccion_operativa_visible: {
+    clave: "friccion_operativa_visible",
+    nombre: "Fricción Operativa Visible",
+    subtitulo: "Filtro de Desorden Manual",
+    descripcion:
+      "Muestra señales de procesos manuales en sus canales: toma pedidos o presupuestos por WhatsApp a mano, tiene web en mantenimiento/desactualizada, publica listas en fotos/PDF o aclara demoras en entregas y cotizaciones.",
+  },
+  espalda_o_escala: {
+    clave: "espalda_o_escala",
+    nombre: "Espalda o Escala",
+    subtitulo: "Filtro de Capacidad de Pago",
+    descripcion:
+      "Tiene más de un local/sucursal, depósito propio, venta mayorista/a empresas, vehículos de reparto o estructura de empleados. Garantiza que tienen flujo de caja para pagar un servicio sin regatear cada peso.",
+  },
+};
+
+export interface FiltroDinamicoRubro {
+  clave: string;
+  nombreRubro: string;
+  descripcion: string;
+}
+
+export const PRESETS_FILTRO_DINAMICO: FiltroDinamicoRubro[] = [
+  {
+    clave: "dependencia_listas_proveedor",
+    nombreRubro:
+      "Comercios de Alto SKU (Ferreterías, Pinturerías, Repuesteras, Corralones)",
+    descripcion:
+      "Trabaja con marcas o distribuidores mayoristas que actualizan precios y bonificaciones periódicamente en PDF o Excel.",
+  },
+  {
+    clave: "cuello_botella_comandas_o_recetas",
+    nombreRubro: "Gastronomía / Rotiserías / Panaderías",
+    descripcion:
+      "Tiene picos de pedidos por WhatsApp en horarios clave (fines de semana/mediodía) o elabora productos con múltiples insumos sensibles a la inflación.",
+  },
+  {
+    clave: "conciliacion_de_campo",
+    nombreRubro: "Distribuidoras / Mayoristas / Preventa",
+    descripcion:
+      "Maneja viajantes/preventistas, remitos con entregas parciales, cobranzas en calle o múltiples medios de pago (cheques, transferencias, Mercado Pago).",
+  },
+  {
+    clave: "gestion_de_turnos_o_seguimiento",
+    nombreRubro: "Talleres / Servicios Técnicos / Veterinarias / Estética",
+    descripcion:
+      "Depende de agendas manuales por mensaje, historial de clientes/equipos o recordatorios de mantenimiento recurrentes.",
+  },
+];
+
 export const FILTROS_CALIFICACION = [
+  ...FILTROS_UNIVERSALES,
+  "dependencia_listas_proveedor",
+  "cuello_botella_comandas_o_recetas",
+  "conciliacion_de_campo",
+  "gestion_de_turnos_o_seguimiento",
+  // Legacy
   "friccion_catalogo",
   "barrera_compra",
   "respuesta_lenta",
@@ -77,7 +166,16 @@ export const FILTROS_CALIFICACION = [
 ] as const;
 export type FiltroCalificacion = (typeof FILTROS_CALIFICACION)[number];
 
-export const ETIQUETA_FILTRO: Record<FiltroCalificacion, string> = {
+export const ETIQUETA_FILTRO: Record<string, string> = {
+  pulso_comercial_activo: "Pulso comercial activo (Anti-fantasmas)",
+  complejidad_de_datos: "Complejidad de datos (Volumen)",
+  friccion_operativa_visible: "Fricción operativa (Desorden manual)",
+  espalda_o_escala: "Espalda o escala (Capacidad de pago)",
+  dependencia_listas_proveedor: "Dependencia de listas de proveedor",
+  cuello_botella_comandas_o_recetas: "Cuello de botella en comandas/recetas",
+  conciliacion_de_campo: "Conciliación de campo / preventa",
+  gestion_de_turnos_o_seguimiento: "Gestión de turnos / seguimiento",
+  // Legacy
   friccion_catalogo: "Fricción de catálogo",
   barrera_compra: "Barrera de compra directa",
   respuesta_lenta: "Responde lento",
@@ -97,7 +195,7 @@ export const prospectoIASchema = z.object({
   usaCatalogoNativoWhatsapp: z.boolean().default(false),
   referenciaPosteo: z.string().optional(),
   notasExtra: z.string().optional(),
-  filtrosQueCumple: z.array(z.enum(FILTROS_CALIFICACION)).default([]),
+  filtrosQueCumple: z.array(z.string()).default([]),
   califica: z.boolean().default(true),
 });
 export type ProspectoIA = z.infer<typeof prospectoIASchema>;
